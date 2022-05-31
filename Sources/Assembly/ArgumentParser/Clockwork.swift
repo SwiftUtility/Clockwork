@@ -17,9 +17,9 @@ struct Clockwork: ParsableCommand {
       CheckGitlabReviewConflictMarkers.self,
       CheckGitlabReviewObsolete.self,
       CheckGitlabReviewTitle.self,
-      CheckGitlabReviewApproval.self,
-      CheckGitlabReplicationApproval.self,
-      CheckGitlabIntegrationApproval.self,
+      CheckGitlabReviewAwardApproval.self,
+      CheckGitlabReplicationAwardApproval.self,
+      CheckGitlabIntegrationAwardApproval.self,
       AddGitlabReviewLabels.self,
       AcceptGitlabReview.self,
       TriggerGitlabTargetPipeline.self,
@@ -74,11 +74,11 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct CheckGitlabReviewApproval: ClockworkCommand {
+  struct CheckGitlabReviewAwardApproval: ClockworkCommand {
     @OptionGroup var arguments: Clockwork
     static var abstract: String { "Check approval state and report new involved" }
     func run(configuration: Configuration) throws -> Bool {
-      try Main.laborer.checkApproval(
+      try Main.laborer.checkAwardApproval(
         query: .init(cfg: configuration, mode: .review)
       )
     }
@@ -113,11 +113,11 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct CheckGitlabReplicationApproval: ClockworkCommand {
+  struct CheckGitlabReplicationAwardApproval: ClockworkCommand {
     @OptionGroup var arguments: Clockwork
     static var abstract: String { "Check approval state and report new involved" }
     func run(configuration: Configuration) throws -> Bool {
-      try Main.laborer.checkApproval(
+      try Main.laborer.checkAwardApproval(
         query: .init(cfg: configuration, mode: .replication)
       )
     }
@@ -131,11 +131,11 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct CheckGitlabIntegrationApproval: ClockworkCommand {
+  struct CheckGitlabIntegrationAwardApproval: ClockworkCommand {
     @OptionGroup var arguments: Clockwork
     static var abstract: String { "Check approval state and report new involved" }
     func run(configuration: Configuration) throws -> Bool {
-      try Main.laborer.checkApproval(
+      try Main.laborer.checkAwardApproval(
         query: .init(cfg: configuration, mode: .integration)
       )
     }

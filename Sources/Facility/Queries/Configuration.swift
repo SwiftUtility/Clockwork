@@ -48,7 +48,7 @@ public struct ResolveApproval: Query {
   public init(cfg: Configuration) {
     self.cfg = cfg
   }
-  public typealias Reply = Approval?
+  public typealias Reply = AwardApproval?
 }
 public struct ResolveVacationers: Query {
   public var cfg: Configuration

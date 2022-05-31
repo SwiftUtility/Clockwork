@@ -73,14 +73,14 @@ public enum Report {
     public var review: Json.GitlabReviewState
     public var custom: AnyCodable?
     public var user: String?
-    public var group: Approval.Context
+    public var group: AwardApproval.Context
   }
   public struct ApprovalGroups: Codable {
     public var env: [String: String]
     public var review: Json.GitlabReviewState
     public var custom: AnyCodable?
     public var user: String?
-    public var groups: [Approval.Context]
+    public var groups: [AwardApproval.Context]
   }
   public struct ApprovalHolders: Codable {
     public var env: [String: String]
@@ -118,8 +118,8 @@ public enum Report {
     public struct Review: Encodable {
       public var state: Json.GitlabReviewState?
       public var holders: Set<String>?
-      public var approval: Approval.Context?
-      public var approvals: [Approval.Context]?
+      public var approval: AwardApproval.Context?
+      public var approvals: [AwardApproval.Context]?
     }
   }
 }

@@ -92,8 +92,8 @@ public struct Configurator {
     query: ResolveApproval
   ) throws -> ResolveApproval.Reply { try query.cfg.approval
     .reduce(query.cfg.git, parseYaml(git:file:))
-    .reduce(Yaml.Approval.self, dialect.read(_:from:))
-    .map(Approval.make(yaml:))
+    .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
+    .map(AwardApproval.make(yaml:))
   }
   public func resolveVacationers(
     query: ResolveVacationers

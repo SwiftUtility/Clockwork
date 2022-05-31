@@ -73,9 +73,9 @@ public struct Laborer {
     self.sendReport = sendReport
     self.logMessage = logMessage
   }
-  public func checkApproval(
-    query: Gitlab.CheckApproval
-  ) throws -> Gitlab.CheckApproval.Reply {
+  public func checkAwardApproval(
+    query: Gitlab.CheckAwardApproval
+  ) throws -> Gitlab.CheckAwardApproval.Reply {
     let gitlab = try resolveGitlab(.init(cfg: query.cfg))
     let state = try getReviewState(gitlab.getParentMrState())
     let pipeline = try gitlab.triggererPipeline

@@ -1,6 +1,6 @@
 import Foundation
 import Facility
-public struct Approval {
+public struct AwardApproval {
   public var holdAward: String
   public var holdUsers: Set<String>
   public var botLogin: String?
@@ -22,7 +22,7 @@ public struct Approval {
   public var outstanders: Set<String> = []
   public var isEmergent = false
   public var resolver: String?
-  public static func make(yaml: Yaml.Approval) throws -> Self { try .init(
+  public static func make(yaml: Yaml.AwardApproval) throws -> Self { try .init(
     holdAward: yaml.holders.award,
     holdUsers: .init(yaml.holders.users),
     groups: yaml.groups.mapValues(Group.init(yaml:)),
@@ -189,7 +189,7 @@ public struct Approval {
     public var required: Set<String>
     public var optional: Set<String>
     public var reserved: Set<String>
-    public init(yaml: Yaml.Approval.Group) {
+    public init(yaml: Yaml.AwardApproval.Group) {
       self.award = yaml.award
       self.quorum = yaml.quorum
       self.reserved = .init(yaml.reserve.or([]))
@@ -210,7 +210,7 @@ public struct Approval {
       public var done: Set<String>?
       public var miss: Set<String>?
       public var hold: Set<String>?
-      public init(approval: Approval, members: Set<String>, award: String) {
+      public init(approval: AwardApproval, members: Set<String>, award: String) {
         let awarders = approval.awarders[award].or([])
         self.all = members
         self.done = members.intersection(awarders)

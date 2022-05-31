@@ -72,7 +72,7 @@ public enum Yaml {
     public var envVar: String?
     public var envFile: String?
   }
-  public struct Approval: Decodable {
+  public struct AwardApproval: Decodable {
     public var holders: Holders
     public var groups: [String: Group]
     public var sanity: String?

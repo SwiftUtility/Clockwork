@@ -11,7 +11,7 @@ extension Gitlab {
     }
     public typealias Reply = Bool
   }
-  public struct CheckApproval: Query {
+  public struct CheckAwardApproval: Query {
     public var cfg: Configuration
     public var mode: Mode
     public init(cfg: Configuration, mode: Mode) {
