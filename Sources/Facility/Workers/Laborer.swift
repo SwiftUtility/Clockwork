@@ -128,7 +128,7 @@ public struct Laborer {
       )
     }
     try approval.consider(resolver: try resolver.flatMapNil {
-      try findMergeResolver(cfg: query.cfg, gitlab: gitlab, sha: .init(ref: state.pipeline.sha))
+      try resolveOriginalAuthor(cfg: query.cfg, gitlab: gitlab, sha: .init(ref: state.pipeline.sha))
     })
     try approval.consider(
       sanityFiles: gitlab.sanityFiles + profile.sanityFiles,
@@ -164,8 +164,8 @@ public struct Laborer {
     return true
   }
   public func triggerTargetPipeline(
-    query: Gitlab.TriggerTargetPipeline
-  ) throws -> Gitlab.TriggerTargetPipeline.Reply {
+    query: Gitlab.TriggerPipeline
+  ) throws -> Gitlab.TriggerPipeline.Reply {
     let gitlab = try resolveGitlab(.init(cfg: query.cfg))
     var variables = try gitlab.makeTriggererVariables(cfg: query.cfg)
     for variable in query.context {
@@ -176,14 +176,14 @@ public struct Laborer {
       variables[.init(key)] = .init(value)
     }
     _ = try postTriggerPipeline(gitlab.postTriggerPipeline(
-      ref: query.cfg.get(env: "CI_MERGE_REQUEST_TARGET_BRANCH_NAME"),
+      ref: query.ref,
       variables: variables
     ))
     return true
   }
-  public func labelGitlabReview(
-    query: Gitlab.AddLabels
-  ) throws -> Gitlab.AddLabels.Reply {
+  public func addReviewLabels(
+    query: Gitlab.AddReviewLabels
+  ) throws -> Gitlab.AddReviewLabels.Reply {
     let gitlab = try resolveGitlab(.init(cfg: query.cfg))
     let state = try getReviewState(gitlab.getParentMrState())
     guard
@@ -512,7 +512,7 @@ extension Laborer {
     try handleVoid(git.clean)
     return result
   }
-  func findMergeResolver(
+  func resolveOriginalAuthor(
     cfg: Configuration,
     gitlab: Gitlab,
     sha: Git.Sha
@@ -525,7 +525,7 @@ extension Laborer {
         .first { $0.squashCommitSha == sha.ref }
         .map(\.author.username)
     case 2:
-      return try findMergeResolver(cfg: cfg, gitlab: gitlab, sha: .init(ref: parents.end))
+      return try resolveOriginalAuthor(cfg: cfg, gitlab: gitlab, sha: .init(ref: parents.end))
     default:
       throw Thrown("\(sha.ref) has \(parents.count) parents")
     }

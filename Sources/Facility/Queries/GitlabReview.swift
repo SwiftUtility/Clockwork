@@ -2,12 +2,14 @@ import Foundation
 import Facility
 import FacilityAutomates
 extension Gitlab {
-  public struct TriggerTargetPipeline: Query {
-    public var context: [String]
+  public struct TriggerPipeline: Query {
     public var cfg: Configuration
-    public init(context: [String], cfg: Configuration) {
-      self.context = context
+    public var ref: String
+    public var context: [String]
+    public init(cfg: Configuration, ref: String, context: [String]) {
       self.cfg = cfg
+      self.ref = ref
+      self.context = context
     }
     public typealias Reply = Bool
   }
@@ -25,10 +27,10 @@ extension Gitlab {
     }
     public typealias Reply = Bool
   }
-  public struct AddLabels: Query {
-    public var labels: [String]
+  public struct AddReviewLabels: Query {
     public var cfg: Configuration
-    public init(labels: [String], cfg: Configuration) {
+    public var labels: [String]
+    public init(cfg: Configuration, labels: [String]) {
       self.labels = labels
       self.cfg = cfg
     }

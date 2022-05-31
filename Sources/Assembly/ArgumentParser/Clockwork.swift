@@ -14,15 +14,15 @@ struct Clockwork: ParsableCommand {
     subcommands: [
       CheckUnownedCode.self,
       CheckFileRules.self,
-      CheckGitlabReviewConflictMarkers.self,
-      CheckGitlabReviewObsolete.self,
-      CheckGitlabReviewTitle.self,
+      CheckReviewConflictMarkers.self,
+      CheckReviewObsolete.self,
+      CheckReviewTitle.self,
       CheckGitlabReviewAwardApproval.self,
       CheckGitlabReplicationAwardApproval.self,
       CheckGitlabIntegrationAwardApproval.self,
       AddGitlabReviewLabels.self,
       AcceptGitlabReview.self,
-      TriggerGitlabTargetPipeline.self,
+      TriggerGitlabPipeline.self,
       PerformGitlabReplication.self,
     ]
   )
@@ -44,9 +44,10 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct CheckGitlabReviewConflictMarkers: ClockworkCommand {
+  struct CheckReviewConflictMarkers: ClockworkCommand {
     @OptionGroup var arguments: Clockwork
-    @Argument var target: String
+    @Argument(help: "the branch to diff with")
+    var target: String
     static var abstract: String { "Ensure no conflict markers" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.validator.validateReviewConflictMarkers(
@@ -54,9 +55,10 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct CheckGitlabReviewObsolete: ClockworkCommand {
+  struct CheckReviewObsolete: ClockworkCommand {
     @OptionGroup var arguments: Clockwork
-    @Argument var target: String
+    @Argument(help: "the branch to check obsolence against")
+    var target: String
     static var abstract: String { "Ensure source is in sync with target" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.validator.validateReviewObsolete(
@@ -64,9 +66,10 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct CheckGitlabReviewTitle: ClockworkCommand {
+  struct CheckReviewTitle: ClockworkCommand {
     @OptionGroup var arguments: Clockwork
-    @Argument var title: String
+    @Argument(help: "Title to be validated")
+    var title: String
     static var abstract: String { "Ensure title matches defined rules" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.validator.validateReviewTitle(
@@ -85,11 +88,12 @@ struct Clockwork: ParsableCommand {
   }
   struct AddGitlabReviewLabels: ClockworkCommand {
     @OptionGroup var arguments: Clockwork
-    @Argument var labels: [String]
-    static var abstract: String { "Add labels to review" }
+    @Argument(help: "Labels to be added to triggerer review")
+    var labels: [String]
+    static var abstract: String { "Add labels to triggerer review" }
     func run(configuration: Configuration) throws -> Bool {
-      try Main.laborer.labelGitlabReview(
-        query: .init(labels: labels, cfg: configuration)
+      try Main.laborer.addReviewLabels(
+        query: .init(cfg: configuration, labels: labels)
       )
     }
   }
@@ -102,14 +106,16 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct TriggerGitlabTargetPipeline: ClockworkCommand {
+  struct TriggerGitlabPipeline: ClockworkCommand {
     @OptionGroup var arguments: Clockwork
+    @Option(help: "Ref to run pipeline on")
+    var ref: String
     @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
     var context: [String] = []
-    static var abstract: String { "Trigger pipeline on target branch" }
+    static var abstract: String { "Trigger pipeline and pass context" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.laborer.triggerTargetPipeline(
-        query: .init(context: context, cfg: configuration)
+        query: .init(cfg: configuration, ref: ref, context: context)
       )
     }
   }
