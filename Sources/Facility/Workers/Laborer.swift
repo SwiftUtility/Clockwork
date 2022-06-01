@@ -87,7 +87,7 @@ public struct Laborer {
       logMessage(.init(message: "Pipeline outdated"))
       return false
     }
-    guard try query.cfg.get(env: "CI_COMMIT_BRANCH") == state.targetBranch else {
+    guard try query.cfg.get(env: Gitlab.commitBranch) == state.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
       _ = try postPipelines(gitlab.postParentMrPipelines())
       return false
@@ -218,7 +218,7 @@ public struct Laborer {
       logMessage(.init(message: "Pipeline outdated"))
       return true
     }
-    guard try query.cfg.get(env: "CI_COMMIT_BRANCH") == state.targetBranch else {
+    guard try query.cfg.get(env: Gitlab.commitBranch) == state.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
       _ = try postPipelines(gitlab.postParentMrPipelines())
       return true
@@ -272,15 +272,60 @@ public struct Laborer {
       throw MayDay("Accept review responce not handled")
     }
   }
-  public func performIntegration(
-    query: Gitlab.PerformIntegration
-  ) throws -> Gitlab.PerformIntegration.Reply {
-//    let gitlab = try resolveGitlab(.init(cfg: query.cfg))
-//    let integration = try gitlab.getIntegration()
-//    let pushUrl = try gitlab.makePushUrl()
-//    guard gitlab.triggered == nil else {
-//      fatalError()
-//    }
+  public func startIntegration(configuration cfg: Configuration, target: String) throws -> Bool {
+    let gitlab = try resolveGitlab(.init(cfg: cfg))
+    let integration = try cfg.getIntegration()
+    let pushUrl = try gitlab.makePushUrl()
+    let pipeline = try getPipeline(gitlab.getParentPipeline())
+    let merge = try integration.makeMerge(target: target, source: pipeline.ref, sha: pipeline.sha)
+    guard integration.rules.contains(where: { rule in
+      rule.users.contains(gitlab.user)
+      && rule.target.isMet(merge.target.name)
+      && rule.source.isMet(merge.source.name)
+    }) else { throw Thrown("Integration not allowed for \(gitlab.user)") }
+    guard case nil = try? handleVoid(cfg.git.check(
+      child: .make(remote: merge.target),
+      parent: .make(sha: merge.fork)
+    )) else {
+      logMessage(.init(message: "\(merge.target.name) already contains \(merge.fork.ref)"))
+      return true
+    }
+    guard case nil = try? handleLine(cfg.git.checkRefType(
+      ref: .make(remote: merge.supply)
+    )) else {
+      logMessage(.init(message: "Integration already in progress"))
+      return true
+    }
+    let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
+      .or { throw Thrown("Empty commit message") }
+    let sha: Git.Sha
+    if case nil = try? handleVoid(cfg.git.check(
+      child: .make(sha: merge.fork),
+      parent: .make(remote: merge.target)
+    )) {
+      sha = merge.fork
+    } else {
+      sha = try commitMerge(
+        cfg: cfg,
+        into: .make(remote: merge.target),
+        message: message,
+        sha: merge.fork
+      ) ?? merge.fork
+    }
+    try handleVoid(cfg.git.make(push: .init(
+      url: pushUrl,
+      branch: merge.supply,
+      sha: sha,
+      force: false
+    )))
+    _ = try postMergeRequests(gitlab.postMergeRequests(parameters: .init(
+      sourceBranch: merge.supply.name,
+      targetBranch: merge.target.name,
+      title: message
+    )))
+    return true
+  }
+  public func finishIntegration(configuration cfg: Configuration) throws -> Bool {
     fatalError()
   }
   public func generateIntegrationJobs(
@@ -307,7 +352,7 @@ public struct Laborer {
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    var result = ["include: $CI_CONFIG_PATH"]
+    var result = ["include: $\(Gitlab.configPath)"]
     for target in targets {
       result += try renderStencil(query.cfg.makeRenderIntegrationJob(target: target.name))
         .or { throw Thrown("Rendered job is empty") }
@@ -322,11 +367,15 @@ public struct Laborer {
     let gitlab = try resolveGitlab(.init(cfg: query.cfg))
     let replication = try query.cfg.getReplication()
     let pushUrl = try gitlab.makePushUrl()
-    guard gitlab.triggererPipeline == nil else {
+    guard gitlab.triggererPipeline != nil else {
+      let branch = try query.cfg.get(env: Gitlab.commitBranch)
+      guard replication.source.isMet(branch) else {
+        throw Thrown("Replication blocked by configuration")
+      }
       guard let merge = try makeMerge(
         cfg: query.cfg,
         replication: replication,
-        branch: query.cfg.get(env: "CI_COMMIT_BRANCH")
+        branch: query.cfg.get(env: Gitlab.commitBranch)
       ) else {
         logMessage(.init(message: "No commits to replicate"))
         return true
@@ -359,7 +408,7 @@ public struct Laborer {
     let state = try getReviewState(gitlab.getParentMrState())
     let pipeline = try getPipeline(gitlab.getParentPipeline())
     guard
-      case state.targetBranch = try query.cfg.get(env: "CI_COMMIT_BRANCH"),
+      case state.targetBranch = try query.cfg.get(env: Gitlab.commitBranch),
       state.targetBranch == replication.target
     else { throw Thrown("Replication preconditions broken") }
     guard
@@ -370,6 +419,12 @@ public struct Laborer {
       return true
     }
     let merge = try replication.makeMerge(branch: state.sourceBranch)
+    guard replication.source.isMet(merge.source.name) else {
+      logMessage(.init(message: "Replication blocked by configuration"))
+      _ = try putState(gitlab.putMrState(parameters: .init(stateEvent: "close")))
+      try handleVoid(query.cfg.git.push(remote: pushUrl, delete: merge.supply))
+      return true
+    }
     let head = try Git.Sha.init(ref: pipeline.sha)
     var message = try renderStencil(query.cfg.makeRenderStencil(merge: merge))
       .or { throw Thrown("Empty commit message") }
@@ -612,7 +667,7 @@ extension Laborer {
   ) throws -> Configuration.Merge? {
     try integration.makeMerge(
       target: branch,
-      source: cfg.get(env: "CI_COMMIT_BRANCH"),
+      source: cfg.get(env: Gitlab.commitBranch),
       sha: handleLine(cfg.git.getSha(ref: .make(remote: .init(name: branch))))
     )
   }

@@ -127,13 +127,13 @@ public extension Configuration {
   func makeReport(error: Error) -> Report { .unepected(.init(
     env: env,
     custom: stencil.custom,
-    user: Gitlab.makeUser(env: env),
+    user: env[Gitlab.userLogin],
     error: "\(error)"
   ))}
   var fileRulesIssues: Report.FileRulesIssues { .init(
     env: env,
     custom: stencil.custom,
-    user: Gitlab.makeUser(env: env),
+    user: env[Gitlab.userLogin],
     issues: []
   )}
 }

@@ -25,11 +25,12 @@ struct Clockwork: ParsableCommand {
       TriggerGitlabPipeline.self,
       PerformGitlabReplication.self,
       GenerateGitlabIntegrationJobs.self,
-      PerformGitlabIntegration.self,
+      StartGitlabIntegration.self,
+      FinishGitlabIntegration.self,
     ]
   )
   struct CheckUnownedCode: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Ensure no unowned files" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.validator.validateUnownedCode(
@@ -38,7 +39,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct CheckFileRules: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Ensure files match defined rules" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.validator.validateFileRules(
@@ -47,7 +48,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct CheckReviewConflictMarkers: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     @Argument(help: "the branch to diff with")
     var target: String
     static var abstract: String { "Ensure no conflict markers" }
@@ -58,7 +59,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct CheckReviewObsolete: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     @Argument(help: "the branch to check obsolence against")
     var target: String
     static var abstract: String { "Ensure source is in sync with target" }
@@ -69,7 +70,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct CheckReviewTitle: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     @Argument(help: "Title to be validated")
     var title: String
     static var abstract: String { "Ensure title matches defined rules" }
@@ -80,7 +81,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct CheckGitlabReviewAwardApproval: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Check approval state and report new involved" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.laborer.checkAwardApproval(
@@ -89,7 +90,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct AddGitlabReviewLabels: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     @Argument(help: "Labels to be added to triggerer review")
     var labels: [String]
     static var abstract: String { "Add labels to triggerer review" }
@@ -100,7 +101,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct AcceptGitlabReview: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Rebase and accept review" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.laborer.acceptReview(
@@ -109,7 +110,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct TriggerGitlabPipeline: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     @Option(help: "Ref to run pipeline on")
     var ref: String
     @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
@@ -122,7 +123,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct CheckGitlabReplicationAwardApproval: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Check approval state and report new involved" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.laborer.checkAwardApproval(
@@ -131,7 +132,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct PerformGitlabReplication: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Create and accept replication branch and review" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.laborer.performReplication(
@@ -140,7 +141,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct CheckGitlabIntegrationAwardApproval: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Check approval state and report new involved" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.laborer.checkAwardApproval(
@@ -149,7 +150,7 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct GenerateGitlabIntegrationJobs: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
+    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Stdouts rendered job template for suitable branches" }
     func run(configuration: Configuration) throws -> Bool {
       try Main.laborer.generateIntegrationJobs(
@@ -157,18 +158,25 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct PerformGitlabIntegration: ClockworkCommand {
-    @OptionGroup var arguments: Clockwork
-    static var abstract: String { "Create and accept integration branch and review" }
+  struct StartGitlabIntegration: ClockworkCommand {
+    @OptionGroup var clockwork: Clockwork
+    @Option(help: "Integration target branch")
+    var target: String
+    static var abstract: String { "Create integration review" }
     func run(configuration: Configuration) throws -> Bool {
-      try Main.laborer.performIntegration(
-        query: .init(cfg: configuration)
-      )
+      try Main.laborer.startIntegration(configuration: configuration, target: target)
+    }
+  }
+  struct FinishGitlabIntegration: ClockworkCommand {
+    @OptionGroup var clockwork: Clockwork
+    static var abstract: String { "Accept or update integration review" }
+    func run(configuration: Configuration) throws -> Bool {
+      try Main.laborer.finishIntegration(configuration: configuration)
     }
   }
 }
 protocol ClockworkCommand: ParsableCommand {
-  var arguments: Clockwork { get }
+  var clockwork: Clockwork { get }
   static var abstract: String { get }
   func run(configuration: Configuration) throws -> Bool
 }
@@ -177,15 +185,15 @@ extension ClockworkCommand {
     .init(abstract: abstract)
   }
   mutating func run() throws {
-    let context = try Main.configurator.resolveConfiguration(query: .init(
-      profile: arguments.profile,
-      verbose: arguments.verbose,
+    let configuration = try Main.configurator.resolveConfiguration(query: .init(
+      profile: clockwork.profile,
+      verbose: clockwork.verbose,
       env: Main.environment
     ))
-    try Lossy(context)
+    try Lossy(configuration)
       .map(run(configuration:))
-      .reduceError(context, Main.reporter.report(cfg:error:))
-      .reduce(context, Main.reporter.finish(cfg:success:))
+      .reduceError(configuration, Main.reporter.report(cfg:error:))
+      .reduce(configuration, Main.reporter.finish(cfg:success:))
       .get()
   }
 }

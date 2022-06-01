@@ -186,19 +186,23 @@ public struct Configuration {
     )}
   }
   public struct Replication {
-    public var target: String
-    public var prefix: String
     public var messageTemplate: String
-    public static func make(yaml: Yaml.Replication) -> Self { .init(
-      target: yaml.target,
+    public var prefix: String
+    public var source: Criteria
+    public var target: String
+    public static func make(yaml: Yaml.Replication) throws -> Self { try .init(
+      messageTemplate: yaml.messageTemplate,
       prefix: yaml.prefix.or("replicate"),
-      messageTemplate: yaml.messageTemplate
+      source: .init(yaml: yaml.source),
+      target: yaml.target
     )}
     public func makeMerge(branch: String) throws -> Merge {
       let components = branch.components(separatedBy: "/-/")
-      guard components.count == 3, components[0] == prefix else {
-        throw Thrown("Wrong replication branch format: \(branch)")
-      }
+      guard
+        components.count == 4,
+        components[0] == prefix,
+        components[1] == target
+      else { throw Thrown("Wrong replication branch format: \(branch)") }
       return try .init(
         fork: .init(ref: components[2]),
         prefix: prefix,
@@ -213,19 +217,19 @@ public struct Configuration {
       prefix: prefix,
       source: .init(name: source),
       target: .init(name: target),
-      supply: .init(name: "\(prefix)/-/\(source)/-/\(sha)"),
+      supply: .init(name: "\(prefix)/-/\(target)/-/\(source)/-/\(sha)"),
       template: messageTemplate
     )}
   }
   public struct Integration {
-    public var prefix: String
     public var messageTemplate: String
+    public var prefix: String
     public var rules: [Rule]
     public static func make(yaml: Yaml.Integration) throws -> Self {
       let users = yaml.users.map(Set.init(_:)).or([])
       return try .init(
-        prefix: yaml.prefix.or("integrate"),
         messageTemplate: yaml.messageTemplate,
+        prefix: yaml.prefix.or("integrate"),
         rules: yaml.rules.map { rule in try .init(
           users: rule.users
             .map(Set.init(_:))
@@ -262,10 +266,6 @@ public struct Configuration {
       public var users: Set<String>
       public var source: Criteria
       public var target: Criteria
-    }
-    public struct Job: Encodable {
-      public var target: String
-      public var custom: AnyCodable?
     }
   }
   public struct Merge {

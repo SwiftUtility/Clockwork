@@ -99,17 +99,14 @@ public struct Configurator {
   public func resolveVacationers(
     query: ResolveVacationers
   ) throws -> ResolveVacationers.Reply { try query.cfg.vacationers
-      .reduce(query.cfg.git, parse(git:yaml:))
-      .reduce(Set<String>.self, dialect.read(_:from:))
+    .reduce(query.cfg.git, parse(git:yaml:))
+    .reduce(Set<String>.self, dialect.read(_:from:))
   }
   public func resolveGitlab(
     query: ResolveGitlab
   ) throws -> ResolveGitlab.Reply {
-    let yaml = try query.cfg.gitlab.or { throw Thrown("gitlab not configured") }
-    var gitlab = try Gitlab.init(env: query.cfg.env, yaml: yaml)
-    gitlab.botToken = try gitlab
-      .makeBotToken(env: query.cfg.env, yaml: yaml)
-      .reduce(query.cfg.env, parse(env:token:))
+    var gitlab = try Gitlab(cfg: query.cfg)
+    gitlab.token = try? parse(env: query.cfg.env, token: ?!gitlab.botToken)
     return gitlab
   }
 }
@@ -179,7 +176,7 @@ extension Configurator {
       .mapValues { try .make(ref: cfg.profile.controls.ref, yaml: $0) }
     cfg.review = try controls.review
       .map(Configuration.Review.make(yaml:))
-    cfg.replication = controls.replication
+    cfg.replication = try controls.replication
       .map(Configuration.Replication.make(yaml:))
     cfg.integration = try controls.integration
       .map(Configuration.Integration.make(yaml:))

@@ -39,6 +39,7 @@ public enum Yaml {
     public var messageTemplate: String
     public var target: String
     public var prefix: String?
+    public var source: Criteria
   }
   public struct Integration: Decodable {
     public var messageTemplate: String
