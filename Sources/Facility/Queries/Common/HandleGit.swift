@@ -84,7 +84,7 @@ public extension Git {
   func getCommiterDate(ref: Ref) -> HandleLine {
     .init(tasks: [.init(arguments: root.base + ["show", "-s", "--format=%cd", ref.value])])
   }
-  func getParrents(ref: Ref) -> HandleLine {
+  func listParrents(ref: Ref) -> HandleLine {
     .init(tasks: [.init(arguments: root.base + ["rev-parse", "\(ref.value)^@"])])
   }
   func mergeBase(_ one: Ref, _ two: Ref) -> HandleLine {
@@ -142,9 +142,6 @@ public extension Git {
   }
   func resetSoft(ref: Ref) -> HandleVoid {
     .init(tasks: [.init(arguments: root.base + ["reset", "--soft", ref.value])])
-  }
-  func listParents(ref: Ref) -> HandleLine {
-    .init(tasks: [.init(arguments: root.base + ["show", "-s", "--pretty=%P", ref.value])])
   }
   static func makeEnvironment(
     authorName: String? = nil,

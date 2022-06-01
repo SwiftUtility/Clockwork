@@ -326,9 +326,179 @@ public struct Laborer {
     return true
   }
   public func finishIntegration(configuration cfg: Configuration) throws -> Bool {
-    fatalError()
+    let gitlab = try resolveGitlab(.init(cfg: cfg))
+    let integration = try cfg.getIntegration()
+    let pushUrl = try gitlab.makePushUrl()
+    let state = try getReviewState(gitlab.getParentMrState())
+    let pipeline = try getPipeline(gitlab.getParentPipeline())
+    guard
+      pipeline.id == state.pipeline.id,
+      state.state == "opened"
+    else {
+      logMessage(.init(message: "Pipeline outdated"))
+      return true
+    }
+    let merge = try integration.makeMerge(branch: state.sourceBranch)
+    guard
+      case state.targetBranch = try cfg.get(env: Gitlab.commitBranch),
+      state.targetBranch == merge.target.name
+    else { throw Thrown("Integration preconditions broken") }
+    guard integration.rules.contains(where: { rule in
+      rule.target.isMet(merge.target.name) && rule.source.isMet(merge.source.name)
+    }) else {
+      logMessage(.init(message: "Integration blocked by configuration"))
+      _ = try putState(gitlab.putMrState(parameters: .init(stateEvent: "close")))
+      try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
+      return true
+    }
+    let head = try Git.Sha(ref: pipeline.sha)
+    guard case nil = try? handleVoid(cfg.git.check(
+      child: .make(sha: merge.fork),
+      parent: .make(remote: merge.target)
+    )) else {
+      guard pipeline.sha == merge.fork.ref else {
+        logMessage(.init(message: "Integration in wrong state"))
+        try handleVoid(cfg.git.make(push: .init(
+          url: pushUrl,
+          branch: merge.supply,
+          sha: merge.fork,
+          force: true
+        )))
+        return true
+      }
+      guard try checkAcceptIssues(cfg: cfg, state: state, pipeline: pipeline) else {
+        return false
+      }
+      let result = try putMerge(gitlab.putMrMerge(parameters: .init(
+        squash: false,
+        shouldRemoveSourceBranch: true,
+        sha: head
+      )))
+      if case "merged"? = result.map?["state"]?.value?.string {
+        logMessage(.init(message: "Review merged"))
+        try sendReport(.init(cfg: cfg, report: .review(state, .accepted)))
+        return true
+      } else if let message = result.map?["message"]?.value?.string {
+        logMessage(.init(message: message))
+        try sendReport(.init(cfg: cfg, report: .review(state, .mergeError(message))))
+        return false
+      } else {
+        throw MayDay("Accept review responce not handled")
+      }
+    }
+    guard case nil = try? handleVoid(cfg.git.check(
+      child: .make(remote: merge.target),
+      parent: .make(sha: merge.fork)
+    )) else {
+      logMessage(.init(message: "\(merge.target.name) already contains \(merge.fork.ref)"))
+      _ = try putState(gitlab.putMrState(parameters: .init(stateEvent: "close")))
+      try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
+      return true
+    }
+    guard case merge.fork.ref = try handleLine(cfg.git.mergeBase(
+      .make(remote: merge.source),
+      .make(sha: head)
+    )) else {
+      logMessage(.init(message: "Integration is in wrong state"))
+      _ = try putState(gitlab.putMrState(parameters: .init(stateEvent: "close")))
+      let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
+        .or { throw Thrown("Empty commit message") }
+      let sha = try commitMerge(
+        cfg: cfg,
+        into: .make(remote: merge.target),
+        message: message,
+        sha: merge.fork
+      ) ?? merge.fork
+      try handleVoid(cfg.git.make(push: .init(
+        url: pushUrl,
+        branch: merge.supply,
+        sha: sha,
+        force: false
+      )))
+      _ = try postMergeRequests(gitlab.postMergeRequests(parameters: .init(
+        sourceBranch: merge.supply.name,
+        targetBranch: merge.target.name,
+        title: message
+      )))
+      return true
+    }
+    guard pipeline.user.username == gitlab.botLogin else {
+      let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
+        .or { throw Thrown("Empty commit message") }
+      let sha = try commitMerge(
+        cfg: cfg,
+        into: .make(remote: merge.target),
+        message: message,
+        sha: head
+      ) ?? squashSupply(
+        cfg: cfg,
+        merge: merge,
+        message: message,
+        sha: head
+      )
+      _ = try putState(gitlab.putMrState(
+        parameters: .init(stateEvent: "close")
+      ))
+      try handleVoid(cfg.git.make(push: .init(
+        url: pushUrl,
+        branch: merge.supply,
+        sha: sha,
+        force: true
+      )))
+      _ = try postMergeRequests(gitlab.postMergeRequests(parameters: .init(
+        sourceBranch: merge.supply.name,
+        targetBranch: merge.target.name,
+        title: message
+      )))
+      return true
+    }
+    let parrents = try handleLine(cfg.git.listParrents(ref: .make(sha: head)))
+      .components(separatedBy: .newlines)
+    let target = try handleLine(cfg.git.getSha(ref: .make(remote: merge.target)))
+    guard [target, merge.fork.ref] == parrents else {
+      let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
+        .or { throw Thrown("Empty commit message") }
+      if let sha = try commitMerge(
+        cfg: cfg,
+        into: .make(remote: merge.target),
+        message: message,
+        sha: head
+      ) {
+        try handleVoid(cfg.git.make(push: .init(
+          url: pushUrl,
+          branch: merge.supply,
+          sha: sha,
+          force: true
+        )))
+      } else {
+        logMessage(.init(message: "Integration stopped due to conflicts"))
+        try sendReport(.init(cfg: cfg, report: .replicationConflicts(
+          .make(cfg: cfg, merge: merge)
+        )))
+      }
+      return true
+    }
+    guard try checkAcceptIssues(cfg: cfg, state: state, pipeline: pipeline) else {
+      return false
+    }
+    let result = try putMerge(gitlab.putMrMerge(parameters: .init(
+      squash: false,
+      shouldRemoveSourceBranch: true,
+      sha: head
+    )))
+    if case "merged"? = result.map?["state"]?.value?.string {
+      logMessage(.init(message: "Review merged"))
+      try sendReport(.init(cfg: cfg, report: .review(state, .accepted)))
+      return true
+    } else if let message = result.map?["message"]?.value?.string {
+      logMessage(.init(message: message))
+      try sendReport(.init(cfg: cfg, report: .review(state, .mergeError(message))))
+      return false
+    } else {
+      throw MayDay("Accept review responce not handled")
+    }
   }
-  public func generateIntegrationJobs(
+  public func generateIntegration(
     query: Gitlab.GenerateIntegrationJobs
   ) throws -> Gitlab.GenerateIntegrationJobs.Reply {
     let gitlab = try resolveGitlab(.init(cfg: query.cfg))
@@ -361,56 +531,55 @@ public struct Laborer {
     result.forEach(printLine)
     return true
   }
-  public func performReplication(
-    query: Gitlab.PerformReplication
-  ) throws -> Gitlab.PerformReplication.Reply {
-    let gitlab = try resolveGitlab(.init(cfg: query.cfg))
-    let replication = try query.cfg.getReplication()
-    let pushUrl = try gitlab.makePushUrl()
-    guard gitlab.triggererPipeline != nil else {
-      let branch = try query.cfg.get(env: Gitlab.commitBranch)
-      guard replication.source.isMet(branch) else {
-        throw Thrown("Replication blocked by configuration")
-      }
-      guard let merge = try makeMerge(
-        cfg: query.cfg,
-        replication: replication,
-        branch: query.cfg.get(env: Gitlab.commitBranch)
-      ) else {
-        logMessage(.init(message: "No commits to replicate"))
-        return true
-      }
-      guard case nil = try? handleLine(query.cfg.git.checkRefType(
-        ref: .make(remote: merge.supply)
-      )) else {
-        logMessage(.init(message: "Replication already in progress"))
-        return true
-      }
-      let message = try renderStencil(query.cfg.makeRenderStencil(merge: merge))
-        .or { throw Thrown("Empty commit message") }
-      let sha = try commitMerge(
-        cfg: query.cfg,
-        into: .make(remote: merge.target),
-        message: message,
-        sha: merge.fork
-      ) ?? merge.fork
-      try handleVoid(query.cfg.git.make(push: .init(
-        url: pushUrl,
-        branch: merge.supply,
-        sha: sha,
-        force: false
-      )))
-      _ = try postMergeRequests(gitlab.postMergeRequests(parameters: .init(
-        sourceBranch: merge.supply.name, targetBranch: merge.target.name, title: message
-      )))
+  public func startReplication(cfg: Configuration) throws -> Bool {
+    let gitlab = try resolveGitlab(.init(cfg: cfg))
+    let replication = try cfg.getReplication()
+    let branch = try cfg.get(env: Gitlab.commitBranch)
+    guard replication.source.isMet(branch) else {
+      logMessage(.init(message: "Replication blocked by configuration"))
       return true
     }
+    guard let merge = try makeMerge(
+      cfg: cfg,
+      replication: replication,
+      branch: branch
+    ) else {
+      logMessage(.init(message: "No commits to replicate"))
+      return true
+    }
+    guard case nil = try? handleLine(cfg.git.checkRefType(
+      ref: .make(remote: merge.supply)
+    )) else {
+      logMessage(.init(message: "Replication already in progress"))
+      return true
+    }
+    let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
+      .or { throw Thrown("Empty commit message") }
+    let sha = try commitMerge(
+      cfg: cfg,
+      into: .make(remote: merge.target),
+      message: message,
+      sha: merge.fork
+    ) ?? merge.fork
+    try handleVoid(cfg.git.make(push: .init(
+      url: gitlab.makePushUrl(),
+      branch: merge.supply,
+      sha: sha,
+      force: false
+    )))
+    _ = try postMergeRequests(gitlab.postMergeRequests(parameters: .init(
+      sourceBranch: merge.supply.name,
+      targetBranch: merge.target.name,
+      title: message
+    )))
+    return true
+  }
+  public func updateReplication(cfg: Configuration) throws -> Bool {
+    let gitlab = try resolveGitlab(.init(cfg: cfg))
+    let replication = try cfg.getReplication()
+    let pushUrl = try gitlab.makePushUrl()
     let state = try getReviewState(gitlab.getParentMrState())
     let pipeline = try getPipeline(gitlab.getParentPipeline())
-    guard
-      case state.targetBranch = try query.cfg.get(env: Gitlab.commitBranch),
-      state.targetBranch == replication.target
-    else { throw Thrown("Replication preconditions broken") }
     guard
       pipeline.id == state.pipeline.id,
       state.state == "opened"
@@ -418,49 +587,52 @@ public struct Laborer {
       logMessage(.init(message: "Pipeline outdated"))
       return true
     }
+    guard
+      case state.targetBranch = try cfg.get(env: Gitlab.commitBranch),
+      state.targetBranch == replication.target
+    else { throw Thrown("Replication preconditions broken") }
     let merge = try replication.makeMerge(branch: state.sourceBranch)
     guard replication.source.isMet(merge.source.name) else {
       logMessage(.init(message: "Replication blocked by configuration"))
       _ = try putState(gitlab.putMrState(parameters: .init(stateEvent: "close")))
-      try handleVoid(query.cfg.git.push(remote: pushUrl, delete: merge.supply))
+      try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
       return true
     }
     let head = try Git.Sha.init(ref: pipeline.sha)
-    var message = try renderStencil(query.cfg.makeRenderStencil(merge: merge))
-      .or { throw Thrown("Empty commit message") }
     guard
-      case nil = try? handleVoid(query.cfg.git.check(
+      case nil = try? handleVoid(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
       )),
-      case ()? = try? handleVoid(query.cfg.git.check(
+      case ()? = try? handleVoid(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(parent: 1, ref: .make(sha: merge.fork))
       )),
-      case merge.fork.ref = try handleLine(query.cfg.git.mergeBase(
-        .make(remote: merge.supply),
+      case merge.fork.ref = try handleLine(cfg.git.mergeBase(
+        .make(remote: merge.source),
         .make(sha: head)
       ))
     else {
       logMessage(.init(message: "Replication is in wrong state"))
       _ = try putState(gitlab.putMrState(parameters: .init(stateEvent: "close")))
-      try handleVoid(query.cfg.git.push(remote: pushUrl, delete: merge.supply))
+      try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
       guard let merge = try makeMerge(
-        cfg: query.cfg,
+        cfg: cfg,
         replication: replication,
         branch: merge.supply.name
       ) else {
         logMessage(.init(message: "No commits to replicate"))
-        try handleVoid(query.cfg.git.push(remote: pushUrl, delete: merge.target))
         return true
       }
+      let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
+        .or { throw Thrown("Empty commit message") }
       let sha = try commitMerge(
-        cfg: query.cfg,
+        cfg: cfg,
         into: .make(remote: merge.target),
         message: message,
         sha: merge.fork
       ) ?? merge.fork
-      try handleVoid(query.cfg.git.make(push: .init(
+      try handleVoid(cfg.git.make(push: .init(
         url: pushUrl,
         branch: merge.supply,
         sha: sha,
@@ -474,13 +646,15 @@ public struct Laborer {
       return true
     }
     guard pipeline.user.username == gitlab.botLogin else {
-      let squash = try commitMerge(
-        cfg: query.cfg,
+      let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
+        .or { throw Thrown("Empty commit message") }
+      let sha = try commitMerge(
+        cfg: cfg,
         into: .make(remote: merge.target),
         message: message,
         sha: head
       ) ?? squashSupply(
-        cfg: query.cfg,
+        cfg: cfg,
         merge: merge,
         message: message,
         sha: head
@@ -488,10 +662,10 @@ public struct Laborer {
       _ = try putState(gitlab.putMrState(
         parameters: .init(stateEvent: "close")
       ))
-      try handleVoid(query.cfg.git.make(push: .init(
+      try handleVoid(cfg.git.make(push: .init(
         url: pushUrl,
         branch: merge.supply,
-        sha: squash,
+        sha: sha,
         force: true
       )))
       _ = try postMergeRequests(gitlab.postMergeRequests(parameters: .init(
@@ -501,21 +675,19 @@ public struct Laborer {
       )))
       return true
     }
-    let parrents = try Id(head)
-      .map(Git.Ref.make(sha:))
-      .map(query.cfg.git.getParrents(ref:))
-      .map(handleLine)
-      .get()
+    let parrents = try handleLine(cfg.git.listParrents(ref: .make(sha: head)))
       .components(separatedBy: .newlines)
-    let target = try handleLine(query.cfg.git.getSha(ref: .make(remote: merge.target)))
+    let target = try handleLine(cfg.git.getSha(ref: .make(remote: merge.target)))
     guard [target, merge.fork.ref] == parrents else {
+      let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
+        .or { throw Thrown("Empty commit message") }
       if let sha = try commitMerge(
-        cfg: query.cfg,
+        cfg: cfg,
         into: .make(remote: merge.target),
         message: message,
         sha: head
       ) {
-        try handleVoid(query.cfg.git.make(push: .init(
+        try handleVoid(cfg.git.make(push: .init(
           url: pushUrl,
           branch: merge.supply,
           sha: sha,
@@ -523,47 +695,48 @@ public struct Laborer {
         )))
       } else {
         logMessage(.init(message: "Replications stopped due to conflicts"))
-        try sendReport(.init(cfg: query.cfg, report: .replicationConflicts(
-          .make(cfg: query.cfg, merge: merge)
+        try sendReport(.init(cfg: cfg, report: .replicationConflicts(
+          .make(cfg: cfg, merge: merge)
         )))
       }
       return true
     }
-    guard try checkAcceptIssues(cfg: query.cfg, state: state, pipeline: pipeline) else { return true }
+    guard try checkAcceptIssues(cfg: cfg, state: state, pipeline: pipeline) else {
+      return false
+    }
     let result = try putMerge(gitlab.putMrMerge(parameters: .init(
-      mergeCommitMessage: message,
       squash: false,
       shouldRemoveSourceBranch: true,
       sha: head
     )))
     if case "merged"? = result.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
-      try sendReport(.init(cfg: query.cfg, report: .review(state, .accepted)))
+      try sendReport(.init(cfg: cfg, report: .review(state, .accepted)))
     } else if let message = result.map?["message"]?.value?.string {
       logMessage(.init(message: message))
-      try sendReport(.init(cfg: query.cfg, report: .review(state, .mergeError(message))))
-      return true
+      try sendReport(.init(cfg: cfg, report: .review(state, .mergeError(message))))
+      return false
     } else {
       throw MayDay("Accept review responce not handled")
     }
-    try handleVoid(query.cfg.git.fetch)
+    try handleVoid(cfg.git.fetch)
     guard let merge = try makeMerge(
-      cfg: query.cfg,
+      cfg: cfg,
       replication: replication,
       branch: merge.source.name
     ) else {
       logMessage(.init(message: "No commits to replicate"))
       return true
     }
-    message = try renderStencil(query.cfg.makeRenderStencil(merge: merge))
+    let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
       .or { throw Thrown("Empty commit message") }
     let sha = try commitMerge(
-      cfg: query.cfg,
+      cfg: cfg,
       into: .make(remote: merge.target),
       message: message,
       sha: merge.fork
     ) ?? merge.fork
-    try handleVoid(query.cfg.git.make(push: .init(
+    try handleVoid(cfg.git.make(push: .init(
       url: pushUrl,
       branch: merge.supply,
       sha: sha,
@@ -607,8 +780,8 @@ extension Laborer {
     gitlab: Gitlab,
     sha: Git.Sha
   ) throws -> String? {
-    let parents = try handleLine(cfg.git.listParents(ref: .make(sha: sha)))
-      .components(separatedBy: .whitespaces)
+    let parents = try handleLine(cfg.git.listParrents(ref: .make(sha: sha)))
+      .components(separatedBy: .newlines)
     switch parents.count {
     case 1:
       return try listShaMergeRequests(gitlab.listShaMergeRequests(sha: sha))

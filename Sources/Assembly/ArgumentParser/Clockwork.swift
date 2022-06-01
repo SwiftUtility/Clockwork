@@ -23,8 +23,8 @@ struct Clockwork: ParsableCommand {
       AddGitlabReviewLabels.self,
       AcceptGitlabReview.self,
       TriggerGitlabPipeline.self,
-      PerformGitlabReplication.self,
-      GenerateGitlabIntegrationJobs.self,
+      UpdateGitlabReplication.self,
+      GenerateGitlabIntegration.self,
       StartGitlabIntegration.self,
       FinishGitlabIntegration.self,
     ]
@@ -131,13 +131,18 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct PerformGitlabReplication: ClockworkCommand {
+  struct StartGitlabReplication: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
-    static var abstract: String { "Create and accept replication branch and review" }
+    static var abstract: String { "Create replication review" }
     func run(configuration: Configuration) throws -> Bool {
-      try Main.laborer.performReplication(
-        query: .init(cfg: configuration)
-      )
+      try Main.laborer.updateReplication(cfg: configuration)
+    }
+  }
+  struct UpdateGitlabReplication: ClockworkCommand {
+    @OptionGroup var clockwork: Clockwork
+    static var abstract: String { "Update or accept replication review" }
+    func run(configuration: Configuration) throws -> Bool {
+      try Main.laborer.updateReplication(cfg: configuration)
     }
   }
   struct CheckGitlabIntegrationAwardApproval: ClockworkCommand {
@@ -149,11 +154,11 @@ struct Clockwork: ParsableCommand {
       )
     }
   }
-  struct GenerateGitlabIntegrationJobs: ClockworkCommand {
+  struct GenerateGitlabIntegration: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Stdouts rendered job template for suitable branches" }
     func run(configuration: Configuration) throws -> Bool {
-      try Main.laborer.generateIntegrationJobs(
+      try Main.laborer.generateIntegration(
         query: .init(cfg: configuration)
       )
     }
