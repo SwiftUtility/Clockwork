@@ -58,10 +58,11 @@ enum Main {
     resolveGitlab: configurator.resolveGitlab(query:),
     resolveProfile: configurator.resolveProfile(query:),
     resolveFileApproval: configurator.resolveFileApproval(query:),
-    resolveApproval: configurator.resolveApproval(query:),
+    resolveAwardApproval: configurator.resolveAwardApproval(query:),
     resolveVacationers: configurator.resolveVacationers(query:),
     sendReport: reporter.sendReport(query:),
-    logMessage: reporter.logMessage(query:)
+    logMessage: reporter.logMessage(query:),
+    printLine: FileHandle.standardOutput.write(message:)
   )
   static let stencilParser = StencilParser(notation: .json)
 }

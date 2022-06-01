@@ -22,10 +22,11 @@ public struct Laborer {
   public var resolveGitlab: Try.Reply<ResolveGitlab>
   public var resolveProfile: Try.Reply<ResolveProfile>
   public var resolveFileApproval: Try.Reply<ResolveFileApproval>
-  public var resolveApproval: Try.Reply<ResolveApproval>
+  public var resolveAwardApproval: Try.Reply<ResolveAwardApproval>
   public var resolveVacationers: Try.Reply<ResolveVacationers>
   public var sendReport: Try.Reply<SendReport>
   public var logMessage: Act.Reply<LogMessage>
+  public var printLine: Act.Of<String>.Go
   public init(
     handleFileList: @escaping Try.Reply<Git.HandleFileList>,
     handleLine: @escaping Try.Reply<Git.HandleLine>,
@@ -45,10 +46,11 @@ public struct Laborer {
     resolveGitlab: @escaping Try.Reply<ResolveGitlab>,
     resolveProfile: @escaping Try.Reply<ResolveProfile>,
     resolveFileApproval: @escaping Try.Reply<ResolveFileApproval>,
-    resolveApproval: @escaping Try.Reply<ResolveApproval>,
+    resolveAwardApproval: @escaping Try.Reply<ResolveAwardApproval>,
     resolveVacationers: @escaping Try.Reply<ResolveVacationers>,
     sendReport: @escaping Try.Reply<SendReport>,
-    logMessage: @escaping Act.Reply<LogMessage>
+    logMessage: @escaping Act.Reply<LogMessage>,
+    printLine: @escaping Act.Of<String>.Go
   ) {
     self.handleFileList = handleFileList
     self.handleLine = handleLine
@@ -68,10 +70,11 @@ public struct Laborer {
     self.resolveGitlab = resolveGitlab
     self.resolveProfile = resolveProfile
     self.resolveFileApproval = resolveFileApproval
-    self.resolveApproval = resolveApproval
+    self.resolveAwardApproval = resolveAwardApproval
     self.resolveVacationers = resolveVacationers
     self.sendReport = sendReport
     self.logMessage = logMessage
+    self.printLine = printLine
   }
   public func checkAwardApproval(
     query: Gitlab.CheckAwardApproval
@@ -89,7 +92,7 @@ public struct Laborer {
       _ = try postPipelines(gitlab.postParentMrPipelines())
       return false
     }
-    var approval = try resolveApproval(.init(cfg: query.cfg))
+    var approval = try resolveAwardApproval(.init(cfg: query.cfg))
       .or { throw Thrown("No approval in profile") }
     approval.consider(state: state)
     let sha = try Id(state.pipeline.sha)
@@ -230,7 +233,7 @@ public struct Laborer {
       .or { throw Thrown("Commit message is empty") }
     guard case ()? = try? handleVoid(query.cfg.git.check(
       child: .make(sha: head),
-      parrent: target
+      parent: target
     )) else {
       if let sha = try commitMerge(
         cfg: query.cfg,
@@ -280,7 +283,39 @@ public struct Laborer {
 //    }
     fatalError()
   }
-  public func generateIntegrationJobs() { fatalError() }
+  public func generateIntegrationJobs(
+    query: Gitlab.GenerateIntegrationJobs
+  ) throws -> Gitlab.GenerateIntegrationJobs.Reply {
+    let gitlab = try resolveGitlab(.init(cfg: query.cfg))
+    let pipeline = try getPipeline(gitlab.getParentPipeline())
+    let fork = try Git.Sha(ref: pipeline.sha)
+    let source = try Git.Branch(name: pipeline.ref)
+    let rules = try query.cfg.getIntegration().rules
+      .filter { $0.source.isMet(source.name) }
+      .mapEmpty { throw Thrown("Integration for \(source.name) not configured") }
+    var targets: [Git.Branch] = []
+    for line in try handleLine(query.cfg.git.listLocalRefs).components(separatedBy: .newlines) {
+      let pair = line.components(separatedBy: .whitespaces)
+      guard pair.count == 2 else { throw MayDay("bad git reply") }
+      guard let target = try? pair[1].dropPrefix("refs/remotes/origin/") else { continue }
+      guard rules.contains(where: { $0.target.isMet(target) }) else { continue }
+      let sha = try Git.Sha.init(ref: pair[0])
+      guard case nil = try? handleVoid(query.cfg.git.check(
+        child: .make(sha: sha),
+        parent: .make(sha: fork)
+      )) else { continue }
+      try targets.append(.init(name: target))
+    }
+    guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
+    var result = ["include: $CI_CONFIG_PATH"]
+    for target in targets {
+      result += try renderStencil(query.cfg.makeRenderIntegrationJob(target: target.name))
+        .or { throw Thrown("Rendered job is empty") }
+        .components(separatedBy: .newlines)
+    }
+    result.forEach(printLine)
+    return true
+  }
   public func performReplication(
     query: Gitlab.PerformReplication
   ) throws -> Gitlab.PerformReplication.Reply {
@@ -341,11 +376,11 @@ public struct Laborer {
     guard
       case nil = try? handleVoid(query.cfg.git.check(
         child: .make(remote: merge.target),
-        parrent: .make(sha: merge.fork)
+        parent: .make(sha: merge.fork)
       )),
       case ()? = try? handleVoid(query.cfg.git.check(
         child: .make(remote: merge.target),
-        parrent: .make(parent: 1, ref: .make(sha: merge.fork))
+        parent: .make(parent: 1, ref: .make(sha: merge.fork))
       )),
       case merge.fork.ref = try handleLine(query.cfg.git.mergeBase(
         .make(remote: merge.supply),

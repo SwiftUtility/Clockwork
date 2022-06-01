@@ -18,4 +18,10 @@ public extension Configuration {
     templates: stencil.templates,
     context: Configuration.Merge.Context.make(cfg: self, merge: merge)
   )}
+  func makeRenderIntegrationJob(target: String) throws -> RenderStencil { try .init(
+    template: profile.integrationJobTemplate
+      .or { throw Thrown("Integration not configured localliy") },
+    templates: profile.stencil.templates,
+    context: ["target": target]
+  )}
 }

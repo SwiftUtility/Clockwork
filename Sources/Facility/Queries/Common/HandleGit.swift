@@ -23,13 +23,14 @@ public extension Git {
     ])])
   }
   var listLocalChanges: HandleFileList {
-    .init(tasks: [.init(arguments: root.base + [
-      "diff", "--name-only", "HEAD"
-    ])])
+    .init(tasks: [.init(arguments: root.base + ["diff", "--name-only", "HEAD"])])
   }
-  func check(child: Ref, parrent: Ref) -> HandleVoid {
+  var listLocalRefs: HandleLine {
+    .init(tasks: [.init(arguments: root.base + ["diff", "show-ref", "--head"])])
+  }
+  func check(child: Ref, parent: Ref) -> HandleVoid {
     .init(tasks: [.init(arguments: root.base + [
-      "merge-base", "--is-ancestor", parrent.value, child.value
+      "merge-base", "--is-ancestor", parent.value, child.value
     ])])
   }
   func detach(to ref: Ref) -> HandleVoid {

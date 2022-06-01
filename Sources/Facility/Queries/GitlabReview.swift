@@ -64,7 +64,7 @@ extension Gitlab {
     }
     public typealias Reply = Bool
   }
-  public struct CreateIntegrationJobs: Query {
+  public struct GenerateIntegrationJobs: Query {
     public var cfg: Configuration
     public init(cfg: Configuration) {
       self.cfg = cfg

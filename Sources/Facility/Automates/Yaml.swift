@@ -6,6 +6,8 @@ public enum Yaml {
     public var fileApproval: String?
     public var fileRules: String?
     public var obsolete: Criteria?
+    public var stencil: Stencil?
+    public var integrationJobTemplate: String?
     public struct Controls: Decodable {
       public var branch: String
       public var file: String
@@ -13,7 +15,7 @@ public enum Yaml {
   }
   public struct Controls: Decodable {
     public var notifications: String?
-    public var approval: String?
+    public var awardApproval: String?
     public var stencil: Stencil?
     public var slackHooks: [String: Token]?
     public var assets: Assets?
@@ -42,8 +44,9 @@ public enum Yaml {
     public var messageTemplate: String
     public var prefix: String?
     public var rules: [Rule]
+    public var users: [String]?
     public struct Rule: Decodable {
-      public var users: [String]
+      public var users: [String]?
       public var source: Criteria
       public var target: Criteria
     }

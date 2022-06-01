@@ -8,7 +8,7 @@ public struct Configuration {
   public var gitlab: Yaml.Gitlab?
   public var notifications: [String: [Notification]] = [:]
   public var requisites: [String: Requisite] = [:]
-  public var approval: Git.File?
+  public var awardApproval: Git.File?
   public var builds: Git.File?
   public var versions: Git.File?
   public var vacationers: Git.File?
@@ -47,6 +47,8 @@ public struct Configuration {
     public var fileApproval: Git.File?
     public var fileRules: Git.File?
     public var obsolete: Criteria?
+    public var integrationJobTemplate: String?
+    public var stencil: Stencil = .init()
     public static func make(
       file: Git.File,
       yaml: Yaml.Profile
@@ -63,7 +65,8 @@ public struct Configuration {
         .map(Path.Relative.init(path:))
         .reduce(file.ref, Git.File.init(ref:path:)),
       obsolete: yaml.obsolete
-        .map(Criteria.init(yaml:))
+        .map(Criteria.init(yaml:)),
+      integrationJobTemplate: yaml.integrationJobTemplate
     )}
     public var sanityFiles: [String] {
       [profile.path.path]
@@ -93,6 +96,7 @@ public struct Configuration {
   public struct Stencil {
     public var templates: [String: String] = [:]
     public var custom: AnyCodable?
+    public init() {}
   }
   public struct Requisite {
     public var provisions: Git.Dir?
@@ -216,10 +220,22 @@ public struct Configuration {
   public struct Integration {
     public var prefix: String
     public var messageTemplate: String
-    public static func make(yaml: Yaml.Integration) -> Self { .init(
-      prefix: yaml.prefix.or("integrate"),
-      messageTemplate: yaml.messageTemplate
-    )}
+    public var rules: [Rule]
+    public static func make(yaml: Yaml.Integration) throws -> Self {
+      let users = yaml.users.map(Set.init(_:)).or([])
+      return try .init(
+        prefix: yaml.prefix.or("integrate"),
+        messageTemplate: yaml.messageTemplate,
+        rules: yaml.rules.map { rule in try .init(
+          users: rule.users
+            .map(Set.init(_:))
+            .or([])
+            .union(users),
+          source: .init(yaml: rule.source),
+          target: .init(yaml: rule.target)
+        )}
+      )
+    }
     public func makeMerge(target: String, source: String, sha: String) throws -> Merge { try .init(
       fork: .init(ref: sha),
       prefix: prefix,
@@ -241,6 +257,15 @@ public struct Configuration {
         supply: .init(name: branch),
         template: messageTemplate
       )
+    }
+    public struct Rule {
+      public var users: Set<String>
+      public var source: Criteria
+      public var target: Criteria
+    }
+    public struct Job: Encodable {
+      public var target: String
+      public var custom: AnyCodable?
     }
   }
   public struct Merge {

@@ -63,19 +63,20 @@ public struct Configurator {
   }
   public func resolveProfile(
     query: ResolveProfile
-  ) throws -> ResolveProfile.Reply { try Id
-    .make(query.file)
-    .reduce(query.git, parseYaml(git:file:))
-    .reduce(Yaml.Profile.self, dialect.read(_:from:))
-    .reduce(query.file, Configuration.Profile.make(file:yaml:))
-    .get()
+  ) throws -> ResolveProfile.Reply {
+    let yaml = try dialect.read(Yaml.Profile.self, from: parse(git: query.git, yaml: query.file))
+    var result = try Configuration.Profile.make(file: query.file, yaml: yaml)
+    if let stencil = yaml.stencil {
+      try parse(stencil: &result.stencil, git: query.git, ref: query.file.ref, yaml: stencil)
+    }
+    return result
   }
   public func resolveFileApproval(
     query: ResolveFileApproval
   ) throws -> ResolveFileApproval.Reply { try query.profile
     .flatMap(\.fileApproval)
     .flatMapNil(query.cfg.profile.fileApproval)
-    .reduce(query.cfg.git, parseYaml(git:file:))
+    .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Yaml.Criteria].self, dialect.read(_:from:))?
     .mapValues(Criteria.init(yaml:))
   }
@@ -84,21 +85,21 @@ public struct Configurator {
   ) throws -> ResolveFileRules.Reply { try query.profile
     .flatMap(\.fileRules)
     .flatMapNil(query.cfg.profile.fileRules)
-    .reduce(query.cfg.git, parseYaml(git:file:))
+    .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([Yaml.FileRule].self, dialect.read(_:from:))?
     .map(FileRule.init(yaml:))
   }
-  public func resolveApproval(
-    query: ResolveApproval
-  ) throws -> ResolveApproval.Reply { try query.cfg.approval
-    .reduce(query.cfg.git, parseYaml(git:file:))
+  public func resolveAwardApproval(
+    query: ResolveAwardApproval
+  ) throws -> ResolveAwardApproval.Reply { try query.cfg.awardApproval
+    .reduce(query.cfg.git, parse(git:yaml:))
     .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
     .map(AwardApproval.make(yaml:))
   }
   public func resolveVacationers(
     query: ResolveVacationers
   ) throws -> ResolveVacationers.Reply { try query.cfg.vacationers
-      .reduce(query.cfg.git, parseYaml(git:file:))
+      .reduce(query.cfg.git, parse(git:yaml:))
       .reduce(Set<String>.self, dialect.read(_:from:))
   }
   public func resolveGitlab(
@@ -112,9 +113,9 @@ public struct Configurator {
     return gitlab
   }
 }
-private extension Configurator {
-  func parseYaml(git: Git, file: Git.File) throws -> AnyCodable { try Id
-    .make(file)
+extension Configurator {
+  func parse(git: Git, yaml: Git.File) throws -> AnyCodable { try Id
+    .make(yaml)
     .map(git.cat(file:))
     .map(gitHandleCat)
     .map(String.make(utf8:))
@@ -138,12 +139,39 @@ private extension Configurator {
       .or { throw Thrown("No env \(envFile)") }
     }
   }
+  func parse(
+    stencil: inout Configuration.Stencil,
+    git: Git,
+    ref: Git.Ref,
+    yaml: Yaml.Stencil
+  ) throws {
+    stencil.custom = try yaml.custom
+      .map(Path.Relative.init(path:))
+      .reduce(ref, Git.File.init(ref:path:))
+      .reduce(git, parse(git:yaml:))
+    let files = try Id(yaml.templates)
+      .map(Path.Relative.init(path:))
+      .reduce(ref, Git.Dir.init(ref:path:))
+      .map(git.listTreeTrackedFiles(dir:))
+      .map(gitHandleFileList)
+      .get()
+    for file in files {
+      let template = try file.dropPrefix("\(yaml.templates)/")
+      stencil.templates[template] = try Id(file)
+        .map(Path.Relative.init(path:))
+        .reduce(ref, Git.File.init(ref:path:))
+        .map(git.cat(file:))
+        .map(gitHandleCat)
+        .map(String.make(utf8:))
+        .get()
+    }
+  }
   func enrich(cfg: inout Configuration) throws {
     let controls = try Id(cfg.profile.controls)
-      .reduce(cfg.git, parseYaml(git:file:))
+      .reduce(cfg.git, parse(git:yaml:))
       .reduce(Yaml.Controls.self, dialect.read(_:from:))
       .get()
-    cfg.approval = try controls.approval
+    cfg.awardApproval = try controls.awardApproval
       .map(Path.Relative.init(path:))
       .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
     cfg.requisites = try controls.requisites
@@ -153,7 +181,7 @@ private extension Configurator {
       .map(Configuration.Review.make(yaml:))
     cfg.replication = controls.replication
       .map(Configuration.Replication.make(yaml:))
-    cfg.integration = controls.integration
+    cfg.integration = try controls.integration
       .map(Configuration.Integration.make(yaml:))
     if let assets = try controls.assets.map(Configuration.Assets.make(yaml:)) {
       cfg.builds = assets.builds
@@ -161,26 +189,7 @@ private extension Configurator {
       cfg.vacationers = assets.vacationers
     }
     if let stencil = controls.stencil {
-      cfg.stencil.custom = try stencil.custom
-        .map(Path.Relative.init(path:))
-        .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
-        .reduce(cfg.git, parseYaml(git:file:))
-      let files = try Id(stencil.templates)
-        .map(Path.Relative.init(path:))
-        .reduce(cfg.profile.controls.ref, Git.Dir.init(ref:path:))
-        .map(cfg.git.listTreeTrackedFiles(dir:))
-        .map(gitHandleFileList)
-        .get()
-      for file in files {
-        let template = try file.dropPrefix("\(stencil.templates)/")
-        cfg.stencil.templates[template] = try Id(file)
-          .map(Path.Relative.init(path:))
-          .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
-          .map(cfg.git.cat(file:))
-          .map(gitHandleCat)
-          .map(String.make(utf8:))
-          .get()
-      }
+      try parse(stencil: &cfg.stencil, git: cfg.git, ref: cfg.profile.controls.ref, yaml: stencil)
     }
     let slackHooks = try controls.slackHooks
       .or([:])
@@ -188,7 +197,7 @@ private extension Configurator {
     let notifications = try controls.notifications
       .map(Path.Relative.init(path:))
       .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
-      .reduce(cfg.git, parseYaml(git:file:))
+      .reduce(cfg.git, parse(git:yaml:))
       .reduce(Yaml.Notifications.self, dialect.read(_:from:))
     for jsonStdout in notifications.flatMap(\.jsonStdout).or([]) {
       guard cfg.stencil.templates[jsonStdout.template] != nil else {

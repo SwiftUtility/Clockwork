@@ -25,6 +25,15 @@ public struct ResolveProfile: Query {
   }
   public typealias Reply = Configuration.Profile
 }
+public struct ResolveLocalStencil: Query {
+  public var cfg: Configuration
+  public var profile: Configuration.Profile
+  public init(cfg: Configuration, profile: Configuration.Profile) {
+    self.cfg = cfg
+    self.profile = profile
+  }
+  public typealias Reply = Configuration.Stencil?
+}
 public struct ResolveFileApproval: Query {
   public var cfg: Configuration
   public var profile: Configuration.Profile?
@@ -43,7 +52,7 @@ public struct ResolveFileRules: Query {
   }
   public typealias Reply = [FileRule]?
 }
-public struct ResolveApproval: Query {
+public struct ResolveAwardApproval: Query {
   public var cfg: Configuration
   public init(cfg: Configuration) {
     self.cfg = cfg
