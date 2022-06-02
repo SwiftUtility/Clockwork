@@ -11,6 +11,10 @@ public enum Json {
     public var sha: String
     public var user: GitlabUser
   }
+  public struct GitlabPilelineJob: Codable {
+    public var id: UInt
+    public var name: String
+  }
   public struct GitlabCommitMergeRequest: Codable {
     public var squashCommitSha: String
     public var author: GitlabUser

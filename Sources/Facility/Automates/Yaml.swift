@@ -21,9 +21,29 @@ public enum Yaml {
     public var assets: Assets?
     public var gitlab: Gitlab?
     public var requisites: [String: Requisite]?
+    public var products: [String: Product]?
     public var review: Review?
     public var replication: Replication?
     public var integration: Integration?
+    public var buildNumberEnv: String?
+  }
+  public struct Product: Decodable {
+    public var tagWithBuild: Criteria?
+    public var tagWithVersion: Criteria?
+    public var branchWithVersion: Criteria?
+    public var releaseBranchTemplate: String?
+    public var releaseBranchCriteria: Criteria?
+    public var deployTagTemplate: String?
+    public struct DeployTag {
+      public var name: Criteria?
+      public var createTemplate: String?
+      public var parseBuild: String?
+      public var parseVersion: String?
+    }
+    public struct ReleaseBranch {
+      public var name: Criteria?
+      public var createTemplate: String?
+    }
   }
   public struct Assets: Decodable {
     public var branch: String

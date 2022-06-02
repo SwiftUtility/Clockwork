@@ -93,6 +93,24 @@ public extension Gitlab {
     auth: "Authorization: Bearer \(makeBotToken())",
     sha: sha.ref
   )}
+  func getParentPipelineJobs(action: JobAction, page: Int = 1) throws -> GetPipelineJobs { try .init(
+    api: api,
+    project: project,
+    auth: "Authorization: Bearer \(makeBotToken())",
+    pipeline: triggererPipeline
+      .or { throw Thrown("No env \(parentPipeline)") },
+    scope: action.scope,
+    includeRetried: true,
+    page: page,
+    perPage: 100
+  )}
+  func postJobsAction(job: UInt, action: JobAction) throws -> PostJobsAction { try .init(
+    api: api,
+    project: project,
+    auth: "Authorization: Bearer \(makeBotToken())",
+    job: job,
+    action: action
+  )}
   struct GetPipeline: ProcessGitlabCiApi {
     public var tasks: [PipeTask]
     public init(
@@ -345,5 +363,47 @@ public extension Gitlab {
         self.title = title
       }
     }
+  }
+  struct GetPipelineJobs: ProcessGitlabCiApi {
+    public var tasks: [PipeTask]
+    public init(
+      api: String,
+      project: String,
+      auth: String,
+      pipeline: UInt,
+      scope: String?,
+      includeRetried: Bool?,
+      page: Int?,
+      perPage: Int?
+    ) throws {
+      var params: [String] = []
+      if let scope = scope { params.append("scope=\(scope)") }
+      if let includeRetried = includeRetried { params.append("include_retried=\(includeRetried)") }
+      if let page = page { params.append("page=\(page)") }
+      if let perPage = perPage { params.append("per_page=\(perPage)") }
+      let query = params.isEmpty
+        .then("?" + params.joined(separator: "&")).or("")
+      self.tasks = [.makeCurl(
+        url: "\(api)/projects/\(project)/pipelines/\(pipeline)/jobs\(query)",
+        headers: [auth]
+      )]
+    }
+    public typealias Reply = [Json.GitlabPilelineJob]
+  }
+  struct PostJobsAction: ProcessGitlabCiApi {
+    public var tasks: [PipeTask]
+    public init(
+      api: String,
+      project: String,
+      auth: String,
+      job: UInt,
+      action: JobAction
+    ) throws {
+      self.tasks = [.makeCurl(
+        url: "\(api)/projects/\(project)/jobs/\(job)/\(action.rawValue)",
+        headers: [auth]
+      )]
+    }
+    public typealias Reply = AnyCodable
   }
 }

@@ -70,4 +70,16 @@ public struct Gitlab {
   public static var commitBranch: String { "CI_COMMIT_BRANCH" }
   public static var configPath: String { "CI_CONFIG_PATH" }
   public static var userLogin: String { "GITLAB_USER_LOGIN" }
+  public enum JobAction: String {
+    case play = "play"
+    case cancel = "cancel"
+    case retry = "retry"
+    public var scope: String {
+      switch self {
+      case .play: return "scope=manual"
+      case .cancel: return "scope[]=pending&scope[]=running&scope[]=created"
+      case .retry: return "scope[]=failed&scope[]=canceled"
+      }
+    }
+  }
 }

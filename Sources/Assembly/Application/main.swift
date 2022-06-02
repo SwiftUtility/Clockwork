@@ -54,6 +54,8 @@ enum Main {
     postTriggerPipeline: Processor.handleProcess(query:),
     postMergeRequests: Processor.handleProcess(query:),
     listShaMergeRequests: Processor.handleProcess(query:),
+    getPipelineJobs: Processor.handleProcess(query:),
+    postJobsAction: Processor.handleProcess(query:),
     renderStencil: stencilParser.renderStencil(query:),
     resolveGitlab: configurator.resolveGitlab(query:),
     resolveProfile: configurator.resolveProfile(query:),

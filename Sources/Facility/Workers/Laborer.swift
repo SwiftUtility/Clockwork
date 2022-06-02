@@ -18,6 +18,8 @@ public struct Laborer {
   public var postTriggerPipeline: Try.Reply<Gitlab.PostTriggerPipeline>
   public var postMergeRequests: Try.Reply<Gitlab.PostMergeRequests>
   public var listShaMergeRequests: Try.Reply<Gitlab.ListShaMergeRequests>
+  public var getPipelineJobs: Try.Reply<Gitlab.GetPipelineJobs>
+  public var postJobsAction: Try.Reply<Gitlab.PostJobsAction>
   public var renderStencil: Try.Reply<RenderStencil>
   public var resolveGitlab: Try.Reply<ResolveGitlab>
   public var resolveProfile: Try.Reply<ResolveProfile>
@@ -41,6 +43,8 @@ public struct Laborer {
     postTriggerPipeline: @escaping Try.Reply<Gitlab.PostTriggerPipeline>,
     postMergeRequests: @escaping Try.Reply<Gitlab.PostMergeRequests>,
     listShaMergeRequests: @escaping Try.Reply<Gitlab.ListShaMergeRequests>,
+    getPipelineJobs: @escaping Try.Reply<Gitlab.GetPipelineJobs>,
+    postJobsAction: @escaping Try.Reply<Gitlab.PostJobsAction>,
     renderStencil: @escaping Try.Reply<RenderStencil>,
     resolveGitlab: @escaping Try.Reply<ResolveGitlab>,
     resolveProfile: @escaping Try.Reply<ResolveProfile>,
@@ -64,6 +68,8 @@ public struct Laborer {
     self.postTriggerPipeline = postTriggerPipeline
     self.postMergeRequests = postMergeRequests
     self.listShaMergeRequests = listShaMergeRequests
+    self.getPipelineJobs = getPipelineJobs
+    self.postJobsAction = postJobsAction
     self.renderStencil = renderStencil
     self.resolveGitlab = resolveGitlab
     self.resolveProfile = resolveProfile
@@ -736,6 +742,21 @@ public struct Laborer {
       force: false
     )))
     return true
+  }
+  public func changeParentJob(
+    configuration cfg: Configuration,
+    name: String,
+    action: Gitlab.JobAction
+  ) throws -> Bool {
+    let gitlab = try resolveGitlab(.init(cfg: cfg))
+    let job = try getPipelineJobs(gitlab.getParentPipelineJobs(action: action))
+      .first { $0.name == name }
+      .or { throw Thrown("Job \(name) not found") }
+    _ = try postJobsAction(gitlab.postJobsAction(job: job.id, action: action))
+    return true
+  }
+  public func resolveBuild(configuration cfg: Configuration) -> Bool {
+    fatalError()
   }
 }
 extension Laborer {
