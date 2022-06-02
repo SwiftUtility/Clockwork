@@ -50,21 +50,14 @@ public struct ResolveFileRules: Query {
     self.cfg = cfg
     self.profile = profile
   }
-  public typealias Reply = [FileRule]?
+  public typealias Reply = [FileRule]
 }
 public struct ResolveAwardApproval: Query {
   public var cfg: Configuration
   public init(cfg: Configuration) {
     self.cfg = cfg
   }
-  public typealias Reply = AwardApproval?
-}
-public struct ResolveVacationers: Query {
-  public var cfg: Configuration
-  public init(cfg: Configuration) {
-    self.cfg = cfg
-  }
-  public typealias Reply = Set<String>?
+  public typealias Reply = AwardApproval
 }
 public struct ResolveGitlab: Query {
   public var cfg: Configuration

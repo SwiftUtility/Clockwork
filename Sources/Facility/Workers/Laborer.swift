@@ -23,7 +23,6 @@ public struct Laborer {
   public var resolveProfile: Try.Reply<ResolveProfile>
   public var resolveFileApproval: Try.Reply<ResolveFileApproval>
   public var resolveAwardApproval: Try.Reply<ResolveAwardApproval>
-  public var resolveVacationers: Try.Reply<ResolveVacationers>
   public var sendReport: Try.Reply<SendReport>
   public var logMessage: Act.Reply<LogMessage>
   public var printLine: Act.Of<String>.Go
@@ -47,7 +46,6 @@ public struct Laborer {
     resolveProfile: @escaping Try.Reply<ResolveProfile>,
     resolveFileApproval: @escaping Try.Reply<ResolveFileApproval>,
     resolveAwardApproval: @escaping Try.Reply<ResolveAwardApproval>,
-    resolveVacationers: @escaping Try.Reply<ResolveVacationers>,
     sendReport: @escaping Try.Reply<SendReport>,
     logMessage: @escaping Act.Reply<LogMessage>,
     printLine: @escaping Act.Of<String>.Go
@@ -71,7 +69,6 @@ public struct Laborer {
     self.resolveProfile = resolveProfile
     self.resolveFileApproval = resolveFileApproval
     self.resolveAwardApproval = resolveAwardApproval
-    self.resolveVacationers = resolveVacationers
     self.sendReport = sendReport
     self.logMessage = logMessage
     self.printLine = printLine
@@ -93,7 +90,6 @@ public struct Laborer {
       return false
     }
     var approval = try resolveAwardApproval(.init(cfg: query.cfg))
-      .or { throw Thrown("No approval in profile") }
     approval.consider(state: state)
     let sha = try Id(state.pipeline.sha)
       .map(Git.Sha.init(ref:))
@@ -139,10 +135,7 @@ public struct Laborer {
         .or { throw Thrown("No fileOwnage in profile") },
       changedFiles: changedFiles
     )
-    try approval.consider(
-      awards: getReviewAwarders(gitlab.getParentMrAwarders()),
-      vacationers: resolveVacationers(.init(cfg: query.cfg))
-    )
+    try approval.consider(awards: getReviewAwarders(gitlab.getParentMrAwarders()))
     for award in approval.unhighlighted {
       _ = try postReviewAward(gitlab.postParentMrAward(award: award))
     }

@@ -86,21 +86,26 @@ public struct Configurator {
     .flatMap(\.fileRules)
     .flatMapNil(query.cfg.profile.fileRules)
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([Yaml.FileRule].self, dialect.read(_:from:))?
+    .reduce([Yaml.FileRule].self, dialect.read(_:from:))
+    .or { throw Thrown("FileRules not configured") }
     .map(FileRule.init(yaml:))
   }
   public func resolveAwardApproval(
     query: ResolveAwardApproval
-  ) throws -> ResolveAwardApproval.Reply { try query.cfg.awardApproval
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
-    .map(AwardApproval.make(yaml:))
-  }
-  public func resolveVacationers(
-    query: ResolveVacationers
-  ) throws -> ResolveVacationers.Reply { try query.cfg.vacationers
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Set<String>.self, dialect.read(_:from:))
+  ) throws -> ResolveAwardApproval.Reply {
+    var result = try query.cfg.awardApproval
+      .reduce(query.cfg.git, parse(git:yaml:))
+      .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
+      .map(AwardApproval.make(yaml:))
+      .or { throw Thrown("AwardApproval not configured") }
+    result.consider(
+      activeUsers: try query.cfg.assets
+        .flatMap(\.activeUsers)
+        .reduce(query.cfg.git, parse(git:yaml:))
+        .reduce([String: Bool].self, dialect.read(_:from:))
+        .or([:])
+    )
+    return result
   }
   public func resolveGitlab(
     query: ResolveGitlab
@@ -180,11 +185,8 @@ extension Configurator {
       .map(Configuration.Replication.make(yaml:))
     cfg.integration = try controls.integration
       .map(Configuration.Integration.make(yaml:))
-    if let assets = try controls.assets.map(Configuration.Assets.make(yaml:)) {
-      cfg.builds = assets.builds
-      cfg.versions = assets.versions
-      cfg.vacationers = assets.vacationers
-    }
+    cfg.assets = try controls.assets
+      .map(Configuration.Assets.make(yaml:))
     if let stencil = controls.stencil {
       try parse(stencil: &cfg.stencil, git: cfg.git, ref: cfg.profile.controls.ref, yaml: stencil)
     }

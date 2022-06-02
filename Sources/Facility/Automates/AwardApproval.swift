@@ -2,7 +2,6 @@ import Foundation
 import Facility
 public struct AwardApproval {
   public var holdAward: String
-  public var holdUsers: Set<String>
   public var botLogin: String?
   public var groups: [String: Group]
   public var sanity: String?
@@ -11,7 +10,8 @@ public struct AwardApproval {
   public var personalApproval: [String: Set<String>]
   public var bots: Set<String> = []
   public var author: Set<String> = []
-  public var vacationers: Set<String> = []
+  public var inactiveUsers: Set<String> = []
+  public var activeUsers: Set<String> = []
   public var fileApproval: [String: Criteria]? = nil
   public var labels: Set<String> = []
   public var awarders: [String: Set<String>] = [:]
@@ -23,8 +23,7 @@ public struct AwardApproval {
   public var isEmergent = false
   public var resolver: String?
   public static func make(yaml: Yaml.AwardApproval) throws -> Self { try .init(
-    holdAward: yaml.holders.award,
-    holdUsers: .init(yaml.holders.users),
+    holdAward: yaml.holdAward,
     groups: yaml.groups.mapValues(Group.init(yaml:)),
     sanity: yaml.sanity,
     emergency: yaml.emergency,
@@ -35,6 +34,10 @@ public struct AwardApproval {
       .or([:])
       .mapValues(Set<String>.init(_:))
   )}
+  public mutating func consider(activeUsers: [String: Bool]) {
+    self.activeUsers = Set(activeUsers.filter(\.value).keys)
+    self.inactiveUsers = Set(activeUsers.keys).subtracting(self.activeUsers)
+  }
   public mutating func consider(gitlab: Gitlab) {
     botLogin = gitlab.botLogin
     bots.insert(gitlab.botLogin)
@@ -75,18 +78,17 @@ public struct AwardApproval {
       }
     }
   }
-  public mutating func consider(awards: [Json.GitlabAward], vacationers: Set<String>?) throws {
+  public mutating func consider(awards: [Json.GitlabAward]) throws {
     for award in awards {
       awarders[award.name] = awarders[award.name].or([]).union([award.user.username])
     }
-    self.vacationers = vacationers.or([])
     for group in involved.union([holdAward]) {
       if awarders[group].or([]).intersection(bots).isEmpty { unhighlighted.insert(group) }
       awarders[group] = awarders[group]?.subtracting(bots)
     }
     self.holders = awarders[holdAward]
       .or([])
-      .intersection(holdUsers)
+      .intersection(activeUsers)
     if let emergency = emergency {
       isEmergent = try Id(emergency)
         .map(getGroup(name:))
@@ -97,7 +99,7 @@ public struct AwardApproval {
     for group in involved where !labels.contains(group) {
       unnotified.insert(group)
     }
-    outstanders = bots.union(author).union(self.vacationers)
+    outstanders = bots.union(author).union(self.inactiveUsers)
   }
   public func makeNewApprovals(
     cfg: Configuration,
@@ -147,7 +149,7 @@ public struct AwardApproval {
     cfg: Configuration,
     state: Json.GitlabReviewState
   ) throws -> Report? {
-    var holders = self.holders.subtracting(vacationers)
+    var holders = self.holders.subtracting(inactiveUsers)
     if isEmergent { holders = try emergency
       .map(getGroup(name:))
       .map { $0.required.union($0.reserved) }

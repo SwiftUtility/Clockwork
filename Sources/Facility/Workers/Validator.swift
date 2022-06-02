@@ -56,11 +56,7 @@ public struct Validator {
   public func validateFileRules(
     query: ValidateFileRules
   ) throws -> ValidateFileRules.Reply {
-    let rules = try Id(query.cfg)
-      .reduce(invert: nil, ResolveFileRules.init(cfg:profile:))
-      .map(resolveFileRules)
-      .get()
-      .or { throw Thrown("No fileRules in profile") }
+    let rules = try resolveFileRules(.init(cfg: query.cfg, profile: nil))
     let nameRules = rules.filter { $0.lines.isEmpty }
     let lineRules = rules.filter { !$0.lines.isEmpty }
     let files = try Id

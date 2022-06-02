@@ -27,9 +27,9 @@ public enum Yaml {
   }
   public struct Assets: Decodable {
     public var branch: String
-    public var builds: String?
-    public var versions: String?
-    public var vacationers: String?
+    public var buildNumbers: String?
+    public var productVersions: String?
+    public var activeUsers: String?
   }
   public struct Review: Decodable {
     public var messageTemplate: String?
@@ -77,7 +77,7 @@ public enum Yaml {
     public var envFile: String?
   }
   public struct AwardApproval: Decodable {
-    public var holders: Holders
+    public var holdAward: String
     public var groups: [String: Group]
     public var sanity: String?
     public var emergency: String?

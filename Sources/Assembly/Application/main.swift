@@ -59,7 +59,6 @@ enum Main {
     resolveProfile: configurator.resolveProfile(query:),
     resolveFileApproval: configurator.resolveFileApproval(query:),
     resolveAwardApproval: configurator.resolveAwardApproval(query:),
-    resolveVacationers: configurator.resolveVacationers(query:),
     sendReport: reporter.sendReport(query:),
     logMessage: reporter.logMessage(query:),
     printLine: FileHandle.standardOutput.write(message:)

@@ -9,9 +9,7 @@ public struct Configuration {
   public var notifications: [String: [Notification]] = [:]
   public var requisites: [String: Requisite] = [:]
   public var awardApproval: Git.File?
-  public var builds: Git.File?
-  public var versions: Git.File?
-  public var vacationers: Git.File?
+  public var assets: Assets?
   public var review: Review?
   public var replication: Replication?
   public var integration: Integration?
@@ -75,19 +73,19 @@ public struct Configuration {
     }
   }
   public struct Assets {
-    public var builds: Git.File?
-    public var versions: Git.File?
-    public var vacationers: Git.File?
+    public var buildNumbers: Git.File?
+    public var productVersions: Git.File?
+    public var activeUsers: Git.File?
     public static func make(yaml: Yaml.Assets) throws -> Self {
       let ref = try Git.Ref.make(remote: .init(name: yaml.branch))
       return try .init(
-        builds: yaml.builds
+        buildNumbers: yaml.buildNumbers
           .map(Path.Relative.init(path:))
           .reduce(ref, Git.File.init(ref:path:)),
-        versions: yaml.builds
+        productVersions: yaml.productVersions
           .map(Path.Relative.init(path:))
           .reduce(ref, Git.File.init(ref:path:)),
-        vacationers: yaml.builds
+        activeUsers: yaml.activeUsers
           .map(Path.Relative.init(path:))
           .reduce(ref, Git.File.init(ref:path:))
       )
