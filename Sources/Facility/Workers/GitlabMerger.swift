@@ -1,247 +1,83 @@
 import Foundation
-import Combine
 import Facility
 import FacilityAutomates
 import FacilityQueries
-public struct Laborer {
-  public var handleFileList: Try.Reply<Git.HandleFileList>
-  public var handleLine: Try.Reply<Git.HandleLine>
-  public var handleVoid: Try.Reply<Git.HandleVoid>
-  public var getReviewState: Try.Reply<Gitlab.GetMrState>
-  public var getReviewAwarders: Try.Reply<Gitlab.GetMrAwarders>
-  public var postPipelines: Try.Reply<Gitlab.PostMrPipelines>
-  public var postReviewAward: Try.Reply<Gitlab.PostMrAward>
-  public var putMerge: Try.Reply<Gitlab.PutMrMerge>
-  public var putRebase: Try.Reply<Gitlab.PutMrRebase>
-  public var putState: Try.Reply<Gitlab.PutMrState>
-  public var getPipeline: Try.Reply<Gitlab.GetPipeline>
-  public var postTriggerPipeline: Try.Reply<Gitlab.PostTriggerPipeline>
-  public var postMergeRequests: Try.Reply<Gitlab.PostMergeRequests>
-  public var listShaMergeRequests: Try.Reply<Gitlab.ListShaMergeRequests>
-  public var getPipelineJobs: Try.Reply<Gitlab.GetPipelineJobs>
-  public var postJobsAction: Try.Reply<Gitlab.PostJobsAction>
-  public var renderStencil: Try.Reply<RenderStencil>
-  public var resolveGitlab: Try.Reply<ResolveGitlab>
-  public var resolveProfile: Try.Reply<ResolveProfile>
-  public var resolveFileApproval: Try.Reply<ResolveFileApproval>
-  public var resolveAwardApproval: Try.Reply<ResolveAwardApproval>
-  public var sendReport: Try.Reply<SendReport>
-  public var logMessage: Act.Reply<LogMessage>
-  public var printLine: Act.Of<String>.Go
+public struct GitlabMerger {
+  let getReviewState: Try.Reply<Gitlab.GetMrState>
+  let getPipeline: Try.Reply<Gitlab.GetPipeline>
+  let postPipelines: Try.Reply<Gitlab.PostMrPipelines>
+  let putMerge: Try.Reply<Gitlab.PutMrMerge>
+  let postMergeRequests: Try.Reply<Gitlab.PostMergeRequests>
+  let putState: Try.Reply<Gitlab.PutMrState>
+  let handleVoid: Try.Reply<Git.HandleVoid>
+  let handleLine: Try.Reply<Git.HandleLine>
+  let printLine: Act.Of<String>.Go
+  let renderStencil: Try.Reply<RenderStencil>
+  let resolveGitlab: Try.Reply<ResolveGitlab>
+  let sendReport: Try.Reply<SendReport>
+  let logMessage: Act.Reply<LogMessage>
   public init(
-    handleFileList: @escaping Try.Reply<Git.HandleFileList>,
-    handleLine: @escaping Try.Reply<Git.HandleLine>,
-    handleVoid: @escaping Try.Reply<Git.HandleVoid>,
     getReviewState: @escaping Try.Reply<Gitlab.GetMrState>,
-    getReviewAwarders: @escaping Try.Reply<Gitlab.GetMrAwarders>,
-    postPipelines: @escaping Try.Reply<Gitlab.PostMrPipelines>,
-    postReviewAward: @escaping Try.Reply<Gitlab.PostMrAward>,
-    putMerge: @escaping Try.Reply<Gitlab.PutMrMerge>,
-    putRebase: @escaping Try.Reply<Gitlab.PutMrRebase>,
-    putState: @escaping Try.Reply<Gitlab.PutMrState>,
     getPipeline: @escaping Try.Reply<Gitlab.GetPipeline>,
-    postTriggerPipeline: @escaping Try.Reply<Gitlab.PostTriggerPipeline>,
+    postPipelines: @escaping Try.Reply<Gitlab.PostMrPipelines>,
+    putMerge: @escaping Try.Reply<Gitlab.PutMrMerge>,
     postMergeRequests: @escaping Try.Reply<Gitlab.PostMergeRequests>,
-    listShaMergeRequests: @escaping Try.Reply<Gitlab.ListShaMergeRequests>,
-    getPipelineJobs: @escaping Try.Reply<Gitlab.GetPipelineJobs>,
-    postJobsAction: @escaping Try.Reply<Gitlab.PostJobsAction>,
+    putState: @escaping Try.Reply<Gitlab.PutMrState>,
+    handleVoid: @escaping Try.Reply<Git.HandleVoid>,
+    handleLine: @escaping Try.Reply<Git.HandleLine>,
+    printLine: @escaping Act.Of<String>.Go,
     renderStencil: @escaping Try.Reply<RenderStencil>,
     resolveGitlab: @escaping Try.Reply<ResolveGitlab>,
-    resolveProfile: @escaping Try.Reply<ResolveProfile>,
-    resolveFileApproval: @escaping Try.Reply<ResolveFileApproval>,
-    resolveAwardApproval: @escaping Try.Reply<ResolveAwardApproval>,
     sendReport: @escaping Try.Reply<SendReport>,
-    logMessage: @escaping Act.Reply<LogMessage>,
-    printLine: @escaping Act.Of<String>.Go
+    logMessage: @escaping Act.Reply<LogMessage>
   ) {
-    self.handleFileList = handleFileList
-    self.handleLine = handleLine
-    self.handleVoid = handleVoid
     self.getReviewState = getReviewState
-    self.getReviewAwarders = getReviewAwarders
-    self.postPipelines = postPipelines
-    self.postReviewAward = postReviewAward
-    self.putMerge = putMerge
-    self.putRebase = putRebase
-    self.putState = putState
     self.getPipeline = getPipeline
-    self.postTriggerPipeline = postTriggerPipeline
+    self.postPipelines = postPipelines
+    self.putMerge = putMerge
     self.postMergeRequests = postMergeRequests
-    self.listShaMergeRequests = listShaMergeRequests
-    self.getPipelineJobs = getPipelineJobs
-    self.postJobsAction = postJobsAction
+    self.putState = putState
+    self.handleVoid = handleVoid
+    self.handleLine = handleLine
+    self.printLine = printLine
     self.renderStencil = renderStencil
     self.resolveGitlab = resolveGitlab
-    self.resolveProfile = resolveProfile
-    self.resolveFileApproval = resolveFileApproval
-    self.resolveAwardApproval = resolveAwardApproval
     self.sendReport = sendReport
     self.logMessage = logMessage
-    self.printLine = printLine
   }
-  public func checkAwardApproval(
-    query: Gitlab.CheckAwardApproval
-  ) throws -> Gitlab.CheckAwardApproval.Reply {
-    let gitlab = try resolveGitlab(.init(cfg: query.cfg))
-    let state = try getReviewState(gitlab.getParentMrState())
-    let pipeline = try gitlab.triggererPipeline
-      .or { throw Thrown("No env \(gitlab.parentPipeline)") }
-    guard pipeline == state.pipeline.id, state.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
-    guard try query.cfg.get(env: Gitlab.commitBranch) == state.targetBranch else {
-      logMessage(.init(message: "Target branch changed"))
-      _ = try postPipelines(gitlab.postParentMrPipelines())
-      return false
-    }
-    var approval = try resolveAwardApproval(.init(cfg: query.cfg))
-    approval.consider(state: state)
-    let sha = try Id(state.pipeline.sha)
-      .map(Git.Sha.init(ref:))
-      .map(Git.Ref.make(sha:))
-      .get()
-    let profile = try resolveProfile(.init(git: query.cfg.git, file: .init(
-      ref: sha,
-      path: gitlab.triggererProfile
-        .or { throw Thrown("No env \(gitlab.parentProfile)") }
-    )))
-    let changedFiles: [String]
-    var resolver: String?
-    switch query.mode {
-    case .review:
-      changedFiles = try handleFileList(query.cfg.git.listChangedFiles(
-        source: sha,
-        target: .make(remote: .init(name: state.targetBranch))
-      ))
-      resolver = state.author.username
-    case .replication:
-      changedFiles = try resolveChanges(
-        git: query.cfg.git,
-        gitlab: gitlab,
-        merge: query.cfg.getReplication().makeMerge(branch: state.sourceBranch),
-        state: state,
-        sha: sha
-      )
-    case .integration:
-      changedFiles = try resolveChanges(
-        git: query.cfg.git,
-        gitlab: gitlab,
-        merge: query.cfg.getIntegration().makeMerge(branch: state.sourceBranch),
-        state: state,
-        sha: sha
-      )
-    }
-    try approval.consider(resolver: try resolver.flatMapNil {
-      try resolveOriginalAuthor(cfg: query.cfg, gitlab: gitlab, sha: .init(ref: state.pipeline.sha))
-    })
-    try approval.consider(
-      sanityFiles: gitlab.sanityFiles + profile.sanityFiles,
-      fileApproval: resolveFileApproval(.init(cfg: query.cfg, profile: profile))
-        .or { throw Thrown("No fileOwnage in profile") },
-      changedFiles: changedFiles
-    )
-    try approval.consider(awards: getReviewAwarders(gitlab.getParentMrAwarders()))
-    for award in approval.unhighlighted {
-      _ = try postReviewAward(gitlab.postParentMrAward(award: award))
-    }
-    if let reports = try approval.makeNewApprovals(cfg: query.cfg, state: state) {
-      try reports.forEach { try sendReport(.init(cfg: query.cfg, report: $0)) }
-      _ = try putState(gitlab.putMrState(parameters: .init(
-        addLabels: approval.unnotified
-          .joined(separator: ","),
-        removeLabels: Set(approval.groups.keys)
-          .subtracting(approval.involved)
-          .joined(separator: ",")
-      )))
-    }
-    if let unapprovedGroups = try approval.makeUnapprovedGroups() {
-      unapprovedGroups.forEach { logMessage(.init(message: "\($0) unapproved")) }
-      return false
-    }
-    if let holders = try approval.makeHoldersReport(cfg: query.cfg, state: state) {
-      try sendReport(.init(cfg: query.cfg, report: holders))
-      return false
-    }
-    return true
-  }
-  public func triggerTargetPipeline(
-    query: Gitlab.TriggerPipeline
-  ) throws -> Gitlab.TriggerPipeline.Reply {
-    let gitlab = try resolveGitlab(.init(cfg: query.cfg))
-    var variables = try gitlab.makeTriggererVariables(cfg: query.cfg)
-    for variable in query.context {
-      let index = try variable.firstIndex(of: "=")
-        .or { throw Thrown("wrong argument format \(variable)") }
-      let key = variable[variable.startIndex..<index]
-      let value = variable[index..<variable.endIndex].dropFirst()
-      variables[.init(key)] = .init(value)
-    }
-    _ = try postTriggerPipeline(gitlab.postTriggerPipeline(
-      ref: query.ref,
-      variables: variables
-    ))
-    return true
-  }
-  public func addReviewLabels(
-    query: Gitlab.AddReviewLabels
-  ) throws -> Gitlab.AddReviewLabels.Reply {
-    let gitlab = try resolveGitlab(.init(cfg: query.cfg))
-    let state = try getReviewState(gitlab.getParentMrState())
-    guard
-      case state.pipeline.id? = gitlab.triggererPipeline,
-      state.state == "opened"
-    else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
-    let labels = Set(query.labels).subtracting(.init(state.labels))
-    guard !labels.isEmpty else {
-      logMessage(.init(message: "No new labels"))
-      return true
-    }
-    _ = try putState(gitlab.putMrState(parameters: .init(
-      addLabels: labels.joined(separator: ",")
-    )))
-    logMessage(.init(message: "Labels added"))
-    _ = try postPipelines(gitlab.postParentMrPipelines())
-    return true
-  }
-  public func acceptReview(
-    query: Gitlab.AcceptReview
-  ) throws -> Gitlab.AcceptReview.Reply {
-    let gitlab = try resolveGitlab(.init(cfg: query.cfg))
+  public func acceptReview(cfg: Configuration) throws -> Bool {
+    let gitlab = try resolveGitlab(.init(cfg: cfg))
     let state = try getReviewState(gitlab.getParentMrState())
     let pipeline = try getPipeline(gitlab.getParentPipeline())
     guard pipeline.id == state.pipeline.id, state.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
       return true
     }
-    guard try query.cfg.get(env: Gitlab.commitBranch) == state.targetBranch else {
+    guard try cfg.get(env: Gitlab.commitBranch) == state.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
       _ = try postPipelines(gitlab.postParentMrPipelines())
       return true
     }
-    guard try checkAcceptIssues(cfg: query.cfg, state: state, pipeline: pipeline) else { return true }
+    guard try checkAcceptIssues(cfg: cfg, state: state, pipeline: pipeline) else { return true }
     let head = try Git.Sha(ref: state.pipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: state.targetBranch))
-    let message = try query.cfg.review
+    let message = try cfg.review
       .flatMap(\.messageTemplate)
-      .reduce(Report.Context.make(review: state), query.cfg.makeRenderStencil(context:template:))
+      .reduce(Report.Context.make(review: state), cfg.makeRenderStencil(context:template:))
       .flatMap(renderStencil)
       .or { throw Thrown("Commit message is empty") }
-    guard case ()? = try? handleVoid(query.cfg.git.check(
+    guard case ()? = try? handleVoid(cfg.git.check(
       child: .make(sha: head),
       parent: target
     )) else {
       if let sha = try commitMerge(
-        cfg: query.cfg,
+        cfg: cfg,
         into: target,
         message: message,
         sha: head
       ) {
         logMessage(.init(message: "Review was rebased"))
-        try handleVoid(query.cfg.git.make(push: .init(
+        try handleVoid(cfg.git.make(push: .init(
           url: gitlab.makePushUrl(),
           branch: .init(name: state.sourceBranch),
           sha: sha,
@@ -249,7 +85,7 @@ public struct Laborer {
         )))
       } else {
         logMessage(.init(message: "Automatic rebase failed"))
-        try sendReport(.init(cfg: query.cfg, report: .review(state, .mergeConflicts)))
+        try sendReport(.init(cfg: cfg, report: .review(state, .mergeConflicts)))
       }
       return true
     }
@@ -261,17 +97,17 @@ public struct Laborer {
     )))
     if case "merged"? = result.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
-      try sendReport(.init(cfg: query.cfg, report: .review(state, .accepted)))
+      try sendReport(.init(cfg: cfg, report: .review(state, .accepted)))
       return true
     } else if let message = result.map?["message"]?.value?.string {
       logMessage(.init(message: message))
-      try sendReport(.init(cfg: query.cfg, report: .review(state, .mergeError(message))))
+      try sendReport(.init(cfg: cfg, report: .review(state, .mergeError(message))))
       return true
     } else {
       throw MayDay("Accept review responce not handled")
     }
   }
-  public func startIntegration(configuration cfg: Configuration, target: String) throws -> Bool {
+  public func startIntegration(cfg: Configuration, target: String) throws -> Bool {
     let gitlab = try resolveGitlab(.init(cfg: cfg))
     let integration = try cfg.getIntegration()
     let pushUrl = try gitlab.makePushUrl()
@@ -324,7 +160,7 @@ public struct Laborer {
     )))
     return true
   }
-  public func finishIntegration(configuration cfg: Configuration) throws -> Bool {
+  public func finishIntegration(cfg: Configuration) throws -> Bool {
     let gitlab = try resolveGitlab(.init(cfg: cfg))
     let integration = try cfg.getIntegration()
     let pushUrl = try gitlab.makePushUrl()
@@ -497,24 +333,22 @@ public struct Laborer {
       throw MayDay("Accept review responce not handled")
     }
   }
-  public func generateIntegration(
-    query: Gitlab.GenerateIntegrationJobs
-  ) throws -> Gitlab.GenerateIntegrationJobs.Reply {
-    let gitlab = try resolveGitlab(.init(cfg: query.cfg))
+  public func generateIntegration(cfg: Configuration) throws -> Bool {
+    let gitlab = try resolveGitlab(.init(cfg: cfg))
     let pipeline = try getPipeline(gitlab.getParentPipeline())
     let fork = try Git.Sha(ref: pipeline.sha)
     let source = try Git.Branch(name: pipeline.ref)
-    let rules = try query.cfg.getIntegration().rules
+    let rules = try cfg.getIntegration().rules
       .filter { $0.source.isMet(source.name) }
       .mapEmpty { throw Thrown("Integration for \(source.name) not configured") }
     var targets: [Git.Branch] = []
-    for line in try handleLine(query.cfg.git.listLocalRefs).components(separatedBy: .newlines) {
+    for line in try handleLine(cfg.git.listLocalRefs).components(separatedBy: .newlines) {
       let pair = line.components(separatedBy: .whitespaces)
       guard pair.count == 2 else { throw MayDay("bad git reply") }
       guard let target = try? pair[1].dropPrefix("refs/remotes/origin/") else { continue }
       guard rules.contains(where: { $0.target.isMet(target) }) else { continue }
       let sha = try Git.Sha.init(ref: pair[0])
-      guard case nil = try? handleVoid(query.cfg.git.check(
+      guard case nil = try? handleVoid(cfg.git.check(
         child: .make(sha: sha),
         parent: .make(sha: fork)
       )) else { continue }
@@ -523,7 +357,7 @@ public struct Laborer {
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
     var result = ["include: $\(Gitlab.configPath)"]
     for target in targets {
-      result += try renderStencil(query.cfg.makeRenderIntegrationJob(target: target.name))
+      result += try renderStencil(cfg.makeRenderIntegrationJob(target: target.name))
         .or { throw Thrown("Rendered job is empty") }
         .components(separatedBy: .newlines)
     }
@@ -742,106 +576,6 @@ public struct Laborer {
       force: false
     )))
     return true
-  }
-  public func affectParentJob(
-    configuration cfg: Configuration,
-    name: String,
-    action: Gitlab.JobAction
-  ) throws -> Bool {
-    let gitlab = try resolveGitlab(.init(cfg: cfg))
-    let job = try getPipelineJobs(gitlab.getParentPipelineJobs(action: action))
-      .first { $0.name == name }
-      .or { throw Thrown("Job \(name) not found") }
-    _ = try postJobsAction(gitlab.postJobsAction(job: job.id, action: action))
-    return true
-  }
-  public func createDeployTag(
-    configuration cfg: Configuration
-  ) throws -> Bool {
-    fatalError()
-  }
-  public func createReleaseBranch(
-    configuration cfg: Configuration,
-    product: String
-  ) throws -> Bool {
-    fatalError()
-  }
-  public func createHotfixBranch(
-    configuration cfg: Configuration
-  ) throws -> Bool {
-    fatalError()
-  }
-  public func reserveBuildNumber(
-  configuration cfg: Configuration
-  ) throws -> Bool {
-    fatalError()
-  }
-  public func generateBuild(
-    configuration cfg: Configuration,
-    template: String,
-    buildNumber: Bool
-  ) throws -> Bool {
-    let gitlab = try resolveGitlab(.init(cfg: cfg))
-    guard case nil = gitlab.triggererReview else {
-      let state = try getReviewState(gitlab.getParentMrState())
-      guard case state.pipeline.id? = gitlab.triggererPipeline else {
-        logMessage(.init(message: "Pipeline outdated"))
-        return false
-      }
-      state.targetBranch
-      state.pipeline.sha
-      return true
-    }
-    fatalError()
-  }
-}
-extension Laborer {
-  func resolveChanges(
-    git: Git,
-    gitlab: Gitlab,
-    merge: Configuration.Merge,
-    state: Json.GitlabReviewState,
-    sha: Git.Ref
-  ) throws -> [String] {
-    guard state.targetBranch == merge.target.name else { throw Thrown("Wrong target branch name") }
-    let pipeline = try getPipeline(gitlab.getParentPipeline())
-    guard pipeline.user.username != gitlab.botLogin else { return [] }
-    let initial = try Git.Ref.make(sha: .init(ref: handleLine(git.getSha(ref: .head))))
-    let base = try handleLine(git.mergeBase(.make(remote: merge.target), sha))
-    try handleVoid(git.detach(to: .make(sha: .init(ref: base))))
-    try handleVoid(git.clean)
-    try? handleVoid(git.make(merge: .init(
-      ref: .make(sha: merge.fork),
-      message: nil,
-      noFf: true,
-      env: [:]
-    )))
-    try handleVoid(git.quitMerge)
-    try handleVoid(git.addAll)
-    try handleVoid(git.resetSoft(ref: sha))
-    try handleVoid(git.addAll)
-    let result = try handleFileList(git.listLocalChanges)
-    try handleVoid(git.resetHard(ref: initial))
-    try handleVoid(git.clean)
-    return result
-  }
-  func resolveOriginalAuthor(
-    cfg: Configuration,
-    gitlab: Gitlab,
-    sha: Git.Sha
-  ) throws -> String? {
-    let parents = try handleLine(cfg.git.listParrents(ref: .make(sha: sha)))
-      .components(separatedBy: .newlines)
-    switch parents.count {
-    case 1:
-      return try listShaMergeRequests(gitlab.listShaMergeRequests(sha: sha))
-        .first { $0.squashCommitSha == sha.ref }
-        .map(\.author.username)
-    case 2:
-      return try resolveOriginalAuthor(cfg: cfg, gitlab: gitlab, sha: .init(ref: parents.end))
-    default:
-      throw Thrown("\(sha.ref) has \(parents.count) parents")
-    }
   }
   func checkAcceptIssues(
     cfg: Configuration,

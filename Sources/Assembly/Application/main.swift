@@ -66,6 +66,49 @@ enum Main {
     logMessage: reporter.logMessage(query:),
     printLine: FileHandle.standardOutput.write(message:)
   )
+  static let gitlabAwardApprover = GitlabAwardApprover(
+    handleFileList: Processor.handleProcess(query:),
+    handleLine: Processor.handleProcess(query:),
+    handleVoid: Processor.handleProcess(query:),
+    getReviewState: Processor.handleProcess(query:),
+    postPipelines: Processor.handleProcess(query:),
+    getPipeline: Processor.handleProcess(query:),
+    getReviewAwarders: Processor.handleProcess(query:),
+    postReviewAward: Processor.handleProcess(query:),
+    listShaMergeRequests: Processor.handleProcess(query:),
+    putState: Processor.handleProcess(query:),
+    resolveGitlab: configurator.resolveGitlab(query:),
+    resolveProfile: configurator.resolveProfile(query:),
+    resolveAwardApproval: configurator.resolveAwardApproval(query:),
+    resolveFileApproval: configurator.resolveFileApproval(query:),
+    sendReport: reporter.sendReport(query:),
+    logMessage: reporter.logMessage(query:)
+  )
+  static let gitlabMerger = GitlabMerger(
+    getReviewState: Processor.handleProcess(query:),
+    getPipeline: Processor.handleProcess(query:),
+    postPipelines: Processor.handleProcess(query:),
+    putMerge: Processor.handleProcess(query:),
+    postMergeRequests: Processor.handleProcess(query:),
+    putState: Processor.handleProcess(query:),
+    handleVoid: Processor.handleProcess(query:),
+    handleLine: Processor.handleProcess(query:),
+    printLine: FileHandle.standardOutput.write(message:),
+    renderStencil: stencilParser.renderStencil(query:),
+    resolveGitlab: configurator.resolveGitlab(query:),
+    sendReport: reporter.sendReport(query:),
+    logMessage: reporter.logMessage(query:)
+  )
+  static let gitlabCommunicatior = GitlabCommunicatior(
+    postTriggerPipeline: Processor.handleProcess(query:),
+    getReviewState: Processor.handleProcess(query:),
+    postPipelines: Processor.handleProcess(query:),
+    putState: Processor.handleProcess(query:),
+    getPipelineJobs: Processor.handleProcess(query:),
+    postJobsAction: Processor.handleProcess(query:),
+    resolveGitlab: configurator.resolveGitlab(query:),
+    logMessage: reporter.logMessage(query:)
+  )
   static let stencilParser = StencilParser(notation: .json)
 }
 MayDay.sideEffect = { mayDay in FileHandle.standardError.write(

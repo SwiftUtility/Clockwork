@@ -23,6 +23,7 @@ public enum Yaml {
     public var slackHooks: [String: Token]?
     public var assets: Assets?
     public var gitlab: Gitlab?
+    public var keychain: String?
     public var requisites: [String: Requisite]?
     public var products: [String: Product]?
     public var review: Review?
