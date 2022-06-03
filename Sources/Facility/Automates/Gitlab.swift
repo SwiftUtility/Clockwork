@@ -78,7 +78,7 @@ public struct Gitlab {
       switch self {
       case .play: return "scope=manual"
       case .cancel: return "scope[]=pending&scope[]=running&scope[]=created"
-      case .retry: return "scope[]=failed&scope[]=canceled"
+      case .retry: return "scope[]=failed&scope[]=canceled&scope[]=success"
       }
     }
   }

@@ -10,6 +10,7 @@ public struct Configurator {
   public var gitHandleLine: Try.Reply<Git.HandleLine>
   public var gitHandleCat: Try.Reply<Git.HandleCat>
   public var gitHandleVoid: Try.Reply<Git.HandleVoid>
+  public var logMessage: Act.Reply<LogMessage>
   public var dialect: AnyCodable.Dialect
   public init(
     decodeYaml: @escaping Try.Reply<DecodeYaml>,
@@ -19,6 +20,7 @@ public struct Configurator {
     gitHandleLine: @escaping Try.Reply<Git.HandleLine>,
     gitHandleCat: @escaping Try.Reply<Git.HandleCat>,
     gitHandleVoid: @escaping Try.Reply<Git.HandleVoid>,
+    logMessage: @escaping Act.Reply<LogMessage>,
     dialect: AnyCodable.Dialect = .json
   ) {
     self.decodeYaml = decodeYaml
@@ -28,6 +30,7 @@ public struct Configurator {
     self.gitHandleLine = gitHandleLine
     self.gitHandleCat = gitHandleCat
     self.gitHandleVoid = gitHandleVoid
+    self.logMessage = logMessage
     self.dialect = dialect
   }
   public func resolveConfiguration(
@@ -66,9 +69,15 @@ public struct Configurator {
   ) throws -> ResolveProfile.Reply {
     let yaml = try dialect.read(Yaml.Profile.self, from: parse(git: query.git, yaml: query.file))
     var result = try Configuration.Profile.make(file: query.file, yaml: yaml)
-    if let stencil = yaml.stencil {
-      try parse(stencil: &result.stencil, git: query.git, ref: query.file.ref, yaml: stencil)
-    }
+    result.context = try yaml.context
+      .map(Path.Relative.init(path:))
+      .reduce(query.file.ref, Git.File.init(ref:path:))
+      .reduce(query.git, parse(git:yaml:))
+    result.templates = try yaml.templates
+      .map(Path.Relative.init(path:))
+      .reduce(query.file.ref, Git.Dir.init(ref:path:))
+      .reduce(query.git, parse(git:templates:))
+      .or([:])
     return result
   }
   public func resolveFileApproval(
@@ -142,37 +151,29 @@ extension Configurator {
     }
   }
   func parse(
-    stencil: inout Configuration.Stencil,
     git: Git,
-    ref: Git.Ref,
-    yaml: Yaml.Stencil
-  ) throws {
-    stencil.custom = try yaml.custom
-      .map(Path.Relative.init(path:))
-      .reduce(ref, Git.File.init(ref:path:))
-      .reduce(git, parse(git:yaml:))
-    let files = try Id(yaml.templates)
-      .map(Path.Relative.init(path:))
-      .reduce(ref, Git.Dir.init(ref:path:))
-      .map(git.listTreeTrackedFiles(dir:))
-      .map(gitHandleFileList)
-      .get()
-    for file in files {
-      let template = try file.dropPrefix("\(yaml.templates)/")
-      stencil.templates[template] = try Id(file)
+    templates: Git.Dir
+  ) throws -> [String: String] {
+    var result: [String: String] = [:]
+    for file in try gitHandleFileList(git.listTreeTrackedFiles(dir: templates)) {
+      let template = try file.dropPrefix("\(templates.path.path)/")
+      result[template] = try Id(file)
         .map(Path.Relative.init(path:))
-        .reduce(ref, Git.File.init(ref:path:))
+        .reduce(templates.ref, Git.File.init(ref:path:))
         .map(git.cat(file:))
         .map(gitHandleCat)
         .map(String.make(utf8:))
         .get()
     }
+    return result
   }
   func enrich(cfg: inout Configuration) throws {
     let controls = try Id(cfg.profile.controls)
       .reduce(cfg.git, parse(git:yaml:))
       .reduce(Yaml.Controls.self, dialect.read(_:from:))
       .get()
+    let sha = try gitHandleLine(cfg.git.getSha(ref: cfg.profile.controls.ref))
+    logMessage(.init(message: "Controls: \(sha)"))
     cfg.awardApproval = try controls.awardApproval
       .map(Path.Relative.init(path:))
       .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
@@ -183,13 +184,18 @@ extension Configurator {
       .map(Configuration.Review.make(yaml:))
     cfg.replication = try controls.replication
       .map(Configuration.Replication.make(yaml:))
-    cfg.integration = try controls.integration
-      .map(Configuration.Integration.make(yaml:))
+    cfg.integration = try .make(yaml: controls)
     cfg.assets = try controls.assets
       .map(Configuration.Assets.make(yaml:))
-    if let stencil = controls.stencil {
-      try parse(stencil: &cfg.stencil, git: cfg.git, ref: cfg.profile.controls.ref, yaml: stencil)
-    }
+    cfg.custom = try controls.custom
+      .map(Path.Relative.init(path:))
+      .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
+      .reduce(cfg.git, parse(git:yaml:))
+    cfg.templates = try controls.templates
+      .map(Path.Relative.init(path:))
+      .reduce(cfg.profile.controls.ref, Git.Dir.init(ref:path:))
+      .reduce(cfg.git, parse(git:templates:))
+      .or([:])
     let slackHooks = try controls.slackHooks
       .or([:])
       .mapValues { try parse(env: cfg.env, token: Configuration.Token.init(yaml: $0)) }
@@ -198,25 +204,13 @@ extension Configurator {
       .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
       .reduce(cfg.git, parse(git:yaml:))
       .reduce(Yaml.Notifications.self, dialect.read(_:from:))
-    for jsonStdout in notifications.flatMap(\.jsonStdout).or([]) {
-      guard cfg.stencil.templates[jsonStdout.template] != nil else {
-        throw Thrown("controls.stencil.templates: no \(jsonStdout.template)")
-      }
-      let notification = Id(jsonStdout.template)
-        .map(Configuration.Notification.JsonStdOut.init(template:))
-        .map(Configuration.Notification.jsonStdOut(_:))
-        .get()
-      for event in jsonStdout.events {
-        cfg.notifications[event] = cfg.notifications[event].or([]) + [notification]
-      }
-    }
     for slackHook in notifications.flatMap(\.slackHooks).or([]) {
-      guard cfg.stencil.templates[slackHook.template] != nil else {
-        throw Thrown("controls.stencil.templates: no \(slackHook.template)")
+      guard cfg.templates[slackHook.template] != nil else {
+        throw Thrown("No \(slackHook.template) in templates")
       }
       let notification = try Configuration.Notification.slackHook(.init(
         url: slackHooks[slackHook.hook]
-          .or { throw Thrown("controls.slackHooks: no \(slackHook.hook)") },
+          .or { throw Thrown("No \(slackHook.hook) in slackHooks") },
         template: slackHook.template,
         userName: slackHook.userName,
         channel: slackHook.channel,

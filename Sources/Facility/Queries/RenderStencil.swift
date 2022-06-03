@@ -10,18 +10,18 @@ public struct RenderStencil: Query {
 public extension Configuration {
   func makeRenderStencil(context: Encodable, template: String) -> RenderStencil { .init(
     template: template,
-    templates: stencil.templates,
+    templates: templates,
     context: context
   )}
   func makeRenderStencil(merge: Configuration.Merge) -> RenderStencil { .init(
     template: merge.template,
-    templates: stencil.templates,
+    templates: templates,
     context: Configuration.Merge.Context.make(cfg: self, merge: merge)
   )}
   func makeRenderIntegrationJob(target: String) throws -> RenderStencil { try .init(
     template: profile.integrationJobTemplate
       .or { throw Thrown("Integration not configured localliy") },
-    templates: profile.stencil.templates,
+    templates: profile.templates,
     context: ["target": target]
   )}
 }

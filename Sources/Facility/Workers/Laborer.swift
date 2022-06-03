@@ -278,7 +278,7 @@ public struct Laborer {
     let pipeline = try getPipeline(gitlab.getParentPipeline())
     let merge = try integration.makeMerge(target: target, source: pipeline.ref, sha: pipeline.sha)
     guard integration.rules.contains(where: { rule in
-      rule.users.contains(gitlab.user)
+      rule.mainatiners.contains(gitlab.user)
       && rule.target.isMet(merge.target.name)
       && rule.source.isMet(merge.source.name)
     }) else { throw Thrown("Integration not allowed for \(gitlab.user)") }
@@ -743,7 +743,7 @@ public struct Laborer {
     )))
     return true
   }
-  public func changeParentJob(
+  public func affectParentJob(
     configuration cfg: Configuration,
     name: String,
     action: Gitlab.JobAction
@@ -755,7 +755,43 @@ public struct Laborer {
     _ = try postJobsAction(gitlab.postJobsAction(job: job.id, action: action))
     return true
   }
-  public func resolveBuild(configuration cfg: Configuration) -> Bool {
+  public func createDeployTag(
+    configuration cfg: Configuration
+  ) throws -> Bool {
+    fatalError()
+  }
+  public func createReleaseBranch(
+    configuration cfg: Configuration,
+    product: String
+  ) throws -> Bool {
+    fatalError()
+  }
+  public func createHotfixBranch(
+    configuration cfg: Configuration
+  ) throws -> Bool {
+    fatalError()
+  }
+  public func reserveBuildNumber(
+  configuration cfg: Configuration
+  ) throws -> Bool {
+    fatalError()
+  }
+  public func generateBuild(
+    configuration cfg: Configuration,
+    template: String,
+    buildNumber: Bool
+  ) throws -> Bool {
+    let gitlab = try resolveGitlab(.init(cfg: cfg))
+    guard case nil = gitlab.triggererReview else {
+      let state = try getReviewState(gitlab.getParentMrState())
+      guard case state.pipeline.id? = gitlab.triggererPipeline else {
+        logMessage(.init(message: "Pipeline outdated"))
+        return false
+      }
+      state.targetBranch
+      state.pipeline.sha
+      return true
+    }
     fatalError()
   }
 }

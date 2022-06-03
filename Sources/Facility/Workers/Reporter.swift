@@ -49,17 +49,6 @@ public struct Reporter {
         .map(String.make(utf8:))
         .reduce(slackHook.url, HandleSlackHook.init(url:payload:))
         .map(handleSlackHook)
-      case .jsonStdOut(let jsonStdOut): try Id
-        .make(query.cfg.makeRenderStencil(
-          context: query.report.makeContext(cfg: query.cfg),
-          template: jsonStdOut.template
-        ))
-        .map(renderStencil)
-        .get()
-        .map { [query.report.name: $0] }
-        .map(encoder.encode(_:))
-        .map(String.make(utf8:))
-        .map(printLine)
       }
     }
   }

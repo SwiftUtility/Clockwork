@@ -4,7 +4,8 @@ public struct Configuration {
   public var git: Git
   public var env: [String: String]
   public var profile: Profile
-  public var stencil: Stencil = .init()
+  public var templates: [String: String] = [:]
+  public var custom: AnyCodable?
   public var gitlab: Yaml.Gitlab?
   public var notifications: [String: [Notification]] = [:]
   public var requisites: [String: Requisite] = [:]
@@ -22,11 +23,6 @@ public struct Configuration {
     self.env = env
     self.profile = profile
   }
-  public var context: Context { .init(
-    git: .init(author: git.author, head: git.head),
-    env: env,
-    custom: stencil.custom
-  )}
   public func get(env key: String) throws -> String {
     try env[key].or { throw Thrown("No \(key) in environment") }
   }
@@ -46,7 +42,8 @@ public struct Configuration {
     public var fileRules: Git.File?
     public var obsolete: Criteria?
     public var integrationJobTemplate: String?
-    public var stencil: Stencil = .init()
+    public var templates: [String: String] = [:]
+    public var context: AnyCodable?
     public static func make(
       file: Git.File,
       yaml: Yaml.Profile
@@ -116,7 +113,6 @@ public struct Configuration {
   }
   public enum Notification {
     case slackHook(SlackHook)
-    case jsonStdOut(JsonStdOut)
     public struct SlackHook {
       public var url: String
       public var template: String
@@ -148,10 +144,6 @@ public struct Configuration {
         var channel: String?
         var iconEmoji: String?
       }
-    }
-    public struct JsonStdOut {
-      public var template: String
-      public init(template: String) { self.template = template }
     }
   }
   public enum Token {
@@ -190,7 +182,7 @@ public struct Configuration {
     public var target: String
     public static func make(yaml: Yaml.Replication) throws -> Self { try .init(
       messageTemplate: yaml.messageTemplate,
-      prefix: yaml.prefix.or("replicate"),
+      prefix: yaml.prefix,
       source: .init(yaml: yaml.source),
       target: yaml.target
     )}
@@ -223,16 +215,21 @@ public struct Configuration {
     public var messageTemplate: String
     public var prefix: String
     public var rules: [Rule]
-    public static func make(yaml: Yaml.Integration) throws -> Self {
-      let users = yaml.users.map(Set.init(_:)).or([])
+    public static func make(yaml: Yaml.Controls) throws -> Self? {
+      var mainatiners = yaml.mainatiners.map(Set.init(_:)).or([])
+      guard let yaml = yaml.integration else { return nil }
+      mainatiners = yaml.mainatiners
+        .map(Set.init(_:))
+        .or([])
+        .union(mainatiners)
       return try .init(
         messageTemplate: yaml.messageTemplate,
-        prefix: yaml.prefix.or("integrate"),
+        prefix: yaml.prefix,
         rules: yaml.rules.map { rule in try .init(
-          users: rule.users
+          mainatiners: rule.mainatiners
             .map(Set.init(_:))
             .or([])
-            .union(users),
+            .union(mainatiners),
           source: .init(yaml: rule.source),
           target: .init(yaml: rule.target)
         )}
@@ -261,7 +258,7 @@ public struct Configuration {
       )
     }
     public struct Rule {
-      public var users: Set<String>
+      public var mainatiners: Set<String>
       public var source: Criteria
       public var target: Criteria
     }
@@ -282,7 +279,7 @@ public struct Configuration {
       public var supply: String
       public static func make(cfg: Configuration, merge: Merge) -> Self { .init(
         env: cfg.env,
-        custom: cfg.stencil.custom,
+        custom: cfg.custom,
         fork: merge.fork.ref,
         source: merge.source.name,
         target: merge.target.name,

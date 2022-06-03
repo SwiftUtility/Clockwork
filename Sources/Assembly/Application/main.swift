@@ -10,6 +10,13 @@ import InteractivityStencil
 import InteractivityPathKit
 enum Main {
   static let version = "0.0.1"
+  static let reporter = Reporter(
+    logLine: FileHandle.standardError.write(message:),
+    printLine: FileHandle.standardOutput.write(message:),
+    getTime: Date.init,
+    renderStencil: stencilParser.renderStencil(query:),
+    handleSlackHook: Processor.handleProcess(query:)
+  )
   static let configurator = Configurator(
     decodeYaml: YamlParser.decodeYaml(query:),
     resolveAbsolutePath: Finder.resolveAbsolutePath(query:),
@@ -17,14 +24,8 @@ enum Main {
     gitHandleFileList: Processor.handleProcess(query:),
     gitHandleLine: Processor.handleProcess(query:),
     gitHandleCat: Processor.handleProcess(query:),
-    gitHandleVoid: Processor.handleProcess(query:)
-  )
-  static let reporter = Reporter(
-    logLine: FileHandle.standardError.write(message:),
-    printLine: FileHandle.standardOutput.write(message:),
-    getTime: Date.init,
-    renderStencil: stencilParser.renderStencil(query:),
-    handleSlackHook: Processor.handleProcess(query:)
+    gitHandleVoid: Processor.handleProcess(query:),
+    logMessage: reporter.logMessage(query:)
   )
   static let environment = ProcessInfo.processInfo.environment
   static let validator = Validator(

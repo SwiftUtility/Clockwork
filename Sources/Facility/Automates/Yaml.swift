@@ -6,7 +6,8 @@ public enum Yaml {
     public var fileApproval: String?
     public var fileRules: String?
     public var obsolete: Criteria?
-    public var stencil: Stencil?
+    public var templates: String?
+    public var context: String?
     public var integrationJobTemplate: String?
     public struct Controls: Decodable {
       public var branch: String
@@ -14,9 +15,11 @@ public enum Yaml {
     }
   }
   public struct Controls: Decodable {
+    public var mainatiners: [String]?
     public var notifications: String?
     public var awardApproval: String?
-    public var stencil: Stencil?
+    public var templates: String?
+    public var custom: String?
     public var slackHooks: [String: Token]?
     public var assets: Assets?
     public var gitlab: Gitlab?
@@ -28,21 +31,22 @@ public enum Yaml {
     public var buildNumberEnv: String?
   }
   public struct Product: Decodable {
-    public var tagWithBuild: Criteria?
-    public var tagWithVersion: Criteria?
-    public var branchWithVersion: Criteria?
-    public var releaseBranchTemplate: String?
-    public var releaseBranchCriteria: Criteria?
-    public var deployTagTemplate: String?
-    public struct DeployTag {
-      public var name: Criteria?
+    public var mainatiners: [String]?
+    public var deployTag: DeployTag?
+    public var releaseBranch: ReleaseBranch?
+    public struct DeployTag: Decodable {
+      public var mainatiners: [String]?
+      public var nameRule: Criteria
       public var createTemplate: String?
-      public var parseBuild: String?
-      public var parseVersion: String?
+      public var buildTemplate: String?
+      public var versionTemplate: String
     }
-    public struct ReleaseBranch {
-      public var name: Criteria?
-      public var createTemplate: String?
+    public struct ReleaseBranch: Decodable {
+      public var mainatiners: [String]?
+      public var nameRule: Criteria
+      public var createTemplate: String
+      public var versionTemplate: String
+      public var jobsTemplate: String
     }
   }
   public struct Assets: Decodable {
@@ -56,18 +60,18 @@ public enum Yaml {
     public var titleRule: Criteria?
   }
   public struct Replication: Decodable {
-    public var messageTemplate: String
     public var target: String
-    public var prefix: String?
+    public var prefix: String
     public var source: Criteria
+    public var messageTemplate: String
   }
   public struct Integration: Decodable {
-    public var messageTemplate: String
-    public var prefix: String?
+    public var mainatiners: [String]?
     public var rules: [Rule]
-    public var users: [String]?
+    public var prefix: String
+    public var messageTemplate: String
     public struct Rule: Decodable {
-      public var users: [String]?
+      public var mainatiners: [String]?
       public var source: Criteria
       public var target: Criteria
     }
@@ -78,10 +82,6 @@ public enum Yaml {
     public var parentPipeline: String
     public var parentReview: String
     public var parentProfile: String
-  }
-  public struct Stencil: Decodable {
-    public var templates: String
-    public var custom: String?
   }
   public struct Requisite: Decodable {
     public var provisions: String?
@@ -119,17 +119,12 @@ public enum Yaml {
   }
   public struct Notifications: Decodable {
     public var slackHooks: [SlackHook]?
-    public var jsonStdout: [JsonStdout]?
     public struct SlackHook: Decodable {
       public var hook: String
       public var template: String
       public var userName: String?
       public var channel: String?
       public var emojiIcon: String?
-      public var events: [String]
-    }
-    public struct JsonStdout: Decodable {
-      public var template: String
       public var events: [String]
     }
   }

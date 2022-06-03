@@ -105,7 +105,7 @@ public enum Report {
     public func add(cfg: Configuration) -> Self {
       var this = self
       this.env = cfg.env
-      this.custom = cfg.stencil.custom
+      this.custom = cfg.custom
       return this
     }
     public static func make(review state: Json.GitlabReviewState) -> Self {
@@ -126,13 +126,13 @@ public enum Report {
 public extension Configuration {
   func makeReport(error: Error) -> Report { .unepected(.init(
     env: env,
-    custom: stencil.custom,
+    custom: custom,
     user: env[Gitlab.userLogin],
     error: "\(error)"
   ))}
   var fileRulesIssues: Report.FileRulesIssues { .init(
     env: env,
-    custom: stencil.custom,
+    custom: custom,
     user: env[Gitlab.userLogin],
     issues: []
   )}

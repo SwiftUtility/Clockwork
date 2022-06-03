@@ -128,13 +128,13 @@ public struct AwardApproval {
     return [.approvalGroups(.init(
       env: cfg.env,
       review: state,
-      custom: cfg.stencil.custom,
+      custom: cfg.custom,
       user: resolver.flatMapNil(botLogin),
       groups: newGroups
     ))] + newGroups.map { group in Report.approvalGroup(.init(
       env: cfg.env,
       review: state,
-      custom: cfg.stencil.custom,
+      custom: cfg.custom,
       user: resolver.flatMapNil(botLogin),
       group: group
     ))}
@@ -160,7 +160,7 @@ public struct AwardApproval {
     return .approvalHolders(.init(
       env: cfg.env,
       review: state,
-      custom: cfg.stencil.custom,
+      custom: cfg.custom,
       user: resolver.flatMapNil(botLogin),
       holders: holders
     ))
