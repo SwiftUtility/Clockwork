@@ -29,7 +29,6 @@ public enum Yaml {
     public var review: Review?
     public var replication: Replication?
     public var integration: Integration?
-    public var buildNumberEnv: String?
     public var forbiddenCommits: [String]?
   }
   public struct Product: Decodable {

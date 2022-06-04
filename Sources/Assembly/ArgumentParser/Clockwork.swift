@@ -27,9 +27,9 @@ struct Clockwork: ParsableCommand {
       RenderGitlabIntegration.self,
       StartGitlabIntegration.self,
       FinishGitlabIntegration.self,
-      InstallProvisions.self,
-      InstallKeychains.self,
-      InstallRequisites.self,
+      ImportProvisions.self,
+      ImportKeychains.self,
+      ImportRequisites.self,
       ReportExpiringRequisites.self,
       CreateDeployTag.self,
       CreateReleaseBranch.self,
@@ -169,31 +169,31 @@ struct Clockwork: ParsableCommand {
       try Main.gitlabMerger.finishIntegration(cfg: cfg)
     }
   }
-  struct InstallProvisions: ClockworkCommand {
+  struct ImportProvisions: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     @Argument(help: "Groups to install, all when empty")
     var requisites: [String] = []
     static var abstract: String { "Import provisions locally" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.installProvisions(cfg: cfg, requisites: requisites)
+      try Main.requisitor.importProvisions(cfg: cfg, requisites: requisites)
     }
   }
-  struct InstallKeychains: ClockworkCommand {
+  struct ImportKeychains: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     @Argument(help: "Groups to install, all when empty")
     var requisites: [String] = []
     static var abstract: String { "Import p12 and setup xcode access" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.installKeychains(cfg: cfg, requisites: requisites)
+      try Main.requisitor.importKeychains(cfg: cfg, requisites: requisites)
     }
   }
-  struct InstallRequisites: ClockworkCommand {
+  struct ImportRequisites: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     @Argument(help: "Groups to install, all when empty")
     var requisites: [String] = []
     static var abstract: String { "Import p12 and provisions" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.installRequisites(cfg: cfg, requisites: requisites)
+      try Main.requisitor.importRequisites(cfg: cfg, requisites: requisites)
     }
   }
   struct ReportExpiringRequisites: ClockworkCommand {
