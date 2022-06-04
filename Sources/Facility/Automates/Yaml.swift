@@ -30,6 +30,7 @@ public enum Yaml {
     public var replication: Replication?
     public var integration: Integration?
     public var buildNumberEnv: String?
+    public var forbiddenCommits: [String]?
   }
   public struct Product: Decodable {
     public var mainatiners: [String]?

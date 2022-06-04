@@ -40,32 +40,7 @@ enum Main {
     sendReport: reporter.sendReport(query:),
     logMessage: reporter.logMessage(query:)
   )
-  static let laborer = Laborer(
-    handleFileList: Processor.handleProcess(query:),
-    handleLine: Processor.handleProcess(query:),
-    handleVoid: Processor.handleProcess(query:),
-    getReviewState: Processor.handleProcess(query:),
-    getReviewAwarders: Processor.handleProcess(query:),
-    postPipelines: Processor.handleProcess(query:),
-    postReviewAward: Processor.handleProcess(query:),
-    putMerge: Processor.handleProcess(query:),
-    putRebase: Processor.handleProcess(query:),
-    putState: Processor.handleProcess(query:),
-    getPipeline: Processor.handleProcess(query:),
-    postTriggerPipeline: Processor.handleProcess(query:),
-    postMergeRequests: Processor.handleProcess(query:),
-    listShaMergeRequests: Processor.handleProcess(query:),
-    getPipelineJobs: Processor.handleProcess(query:),
-    postJobsAction: Processor.handleProcess(query:),
-    renderStencil: stencilParser.renderStencil(query:),
-    resolveGitlab: configurator.resolveGitlab(query:),
-    resolveProfile: configurator.resolveProfile(query:),
-    resolveFileApproval: configurator.resolveFileApproval(query:),
-    resolveAwardApproval: configurator.resolveAwardApproval(query:),
-    sendReport: reporter.sendReport(query:),
-    logMessage: reporter.logMessage(query:),
-    printLine: FileHandle.standardOutput.write(message:)
-  )
+  static let requisitor = Requisitor()
   static let gitlabAwardApprover = GitlabAwardApprover(
     handleFileList: Processor.handleProcess(query:),
     handleLine: Processor.handleProcess(query:),
@@ -109,12 +84,13 @@ enum Main {
     resolveGitlab: configurator.resolveGitlab(query:),
     logMessage: reporter.logMessage(query:)
   )
+  static let gitlabVersionController = GitlabVersionController()
   static let stencilParser = StencilParser(notation: .json)
 }
 MayDay.sideEffect = { mayDay in FileHandle.standardError.write(
   message: """
     ⚠️⚠️⚠️
-    Please submit an issue at https://github.com/VladimirBorodko/team-builder/issues/new/choose
+    Please submit an issue at https://github.com/SwiftUtility/Clockwork/issues/new/choose
     Version: \(Main.version)
     What: \(mayDay.what)
     File: \(mayDay.file)

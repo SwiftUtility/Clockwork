@@ -14,6 +14,7 @@ public struct Configuration {
   public var review: Review?
   public var replication: Replication?
   public var integration: Integration?
+  public var forbiddenCommits: [Git.Sha] = []
   public init(
     git: Git,
     env: [String : String],

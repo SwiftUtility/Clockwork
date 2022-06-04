@@ -174,6 +174,9 @@ extension Configurator {
       .get()
     let sha = try gitHandleLine(cfg.git.getSha(ref: cfg.profile.controls.ref))
     logMessage(.init(message: "Controls: \(sha)"))
+    cfg.forbiddenCommits = try controls.forbiddenCommits
+      .or([])
+      .map(Git.Sha.init(ref:))
     cfg.awardApproval = try controls.awardApproval
       .map(Path.Relative.init(path:))
       .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))

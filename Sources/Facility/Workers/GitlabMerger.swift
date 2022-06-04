@@ -333,7 +333,7 @@ public struct GitlabMerger {
       throw MayDay("Accept review responce not handled")
     }
   }
-  public func generateIntegration(cfg: Configuration) throws -> Bool {
+  public func renderIntegration(cfg: Configuration) throws -> Bool {
     let gitlab = try resolveGitlab(.init(cfg: cfg))
     let pipeline = try getPipeline(gitlab.getParentPipeline())
     let fork = try Git.Sha(ref: pipeline.sha)

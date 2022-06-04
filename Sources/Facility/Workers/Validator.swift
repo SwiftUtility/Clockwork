@@ -36,35 +36,31 @@ public struct Validator {
     self.sendReport = sendReport
     self.logMessage = logMessage
   }
-  public func validateUnownedCode(
-    query: ValidateUnownedCode
-  ) throws -> ValidateUnownedCode.Reply {
-    let approvals = try Id(query.cfg)
+  public func validateUnownedCode(cfg: Configuration) throws -> Bool {
+    let approvals = try Id(cfg)
       .reduce(invert: nil, ResolveFileApproval.init(cfg:profile:))
       .map(resolveFileApproval)
       .get()
       .or { throw Thrown("No fileOwnage in profile") }
     let issues = try Id
-      .make(query.cfg.git)
+      .make(cfg.git)
       .reduce(curry: .head, Git.listAllTrackedFiles(ref:))
       .map(handleFileList)
       .get()
       .filter { file in !approvals.contains { $0.value.isMet(file) } }
       .map { "\($0) unowned" }
-    return try report(cfg: query.cfg, issues: issues)
+    return try report(cfg: cfg, issues: issues)
   }
-  public func validateFileRules(
-    query: ValidateFileRules
-  ) throws -> ValidateFileRules.Reply {
-    let rules = try resolveFileRules(.init(cfg: query.cfg, profile: nil))
+  public func validateFileRules(cfg: Configuration) throws -> Bool {
+    let rules = try resolveFileRules(.init(cfg: cfg, profile: nil))
     let nameRules = rules.filter { $0.lines.isEmpty }
     let lineRules = rules.filter { !$0.lines.isEmpty }
     let files = try Id
       .make(Git.Ref.head)
-      .map(query.cfg.git.listAllTrackedFiles(ref:))
+      .map(cfg.git.listAllTrackedFiles(ref:))
       .map(handleFileList)
       .get()
-    var issues = query.cfg.fileRulesIssues
+    var issues = cfg.fileRulesIssues
     for file in files {
       issues.issues += nameRules
         .filter { $0.files.isMet(file) }
@@ -73,7 +69,7 @@ public struct Validator {
         .filter { $0.files.isMet(file) }
       if lineRules.isEmpty { continue }
       issues.issues += try Id(file)
-        .map(query.cfg.git.root.makeResolve(path:))
+        .map(cfg.git.root.makeResolve(path:))
         .map(resolveAbsolutePath)
         .map(ListFileLines.init(file:))
         .map(listFileLines)
@@ -89,49 +85,49 @@ public struct Validator {
       .map(\.logMessage)
       .map(LogMessage.init(message:))
       .forEach(logMessage)
-    try sendReport(.init(cfg: query.cfg, report: .fileRulesIssues(issues)))
+    try sendReport(.init(cfg: cfg, report: .fileRulesIssues(issues)))
     return false
   }
-  public func validateReviewTitle(
-    query: ValidateReviewTitle
-  ) throws -> ValidateReviewTitle.Reply {
-    let titleRule = try query.cfg
+  public func validateReviewTitle(cfg: Configuration, title: String) throws -> Bool {
+    let titleRule = try cfg
       .getReview()
       .titleRule
       .or { throw Thrown("titleRule not configured") }
-    guard titleRule.isMet(query.title) else { return true }
-    return try report(cfg: query.cfg, issues: ["Invalid title: \(query.title)"])
+    guard titleRule.isMet(title) else { return true }
+    return try report(cfg: cfg, issues: ["Invalid title: \(title)"])
   }
-  public func validateReviewObsolete(
-    query: ValidateReviewObsolete
-  ) throws -> ValidateReviewObsolete.Reply {
-    let obsolete = try query.cfg.profile.obsolete
+  public func validateReviewObsolete(cfg: Configuration, target: String) throws -> Bool {
+    let obsolete = try cfg.profile.obsolete
       .or { throw Thrown("no obsolete in profile") }
-    let files = try handleFileList(query.cfg.git.listChangedOutsideFiles(
+    let files = try handleFileList(cfg.git.listChangedOutsideFiles(
       source: .head,
-      target: .make(remote: .init(name: query.target))
+      target: .make(remote: .init(name: target))
     ))
     var issues: [String] = []
     for file in files {
       guard obsolete.isMet(file) else { continue }
       issues.append("\(file): Changes not included")
     }
-    return try report(cfg: query.cfg, issues: issues)
+    for sha in cfg.forbiddenCommits {
+      guard case ()? = try? handleVoid(cfg.git.check(child: .head, parent: .make(sha: sha))) else {
+        continue
+      }
+      issues.append("Forbidden commit \(sha.ref)")
+    }
+    return try report(cfg: cfg, issues: issues)
   }
-  public func validateReviewConflictMarkers(
-    query: ValidateReviewConflictMarkers
-  ) throws -> ValidateReviewConflictMarkers.Reply {
-    let initial = try Git.Ref.make(sha: .init(ref: handleLine(query.cfg.git.getSha(ref: .head))))
-    let base = try handleLine(query.cfg.git.mergeBase(
+  public func validateReviewConflictMarkers(cfg: Configuration, target: String) throws -> Bool {
+    let initial = try Git.Ref.make(sha: .init(ref: handleLine(cfg.git.getSha(ref: .head))))
+    let base = try handleLine(cfg.git.mergeBase(
       .head,
-      .make(remote: .init(name: query.target))
+      .make(remote: .init(name: target))
     ))
-    try handleVoid(query.cfg.git.resetSoft(ref: .make(sha: .init(ref: base))))
-    let issues = try handleLine(query.cfg.git.listConflictMarkers)
+    try handleVoid(cfg.git.resetSoft(ref: .make(sha: .init(ref: base))))
+    let issues = try handleLine(cfg.git.listConflictMarkers)
       .components(separatedBy: .newlines)
-    try handleVoid(query.cfg.git.resetHard(ref: initial))
-    try handleVoid(query.cfg.git.clean)
-    return try report(cfg: query.cfg, issues: issues)
+    try handleVoid(cfg.git.resetHard(ref: initial))
+    try handleVoid(cfg.git.clean)
+    return try report(cfg: cfg, issues: issues)
   }
 }
 extension Validator {
