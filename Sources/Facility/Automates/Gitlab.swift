@@ -44,7 +44,7 @@ public struct Gitlab {
           .or { throw Thrown("parentReview wrong format") }
       }
       if let triggererProfile = cfg.env[yaml.parentProfile] {
-        self.triggererProfile = try .init(path: triggererProfile)
+        self.triggererProfile = try .init(value: triggererProfile)
       }
     }
     if case "true" = cfg.env["CI_COMMIT_REF_PROTECTED"] {
@@ -54,7 +54,7 @@ public struct Gitlab {
   public func makeTriggererVariables(cfg: Configuration) throws -> [String: String] {
     var result = try [
       parentPipeline: cfg.get(env: "CI_PIPELINE_ID"),
-      parentProfile: cfg.profile.profile.path.path,
+      parentProfile: cfg.profile.profile.path.value,
     ]
     result[parentReview] = cfg.env["CI_MERGE_REQUEST_IID"]
     return result

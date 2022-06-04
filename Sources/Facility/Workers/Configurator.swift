@@ -40,15 +40,15 @@ public struct Configurator {
       .map(ResolveAbsolutePath.make(path:))
       .map(resolveAbsolutePath)
       .get()
-    let dir = profile.path
+    let dir = profile.value
       .components(separatedBy: "/")
       .dropLast()
       .joined(separator: "/")
     var git = try Id(dir)
-      .map(Path.Absolute.init(path:))
+      .map(Path.Absolute.init(value:))
       .map(Git.HandleLine.make(resolveTopLevel:))
       .map(gitHandleLine)
-      .map(Path.Absolute.init(path:))
+      .map(Path.Absolute.init(value:))
       .map(Git.init(root:))
       .get()
     do { try gitHandleVoid(git.updateLfs) } catch { git.lfs = false }
@@ -58,7 +58,7 @@ public struct Configurator {
       env: query.env,
       profile: resolveProfile(query: .init(git: git, file: .init(
         ref: .head,
-        path: .init(path: profile.path.dropPrefix("\(git.root.path)/"))
+        path: .init(value: profile.value.dropPrefix("\(git.root.value)/"))
       )))
     )
     try enrich(cfg: &configuration)
@@ -70,11 +70,11 @@ public struct Configurator {
     let yaml = try dialect.read(Yaml.Profile.self, from: parse(git: query.git, yaml: query.file))
     var result = try Configuration.Profile.make(file: query.file, yaml: yaml)
     result.context = try yaml.context
-      .map(Path.Relative.init(path:))
+      .map(Path.Relative.init(value:))
       .reduce(query.file.ref, Git.File.init(ref:path:))
       .reduce(query.git, parse(git:yaml:))
     result.templates = try yaml.templates
-      .map(Path.Relative.init(path:))
+      .map(Path.Relative.init(value:))
       .reduce(query.file.ref, Git.Dir.init(ref:path:))
       .reduce(query.git, parse(git:templates:))
       .or([:])
@@ -143,7 +143,7 @@ extension Configurator {
     case .envVar(let envVar): return try env[envVar]
       .or { throw Thrown("No env \(envVar)") }
     case .envFile(let envFile): return try env[envFile]
-      .map(Path.Absolute.init(path:))
+      .map(Path.Absolute.init(value:))
       .map(ReadFile.init(file:))
       .map(readFile)
       .map(String.make(utf8:))
@@ -156,9 +156,9 @@ extension Configurator {
   ) throws -> [String: String] {
     var result: [String: String] = [:]
     for file in try gitHandleFileList(git.listTreeTrackedFiles(dir: templates)) {
-      let template = try file.dropPrefix("\(templates.path.path)/")
+      let template = try file.dropPrefix("\(templates.path.value)/")
       result[template] = try Id(file)
-        .map(Path.Relative.init(path:))
+        .map(Path.Relative.init(value:))
         .reduce(templates.ref, Git.File.init(ref:path:))
         .map(git.cat(file:))
         .map(gitHandleCat)
@@ -176,9 +176,9 @@ extension Configurator {
     logMessage(.init(message: "Controls: \(sha)"))
     cfg.forbiddenCommits = try controls.forbiddenCommits
       .or([])
-      .map(Git.Sha.init(ref:))
+      .map(Git.Sha.init(value:))
     cfg.awardApproval = try controls.awardApproval
-      .map(Path.Relative.init(path:))
+      .map(Path.Relative.init(value:))
       .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
     cfg.requisites = try controls.requisites
       .or([:])
@@ -191,11 +191,11 @@ extension Configurator {
     cfg.assets = try controls.assets
       .map(Configuration.Assets.make(yaml:))
     cfg.custom = try controls.custom
-      .map(Path.Relative.init(path:))
+      .map(Path.Relative.init(value:))
       .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
       .reduce(cfg.git, parse(git:yaml:))
     cfg.templates = try controls.templates
-      .map(Path.Relative.init(path:))
+      .map(Path.Relative.init(value:))
       .reduce(cfg.profile.controls.ref, Git.Dir.init(ref:path:))
       .reduce(cfg.git, parse(git:templates:))
       .or([:])
@@ -203,7 +203,7 @@ extension Configurator {
       .or([:])
       .mapValues { try parse(env: cfg.env, token: Configuration.Token.init(yaml: $0)) }
     let notifications = try controls.notifications
-      .map(Path.Relative.init(path:))
+      .map(Path.Relative.init(value:))
       .reduce(cfg.profile.controls.ref, Git.File.init(ref:path:))
       .reduce(cfg.git, parse(git:yaml:))
       .reduce(Yaml.Notifications.self, dialect.read(_:from:))

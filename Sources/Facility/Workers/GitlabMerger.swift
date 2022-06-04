@@ -59,7 +59,7 @@ public struct GitlabMerger {
       return true
     }
     guard try checkAcceptIssues(cfg: cfg, state: state, pipeline: pipeline) else { return true }
-    let head = try Git.Sha(ref: state.pipeline.sha)
+    let head = try Git.Sha(value: state.pipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: state.targetBranch))
     let message = try cfg.review
       .flatMap(\.messageTemplate)
@@ -122,7 +122,7 @@ public struct GitlabMerger {
       child: .make(remote: merge.target),
       parent: .make(sha: merge.fork)
     )) else {
-      logMessage(.init(message: "\(merge.target.name) already contains \(merge.fork.ref)"))
+      logMessage(.init(message: "\(merge.target.name) already contains \(merge.fork.value)"))
       return true
     }
     guard case nil = try? handleLine(cfg.git.checkRefType(
@@ -186,12 +186,12 @@ public struct GitlabMerger {
       try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
       return true
     }
-    let head = try Git.Sha(ref: pipeline.sha)
+    let head = try Git.Sha(value: pipeline.sha)
     guard case nil = try? handleVoid(cfg.git.check(
       child: .make(sha: merge.fork),
       parent: .make(remote: merge.target)
     )) else {
-      guard pipeline.sha == merge.fork.ref else {
+      guard pipeline.sha == merge.fork.value else {
         logMessage(.init(message: "Integration in wrong state"))
         try handleVoid(cfg.git.make(push: .init(
           url: pushUrl,
@@ -225,12 +225,12 @@ public struct GitlabMerger {
       child: .make(remote: merge.target),
       parent: .make(sha: merge.fork)
     )) else {
-      logMessage(.init(message: "\(merge.target.name) already contains \(merge.fork.ref)"))
+      logMessage(.init(message: "\(merge.target.name) already contains \(merge.fork.value)"))
       _ = try putState(gitlab.putMrState(parameters: .init(stateEvent: "close")))
       try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
       return true
     }
-    guard case merge.fork.ref = try handleLine(cfg.git.mergeBase(
+    guard case merge.fork.value = try handleLine(cfg.git.mergeBase(
       .make(remote: merge.source),
       .make(sha: head)
     )) else {
@@ -290,7 +290,7 @@ public struct GitlabMerger {
     let parrents = try handleLine(cfg.git.listParrents(ref: .make(sha: head)))
       .components(separatedBy: .newlines)
     let target = try handleLine(cfg.git.getSha(ref: .make(remote: merge.target)))
-    guard [target, merge.fork.ref] == parrents else {
+    guard [target, merge.fork.value] == parrents else {
       let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
         .or { throw Thrown("Empty commit message") }
       if let sha = try commitMerge(
@@ -336,7 +336,7 @@ public struct GitlabMerger {
   public func renderIntegration(cfg: Configuration) throws -> Bool {
     let gitlab = try resolveGitlab(.init(cfg: cfg))
     let pipeline = try getPipeline(gitlab.getParentPipeline())
-    let fork = try Git.Sha(ref: pipeline.sha)
+    let fork = try Git.Sha(value: pipeline.sha)
     let source = try Git.Branch(name: pipeline.ref)
     let rules = try cfg.getIntegration().rules
       .filter { $0.source.isMet(source.name) }
@@ -347,7 +347,7 @@ public struct GitlabMerger {
       guard pair.count == 2 else { throw MayDay("bad git reply") }
       guard let target = try? pair[1].dropPrefix("refs/remotes/origin/") else { continue }
       guard rules.contains(where: { $0.target.isMet(target) }) else { continue }
-      let sha = try Git.Sha.init(ref: pair[0])
+      let sha = try Git.Sha.init(value: pair[0])
       guard case nil = try? handleVoid(cfg.git.check(
         child: .make(sha: sha),
         parent: .make(sha: fork)
@@ -431,7 +431,7 @@ public struct GitlabMerger {
       try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
       return true
     }
-    let head = try Git.Sha.init(ref: pipeline.sha)
+    let head = try Git.Sha.init(value: pipeline.sha)
     guard
       case nil = try? handleVoid(cfg.git.check(
         child: .make(remote: merge.target),
@@ -439,9 +439,9 @@ public struct GitlabMerger {
       )),
       case ()? = try? handleVoid(cfg.git.check(
         child: .make(remote: merge.target),
-        parent: .make(parent: 1, ref: .make(sha: merge.fork))
+        parent: .make(sha: merge.fork).make(parent: 1)
       )),
-      case merge.fork.ref = try handleLine(cfg.git.mergeBase(
+      case merge.fork.value = try handleLine(cfg.git.mergeBase(
         .make(remote: merge.source),
         .make(sha: head)
       ))
@@ -511,7 +511,7 @@ public struct GitlabMerger {
     let parrents = try handleLine(cfg.git.listParrents(ref: .make(sha: head)))
       .components(separatedBy: .newlines)
     let target = try handleLine(cfg.git.getSha(ref: .make(remote: merge.target)))
-    guard [target, merge.fork.ref] == parrents else {
+    guard [target, merge.fork.value] == parrents else {
       let message = try renderStencil(cfg.makeRenderStencil(merge: merge))
         .or { throw Thrown("Empty commit message") }
       if let sha = try commitMerge(
@@ -634,7 +634,7 @@ public struct GitlabMerger {
     message: String,
     sha: Git.Sha
   ) throws -> Git.Sha? {
-    let initial = try Git.Ref.make(sha: .init(ref: handleLine(cfg.git.getSha(ref: .head))))
+    let initial = try Git.Ref.make(sha: .init(value: handleLine(cfg.git.getSha(ref: .head))))
     let sha = Git.Ref.make(sha: sha)
     try handleVoid(cfg.git.detach(to: ref))
     try handleVoid(cfg.git.clean)
@@ -654,7 +654,7 @@ public struct GitlabMerger {
       try handleVoid(cfg.git.clean)
       return nil
     }
-    return try .init(ref: handleLine(cfg.git.getSha(ref: .head)))
+    return try .init(value: handleLine(cfg.git.getSha(ref: .head)))
   }
   func squashSupply(
     cfg: Configuration,
@@ -664,10 +664,10 @@ public struct GitlabMerger {
   ) throws -> Git.Sha {
     let sha = Git.Ref.make(sha: sha)
     let base = try handleLine(cfg.git.mergeBase(.make(remote: merge.target), sha))
-    return try .init(ref: handleLine(cfg.git.make(commitTree: .init(
+    return try .init(value: handleLine(cfg.git.make(commitTree: .init(
       tree: sha.tree,
       message: message,
-      parrents: [.make(sha: .init(ref: base)), .make(sha: merge.fork)],
+      parrents: [.make(sha: .init(value: base)), .make(sha: merge.fork)],
       env: Git.makeEnvironment(
         authorName: handleLine(cfg.git.getAuthorName(ref: sha)),
         authorEmail: handleLine(cfg.git.getAuthorEmail(ref: sha))

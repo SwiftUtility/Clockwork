@@ -112,17 +112,17 @@ public struct Validator {
       guard case ()? = try? handleVoid(cfg.git.check(child: .head, parent: .make(sha: sha))) else {
         continue
       }
-      issues.append("Forbidden commit \(sha.ref)")
+      issues.append("Forbidden commit \(sha.value)")
     }
     return try report(cfg: cfg, issues: issues)
   }
   public func validateReviewConflictMarkers(cfg: Configuration, target: String) throws -> Bool {
-    let initial = try Git.Ref.make(sha: .init(ref: handleLine(cfg.git.getSha(ref: .head))))
+    let initial = try Git.Ref.make(sha: .init(value: handleLine(cfg.git.getSha(ref: .head))))
     let base = try handleLine(cfg.git.mergeBase(
       .head,
       .make(remote: .init(name: target))
     ))
-    try handleVoid(cfg.git.resetSoft(ref: .make(sha: .init(ref: base))))
+    try handleVoid(cfg.git.resetSoft(ref: .make(sha: .init(value: base))))
     let issues = try handleLine(cfg.git.listConflictMarkers)
       .components(separatedBy: .newlines)
     try handleVoid(cfg.git.resetHard(ref: initial))

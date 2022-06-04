@@ -7,7 +7,7 @@ public class FileLiner {
   private var buffer: UnsafeMutablePointer<CChar>? = nil
   private var size = 0
   private init(file: Path.Absolute) throws {
-    self.file = try fopen(file.path, "r").or { throw Thrown("Unable to open \(file)") }
+    self.file = try fopen(file.value, "r").or { throw Thrown("Unable to open \(file)") }
   }
   private func readLine() -> String? {
     guard getline(&buffer, &size, file) > 0 else { return nil }

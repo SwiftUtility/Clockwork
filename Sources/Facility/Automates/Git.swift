@@ -15,10 +15,6 @@ public struct Git {
       self.ref = ref
       self.path = path
     }
-    public init(local: String) throws {
-      self.path = try .init(path: local)
-      self.ref = .head
-    }
   }
   public struct Dir {
     public var ref: Ref
@@ -31,13 +27,13 @@ public struct Git {
   public struct Ref {
     public let value: String
     public var tree: Tree { .init(ref: self) }
-    public static func make(parent number: Int, ref: Self) throws -> Self {
+    public func make(parent number: Int) throws -> Self {
       guard number > 0 else { throw MayDay("commit parent must be > 0") }
-      return .init(value: "\(ref.value)^\(number)")
+      return .init(value: "\(value)^\(number)")
     }
     public static var head: Self { .init(value: "HEAD") }
     public static func make(sha: Sha) -> Self {
-      return .init(value: sha.ref)
+      return .init(value: sha.value)
     }
     public static func make(tag: String) throws -> Self {
       guard !tag.isEmpty else { throw Thrown("tag is empty") }
@@ -51,12 +47,12 @@ public struct Git {
     }
   }
   public struct Sha {
-    public let ref: String
-    public init(ref: String) throws {
-      guard ref.count == 40, ref.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
-        throw Thrown("not sha: \(ref)")
+    public let value: String
+    public init(value: String) throws {
+      guard value.count == 40, value.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
+        throw Thrown("not sha: \(value)")
       }
-      self.ref = ref
+      self.value = value
     }
   }
   public struct Tree {
@@ -65,7 +61,7 @@ public struct Git {
       self.value = "\(ref.value)^{tree}"
     }
     public init(sha: String) throws {
-      self.value = try Sha(ref: sha).ref
+      self.value = try Sha(value: sha).value
     }
   }
   public struct Branch {

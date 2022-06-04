@@ -71,7 +71,7 @@ public struct GitlabAwardApprover {
     var approval = try resolveAwardApproval(.init(cfg: cfg))
     approval.consider(state: state)
     let sha = try Id(state.pipeline.sha)
-      .map(Git.Sha.init(ref:))
+      .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
     let profile = try resolveProfile(.init(git: cfg.git, file: .init(
@@ -106,7 +106,7 @@ public struct GitlabAwardApprover {
       )
     }
     try approval.consider(resolver: try resolver.flatMapNil {
-      try resolveOriginalAuthor(cfg: cfg, gitlab: gitlab, sha: .init(ref: state.pipeline.sha))
+      try resolveOriginalAuthor(cfg: cfg, gitlab: gitlab, sha: .init(value: state.pipeline.sha))
     })
     try approval.consider(
       sanityFiles: gitlab.sanityFiles + profile.sanityFiles,
@@ -148,9 +148,9 @@ public struct GitlabAwardApprover {
     guard state.targetBranch == merge.target.name else { throw Thrown("Wrong target branch name") }
     let pipeline = try getPipeline(gitlab.getParentPipeline())
     guard pipeline.user.username != gitlab.botLogin else { return [] }
-    let initial = try Git.Ref.make(sha: .init(ref: handleLine(git.getSha(ref: .head))))
+    let initial = try Git.Ref.make(sha: .init(value: handleLine(git.getSha(ref: .head))))
     let base = try handleLine(git.mergeBase(.make(remote: merge.target), sha))
-    try handleVoid(git.detach(to: .make(sha: .init(ref: base))))
+    try handleVoid(git.detach(to: .make(sha: .init(value: base))))
     try handleVoid(git.clean)
     try? handleVoid(git.make(merge: .init(
       ref: .make(sha: merge.fork),
@@ -177,12 +177,12 @@ public struct GitlabAwardApprover {
     switch parents.count {
     case 1:
       return try listShaMergeRequests(gitlab.listShaMergeRequests(sha: sha))
-        .first { $0.squashCommitSha == sha.ref }
+        .first { $0.squashCommitSha == sha.value }
         .map(\.author.username)
     case 2:
-      return try resolveOriginalAuthor(cfg: cfg, gitlab: gitlab, sha: .init(ref: parents.end))
+      return try resolveOriginalAuthor(cfg: cfg, gitlab: gitlab, sha: .init(value: parents.end))
     default:
-      throw Thrown("\(sha.ref) has \(parents.count) parents")
+      throw Thrown("\(sha.value) has \(parents.count) parents")
     }
   }
   public enum Mode {

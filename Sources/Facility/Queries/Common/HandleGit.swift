@@ -48,7 +48,7 @@ public extension Git {
   }
   func listTreeTrackedFiles(dir: Dir) -> HandleFileList {
     .init(tasks: [.init(arguments: root.base + [
-      "ls-tree", "-r", "--name-only", "--full-tree", dir.ref.value, dir.path.path
+      "ls-tree", "-r", "--name-only", "--full-tree", dir.ref.value, dir.path.value
     ])])
   }
   func checkRefType(ref: Ref) -> HandleLine {
@@ -106,7 +106,7 @@ public extension Git {
   }
   func cat(file: File) throws -> HandleCat {
     var tasks: [PipeTask] = [
-      .init(arguments: root.base + ["show", "\(file.ref.value):\(file.path.path)"]),
+      .init(arguments: root.base + ["show", "\(file.ref.value):\(file.path.value)"]),
     ]
     tasks += lfs
       .then(.init(surpassStdErr: true, arguments: root.base + ["lfs", "smudge"]))
@@ -120,7 +120,7 @@ public extension Git {
     .init(tasks: [.init(arguments: root.base + ["rev-parse", ref.value])])
   }
   func create(branch: Branch, at sha: Sha) -> HandleVoid {
-    .init(tasks: [.init(arguments: root.base + ["checkout", "-B", branch.name, sha.ref])])
+    .init(tasks: [.init(arguments: root.base + ["checkout", "-B", branch.name, sha.value])])
   }
   var clean: HandleVoid {
     .init(tasks: [.init(arguments: root.base + ["clean", "-fdx"])])
@@ -249,7 +249,7 @@ public extension Git {
       public var arguments: [String] {
         ["push", url]
         + force.then(["--force"]).or([])
-        + ["\(sha.ref):\(Ref.make(local: branch).value)"]
+        + ["\(sha.value):\(Ref.make(local: branch).value)"]
       }
     }
     public struct Merge {
@@ -283,5 +283,5 @@ public extension Git {
   }
 }
 private extension Path.Absolute {
-  var base: [String] { ["git", "-C", path] }
+  var base: [String] { ["git", "-C", value] }
 }

@@ -2,18 +2,18 @@ import Foundation
 import Facility
 public enum Path {
   public struct Absolute {
-    public let path: String
-    public init(path: String) throws {
-      try path.isEmpty.then { throw Thrown("Empty absolute path") }
-      try path.starts(with: "/").else { throw Thrown("Not absolute path \(path)") }
-      self.path = path
+    public let value: String
+    public init(value: String) throws {
+      try value.isEmpty.then { throw Thrown("Empty absolute path") }
+      try value.starts(with: "/").else { throw Thrown("Not absolute path \(value)") }
+      self.value = value
     }
   }
   public struct Relative {
-    public let path: String
-    public init(path: String) throws {
-      try path.starts(with: "/").then { throw Thrown("Not relative path \(path)") }
-      self.path = path
+    public let value: String
+    public init(value: String) throws {
+      try value.starts(with: "/").then { throw Thrown("Not relative path \(value)") }
+      self.value = value
     }
   }
 }

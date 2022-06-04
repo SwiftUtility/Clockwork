@@ -42,11 +42,11 @@ public final class Finder {
   }
   public static func resolveAbsolutePath(query: ResolveAbsolutePath) throws -> ResolveAbsolutePath.Reply {
     var path = Path(query.path)
-    guard path.isRelative else { return try .init(path: path.normalize().string) }
-    try? path = Path(?!query.relativeTo?.path) + path
-    return try .init(path: path.absolute().string)
+    guard path.isRelative else { return try .init(value: path.normalize().string) }
+    try? path = Path(?!query.relativeTo?.value) + path
+    return try .init(value: path.absolute().string)
   }
   public static func readFile(query: ReadFile) throws -> ReadFile.Reply {
-    try .init(contentsOf: .init(fileURLWithPath: query.file.path))
+    try .init(contentsOf: .init(fileURLWithPath: query.file.value))
   }
 }

@@ -52,22 +52,22 @@ public struct Configuration {
       profile: file,
       controls: .init(
         ref: .make(remote: .init(name: yaml.controls.branch)),
-        path: .init(path: yaml.controls.file)
+        path: .init(value: yaml.controls.file)
       ),
       fileApproval: yaml.fileApproval
-        .map(Path.Relative.init(path:))
+        .map(Path.Relative.init(value:))
         .reduce(file.ref, Git.File.init(ref:path:)),
       fileRules: yaml.fileRules
-        .map(Path.Relative.init(path:))
+        .map(Path.Relative.init(value:))
         .reduce(file.ref, Git.File.init(ref:path:)),
       obsolete: yaml.obsolete
         .map(Criteria.init(yaml:)),
       integrationJobTemplate: yaml.integrationJobTemplate
     )}
     public var sanityFiles: [String] {
-      [profile.path.path]
+      [profile.path.value]
       + [fileApproval, fileRules]
-        .compactMap(\.?.path.path)
+        .compactMap(\.?.path.value)
     }
   }
   public struct Assets {
@@ -78,13 +78,13 @@ public struct Configuration {
       let ref = try Git.Ref.make(remote: .init(name: yaml.branch))
       return try .init(
         buildNumbers: yaml.buildNumbers
-          .map(Path.Relative.init(path:))
+          .map(Path.Relative.init(value:))
           .reduce(ref, Git.File.init(ref:path:)),
         productVersions: yaml.productVersions
-          .map(Path.Relative.init(path:))
+          .map(Path.Relative.init(value:))
           .reduce(ref, Git.File.init(ref:path:)),
         activeUsers: yaml.activeUsers
-          .map(Path.Relative.init(path:))
+          .map(Path.Relative.init(value:))
           .reduce(ref, Git.File.init(ref:path:))
       )
     }
@@ -101,13 +101,13 @@ public struct Configuration {
       public var crypto: Git.File
       public var password: Token
       public static func make(ref: Git.Ref, yaml: Yaml.Keychain) throws -> Self { try .init(
-        crypto: .init(ref: ref, path: .init(path: yaml.crypto)),
+        crypto: .init(ref: ref, path: .init(value: yaml.crypto)),
         password: .init(yaml: yaml.password)
       )}
     }
     public static func make(ref: Git.Ref, yaml: Yaml.Requisite) throws -> Self { try .init(
       provisions: yaml.provisions
-        .map(Path.Relative.init(path:))
+        .map(Path.Relative.init(value:))
         .reduce(ref, Git.Dir.init(ref:path:)),
       keychain: yaml.keychain.reduce(ref, Keychain.make(ref:yaml:))
     )}
@@ -195,7 +195,7 @@ public struct Configuration {
         components[1] == target
       else { throw Thrown("Wrong replication branch format: \(branch)") }
       return try .init(
-        fork: .init(ref: components[2]),
+        fork: .init(value: components[2]),
         prefix: prefix,
         source: .init(name: components[1]),
         target: .init(name: target),
@@ -204,7 +204,7 @@ public struct Configuration {
       )
     }
     public func makeMerge(source: String, sha: String) throws -> Merge { try .init(
-      fork: .init(ref: sha),
+      fork: .init(value: sha),
       prefix: prefix,
       source: .init(name: source),
       target: .init(name: target),
@@ -237,7 +237,7 @@ public struct Configuration {
       )
     }
     public func makeMerge(target: String, source: String, sha: String) throws -> Merge { try .init(
-      fork: .init(ref: sha),
+      fork: .init(value: sha),
       prefix: prefix,
       source: .init(name: source),
       target: .init(name: target),
@@ -250,7 +250,7 @@ public struct Configuration {
         throw Thrown("Wrong integration branch format: \(branch)")
       }
       return try .init(
-        fork: .init(ref: components[3]),
+        fork: .init(value: components[3]),
         prefix: prefix,
         source: .init(name: components[2]),
         target: .init(name: components[1]),
@@ -281,7 +281,7 @@ public struct Configuration {
       public static func make(cfg: Configuration, merge: Merge) -> Self { .init(
         env: cfg.env,
         custom: cfg.custom,
-        fork: merge.fork.ref,
+        fork: merge.fork.value,
         source: merge.source.name,
         target: merge.target.name,
         supply: merge.supply.name

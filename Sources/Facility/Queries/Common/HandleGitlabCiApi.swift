@@ -91,7 +91,7 @@ public extension Gitlab {
     api: api,
     project: project,
     auth: "Authorization: Bearer \(makeBotToken())",
-    sha: sha.ref
+    sha: sha.value
   )}
   func getParentPipelineJobs(action: JobAction, page: Int = 1) throws -> GetPipelineJobs { try .init(
     api: api,
@@ -275,7 +275,7 @@ public extension Gitlab {
         self.squash = squash
         self.shouldRemoveSourceBranch = shouldRemoveSourceBranch
         self.mergeWhenPipelineSucceeds = mergeWhenPipelineSucceeds
-        self.sha = sha?.ref
+        self.sha = sha?.value
       }
     }
   }
