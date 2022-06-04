@@ -272,7 +272,7 @@ protocol ClockworkCommand: ParsableCommand {
   func run(cfg: Configuration) throws -> Bool
 }
 extension ClockworkCommand {
-  static var cfg: CommandConfiguration {
+  static var configuration: CommandConfiguration {
     .init(abstract: abstract)
   }
   mutating func run() throws {
