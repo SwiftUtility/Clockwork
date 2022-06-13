@@ -1,19 +1,26 @@
 import Foundation
 import Facility
 public enum Json {
-  public struct GitlabRebase: Codable {
-    public var rebaseInProgress: Bool
-  }
+  public static var contentType: String { "Content-Type: application/json" }
   public struct GitlabPipeline: Codable {
     public var id: UInt
     public var status: String
     public var ref: String
     public var sha: String
+    public var tag: Bool
     public var user: GitlabUser
   }
-  public struct GitlabPilelineJob: Codable {
+  public struct GitlabJob: Codable {
     public var id: UInt
     public var name: String
+    public var user: GitlabUser
+    public var pipeline: Pipeline
+    public var tag: Bool
+    public struct Pipeline: Codable {
+      public var id: UInt
+      public var ref: String
+      public var sha: String
+    }
   }
   public struct GitlabCommitMergeRequest: Codable {
     public var squashCommitSha: String
@@ -37,6 +44,7 @@ public enum Json {
     public struct Pipeline: Codable {
       public var id: UInt
       public var sha: String
+      public var status: String
     }
   }
   public struct GitlabAward: Codable {

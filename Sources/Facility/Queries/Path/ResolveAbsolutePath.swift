@@ -14,3 +14,12 @@ public extension Path.Absolute {
     .init(path: path, relativeTo: self)
   }
 }
+public struct WriteData: Query {
+  public var path: String
+  public var data: Data
+  public init(path: String, data: Data) {
+    self.path = path
+    self.data = data
+  }
+  public typealias Reply = Void
+}

@@ -3,13 +3,12 @@ import Facility
 import FacilityQueries
 import FacilityAutomates
 public struct Reporter {
-  public var logLine: Act.Of<String>.Go
-  public var printLine: Act.Of<String>.Go
-  public var getTime: Act.Do<Date>
-  public var renderStencil: Try.Reply<RenderStencil>
-  public var handleSlackHook: Try.Reply<HandleSlackHook>
-  public var formatter: DateFormatter
-  public private(set) var issueCount: UInt = 0
+  let logLine: Act.Of<String>.Go
+  let printLine: Act.Of<String>.Go
+  let getTime: Act.Do<Date>
+  let renderStencil: Try.Reply<RenderStencil>
+  let handleSlackHook: Try.Reply<HandleSlackHook>
+  let formatter: DateFormatter
   public init(
     logLine: @escaping Act.Of<String>.Go,
     printLine: @escaping Act.Of<String>.Go,
@@ -29,26 +28,30 @@ public struct Reporter {
     if !success { throw Thrown("Execution considered unsuccessful") }
   }
   public func report(cfg: Configuration, error: Error) throws -> Bool {
-    try? sendReport(query: .init(cfg: cfg, report: cfg.makeReport(error: error)))
+    try? Id(error)
+      .map(cfg.reportUnexpected(error:))
+      .map(cfg.makeSendReport(report:))
+      .map(sendReport(query:))
+      .get()
     throw error
   }
   public func sendReport(query: SendReport) throws -> SendReport.Reply {
     let encoder = JSONEncoder()
     encoder.keyEncodingStrategy = .convertToSnakeCase
-    for notification in query.cfg.notifications[query.report.name].or([]) {
-      switch notification {
-      case .slackHook(let slackHook): try Id
-        .make(query.cfg.makeRenderStencil(
-          context: query.report.makeContext(cfg: query.cfg),
-          template: slackHook.template
+    for value in query.cfg.controls.communication[query.report.event].or([]) {
+      switch value {
+      case .slackHookTextMessage(let value): try Id
+        .make(query.cfg.controls.makeRenderStencil(
+          template: value.messageTemplate,
+          context: query.report.context
         ))
         .map(renderStencil)
-        .get()
-        .map(slackHook.makePayload(text:))
+        .map(value.makePayload(text:))
         .map(encoder.encode(_:))
         .map(String.make(utf8:))
-        .reduce(slackHook.url, HandleSlackHook.init(url:payload:))
+        .reduce(value.url, HandleSlackHook.init(url:payload:))
         .map(handleSlackHook)
+        .get()
       }
     }
   }

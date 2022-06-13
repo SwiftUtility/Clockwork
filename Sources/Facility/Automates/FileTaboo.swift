@@ -1,10 +1,10 @@
 import Foundation
 import Facility
-public struct FileRule {
+public struct FileTaboo {
   public var rule: String
   public var files: Criteria
   public var lines: Criteria
-  public init(yaml: Yaml.FileRule) throws {
+  public init(yaml: Yaml.Profile.FileTaboo) throws {
     self.rule = yaml.rule
     self.files = try .init(includes: yaml.file?.include, excludes: yaml.file?.exclude)
     self.lines = try .init(includes: yaml.line?.include, excludes: yaml.line?.exclude)

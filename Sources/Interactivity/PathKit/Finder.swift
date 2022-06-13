@@ -46,6 +46,9 @@ public final class Finder {
     try? path = Path(?!query.relativeTo?.value) + path
     return try .init(value: path.absolute().string)
   }
+  public static func writeData(query: WriteData) throws -> WriteData.Reply {
+    try Path(query.path).write(query.data)
+  }
   public static func readFile(query: ReadFile) throws -> ReadFile.Reply {
     try .init(contentsOf: .init(fileURLWithPath: query.file.value))
   }

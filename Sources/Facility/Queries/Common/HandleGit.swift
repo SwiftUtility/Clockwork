@@ -84,7 +84,10 @@ public extension Git {
   func getCommiterDate(ref: Ref) -> HandleLine {
     .init(tasks: [.init(arguments: root.base + ["show", "-s", "--format=%cd", ref.value])])
   }
-  func listParrents(ref: Ref) -> HandleLine {
+  func getCommitMessage(ref: Ref) -> HandleLine {
+    .init(tasks: [.init(arguments: root.base + ["show", "-s", "--format=%B", ref.value])])
+  }
+  func listParents(ref: Ref) -> HandleLine {
     .init(tasks: [.init(arguments: root.base + ["rev-parse", "\(ref.value)^@"])])
   }
   func mergeBase(_ one: Ref, _ two: Ref) -> HandleLine {
@@ -101,9 +104,13 @@ public extension Git {
   var updateLfs: HandleVoid {
     .init(tasks: [.init(arguments: root.base + ["lfs", "update"])])
   }
-  var fetch: HandleVoid {
-    .init(tasks: [.init(arguments: root.base + ["fetch", "origin"])])
-  }
+  var fetch: HandleVoid { .init(tasks: [.init(arguments: root.base + [
+    "fetch",
+    "origin",
+    "--prune",
+    "--prune-tags",
+    "--tags",
+  ])])}
   func cat(file: File) throws -> HandleCat {
     var tasks: [PipeTask] = [
       .init(arguments: root.base + ["show", "\(file.ref.value):\(file.path.value)"]),
@@ -142,6 +149,12 @@ public extension Git {
   }
   func resetSoft(ref: Ref) -> HandleVoid {
     .init(tasks: [.init(arguments: root.base + ["reset", "--soft", ref.value])])
+  }
+  func commit(message: String) -> HandleVoid {
+    .init(tasks: [.init(arguments: root.base + ["commit", "-m", message])])
+  }
+  var listTags: HandleLine {
+    .init(tasks: [.init(arguments: root.base + ["ls-remote", "--tags", "--refs"])])
   }
   static func makeEnvironment(
     authorName: String? = nil,
@@ -189,21 +202,21 @@ public extension Git {
       public var include: [Ref]
       public var exclude: [Ref]
       public var noMerges: Bool
-      public var firstParrents: Bool
+      public var firstParents: Bool
       public init(
         include: [Ref],
         exclude: [Ref],
         noMerges: Bool,
-        firstParrents: Bool
+        firstParents: Bool
       ) {
         self.include = include
         self.exclude = exclude
         self.noMerges = noMerges
-        self.firstParrents = firstParrents
+        self.firstParents = firstParents
       }
       public var arguments: [String] {
         ["log", "--format=%H"]
-        + firstParrents.then(["--first-parent"]).or([])
+        + firstParents.then(["--first-parent"]).or([])
         + noMerges.then(["--no-merges"]).or([])
         + include.map(\.value)
         + exclude.map { "^\($0.value)" }
@@ -212,22 +225,22 @@ public extension Git {
     public struct CommitTree {
       public var tree: Tree
       public var message: String
-      public var parrents: [Ref]
+      public var parents: [Ref]
       public var env: [String: String]
       public init(
         tree: Tree,
         message: String,
-        parrents: [Ref],
+        parents: [Ref],
         env: [String: String]
       ) {
         self.tree = tree
         self.message = message
-        self.parrents = parrents
+        self.parents = parents
         self.env = env
       }
       public var arguments: [String] {
         ["commit-tree", tree.value, "-m", message]
-        + parrents.flatMap { ["-p", $0.value] }
+        + parents.flatMap { ["-p", $0.value] }
       }
     }
   }

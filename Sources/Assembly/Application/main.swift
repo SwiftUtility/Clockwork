@@ -21,70 +21,77 @@ enum Main {
     decodeYaml: YamlParser.decodeYaml(query:),
     resolveAbsolutePath: Finder.resolveAbsolutePath(query:),
     readFile: Finder.readFile(query:),
-    gitHandleFileList: Processor.handleProcess(query:),
-    gitHandleLine: Processor.handleProcess(query:),
-    gitHandleCat: Processor.handleProcess(query:),
-    gitHandleVoid: Processor.handleProcess(query:),
-    logMessage: reporter.logMessage(query:)
+    handleFileList: Processor.handleProcess(query:),
+    handleLine: Processor.handleProcess(query:),
+    handleCat: Processor.handleProcess(query:),
+    handleVoid: Processor.handleProcess(query:),
+    renderStencil: stencilParser.renderStencil(query:),
+    writeData: Finder.writeData(query:),
+    logMessage: reporter.logMessage(query:),
+    printLine: FileHandle.standardOutput.write(message:),
+    dialect: .json
   )
   static let environment = ProcessInfo.processInfo.environment
-  static let validator = Validator(
+  static let validator = GitlabValidator(
+    handleApi: Processor.handleProcess(query:),
     handleFileList: Processor.handleProcess(query:),
     handleLine: Processor.handleProcess(query:),
     handleVoid: Processor.handleProcess(query:),
-    resolveAbsolutePath: Finder.resolveAbsolutePath(query:),
-    resolveGitlab: configurator.resolveGitlab(query:),
-    listFileLines: FileLiner.listFileLines(query:),
-    resolveFileApproval: configurator.resolveFileApproval(query:),
-    resolveFileRules: configurator.resolveFileRules(query:),
+    handleCat: Processor.handleProcess(query:),
+    resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
+    resolveFileTaboos: configurator.resolveFileTaboos(query:),
     sendReport: reporter.sendReport(query:),
-    logMessage: reporter.logMessage(query:)
+    logMessage: reporter.logMessage(query:),
+    dialect: .json
   )
   static let requisitor = Requisitor()
   static let gitlabAwardApprover = GitlabAwardApprover(
     handleFileList: Processor.handleProcess(query:),
     handleLine: Processor.handleProcess(query:),
     handleVoid: Processor.handleProcess(query:),
-    getReviewState: Processor.handleProcess(query:),
-    postPipelines: Processor.handleProcess(query:),
-    getPipeline: Processor.handleProcess(query:),
-    getReviewAwarders: Processor.handleProcess(query:),
-    postReviewAward: Processor.handleProcess(query:),
-    listShaMergeRequests: Processor.handleProcess(query:),
-    putState: Processor.handleProcess(query:),
-    resolveGitlab: configurator.resolveGitlab(query:),
+    handleApi: Processor.handleProcess(query:),
     resolveProfile: configurator.resolveProfile(query:),
     resolveAwardApproval: configurator.resolveAwardApproval(query:),
-    resolveFileApproval: configurator.resolveFileApproval(query:),
+    resolveAwardApprovalUserActivity: configurator.resolveAwardApprovalUserActivity(query:),
+    resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
+    persistUserActivity: configurator.persistUserActivity(query:),
+    resolveFlow: configurator.resolveFlow(query:),
     sendReport: reporter.sendReport(query:),
-    logMessage: reporter.logMessage(query:)
+    logMessage: reporter.logMessage(query:),
+    dialect: .json
   )
   static let gitlabMerger = GitlabMerger(
-    getReviewState: Processor.handleProcess(query:),
-    getPipeline: Processor.handleProcess(query:),
-    postPipelines: Processor.handleProcess(query:),
-    putMerge: Processor.handleProcess(query:),
-    postMergeRequests: Processor.handleProcess(query:),
-    putState: Processor.handleProcess(query:),
+    handleApi: Processor.handleProcess(query:),
     handleVoid: Processor.handleProcess(query:),
     handleLine: Processor.handleProcess(query:),
+    resolveFlow: configurator.resolveFlow(query:),
     printLine: FileHandle.standardOutput.write(message:),
     renderStencil: stencilParser.renderStencil(query:),
-    resolveGitlab: configurator.resolveGitlab(query:),
     sendReport: reporter.sendReport(query:),
-    logMessage: reporter.logMessage(query:)
+    logMessage: reporter.logMessage(query:),
+    dialect: .json
   )
-  static let gitlabCommunicatior = GitlabCommunicatior(
-    postTriggerPipeline: Processor.handleProcess(query:),
-    getReviewState: Processor.handleProcess(query:),
-    postPipelines: Processor.handleProcess(query:),
-    putState: Processor.handleProcess(query:),
-    getPipelineJobs: Processor.handleProcess(query:),
-    postJobsAction: Processor.handleProcess(query:),
-    resolveGitlab: configurator.resolveGitlab(query:),
-    logMessage: reporter.logMessage(query:)
+  static let gitlabCommunicatior = GitlabMediator(
+    handleApi: Processor.handleProcess(query:),
+    logMessage: reporter.logMessage(query:),
+    dialect: .json
   )
-  static let gitlabVersionController = GitlabVersionController()
+  static let gitlabVersionController = GitlabVersionController(
+    handleApi: Processor.handleProcess(query:),
+    handleVoid: Processor.handleProcess(query:),
+    handleLine: Processor.handleProcess(query:),
+    renderStencil: stencilParser.renderStencil(query:),
+    writeData: Finder.writeData(query:),
+    resolveProduction: configurator.resolveProduction(query:),
+    resolveProductionVersions: configurator.resolveProductionVersions(query:),
+    resolveProductionBuilds: configurator.resolveProductionBuilds(query:),
+    persistBuilds: configurator.persistBuilds(query:),
+    persistVersions: configurator.persistVersions(query:),
+    sendReport: reporter.sendReport(query:),
+    logMessage: reporter.logMessage(query:),
+    printLine: FileHandle.standardOutput.write(message:),
+    dialect: .json
+  )
   static let stencilParser = StencilParser(notation: .json)
 }
 MayDay.sideEffect = { mayDay in FileHandle.standardError.write(

@@ -20,6 +20,7 @@ public struct StencilParser {
       .loadTemplate(name: query.template)
       .render(context as? [String: Any])
       .trimmingCharacters(in: .newlines)
-    return result.isEmpty.else(result)
+    guard !result.isEmpty else { throw Thrown("Empty result for \(query.template)") }
+    return result
   }
 }

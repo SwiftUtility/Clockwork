@@ -1,5 +1,6 @@
 import XCTest
 @testable import InteractivityStencil
+@testable import Facility
 @testable import FacilityQueries
 @testable import FacilityAutomates
 final class StencilTests: XCTestCase {
@@ -29,14 +30,14 @@ final class StencilTests: XCTestCase {
         #}{% endscan %}
         """#
     ],
-    context: Report.Context(
-      env: [
-        "login": "user",
-        "text": #"<Mr-123> & Co"#,
-        "CI_MERGE_REQUEST_TITLE": #"MR-123, MB-234 ME-123: asd "asdas" [MR-234], RF-345'"#,
-        "version": "11",
-      ],
-      custom: .map([
+    context: AnyCodable.map([
+      "env": .map([
+        "login": .value(.string("user")),
+        "text": .value(.string(#"<Mr-123> & Co"#)),
+        "CI_MERGE_REQUEST_TITLE": .value(.string(#"MR-123, MB-234 ME-123: asd "asdas" [MR-234], RF-345'"#)),
+        "version": .value(.string("11")),
+      ]),
+      "custom": .map([
         "members": .map([
           "user": .map([
             "mention": .value(.string("<@USERID>")),
@@ -46,8 +47,8 @@ final class StencilTests: XCTestCase {
         "versionRegexp": .value(.string(#".*(\d+)\.(\d+)\.(\d+).*"#)),
         "versionString": .value(.string(#"release/1.2.4"#)),
       ]),
-      issues: ["some"]
-    )
+      "issues": .list([.value(.string("some"))]),
+    ])
   )}
   func testSubscript() throws {
     let result = try StencilParser(notation: .json)

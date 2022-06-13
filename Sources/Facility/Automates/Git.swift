@@ -2,11 +2,11 @@ import Foundation
 import Facility
 public struct Git {
   public var root: Path.Absolute
+  public var verbose: Bool
   public var lfs: Bool = false
-  public var author: String?
-  public var head: String?
-  public init(root: Path.Absolute) throws {
+  public init(verbose: Bool, root: Path.Absolute) throws {
     self.root = root
+    self.verbose = verbose
   }
   public struct File {
     public var ref: Ref
