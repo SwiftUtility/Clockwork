@@ -3,11 +3,6 @@ import Facility
 public struct Execute: Query {
   public var input: Data? = nil
   public var tasks: [Task]
-  public func overwrite(cfg: Configuration, file: Files.Absolute) -> Self {
-    var this = self
-    this.tasks.append(.init(verbose: cfg.verbose, arguments: ["tee", file.value]))
-    return this
-  }
   public static func makeCurl(
     verbose: Bool,
     url: String,
@@ -44,6 +39,9 @@ public extension Configuration {
   func systemMove(file: Files.Absolute, location: Files.Absolute) -> Execute { .init(tasks: [
     .init(verbose: verbose, arguments: ["mv", "-f", file.value, location.value])
   ])}
+  func systemDelete(file: Files.Absolute) -> Execute { .init(tasks: [
+    .init(verbose: verbose, arguments: ["rm", "-f", file.value])
+  ])}
   func systemWrite(file: Files.Absolute, execute: Execute) -> Execute { .init(
     input: execute.input,
     tasks: execute.tasks + [.init(verbose: verbose, arguments: ["tee", file.value])]
@@ -55,4 +53,9 @@ public extension Configuration {
     retry: 2,
     urlencode: ["payload=\(payload)"]
   )}
+  func write(file: Files.Absolute, execute: Execute) -> Execute {
+    var execute = execute
+    execute.tasks.append(.init(verbose: verbose, arguments: ["tee", file.value]))
+    return execute
+  }
 }

@@ -5,16 +5,19 @@ public struct Requisitor {
   let execute: Try.Reply<Execute>
   let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>
   let resolveRequisition: Try.Reply<Configuration.ResolveRequisition>
+  let resolveSecret: Try.Reply<Configuration.ResolveSecret>
   let plistDecoder: PropertyListDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     resolveAbsolute: @escaping Try.Reply<Files.ResolveAbsolute>,
     resolveRequisition: @escaping Try.Reply<Configuration.ResolveRequisition>,
+    resolveSecret: @escaping Try.Reply<Configuration.ResolveSecret>,
     plistDecoder: PropertyListDecoder
   ) {
     self.execute = execute
     self.resolveAbsolute = resolveAbsolute
     self.resolveRequisition = resolveRequisition
+    self.resolveSecret = resolveSecret
     self.plistDecoder = plistDecoder
   }
   public func importProvisions(
@@ -29,21 +32,76 @@ public struct Requisitor {
   }
   public func importKeychains(
     cfg: Configuration,
+    keychain: String,
     requisites: [String]
   ) throws -> Bool {
-    throw MayDay("Not implemented")
+    let requisition = try resolveRequisition(.init(cfg: cfg))
+    try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
+    try requisites.forEach {
+      try importKeychain(cfg: cfg, requisition: requisition, requisite: $0, keychain: keychain)
+    }
+    _ = try execute(requisition.leaseXcode(keychain: keychain))
+    return true
   }
   public func importRequisites(
     cfg: Configuration,
+    keychain: String,
     requisites: [String]
   ) throws -> Bool {
-    throw MayDay("Not implemented")
+    let requisition = try resolveRequisition(.init(cfg: cfg))
+    try requisites
+      .flatMap { try getProvisions(git: cfg.git, requisition: requisition, requisite: $0)}
+      .forEach { try install(cfg: cfg, provision: $0) }
+    try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
+    try requisites.forEach {
+      try importKeychain(cfg: cfg, requisition: requisition, requisite: $0, keychain: keychain)
+    }
+    _ = try execute(requisition.leaseXcode(keychain: keychain))
+    return true
   }
   public func reportExpiringRequisites(
     cfg: Configuration,
     days: UInt
   ) throws -> Bool {
     throw MayDay("Not implemented")
+  }
+  func cleanKeychain(
+    cfg: Configuration,
+    requisition: Requisition,
+    keychain: String
+  ) throws {
+    _ = try execute(requisition.delete(keychain: keychain))
+    _ = try execute(requisition.create(keychain: keychain))
+    _ = try execute(requisition.unlock(keychain: keychain))
+    _ = try execute(requisition.disableAutolock(keychain: keychain))
+    let keychains = try Id(requisition.listVisibleKeychains)
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
+      .components(separatedBy: .newlines)
+      .map { $0.trimmingCharacters(in: .whitespaces.union(["\""])) }
+    _ = try execute(requisition.resetVisibleKeychains(keychains: keychains + [keychain]))
+  }
+  func importKeychain(
+    cfg: Configuration,
+    requisition: Requisition,
+    requisite: String,
+    keychain: String
+  ) throws {
+    let requisite = try requisition.keychains[requisite]
+      .or { throw Thrown("No \(requisite) in keychains") }
+    let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
+    let temp = try Id(cfg.systemTempFile)
+      .map(execute)
+      .map(String.make(utf8:))
+      .map(Files.Absolute.init(value:))
+      .get()
+    defer { _ = try? execute(cfg.systemDelete(file: temp)) }
+    _ = try Id(requisite.pkcs12)
+      .map(cfg.git.cat(file:))
+      .reduce(temp, cfg.write(file:execute:))
+      .map(execute)
+    _ = try execute(requisition.importPkcs12(keychain: keychain, file: temp, pass: password))
   }
   func getProvisions(
     git: Git,

@@ -2,7 +2,7 @@ import Foundation
 import Facility
 public enum Yaml {
   public struct Profile: Decodable {
-    public var controls: Controls
+    public var controls: File
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var obsolescence: Criteria?
@@ -11,10 +11,6 @@ public enum Yaml {
       public var rule: String
       public var file: Criteria?
       public var line: Criteria?
-    }
-    public struct Controls: Decodable {
-      public var file: String
-      public var branch: String
     }
   }
   public struct Controls: Decodable {
@@ -66,7 +62,7 @@ public enum Yaml {
       public var keychains: [String: Keychain]
       public var provisions: [String: String]
       public struct Keychain: Decodable {
-        public var pkcs12: String
+        public var pkcs12: File
         public var password: Secret
       }
     }
@@ -144,6 +140,10 @@ public enum Yaml {
     public var file: String
     public var branch: String
     public var commitMessageTemplate: String
+  }
+  public struct File: Decodable {
+    public var path: String
+    public var branch: String
   }
   public struct Secret: Decodable {
     public var value: String?

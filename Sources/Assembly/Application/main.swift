@@ -40,6 +40,7 @@ enum Main {
     execute: Processor.execute(query:),
     resolveAbsolute: Finder.resolveAbsolute(query:),
     resolveRequisition: configurator.resolveRequisition(query:),
+    resolveSecret: configurator.resolveSecret(query:),
     plistDecoder: .init()
   )
   static let gitlabAwardApprover = GitlabAwardApprover(

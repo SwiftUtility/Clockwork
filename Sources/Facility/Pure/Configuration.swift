@@ -36,7 +36,7 @@ public struct Configuration {
       profile: profile,
       controls: .init(
         ref: .make(remote: .init(name: yaml.controls.branch)),
-        path: .init(value: yaml.controls.file)
+        path: .init(value: yaml.controls.path)
       ),
       codeOwnage: yaml.codeOwnage
         .map(Files.Relative.init(value:))

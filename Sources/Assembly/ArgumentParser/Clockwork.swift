@@ -211,20 +211,24 @@ struct Clockwork: ParsableCommand {
   }
   struct ImportKeychains: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
+    @Option(help: "Keychain name to import requisites into")
+    var keychain: String
     @Argument(help: "Groups to install, all when empty")
     var requisites: [String] = []
     static var abstract: String { "Import p12 and setup xcode access" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.importKeychains(cfg: cfg, requisites: requisites)
+      try Main.requisitor.importKeychains(cfg: cfg, keychain: keychain, requisites: requisites)
     }
   }
   struct ImportRequisites: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
+    @Option(help: "Keychain name to import requisites into")
+    var keychain: String
     @Argument(help: "Groups to install, all when empty")
     var requisites: [String] = []
     static var abstract: String { "Import p12 and provisions" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.importRequisites(cfg: cfg, requisites: requisites)
+      try Main.requisitor.importRequisites(cfg: cfg, keychain: keychain, requisites: requisites)
     }
   }
   struct ReportExpiringRequisites: ClockworkCommand {

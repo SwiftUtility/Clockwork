@@ -12,7 +12,10 @@ public struct Requisition {
     verbose: verbose,
     keychains: yaml.keychains
       .mapValues { yaml in try .init(
-        pkcs12: yaml.pkcs12,
+        pkcs12: .init(
+          ref: .make(remote: .init(name: yaml.pkcs12.branch)),
+          path: .init(value: yaml.pkcs12.path)
+        ),
         password: .init(yaml: yaml.password)
       )},
     provisions: yaml.provisions
@@ -22,7 +25,7 @@ public struct Requisition {
       )}
   )}
   public struct Keychain {
-    public var pkcs12: String
+    public var pkcs12: Git.File
     public var password: Secret
   }
 }
