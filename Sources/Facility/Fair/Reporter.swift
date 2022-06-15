@@ -1,26 +1,25 @@
 import Foundation
 import Facility
-import FacilityQueries
-import FacilityAutomates
+import FacilityPure
 public struct Reporter {
   let execute: Try.Reply<Execute>
   let logLine: Act.Of<String>.Go
   let printLine: Act.Of<String>.Go
   let getTime: Act.Do<Date>
-  let renderStencil: Try.Reply<RenderStencil>
+  let generate: Try.Reply<Generate>
   let formatter: DateFormatter
   public init(
     execute: @escaping Try.Reply<Execute>,
     logLine: @escaping Act.Of<String>.Go,
     printLine: @escaping Act.Of<String>.Go,
     getTime: @escaping Act.Do<Date>,
-    renderStencil: @escaping Try.Reply<RenderStencil>
+    generate: @escaping Try.Reply<Generate>
   ) {
     self.execute = execute
     self.logLine = logLine
     self.printLine = printLine
     self.getTime = getTime
-    self.renderStencil = renderStencil
+    self.generate = generate
     self.formatter = .init()
     formatter.dateFormat = "HH:mm:ss"
   }
@@ -30,22 +29,21 @@ public struct Reporter {
   public func report(cfg: Configuration, error: Error) throws -> Bool {
     try? Id(error)
       .map(cfg.reportUnexpected(error:))
-      .map(cfg.makeSendReport(report:))
-      .map(sendReport(query:))
+      .map(report(query:))
       .get()
     throw error
   }
-  public func sendReport(query: SendReport) throws -> SendReport.Reply {
+  public func report(query: Report) throws -> Report.Reply {
     let encoder = JSONEncoder()
     encoder.keyEncodingStrategy = .convertToSnakeCase
-    for value in query.cfg.controls.communication[query.report.event].or([]) {
+    for value in query.cfg.controls.communication[query.reportable.event].or([]) {
       switch value {
       case .slackHookTextMessage(let value): _ = try Id
-        .make(query.cfg.controls.makeRenderStencil(
+        .make(query.cfg.controls.generateReport(
           template: value.messageTemplate,
-          context: query.report.context
+          reportable: query.reportable
         ))
-        .map(renderStencil)
+        .map(generate)
         .map(value.makePayload(text:))
         .map(encoder.encode(_:))
         .map(String.make(utf8:))

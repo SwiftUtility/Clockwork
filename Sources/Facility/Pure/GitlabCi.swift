@@ -52,22 +52,22 @@ public struct GitlabCi {
   public static func makeApiToken(
     env: [String: String],
     yaml: Yaml.Controls.GitlabCi
-  ) -> Lossy<Token> {
+  ) -> Lossy<Secret> {
     guard case "true" = env[Self.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
     return Lossy.value(yaml.bot.apiToken)
       .reduce(curry: Thrown("apiToken not configured"), Optional.or(error:))
-      .map(Token.init(yaml:))
+      .map(Secret.init(yaml:))
   }
   public static func makePushToken(
     env: [String: String],
     yaml: Yaml.Controls.GitlabCi
-  ) -> Lossy<Token> {
+  ) -> Lossy<Secret> {
     guard case "true" = env[Self.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
     return Lossy.value(yaml.bot.pushToken)
       .reduce(curry: Thrown("pushToken not configured"), Optional.or(error:))
-      .map(Token.init(yaml:))
+      .map(Secret.init(yaml:))
   }
   static var gitlabci: String { "GITLAB_CI" }
   static var protected: String { "CI_COMMIT_REF_PROTECTED" }
@@ -106,7 +106,7 @@ public struct GitlabCi {
   public struct Parent {
     public var pipeline: Lossy<UInt>
     public var review: Lossy<UInt>
-    public var profile: Lossy<Path.Relative>
+    public var profile: Lossy<Files.Relative>
   }
 }
 public extension GitlabCi {

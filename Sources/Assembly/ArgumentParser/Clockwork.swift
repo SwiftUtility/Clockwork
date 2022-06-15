@@ -1,8 +1,7 @@
 import ArgumentParser
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
+import FacilityPure
 import InteractivityCommon
 struct Clockwork: ParsableCommand {
   @Option(help: "The path to the profile")

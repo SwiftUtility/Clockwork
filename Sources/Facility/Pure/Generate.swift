@@ -1,9 +1,10 @@
 import Foundation
 import Facility
-public struct Generator {
+public struct Generate: Query {
   public var template: String
   public var templates: [String: String]
   public var context: Encodable
+  public typealias Reply = String
   public struct Versions: Codable {
     public var env: [String: String]
     public var custom: AnyCodable?
@@ -116,10 +117,10 @@ public extension Configuration {
   func generateVersions(
     template: String,
     versions: [String: String]
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: template,
     templates: profile.stencilTemplates,
-    context: Generator.Versions(
+    context: Generate.Versions(
       env: env,
       custom: controls.stencilCustom,
       versions: versions
@@ -129,10 +130,10 @@ public extension Configuration {
     template: String,
     build: String,
     versions: [String: String]
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: template,
     templates: profile.stencilTemplates,
-    context: Generator.Build(
+    context: Generate.Build(
       env: env,
       custom: controls.stencilCustom,
       versions: versions,
@@ -142,10 +143,10 @@ public extension Configuration {
   func generateIntegration(
     template: String,
     targets: [String]
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: template,
     templates: profile.stencilTemplates,
-    context: Generator.Integration(
+    context: Generate.Integration(
       env: env,
       custom: controls.stencilCustom,
       targets: targets
@@ -154,10 +155,10 @@ public extension Configuration {
   func generateReleaseVersion(
     product: Production.Product,
     ref: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: product.releaseBranch.parseVersionTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.ReleaseVersion(
+    context: Generate.ReleaseVersion(
       env: env,
       custom: controls.stencilCustom,
       product: product.name,
@@ -168,10 +169,10 @@ public extension Configuration {
     product: Production.Product,
     version: String,
     build: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: product.deployTag.createTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.DeployName(
+    context: Generate.DeployName(
       env: env,
       custom: controls.stencilCustom,
       product: product.name,
@@ -184,10 +185,10 @@ public extension Configuration {
     product: Production.Product,
     version: String,
     build: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: product.deployTag.createTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.DeployAnnotation(
+    context: Generate.DeployAnnotation(
       env: env,
       custom: controls.stencilCustom,
       user: job.user.username,
@@ -199,10 +200,10 @@ public extension Configuration {
   func generateReleaseName(
     product: Production.Product,
     version: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: product.releaseBranch.createTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.ReleaseName(
+    context: Generate.ReleaseName(
       env: env,
       custom: controls.stencilCustom,
       product: product.name,
@@ -212,10 +213,10 @@ public extension Configuration {
   func generateNextVersion(
     product: Production.Product,
     version: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: product.createNextVersionTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.NextVersion(
+    context: Generate.NextVersion(
       env: env,
       custom: controls.stencilCustom,
       product: product.name,
@@ -225,10 +226,10 @@ public extension Configuration {
   func generateNextBuild(
     production: Production,
     build: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: production.createNextBuildTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.NextBuild(
+    context: Generate.NextBuild(
       env: env,
       custom: controls.stencilCustom,
       build: build
@@ -237,10 +238,10 @@ public extension Configuration {
   func generateDeployVersion(
     product: Production.Product,
     ref: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: product.deployTag.parseVersionTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.DeployVersion(
+    context: Generate.DeployVersion(
       env: env,
       custom: controls.stencilCustom,
       product: product.name,
@@ -250,10 +251,10 @@ public extension Configuration {
   func generateDeployBuild(
     product: Production.Product,
     ref: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: product.deployTag.parseBuildTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.DeployBuild(
+    context: Generate.DeployBuild(
       env: env,
       custom: controls.stencilCustom,
       ref: ref
@@ -262,10 +263,10 @@ public extension Configuration {
   func generateHotfixVersion(
     product: Production.Product,
     version: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: product.createHotfixVersionTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.HotfixVersion(
+    context: Generate.HotfixVersion(
       env: env,
       custom: controls.stencilCustom,
       product: product.name,
@@ -276,10 +277,10 @@ public extension Configuration {
     asset: Asset,
     product: Production.Product,
     version: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: asset.commitMessageTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.VersionCommitMessage(
+    context: Generate.VersionCommitMessage(
       env: env,
       custom: controls.stencilCustom,
       product: product.name,
@@ -289,10 +290,10 @@ public extension Configuration {
   func generateBuildCommitMessage(
     asset: Asset,
     build: String
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: asset.commitMessageTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.BuildCommitMessage(
+    context: Generate.BuildCommitMessage(
       env: env,
       custom: controls.stencilCustom,
       build: build
@@ -302,10 +303,10 @@ public extension Configuration {
     asset: Asset,
     user: String,
     active: Bool
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: asset.commitMessageTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.UserActivityCommitMessage(
+    context: Generate.UserActivityCommitMessage(
       env: env,
       custom: controls.stencilCustom,
       user: user,
@@ -315,10 +316,10 @@ public extension Configuration {
   func generateSquashCommitMessage(
     squash: Flow.Squash,
     review: Json.GitlabReviewState
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: squash.messageTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.SquashCommitMessage(
+    context: Generate.SquashCommitMessage(
       env: env,
       custom: controls.stencilCustom,
       review: review
@@ -327,10 +328,10 @@ public extension Configuration {
   func generateIntegrationCommitMessage(
     integration: Flow.Integration,
     merge: Flow.Merge
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: integration.messageTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.IntegrationCommitMessage(
+    context: Generate.IntegrationCommitMessage(
       env: env,
       custom: controls.stencilCustom,
       fork: merge.fork.value,
@@ -341,10 +342,10 @@ public extension Configuration {
   func generateReplicationCommitMessage(
     replication: Flow.Replication,
     merge: Flow.Merge
-  ) -> Generator { .init(
+  ) -> Generate { .init(
     template: replication.messageTemplate,
     templates: controls.stencilTemplates,
-    context: Generator.ReplicationCommitMessage(
+    context: Generate.ReplicationCommitMessage(
       env: env,
       custom: controls.stencilCustom,
       fork: merge.fork.value,

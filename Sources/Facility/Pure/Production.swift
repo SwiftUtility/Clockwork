@@ -76,4 +76,34 @@ public struct Production {
       public var parseVersionTemplate: String
     }
   }
+  public struct Build {
+    public var value: String
+    public var sha: String
+    public var ref: Ref
+    public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self { try .init(
+      value: yaml.build,
+      sha: yaml.sha,
+      ref: yaml.branch
+        .map(Ref.branch(_:))
+        .flatMapNil(yaml.tag.map(Ref.tag(_:)))
+        .or { throw Thrown("No branch or tag in build") }
+    )}
+    public static func make(value: String, sha: String, ref: Ref) -> Self { .init(
+      value: value,
+      sha: sha,
+      ref: ref
+    )}
+    public var branch: String? {
+      guard case .branch(let branch) = ref else { return nil }
+      return branch
+    }
+    public var tag: String? {
+      guard case .tag(let tag) = ref else { return nil }
+      return tag
+    }
+    public enum Ref {
+      case branch(String)
+      case tag(String)
+    }
+  }
 }

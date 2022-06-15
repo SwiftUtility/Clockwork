@@ -1,7 +1,6 @@
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
+import FacilityPure
 public struct GitlabMediator {
   let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>

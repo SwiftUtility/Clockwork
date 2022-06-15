@@ -1,12 +1,11 @@
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
+import FacilityPure
 public class FileLiner {
   private let file: UnsafeMutablePointer<FILE>
   private var buffer: UnsafeMutablePointer<CChar>? = nil
   private var size = 0
-  private init(file: Path.Absolute) throws {
+  private init(file: Files.Absolute) throws {
     self.file = try fopen(file.value, "r").or { throw Thrown("Unable to open \(file)") }
   }
   private func readLine() -> String? {
@@ -19,7 +18,7 @@ public class FileLiner {
     buffer.deinitialize(count: size)
     buffer.deallocate()
   }
-  public static func listFileLines(query: ListFileLines) throws -> ListFileLines.Reply {
+  public static func listFileLines(query: Files.ListFileLines) throws -> Files.ListFileLines.Reply {
     try .init(FileLiner(file: query.file).readLine)
   }
 }

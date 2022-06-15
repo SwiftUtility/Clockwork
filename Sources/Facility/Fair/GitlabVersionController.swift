@@ -1,43 +1,42 @@
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
+import FacilityPure
 public struct GitlabVersionController {
   let execute: Try.Reply<Execute>
-  let renderStencil: Try.Reply<RenderStencil>
-  let writeData: Try.Reply<WriteData>
-  let resolveProduction: Try.Reply<ResolveProduction>
-  let resolveProductionVersions: Try.Reply<ResolveProductionVersions>
-  let resolveProductionBuilds: Try.Reply<ResolveProductionBuilds>
-  let persistBuilds: Try.Reply<PersistBuilds>
-  let persistVersions: Try.Reply<PersistVersions>
-  let sendReport: Try.Reply<SendReport>
+  let generate: Try.Reply<Generate>
+  let writeFile: Try.Reply<Files.WriteFile>
+  let resolveProduction: Try.Reply<Configuration.ResolveProduction>
+  let resolveProductionVersions: Try.Reply<Configuration.ResolveProductionVersions>
+  let resolveProductionBuilds: Try.Reply<Configuration.ResolveProductionBuilds>
+  let persistBuilds: Try.Reply<Configuration.PersistBuilds>
+  let persistVersions: Try.Reply<Configuration.PersistVersions>
+  let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let printLine: Act.Of<String>.Go
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    renderStencil: @escaping Try.Reply<RenderStencil>,
-    writeData: @escaping Try.Reply<WriteData>,
-    resolveProduction: @escaping Try.Reply<ResolveProduction>,
-    resolveProductionVersions: @escaping Try.Reply<ResolveProductionVersions>,
-    resolveProductionBuilds: @escaping Try.Reply<ResolveProductionBuilds>,
-    persistBuilds: @escaping Try.Reply<PersistBuilds>,
-    persistVersions: @escaping Try.Reply<PersistVersions>,
-    sendReport: @escaping Try.Reply<SendReport>,
+    generate: @escaping Try.Reply<Generate>,
+    writeFile: @escaping Try.Reply<Files.WriteFile>,
+    resolveProduction: @escaping Try.Reply<Configuration.ResolveProduction>,
+    resolveProductionVersions: @escaping Try.Reply<Configuration.ResolveProductionVersions>,
+    resolveProductionBuilds: @escaping Try.Reply<Configuration.ResolveProductionBuilds>,
+    persistBuilds: @escaping Try.Reply<Configuration.PersistBuilds>,
+    persistVersions: @escaping Try.Reply<Configuration.PersistVersions>,
+    report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     printLine: @escaping Act.Of<String>.Go,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
-    self.renderStencil = renderStencil
-    self.writeData = writeData
+    self.generate = generate
+    self.writeFile = writeFile
     self.resolveProduction = resolveProduction
     self.resolveProductionVersions = resolveProductionVersions
     self.resolveProductionBuilds = resolveProductionBuilds
     self.persistBuilds = persistBuilds
     self.persistVersions = persistVersions
-    self.sendReport = sendReport
+    self.report = report
     self.logMessage = logMessage
     self.printLine = printLine
     self.jsonDecoder = jsonDecoder
@@ -52,34 +51,33 @@ public struct GitlabVersionController {
     guard !job.tag else { throw Thrown("Not on branch") }
     let product = try production.productMatching(ref: job.pipeline.ref, tag: false)
     try product.checkPermission(job: job)
-    let version = try renderStencil(.make(generator: cfg.generateReleaseVersion(
+    let version = try generate(cfg.generateReleaseVersion(
       product: product,
       ref: job.pipeline.ref
-    )))
+    ))
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     let build = try builds.last
-      .map(\.build)
+      .map(\.value)
       .reduce(production, cfg.generateNextBuild(production:build:))
-      .map(RenderStencil.make(generator:))
-      .map(renderStencil)
+      .map(generate)
       .or { throw Thrown("Push first build number manually") }
-    let tag = try renderStencil(.make(generator: cfg.generateDeployName(
+    let tag = try generate(cfg.generateDeployName(
       product: product,
       version: version,
       build: build
-    )))
-    let annotation = try renderStencil(.make(generator: cfg.generateDeployAnnotation(
+    ))
+    let annotation = try generate(cfg.generateDeployAnnotation(
       job: job,
       product: product,
       version: version,
       build: build
-    )))
+    ))
     try persistBuilds(.init(
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),
       production: production,
       builds: builds,
-      build: .make(build: build, sha: job.pipeline.sha, tag: tag)
+      build: .make(value: build, sha: job.pipeline.sha, ref: .tag(tag))
     ))
     _ = try gitlabCi
       .postTags(parameters: .init(name: tag, ref: job.pipeline.sha, message: annotation))
@@ -102,28 +100,27 @@ public struct GitlabVersionController {
     try product.checkPermission(job: job)
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     let build = try builds.last
-      .map(\.build)
+      .map(\.value)
       .reduce(production, cfg.generateNextBuild(production:build:))
-      .map(RenderStencil.make(generator:))
-      .map(renderStencil)
+      .map(generate)
       .or { throw Thrown("Push first build number manually") }
-    let tag = try renderStencil(.make(generator: cfg.generateDeployName(
+    let tag = try generate(cfg.generateDeployName(
       product: product,
       version: version,
       build: build
-    )))
-    let annotation = try renderStencil(.make(generator: cfg.generateDeployAnnotation(
+    ))
+    let annotation = try generate(cfg.generateDeployAnnotation(
       job: job,
       product: product,
       version: version,
       build: build
-    )))
+    ))
     try persistBuilds(.init(
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),
       production: production,
       builds: builds,
-      build: .make(build: build, sha: job.pipeline.sha, tag: tag)
+      build: .make(value: build, sha: job.pipeline.sha, ref: .tag(tag))
     ))
     _ = try gitlabCi
       .postTags(parameters: .init(name: tag, ref: job.pipeline.sha, message: annotation))
@@ -143,17 +140,16 @@ public struct GitlabVersionController {
       build.sha == review.pipeline.sha && review.targetBranch == build.branch
     }) else { throw Thrown("Build already exists") }
     let build = try builds.last
-      .map(\.build)
+      .map(\.value)
       .reduce(production, cfg.generateNextBuild(production:build:))
-      .map(RenderStencil.make(generator:))
-      .map(renderStencil)
+      .map(generate)
       .or { throw Thrown("Push first build number manually") }
     try persistBuilds(.init(
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),
       production: production,
       builds: builds,
-      build: .make(build: build, sha: review.pipeline.sha, branch: review.targetBranch)
+      build: .make(value: build, sha: review.pipeline.sha, ref: .branch(review.targetBranch))
     ))
     return true
   }
@@ -169,18 +165,18 @@ public struct GitlabVersionController {
     let versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     let version = try versions[product.name]
       .or { throw Thrown("No version for \(product.name)") }
-    let name = try renderStencil(.make(generator: cfg.generateReleaseName(
+    let name = try generate(cfg.generateReleaseName(
       product: product,
       version: version
-    )))
+    ))
     _ = try gitlabCi
       .postBranches(name: name, ref: job.pipeline.sha)
       .map(execute)
       .get()
-    let next = try renderStencil(.make(generator: cfg.generateNextVersion(
+    let next = try generate(cfg.generateNextVersion(
       product: product,
       version: version
-    )))
+    ))
     try persistVersions(.init(
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),
@@ -201,18 +197,18 @@ public struct GitlabVersionController {
     guard job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(ref: job.pipeline.ref, tag: true)
     try product.checkPermission(job: job)
-    let version = try renderStencil(.make(generator: cfg.generateDeployVersion(
+    let version = try generate(cfg.generateDeployVersion(
       product: product,
       ref: job.pipeline.ref
-    )))
-    let hotfix = try renderStencil(.make(generator: cfg.generateHotfixVersion(
+    ))
+    let hotfix = try generate(cfg.generateHotfixVersion(
       product: product,
       version: version
-    )))
-    let name = try renderStencil(.make(generator: cfg.generateReleaseName(
+    ))
+    let name = try generate(cfg.generateReleaseName(
       product: product,
       version: hotfix
-    )))
+    ))
     _ = try gitlabCi
       .postBranches(name: name, ref: job.pipeline.sha)
       .map(execute)
@@ -226,7 +222,7 @@ public struct GitlabVersionController {
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard job.tag else { throw Thrown("Not on tag") }
-    try sendReport(cfg.makeSendReport(report: cfg.reportReleaseNotes(
+    try report(cfg.reportReleaseNotes(
       job: job,
       commits: Id
         .make(cfg.git.listCommits(
@@ -244,7 +240,7 @@ public struct GitlabVersionController {
         .map(cfg.git.getCommitMessage(ref:))
         .map(execute)
         .map(String.make(utf8:))
-    )))
+    ))
     return true
   }
   public func renderReviewBuild(
@@ -267,16 +263,16 @@ public struct GitlabVersionController {
     }
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     if let product = try? production.productMatching(ref: target, tag: false) {
-      versions[product.name] = try renderStencil(.make(generator: cfg.generateReleaseVersion(
+      versions[product.name] = try generate(cfg.generateReleaseVersion(
         product: product,
         ref: target
-      )))
+      ))
     }
-    try printLine(renderStencil(.make(generator: cfg.generateBuild(
+    try printLine(generate(cfg.generateBuild(
       template: template,
-      build: build.build,
+      build: build.value,
       versions: versions
-    ))))
+    )))
     return true
   }
   public func renderBuild(
@@ -293,42 +289,41 @@ public struct GitlabVersionController {
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     if job.tag {
       let product = try production.productMatching(ref: job.pipeline.ref, tag: true)
-      build = try renderStencil(.make(generator: cfg.generateDeployBuild(
+      build = try generate(cfg.generateDeployBuild(
         product: product,
         ref: job.pipeline.ref
-      )))
-      versions[product.name] = try renderStencil(.make(generator: cfg.generateReleaseVersion(
+      ))
+      versions[product.name] = try generate(cfg.generateReleaseVersion(
         product: product,
         ref: job.pipeline.ref
-      )))
+      ))
     } else {
       let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
       if let present =  builds.reversed().first(where: { build in
         build.sha == job.pipeline.sha && build.branch == job.pipeline.ref
       }) {
-        build = present.build
+        build = present.value
       } else {
         let newBuild = try builds.last
-          .map(\.build)
+          .map(\.value)
           .reduce(production, cfg.generateNextBuild(production:build:))
-          .map(RenderStencil.make(generator:))
-          .map(renderStencil)
+          .map(generate)
           .or { throw Thrown("Push first build number manually") }
         try persistBuilds(.init(
           cfg: cfg,
           pushUrl: gitlabCi.pushUrl.get(),
           production: production,
           builds: builds,
-          build: .make(build: newBuild, sha: job.pipeline.sha, branch: job.pipeline.ref)
+          build: .make(value: newBuild, sha: job.pipeline.sha, ref: .branch(job.pipeline.ref))
         ))
         build = newBuild
       }
     }
-    try printLine(renderStencil(.make(generator: cfg.generateBuild(
+    try printLine(generate(cfg.generateBuild(
       template: template,
       build: build,
       versions: versions
-    ))))
+    )))
     return true
   }
   public func renderVersions(
@@ -341,15 +336,15 @@ public struct GitlabVersionController {
       let target = try? cfg.controls.gitlabCi.map(\.reviewTarget).get(),
       let product = try? production.productMatching(ref: target, tag: false)
     {
-      versions[product.name] = try renderStencil(.make(generator: cfg.generateReleaseVersion(
+      versions[product.name] = try generate(cfg.generateReleaseVersion(
         product: product,
         ref: target
-      )))
+      ))
     }
-    try printLine(renderStencil(.make(generator: cfg.generateVersions(
+    try printLine(generate(cfg.generateVersions(
       template: template,
       versions: versions
-    ))))
+    )))
     return true
   }
 }

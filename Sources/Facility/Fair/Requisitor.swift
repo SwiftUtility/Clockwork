@@ -1,20 +1,19 @@
 import Foundation
 import Facility
-import FacilityQueries
-import FacilityAutomates
+import FacilityPure
 public struct Requisitor {
   let execute: Try.Reply<Execute>
-  let resolveAbsolutePath: Try.Reply<ResolveAbsolutePath>
-  let resolveRequisition: Try.Reply<ResolveRequisition>
+  let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>
+  let resolveRequisition: Try.Reply<Configuration.ResolveRequisition>
   let plistDecoder: PropertyListDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    resolveAbsolutePath: @escaping Try.Reply<ResolveAbsolutePath>,
-    resolveRequisition: @escaping Try.Reply<ResolveRequisition>,
+    resolveAbsolute: @escaping Try.Reply<Files.ResolveAbsolute>,
+    resolveRequisition: @escaping Try.Reply<Configuration.ResolveRequisition>,
     plistDecoder: PropertyListDecoder
   ) {
     self.execute = execute
-    self.resolveAbsolutePath = resolveAbsolutePath
+    self.resolveAbsolute = resolveAbsolute
     self.resolveRequisition = resolveRequisition
     self.plistDecoder = plistDecoder
   }
@@ -59,7 +58,7 @@ public struct Requisitor {
       .map(String.make(utf8:))
       .get()
       .components(separatedBy: .newlines)
-      .map(Path.Relative.init(value:))
+      .map(Files.Relative.init(value:))
       .map { .init(ref: dir.ref, path: $0) }
   }
   func install(cfg: Configuration, provision: Git.File) throws {
@@ -67,7 +66,7 @@ public struct Requisitor {
     let temp = try Id(cfg.systemTempFile)
       .map(execute)
       .map(String.make(utf8:))
-      .map(Path.Absolute.init(value:))
+      .map(Files.Absolute.init(value:))
     _ = try Id(provision)
       .map(cfg.git.cat(file:))
       .reduce(temp.get(), cfg.systemWrite(file:execute:))
@@ -78,8 +77,8 @@ public struct Requisitor {
       .reduce(Plist.Provision.self, plistDecoder.decode(_:from:))
       .map(\.uuid)
       .map { "~/Library/MobileDevice/Provisioning Profiles/\($0).mobileprovision" }
-      .map(ResolveAbsolutePath.make(path:))
-      .map(resolveAbsolutePath)
+      .map(Files.ResolveAbsolute.make(path:))
+      .map(resolveAbsolute)
       .reduce(temp.get(), cfg.systemMove(file:location:))
       .map(execute)
   }

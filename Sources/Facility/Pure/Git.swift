@@ -1,25 +1,25 @@
 import Foundation
 import Facility
 public struct Git {
-  public var root: Path.Absolute
+  public var root: Files.Absolute
   public var verbose: Bool
   public var lfs: Bool = false
-  public init(verbose: Bool, root: Path.Absolute) throws {
+  public init(verbose: Bool, root: Files.Absolute) throws {
     self.root = root
     self.verbose = verbose
   }
   public struct File {
     public var ref: Ref
-    public var path: Path.Relative
-    public init(ref: Ref, path: Path.Relative) {
+    public var path: Files.Relative
+    public init(ref: Ref, path: Files.Relative) {
       self.ref = ref
       self.path = path
     }
   }
   public struct Dir {
     public var ref: Ref
-    public var path: Path.Relative
-    public init(ref: Ref, path: Path.Relative) {
+    public var path: Files.Relative
+    public init(ref: Ref, path: Files.Relative) {
       self.ref = ref
       self.path = path
     }
@@ -210,7 +210,7 @@ public extension Git {
   )}
   static func resolveTopLevel(
     verbose: Bool,
-    path: Path.Absolute
+    path: Files.Absolute
   ) -> Execute { .init(tasks: [.init(
     verbose: verbose,
     arguments: ["git", "-C", path.value, "rev-parse", "--show-toplevel"]

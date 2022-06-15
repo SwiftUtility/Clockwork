@@ -1,7 +1,6 @@
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
+import FacilityPure
 public struct Processor {
   private let process: Process = .init()
   private let pipe: Pipe = .init()

@@ -60,24 +60,14 @@ public enum Yaml {
         public var sha: String
         public var branch: String?
         public var tag: String?
-        public static func make(build: String, sha: String, branch: String) -> Self { .init(
-          build: build,
-          sha: sha,
-          branch: branch
-        )}
-        public static func make(build: String, sha: String, tag: String) -> Self { .init(
-          build: build,
-          sha: sha,
-          tag: tag
-        )}
       }
     }
     public struct Requisition: Decodable {
       public var keychains: [String: Keychain]
       public var provisions: [String: String]
       public struct Keychain: Decodable {
-        public var crypto: String
-        public var password: Token
+        public var pkcs12: String
+        public var password: Secret
       }
     }
     public struct Flow: Decodable {
@@ -111,8 +101,8 @@ public enum Yaml {
       public var trigger: Trigger
       public struct Bot: Decodable {
         public var login: String
-        public var apiToken: Token?
-        public var pushToken: Token?
+        public var apiToken: Secret?
+        public var pushToken: Secret?
       }
       public struct Trigger: Decodable {
         public var pipeline: String
@@ -138,7 +128,7 @@ public enum Yaml {
       }
     }
     public struct Communication: Decodable {
-      public var slackHooks: [String: Token]
+      public var slackHooks: [String: Secret]
       public var slackHookTextMessages: [SlackHookTextMessage]?
       public struct SlackHookTextMessage: Decodable {
         public var hook: String
@@ -155,7 +145,7 @@ public enum Yaml {
     public var branch: String
     public var commitMessageTemplate: String
   }
-  public struct Token: Decodable {
+  public struct Secret: Decodable {
     public var value: String?
     public var envVar: String?
     public var envFile: String?
@@ -163,5 +153,12 @@ public enum Yaml {
   public struct Criteria: Decodable {
     var include: [String]?
     var exclude: [String]?
+  }
+  public struct Decode: Query {
+    public var content: String
+    public init(content: String) {
+      self.content = content
+    }
+    public typealias Reply = AnyCodable
   }
 }

@@ -12,7 +12,7 @@ public struct Requisition {
     verbose: verbose,
     keychains: yaml.keychains
       .mapValues { yaml in try .init(
-        crypto: yaml.crypto,
+        pkcs12: yaml.pkcs12,
         password: .init(yaml: yaml.password)
       )},
     provisions: yaml.provisions
@@ -22,12 +22,12 @@ public struct Requisition {
       )}
   )}
   public struct Keychain {
-    public var crypto: String
-    public var password: Token
+    public var pkcs12: String
+    public var password: Secret
   }
 }
 public extension Requisition {
-  func decode(file: Path.Absolute) -> Execute { proc(args: ["cms", "-D", "-i", file.value]) }
+  func decode(file: Files.Absolute) -> Execute { proc(args: ["cms", "-D", "-i", file.value]) }
   func delete(keychain: String) -> Execute { proc(
     args: ["delete-keychain", keychain]
   )}
@@ -46,7 +46,7 @@ public extension Requisition {
   )}
   func importPkcs12(
     keychain: String,
-    file: Path.Absolute,
+    file: Files.Absolute,
     pass: String
   ) -> Execute { proc(
     args: ["import", file.value, "-k", keychain, "-P", pass]

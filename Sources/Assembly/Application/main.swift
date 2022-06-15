@@ -1,9 +1,8 @@
 import Foundation
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
-import FacilityWorkers
+import FacilityPure
+import FacilityFair
 import InteractivityCommon
 import InteractivityYams
 import InteractivityStencil
@@ -15,15 +14,15 @@ enum Main {
     logLine: FileHandle.standardError.write(message:),
     printLine: FileHandle.standardOutput.write(message:),
     getTime: Date.init,
-    renderStencil: stencilParser.renderStencil(query:)
+    generate: stencilParser.generate(query:)
   )
   static let configurator = Configurator(
     execute: Processor.execute(query:),
     decodeYaml: YamlParser.decodeYaml(query:),
-    resolveAbsolutePath: Finder.resolveAbsolutePath(query:),
+    resolveAbsolute: Finder.resolveAbsolute(query:),
     readFile: Finder.readFile(query:),
-    renderStencil: stencilParser.renderStencil(query:),
-    writeData: Finder.writeData(query:),
+    generate: stencilParser.generate(query:),
+    writeFile: Finder.writeFile(query:),
     logMessage: reporter.logMessage(query:),
     printLine: FileHandle.standardOutput.write(message:),
     dialect: .json
@@ -33,13 +32,13 @@ enum Main {
     execute: Processor.execute(query:),
     resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
     resolveFileTaboos: configurator.resolveFileTaboos(query:),
-    sendReport: reporter.sendReport(query:),
+    report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let requisitor = Requisitor(
     execute: Processor.execute(query:),
-    resolveAbsolutePath: Finder.resolveAbsolutePath(query:),
+    resolveAbsolute: Finder.resolveAbsolute(query:),
     resolveRequisition: configurator.resolveRequisition(query:),
     plistDecoder: .init()
   )
@@ -47,11 +46,11 @@ enum Main {
     execute: Processor.execute(query:),
     resolveProfile: configurator.resolveProfile(query:),
     resolveAwardApproval: configurator.resolveAwardApproval(query:),
-    resolveAwardApprovalUserActivity: configurator.resolveAwardApprovalUserActivity(query:),
+    resolveUserActivity: configurator.resolveUserActivity(query:),
     resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
     persistUserActivity: configurator.persistUserActivity(query:),
     resolveFlow: configurator.resolveFlow(query:),
-    sendReport: reporter.sendReport(query:),
+    report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -59,8 +58,8 @@ enum Main {
     execute: Processor.execute(query:),
     resolveFlow: configurator.resolveFlow(query:),
     printLine: FileHandle.standardOutput.write(message:),
-    renderStencil: stencilParser.renderStencil(query:),
-    sendReport: reporter.sendReport(query:),
+    generate: stencilParser.generate(query:),
+    report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -71,14 +70,14 @@ enum Main {
   )
   static let gitlabVersionController = GitlabVersionController(
     execute: Processor.execute(query:),
-    renderStencil: stencilParser.renderStencil(query:),
-    writeData: Finder.writeData(query:),
+    generate: stencilParser.generate(query:),
+    writeFile: Finder.writeFile(query:),
     resolveProduction: configurator.resolveProduction(query:),
     resolveProductionVersions: configurator.resolveProductionVersions(query:),
     resolveProductionBuilds: configurator.resolveProductionBuilds(query:),
     persistBuilds: configurator.persistBuilds(query:),
     persistVersions: configurator.persistVersions(query:),
-    sendReport: reporter.sendReport(query:),
+    report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     printLine: FileHandle.standardOutput.write(message:),
     jsonDecoder: jsonDecoder

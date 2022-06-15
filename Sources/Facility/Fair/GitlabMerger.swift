@@ -1,29 +1,28 @@
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
+import FacilityPure
 public struct GitlabMerger {
   let execute: Try.Reply<Execute>
-  let resolveFlow: Try.Reply<ResolveFlow>
+  let resolveFlow: Try.Reply<Configuration.ResolveFlow>
   let printLine: Act.Of<String>.Go
-  let renderStencil: Try.Reply<RenderStencil>
-  let sendReport: Try.Reply<SendReport>
+  let generate: Try.Reply<Generate>
+  let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    resolveFlow: @escaping Try.Reply<ResolveFlow>,
+    resolveFlow: @escaping Try.Reply<Configuration.ResolveFlow>,
     printLine: @escaping Act.Of<String>.Go,
-    renderStencil: @escaping Try.Reply<RenderStencil>,
-    sendReport: @escaping Try.Reply<SendReport>,
+    generate: @escaping Try.Reply<Generate>,
+    report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.resolveFlow = resolveFlow
     self.printLine = printLine
-    self.renderStencil = renderStencil
-    self.sendReport = sendReport
+    self.generate = generate
+    self.report = report
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
@@ -33,14 +32,14 @@ public struct GitlabMerger {
       .flatMap(\.titleRule)
       .get()
     guard titleRule.isMet(title) else { return true }
-    try sendReport(cfg.makeSendReport(report: cfg.reportInvalidTitle(
+    try report(cfg.reportInvalidTitle(
       job: cfg.controls.gitlabCi
         .flatMap(\.getCurrentJob)
         .map(execute)
         .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
         .get(),
       title: title
-    )))
+    ))
     return false
   }
   public func validateReviewStatus(cfg: Configuration) throws -> Bool {
@@ -63,11 +62,11 @@ public struct GitlabMerger {
     if review.workInProgress { reasons.append(.workInProgress) }
     if !review.blockingDiscussionsResolved { reasons.append(.blockingDiscussions) }
     guard reasons.isEmpty else { return true }
-    try sendReport(cfg.makeSendReport(report: cfg.reportReviewBlocked(
+    try report(cfg.reportReviewBlocked(
       review: review,
       users: [review.author.username],
       reasons: reasons
-    )))
+    ))
     return false
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
@@ -99,10 +98,10 @@ public struct GitlabMerger {
     let head = try Git.Sha(value: review.pipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: review.targetBranch))
     let squash = try resolveFlow(.init(cfg: cfg)).squash.get()
-    let message = try renderStencil(.make(generator: cfg.generateSquashCommitMessage(
+    let message = try generate(cfg.generateSquashCommitMessage(
       squash: squash,
       review: review
-    )))
+    ))
     let targetSha = try Id(target)
       .map(cfg.git.getSha(ref:))
       .map(execute)
@@ -131,10 +130,10 @@ public struct GitlabMerger {
         ))
       } else {
         logMessage(.init(message: "Automatic merge failed"))
-        try sendReport(cfg.makeSendReport(report: cfg.reportReviewMergeConflicts(
+        try report(cfg.reportReviewMergeConflicts(
           review: review,
           users: [review.author.username]
-        )))
+        ))
       }
       return false
     }
@@ -168,10 +167,10 @@ public struct GitlabMerger {
     guard case nil = try? execute(cfg.git.checkObjectType(
       ref: .make(remote: merge.supply)
     )) else { throw Thrown("Integration already in progress") }
-    let message = try renderStencil(.make(generator: cfg.generateIntegrationCommitMessage(
+    let message = try generate(cfg.generateIntegrationCommitMessage(
       integration: integration,
       merge: merge
-    )))
+    ))
     let sha: Git.Sha
     if case nil = try? execute(cfg.git.check(
       child: .make(sha: merge.fork),
@@ -279,10 +278,10 @@ public struct GitlabMerger {
         .putMrState(parameters: .init(stateEvent: "close"))
         .map(execute)
         .get()
-      let message = try renderStencil(.make(generator: cfg.generateIntegrationCommitMessage(
+      let message = try generate(cfg.generateIntegrationCommitMessage(
         integration: integration,
         merge: merge
-      )))
+      ))
       let sha = try commitMerge(
         cfg: cfg,
         into: .make(remote: merge.target),
@@ -306,10 +305,10 @@ public struct GitlabMerger {
       return true
     }
     guard pipeline.user.username == gitlabCi.botLogin else {
-      let message = try renderStencil(.make(generator: cfg.generateIntegrationCommitMessage(
+      let message = try generate(cfg.generateIntegrationCommitMessage(
         integration: integration,
         merge: merge
-      )))
+      ))
       let sha = try commitMerge(
         cfg: cfg,
         into: .make(remote: merge.target),
@@ -355,10 +354,10 @@ public struct GitlabMerger {
       .map(String.make(utf8:))
       .get()
     guard [target, merge.fork.value] == parents else {
-      let message = try renderStencil(.make(generator: cfg.generateIntegrationCommitMessage(
+      let message = try generate(cfg.generateIntegrationCommitMessage(
         integration: integration,
         merge: merge
-      )))
+      ))
       if let sha = try commitMerge(
         cfg: cfg,
         into: .make(remote: merge.target),
@@ -373,10 +372,10 @@ public struct GitlabMerger {
         ))
       } else {
         logMessage(.init(message: "Integration stopped due to conflicts"))
-        try sendReport(cfg.makeSendReport(report: cfg.reportReviewMergeConflicts(
+        try report(cfg.reportReviewMergeConflicts(
           review: review,
           users: resolveParticipants(cfg: cfg, gitlabCi: gitlabCi, merge: merge)
-        )))
+        ))
       }
       return false
     }
@@ -421,11 +420,11 @@ public struct GitlabMerger {
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    try printLine(renderStencil(.make(generator: cfg.generateIntegration(
+    try printLine(generate(cfg.generateIntegration(
       template: template,
       targets: targets
         .map(\.name)
-    ))))
+    )))
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
@@ -454,10 +453,10 @@ public struct GitlabMerger {
       logMessage(.init(message: "Replication already in progress"))
       return true
     }
-    let message = try renderStencil(.make(generator: cfg.generateReplicationCommitMessage(
+    let message = try generate(cfg.generateReplicationCommitMessage(
       replication: replication,
       merge: merge
-    )))
+    ))
     let sha = try commitMerge(
       cfg: cfg,
       into: .make(remote: merge.target),
@@ -545,10 +544,10 @@ public struct GitlabMerger {
         logMessage(.init(message: "No commits to replicate"))
         return true
       }
-      let message = try renderStencil(.make(generator: cfg.generateReplicationCommitMessage(
+      let message = try generate(cfg.generateReplicationCommitMessage(
         replication: replication,
         merge: merge
-      )))
+      ))
       let sha = try commitMerge(
         cfg: cfg,
         into: .make(remote: merge.target),
@@ -572,10 +571,10 @@ public struct GitlabMerger {
       return true
     }
     guard pipeline.user.username == gitlabCi.botLogin else {
-      let message = try renderStencil(.make(generator: cfg.generateReplicationCommitMessage(
+      let message = try generate(cfg.generateReplicationCommitMessage(
         replication: replication,
         merge: merge
-      )))
+      ))
       let sha = try commitMerge(
         cfg: cfg,
         into: .make(remote: merge.target),
@@ -621,10 +620,10 @@ public struct GitlabMerger {
       .map(String.make(utf8:))
       .get()
     guard [target, merge.fork.value] == parents else {
-      let message = try renderStencil(.make(generator: cfg.generateReplicationCommitMessage(
+      let message = try generate(cfg.generateReplicationCommitMessage(
         replication: replication,
         merge: merge
-      )))
+      ))
       if let sha = try commitMerge(
         cfg: cfg,
         into: .make(remote: merge.target),
@@ -639,10 +638,10 @@ public struct GitlabMerger {
         ))
       } else {
         logMessage(.init(message: "Replications stopped due to conflicts"))
-        try sendReport(cfg.makeSendReport(report: cfg.reportReviewMergeConflicts(
+        try report(cfg.reportReviewMergeConflicts(
           review: review,
           users: resolveParticipants(cfg: cfg, gitlabCi: gitlabCi, merge: merge)
-        )))
+        ))
       }
       return true
     }
@@ -663,10 +662,10 @@ public struct GitlabMerger {
       logMessage(.init(message: "No commits to replicate"))
       return true
     }
-    let message = try renderStencil(.make(generator: cfg.generateReplicationCommitMessage(
+    let message = try generate(cfg.generateReplicationCommitMessage(
       replication: replication,
       merge: merge
-    )))
+    ))
     let sha = try commitMerge(
       cfg: cfg,
       into: .make(remote: merge.target),
@@ -780,18 +779,18 @@ public struct GitlabMerger {
       .get()
     if case "merged"? = result.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
-      try sendReport(cfg.makeSendReport(report: cfg.reportReviewMerged(
+      try report(cfg.reportReviewMerged(
         review: review,
         users: users
-      )))
+      ))
       return true
     } else if let message = result.map?["message"]?.value?.string {
       logMessage(.init(message: message))
-      try sendReport(cfg.makeSendReport(report: cfg.reportReviewMergeError(
+      try report(cfg.reportReviewMergeError(
         review: review,
         users: users,
         error: message
-      )))
+      ))
       return false
     } else {
       throw MayDay("Unexpected merge response")

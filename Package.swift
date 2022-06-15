@@ -33,9 +33,8 @@ let package = Package(
       "Stencil",
     ]),
     .interactivity("Common"),
-    .facility("Workers", extra: ["FacilityAutomates", "FacilityQueries"]),
-    .facility("Queries", extra: ["FacilityAutomates"]),
-    .facility("Automates"),
+    .facility("Fair", extra: ["FacilityPure"]),
+    .facility("Pure"),
   ]
 )
 extension Target {
@@ -69,9 +68,8 @@ extension Array where Element == Target.Dependency {
     .product(name: "Interactivity", package: "Utility"),
   ]
   static let facilities: Self = [
-    "FacilityWorkers",
-    "FacilityAutomates",
-    "FacilityQueries",
+    "FacilityFair",
+    "FacilityPure",
   ]
   static let facility: Self = [
     .product(name: "Facility", package: "Utility")

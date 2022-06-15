@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 public struct Asset {
-  public var file: Path.Relative
+  public var file: Files.Relative
   public var branch: Git.Branch
   public var commitMessageTemplate: String
   public var remote: Git.File { .init(ref: .make(remote: branch), path: file) }

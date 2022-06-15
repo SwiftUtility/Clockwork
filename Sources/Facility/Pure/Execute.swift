@@ -3,7 +3,7 @@ import Facility
 public struct Execute: Query {
   public var input: Data? = nil
   public var tasks: [Task]
-  public func overwrite(cfg: Configuration, file: Path.Absolute) -> Self {
+  public func overwrite(cfg: Configuration, file: Files.Absolute) -> Self {
     var this = self
     this.tasks.append(.init(verbose: cfg.verbose, arguments: ["tee", file.value]))
     return this
@@ -41,10 +41,10 @@ public extension Configuration {
   var systemTempFile: Execute { .init(tasks: [
     .init(verbose: verbose, arguments: ["mktemp"])
   ])}
-  func systemMove(file: Path.Absolute, location: Path.Absolute) -> Execute { .init(tasks: [
+  func systemMove(file: Files.Absolute, location: Files.Absolute) -> Execute { .init(tasks: [
     .init(verbose: verbose, arguments: ["mv", "-f", file.value, location.value])
   ])}
-  func systemWrite(file: Path.Absolute, execute: Execute) -> Execute { .init(
+  func systemWrite(file: Files.Absolute, execute: Execute) -> Execute { .init(
     input: execute.input,
     tasks: execute.tasks + [.init(verbose: verbose, arguments: ["tee", file.value])]
   )}

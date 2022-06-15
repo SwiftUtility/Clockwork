@@ -1,32 +1,31 @@
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
+import FacilityPure
 public struct GitlabValidator {
   let execute: Try.Reply<Execute>
-  let resolveCodeOwnage: Try.Reply<ResolveCodeOwnage>
-  let resolveFileTaboos: Try.Reply<ResolveFileTaboos>
-  let sendReport: Try.Reply<SendReport>
+  let resolveCodeOwnage: Try.Reply<Configuration.ResolveCodeOwnage>
+  let resolveFileTaboos: Try.Reply<Configuration.ResolveFileTaboos>
+  let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    resolveCodeOwnage: @escaping Try.Reply<ResolveCodeOwnage>,
-    resolveFileTaboos: @escaping Try.Reply<ResolveFileTaboos>,
-    sendReport: @escaping Try.Reply<SendReport>,
+    resolveCodeOwnage: @escaping Try.Reply<Configuration.ResolveCodeOwnage>,
+    resolveFileTaboos: @escaping Try.Reply<Configuration.ResolveFileTaboos>,
+    report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.resolveCodeOwnage = resolveCodeOwnage
     self.resolveFileTaboos = resolveFileTaboos
-    self.sendReport = sendReport
+    self.report = report
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
   public func validateUnownedCode(cfg: Configuration) throws -> Bool {
     let approvals = try Id(cfg.profile)
-      .reduce(cfg, ResolveCodeOwnage.init(cfg:profile:))
+      .reduce(cfg, Configuration.ResolveCodeOwnage.init(cfg:profile:))
       .map(resolveCodeOwnage)
       .get()
     let files = try Id
@@ -47,8 +46,7 @@ public struct GitlabValidator {
       .map(execute)
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: files, cfg.reportUnownedCode(job:files:))
-      .map(cfg.makeSendReport(report:))
-      .map(sendReport)
+      .map(report)
       .get()
     return false
   }
@@ -72,7 +70,7 @@ public struct GitlabValidator {
         .filter { $0.files.isMet(file) }
       if lineRules.isEmpty { continue }
       issues += try Id(file)
-        .map(Path.Relative.init(value:))
+        .map(Files.Relative.init(value:))
         .reduce(.head, Git.File.init(ref:path:))
         .map(cfg.git.cat(file:))
         .map(execute)
@@ -95,8 +93,7 @@ public struct GitlabValidator {
       .map(execute)
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: issues, cfg.reportFileTabooIssues(job:issues:))
-      .map(cfg.makeSendReport(report:))
-      .map(sendReport)
+      .map(report)
       .get()
     return false
   }
@@ -133,11 +130,11 @@ public struct GitlabValidator {
       .map(execute)
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
-    try sendReport(cfg.makeSendReport(report: cfg.reportReviewObsolete(
+    try report(cfg.reportReviewObsolete(
       job: job,
       obsoleteFiles: obsoleteFiles,
       forbiddenCommits: forbiddenCommits
-    )))
+    ))
     return false
   }
   public func validateReviewConflictMarkers(cfg: Configuration, target: String) throws -> Bool {
@@ -172,8 +169,7 @@ public struct GitlabValidator {
       .map(execute)
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: markers, cfg.reportConflictMarkers(job:markers:))
-      .map(cfg.makeSendReport(report:))
-      .map(sendReport)
+      .map(report)
       .get()
     return false
   }

@@ -1,10 +1,9 @@
 import XCTest
 @testable import InteractivityStencil
 @testable import Facility
-@testable import FacilityQueries
-@testable import FacilityAutomates
+@testable import FacilityPure
 final class StencilTests: XCTestCase {
-  func makeQuery(_ name: String) -> RenderStencil { .init(
+  func makeQuery(_ name: String) -> Generate { .init(
     template: name,
     templates: [
       "testSubscript": "{{custom.members[env.login].mention}}",
@@ -52,32 +51,32 @@ final class StencilTests: XCTestCase {
   )}
   func testSubscript() throws {
     let result = try StencilParser(notation: .json)
-      .renderStencil(query: makeQuery("testSubscript"))
+      .generate(query: makeQuery("testSubscript"))
     XCTAssertEqual(result, "<@USERID>")
   }
   func testRegexp() throws {
     let result = try StencilParser(notation: .json)
-      .renderStencil(query: makeQuery("testRegexp"))
+      .generate(query: makeQuery("testRegexp"))
     XCTAssertEqual(result, #"MR-123, <link|MB-234> ME-123: asd "asdas" [MR-234], RF-345'"#)
   }
   func testFilterChaining() throws {
     let result = try StencilParser(notation: .json)
-      .renderStencil(query: makeQuery("testFilterChaining"))
+      .generate(query: makeQuery("testFilterChaining"))
     XCTAssertEqual(result, #"&lt;Mr-123&gt; &amp; Co"#)
   }
   func testIncrement() throws {
     let result = try StencilParser(notation: .json)
-      .renderStencil(query: makeQuery("testIncrement"))
+      .generate(query: makeQuery("testIncrement"))
     XCTAssertEqual(result, #"12"#)
   }
   func testScan() throws {
     let result = try StencilParser(notation: .json)
-      .renderStencil(query: makeQuery("testScan"))
+      .generate(query: makeQuery("testScan"))
     XCTAssertEqual(result, #"1.3.4"#)
   }
   func testScanInplace() throws {
     let result = try StencilParser(notation: .json)
-      .renderStencil(query: makeQuery("testScanInplace"))
+      .generate(query: makeQuery("testScanInplace"))
     XCTAssertEqual(result, #"1.3.3"#)
   }
 }

@@ -1,38 +1,37 @@
 import Foundation
 import Facility
-import FacilityAutomates
-import FacilityQueries
+import FacilityPure
 public struct GitlabAwardApprover {
   let execute: Try.Reply<Execute>
-  let resolveProfile: Try.Reply<ResolveProfile>
-  let resolveAwardApproval: Try.Reply<ResolveAwardApproval>
-  let resolveAwardApprovalUserActivity: Try.Reply<ResolveAwardApprovalUserActivity>
-  let resolveCodeOwnage: Try.Reply<ResolveCodeOwnage>
-  let persistUserActivity: Try.Reply<PersistUserActivity>
-  let resolveFlow: Try.Reply<ResolveFlow>
-  let sendReport: Try.Reply<SendReport>
+  let resolveProfile: Try.Reply<Configuration.ResolveProfile>
+  let resolveAwardApproval: Try.Reply<Configuration.ResolveAwardApproval>
+  let resolveUserActivity: Try.Reply<Configuration.ResolveUserActivity>
+  let resolveCodeOwnage: Try.Reply<Configuration.ResolveCodeOwnage>
+  let persistUserActivity: Try.Reply<Configuration.PersistUserActivity>
+  let resolveFlow: Try.Reply<Configuration.ResolveFlow>
+  let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    resolveProfile: @escaping Try.Reply<ResolveProfile>,
-    resolveAwardApproval: @escaping Try.Reply<ResolveAwardApproval>,
-    resolveAwardApprovalUserActivity: @escaping Try.Reply<ResolveAwardApprovalUserActivity>,
-    resolveCodeOwnage: @escaping Try.Reply<ResolveCodeOwnage>,
-    persistUserActivity: @escaping Try.Reply<PersistUserActivity>,
-    resolveFlow: @escaping Try.Reply<ResolveFlow>,
-    sendReport: @escaping Try.Reply<SendReport>,
+    resolveProfile: @escaping Try.Reply<Configuration.ResolveProfile>,
+    resolveAwardApproval: @escaping Try.Reply<Configuration.ResolveAwardApproval>,
+    resolveUserActivity: @escaping Try.Reply<Configuration.ResolveUserActivity>,
+    resolveCodeOwnage: @escaping Try.Reply<Configuration.ResolveCodeOwnage>,
+    persistUserActivity: @escaping Try.Reply<Configuration.PersistUserActivity>,
+    resolveFlow: @escaping Try.Reply<Configuration.ResolveFlow>,
+    report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.resolveProfile = resolveProfile
     self.resolveAwardApproval = resolveAwardApproval
-    self.resolveAwardApprovalUserActivity = resolveAwardApprovalUserActivity
+    self.resolveUserActivity = resolveUserActivity
     self.resolveCodeOwnage = resolveCodeOwnage
     self.persistUserActivity = persistUserActivity
     self.resolveFlow = resolveFlow
-    self.sendReport = sendReport
+    self.report = report
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
@@ -47,7 +46,7 @@ public struct GitlabAwardApprover {
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),
       awardApproval: awardApproval,
-      userActivity: resolveAwardApprovalUserActivity(.init(
+      userActivity: resolveUserActivity(.init(
         cfg: cfg,
         awardApproval: awardApproval
       )),
@@ -152,9 +151,7 @@ public struct GitlabAwardApprover {
         .get()
     }
     if let reports = try approval.makeNewApprovals(cfg: cfg, review: review) {
-      try reports
-        .map(cfg.makeSendReport(report:))
-        .forEach(sendReport)
+      try reports.forEach(report)
       _ = try gitlabCi
         .putMrState(parameters: .init(
           addLabels: approval.state.unnotified
@@ -171,7 +168,7 @@ public struct GitlabAwardApprover {
       return false
     }
     if let holders = try approval.makeHoldersReport(cfg: cfg, review: review) {
-      try sendReport(cfg.makeSendReport(report: holders))
+      try report(holders)
       return false
     }
     return true

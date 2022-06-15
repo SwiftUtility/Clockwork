@@ -1,13 +1,13 @@
 import Foundation
 import Stencil
 import Facility
-import FacilityQueries
+import FacilityPure
 public struct StencilParser {
   let notation: AnyCodable.Notation
   public init(notation: AnyCodable.Notation) {
     self.notation = notation
   }
-  public func renderStencil(query: RenderStencil) throws -> RenderStencil.Reply {
+  public func generate(query: Generate) throws -> Generate.Reply {
     let context = try notation
       .write(query.context)
       .anyObject

@@ -3,13 +3,10 @@ import Facility
 public protocol Reportable: Encodable {
   var event: String { get }
 }
-public struct Report {
-  public var event: String
-  public var context: Encodable
-  public init(_ reportable: Reportable) {
-    self.event = reportable.event
-    self.context = reportable
-  }
+public struct Report: Query {
+  public var cfg: Configuration
+  public var reportable: Reportable
+  public typealias Reply = Void
   public struct Unexpected: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
@@ -122,7 +119,7 @@ public struct Report {
 public extension Configuration {
   func reportUnexpected(
     error: Error
-  ) -> Report { .init(Report.Unexpected(
+  ) -> Report { .init(cfg: self, reportable: Report.Unexpected(
     env: env,
     custom: controls.stencilCustom,
     error: "\(error)"
@@ -130,7 +127,7 @@ public extension Configuration {
   func reportUnownedCode(
     job: Json.GitlabJob,
     files: [String]
-  ) -> Report { .init(Report.UnownedCode(
+  ) -> Report { .init(cfg: self, reportable: Report.UnownedCode(
     env: env,
     custom: controls.stencilCustom,
     user: job.user.username,
@@ -139,7 +136,7 @@ public extension Configuration {
   func reportFileTabooIssues(
     job: Json.GitlabJob,
     issues: [FileTaboo.Issue]
-  ) -> Report { .init(Report.FileTabooIssues(
+  ) -> Report { .init(cfg: self, reportable: Report.FileTabooIssues(
     env: env,
     custom: controls.stencilCustom,
     user: job.user.username,
@@ -149,7 +146,7 @@ public extension Configuration {
     job: Json.GitlabJob,
     obsoleteFiles: [String],
     forbiddenCommits: [String]
-  ) -> Report { .init(Report.ReviewObsolete(
+  ) -> Report { .init(cfg: self, reportable: Report.ReviewObsolete(
     env: env,
     custom: controls.stencilCustom,
     user: job.user.username,
@@ -159,7 +156,7 @@ public extension Configuration {
   func reportConflictMarkers(
     job: Json.GitlabJob,
     markers: [String]
-  ) -> Report { .init(Report.ConflictMarkers(
+  ) -> Report { .init(cfg: self, reportable: Report.ConflictMarkers(
     env: env,
     custom: controls.stencilCustom,
     user: job.user.username,
@@ -168,7 +165,7 @@ public extension Configuration {
   func reportInvalidTitle(
     job: Json.GitlabJob,
     title: String
-  ) -> Report { .init(Report.InvalidTitle(
+  ) -> Report { .init(cfg: self, reportable: Report.InvalidTitle(
     env: env,
     custom: controls.stencilCustom,
     user: job.user.username,
@@ -178,7 +175,7 @@ public extension Configuration {
     review: Json.GitlabReviewState,
     users: [String],
     reasons: [Report.ReviewBlocked.Reason]
-  ) -> Report { .init(Report.ReviewBlocked(
+  ) -> Report { .init(cfg: self, reportable: Report.ReviewBlocked(
     env: env,
     custom: controls.stencilCustom,
     review: review,
@@ -189,7 +186,7 @@ public extension Configuration {
   func reportReviewMergeConflicts(
     review: Json.GitlabReviewState,
     users: [String]
-  ) -> Report { .init(Report.ReviewMergeConflicts(
+  ) -> Report { .init(cfg: self, reportable: Report.ReviewMergeConflicts(
     env: env,
     custom: controls.stencilCustom,
     review: review,
@@ -199,7 +196,7 @@ public extension Configuration {
   func reportReviewMerged(
     review: Json.GitlabReviewState,
     users: [String]
-  ) -> Report { .init(Report.ReviewMerged(
+  ) -> Report { .init(cfg: self, reportable: Report.ReviewMerged(
     env: env,
     custom: controls.stencilCustom,
     review: review,
@@ -210,7 +207,7 @@ public extension Configuration {
     review: Json.GitlabReviewState,
     users: [String],
     error: String
-  ) -> Report { .init(Report.ReviewMergeError(
+  ) -> Report { .init(cfg: self, reportable: Report.ReviewMergeError(
     env: env,
     custom: controls.stencilCustom,
     review: review,
@@ -222,7 +219,7 @@ public extension Configuration {
     review: Json.GitlabReviewState,
     users: Set<String>,
     group: AwardApproval.Group.Report
-  ) -> Report { .init(Report.NewAwardApprovalGroup(
+  ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovalGroup(
     event: "\(Report.NewAwardApprovalGroup.self)\(group.name)",
     env: env,
     custom: controls.stencilCustom,
@@ -234,7 +231,7 @@ public extension Configuration {
     review: Json.GitlabReviewState,
     users: Set<String>,
     groups: [AwardApproval.Group.Report]
-  ) -> Report { .init(Report.NewAwardApprovals(
+  ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovals(
     env: env,
     custom: controls.stencilCustom,
     review: review,
@@ -245,7 +242,7 @@ public extension Configuration {
     review: Json.GitlabReviewState,
     users: Set<String>,
     holders: Set<String>
-  ) -> Report { .init(Report.AwardApprovalHolders(
+  ) -> Report { .init(cfg: self, reportable: Report.AwardApprovalHolders(
     env: env,
     custom: controls.stencilCustom,
     review: review,
@@ -255,140 +252,20 @@ public extension Configuration {
   func reportReleaseNotes(
     job: Json.GitlabJob,
     commits: [String]
-  ) -> Report { .init(Report.ReleaseNotes(
+  ) -> Report { .init(cfg: self, reportable: Report.ReleaseNotes(
     env: env,
     custom: controls.stencilCustom,
     user: job.user.username,
     commits: commits
   ))}
 }
-//
-//public enum Report {
-//  case unepected(Unepected)
-//  case fileRulesIssues(FileRulesIssues)
-//  case approvalGroup(ApprovalGroup)
-//  case approvalGroups(ApprovalGroups)
-//  case approvalHolders(ApprovalHolders)
-//  case releaseNotes(ReleaseNotes)
-//
-//
-//  case validationIssues([String])
-//  case review(Json.GitlabReviewState, Review)
-//  case replicationConflicts(Configuration.Merge.Context)
-//  public var name: String {
-//    switch self {
-//    case .unepected: return "Unepected"
-//    case .fileRulesIssues: return "FileRulesIssues"
-//    case .approvalGroup(let approvalGroup): return "ApprovalBy\(approvalGroup.group.name)"
-//    case .approvalGroups: return "ApprovalGroups"
-//    case .approvalHolders: return "ApprovalHolders"
-//    case .releaseNotes: return "ReleaseNotes"
-//
-//
-//
-//    case .validationIssues: return "ValidationIssues"
-//    case .review(_, let review):
-//      switch review {
-//      case .mergeError: return "ReviewMergeError"
-//      case .mergeConflicts: return "ReviewConflicts"
-//      case .issues: return "ReviewIssues"
-//      case .invalidTitle: return "ReviewInvalidTitle"
-//      case .accepted: return "ReviewAccepted"
-//      }
-//    case .replicationConflicts: return "ReplicationConflicts"
-//    }
-//  }
-//  public func makeContext(cfg: Configuration) -> Encodable {
-//    switch self {
-//    case .unepected(let context): return context
-//    case .fileRulesIssues(let context): return context
-//    case .approvalGroup(let context): return context
-//    case .approvalGroups(let context): return context
-//    case .approvalHolders(let context): return context
-//    case .releaseNotes(let context): return context
-//
-//
-//
-//    case .validationIssues(let issues): return Context(issues: issues).add(cfg: cfg)
-//    case .review(let state, let review):
-//      switch review {
-//      case .mergeError(let error): return Context(error: error, review: .init(state: state)).add(cfg: cfg)
-//      case .mergeConflicts: return Context(review: .init(state: state)).add(cfg: cfg)
-//      case .issues(let issues): return Context(issues: issues, review: .init(state: state)).add(cfg: cfg)
-//      case .invalidTitle: return Context(review: .init(state: state)).add(cfg: cfg)
-//      case .accepted: return Context(review: .init(state: state)).add(cfg: cfg)
-//      }
-//    case .replicationConflicts(let context): return context
-//    }
-//  }
-//  public struct Unepected: Codable {
-//    public var env: [String: String]
-//    public var custom: AnyCodable?
-//    public var user: String?
-//    public var error: String
-//  }
-//  public struct FileRulesIssues: Codable {
-//    public var env: [String: String]
-//    public var custom: AnyCodable?
-//    public var user: String?
-//    public var issues: [FileRule.Issue]
-//  }
-//  public struct ApprovalGroup: Codable {
-//    public var env: [String: String]
-//    public var custom: AnyCodable?
-//    public var review: Json.GitlabReviewState
-//    public var user: String?
-//    public var group: AwardApproval.Context
-//  }
-//  public struct ApprovalGroups: Codable {
-//    public var env: [String: String]
-//    public var custom: AnyCodable?
-//    public var review: Json.GitlabReviewState
-//    public var user: String?
-//    public var groups: [AwardApproval.Context]
-//  }
-//  public struct ApprovalHolders: Codable {
-//    public var env: [String: String]
-//    public var custom: AnyCodable?
-//    public var review: Json.GitlabReviewState
-//    public var user: String?
-//    public var holders: Set<String>
-//  }
-//  public struct ReleaseNotes: Codable {
-//    public var custom: AnyCodable?
-//    public var commits: [String]
-//  }
-//  public enum Review {
-//    case mergeError(String)
-//    case mergeConflicts
-//    case issues([String])
-//    case invalidTitle
-//    case accepted
-//  }
-//  public struct Context: Encodable {
-//    public var env: [String: String]?
-//    public var custom: AnyCodable?
-//    public var issues: [String]?
-//    public var error: String?
-//    public var review: Review?
-//    public func add(cfg: Configuration) -> Self {
-//      var this = self
-//      this.env = cfg.env
-//      this.custom = cfg.custom
-//      return this
-//    }
-//    public static func make(review state: Json.GitlabReviewState) -> Self {
-//      .init(review: .init(state: state))
-//    }
-//    public struct Git: Encodable {
-//      public var author: String?
-//      public var head: String?
-//    }
-//    public struct Review: Encodable {
-//      public var state: Json.GitlabReviewState?
-//      public var holders: Set<String>?
-//      public var approval: AwardApproval.Context?
-//      public var approvals: [AwardApproval.Context]?
-//    }
-//  }
-//}
+extension Configuration.Controls {
+  public func generateReport(
+    template: String,
+    reportable: Reportable
+  ) -> Generate { .init(
+    template: template,
+    templates: stencilTemplates,
+    context: reportable
+  )}
+}
