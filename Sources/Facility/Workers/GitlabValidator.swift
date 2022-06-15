@@ -3,38 +3,26 @@ import Facility
 import FacilityAutomates
 import FacilityQueries
 public struct GitlabValidator {
-  let handleApi: Try.Reply<GitlabCi.HandleApi>
-  let handleFileList: Try.Reply<Git.HandleFileList>
-  let handleLine: Try.Reply<Git.HandleLine>
-  let handleVoid: Try.Reply<Git.HandleVoid>
-  let handleCat: Try.Reply<Git.HandleCat>
+  let execute: Try.Reply<Execute>
   let resolveCodeOwnage: Try.Reply<ResolveCodeOwnage>
   let resolveFileTaboos: Try.Reply<ResolveFileTaboos>
   let sendReport: Try.Reply<SendReport>
   let logMessage: Act.Reply<LogMessage>
-  let dialect: AnyCodable.Dialect
+  let jsonDecoder: JSONDecoder
   public init(
-    handleApi: @escaping Try.Reply<GitlabCi.HandleApi>,
-    handleFileList: @escaping Try.Reply<Git.HandleFileList>,
-    handleLine: @escaping Try.Reply<Git.HandleLine>,
-    handleVoid: @escaping Try.Reply<Git.HandleVoid>,
-    handleCat: @escaping Try.Reply<Git.HandleCat>,
+    execute: @escaping Try.Reply<Execute>,
     resolveCodeOwnage: @escaping Try.Reply<ResolveCodeOwnage>,
     resolveFileTaboos: @escaping Try.Reply<ResolveFileTaboos>,
     sendReport: @escaping Try.Reply<SendReport>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    dialect: AnyCodable.Dialect
+    jsonDecoder: JSONDecoder
   ) {
-    self.handleApi = handleApi
-    self.handleFileList = handleFileList
-    self.handleLine = handleLine
-    self.handleVoid = handleVoid
-    self.handleCat = handleCat
+    self.execute = execute
     self.resolveCodeOwnage = resolveCodeOwnage
     self.resolveFileTaboos = resolveFileTaboos
     self.sendReport = sendReport
     self.logMessage = logMessage
-    self.dialect = dialect
+    self.jsonDecoder = jsonDecoder
   }
   public func validateUnownedCode(cfg: Configuration) throws -> Bool {
     let approvals = try Id(cfg.profile)
@@ -44,8 +32,10 @@ public struct GitlabValidator {
     let files = try Id
       .make(cfg.git)
       .reduce(curry: .head, Git.listAllTrackedFiles(ref:))
-      .map(handleFileList)
+      .map(execute)
+      .map(String.make(utf8:))
       .get()
+      .components(separatedBy: .newlines)
       .filter { file in !approvals.contains { $0.value.isMet(file) } }
     guard !files.isEmpty else { return true }
     files
@@ -54,8 +44,8 @@ public struct GitlabValidator {
       .forEach(logMessage)
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: files, cfg.reportUnownedCode(job:files:))
       .map(cfg.makeSendReport(report:))
       .map(sendReport)
@@ -69,8 +59,10 @@ public struct GitlabValidator {
     let files = try Id
       .make(Git.Ref.head)
       .map(cfg.git.listAllTrackedFiles(ref:))
-      .map(handleFileList)
+      .map(execute)
+      .map(String.make(utf8:))
       .get()
+      .components(separatedBy: .newlines)
     var issues: [FileTaboo.Issue] = []
     for file in files {
       issues += nameRules
@@ -83,7 +75,7 @@ public struct GitlabValidator {
         .map(Path.Relative.init(value:))
         .reduce(.head, Git.File.init(ref:path:))
         .map(cfg.git.cat(file:))
-        .map(handleCat)
+        .map(execute)
         .map(String.make(utf8:))
         .get()
         .components(separatedBy: .newlines)
@@ -100,8 +92,8 @@ public struct GitlabValidator {
       .forEach(logMessage)
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: issues, cfg.reportFileTabooIssues(job:issues:))
       .map(cfg.makeSendReport(report:))
       .map(sendReport)
@@ -114,13 +106,15 @@ public struct GitlabValidator {
       .map(Git.Branch.init(name:))
       .map(Git.Ref.make(remote:))
       .reduce(.head, cfg.git.listChangedOutsideFiles(source:target:))
-      .map(handleFileList)
+      .map(execute)
+      .map(String.make(utf8:))
       .get()
+      .components(separatedBy: .newlines)
       .filter(criteria.isMet(_:))
     }
     var forbiddenCommits: [String] = []
     for sha in cfg.controls.forbiddenCommits {
-      if case ()? = try? handleVoid(cfg.git.check(
+      if case _? = try? execute(cfg.git.check(
         child: .head,
         parent: .make(sha: sha)
       )) { forbiddenCommits.append(sha.value) }
@@ -136,8 +130,8 @@ public struct GitlabValidator {
       .forEach(logMessage)
     let job = try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     try sendReport(cfg.makeSendReport(report: cfg.reportReviewObsolete(
       job: job,
@@ -147,25 +141,36 @@ public struct GitlabValidator {
     return false
   }
   public func validateReviewConflictMarkers(cfg: Configuration, target: String) throws -> Bool {
-    let initial = try Git.Ref.make(sha: .init(value: handleLine(cfg.git.getSha(ref: .head))))
-    let base = try handleLine(cfg.git.mergeBase(
-      .head,
-      .make(remote: .init(name: target))
-    ))
-    try handleVoid(cfg.git.resetSoft(ref: .make(sha: .init(value: base))))
-    let markers = try handleLine(cfg.git.listConflictMarkers)
+    let initial = try Id(.head)
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .map(Git.Sha.init(value:))
+      .map(Git.Ref.make(sha:))
+      .get()
+    _ = try Id
+      .make(cfg.git.mergeBase(.head, .make(remote: .init(name: target))))
+      .map(execute)
+      .map(String.make(utf8:))
+      .map(Git.Sha.init(value:))
+      .map(Git.Ref.make(sha:))
+      .map(cfg.git.resetSoft(ref:))
+      .map(execute)
+    let markers = try Id(cfg.git.listConflictMarkers)
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
       .components(separatedBy: .newlines)
-    try handleVoid(cfg.git.resetHard(ref: initial))
-    try handleVoid(cfg.git.clean)
-
+    _ = try execute(cfg.git.resetHard(ref: initial))
+    _ = try execute(cfg.git.clean)
     guard !markers.isEmpty else { return true }
     markers
       .map(LogMessage.init(message:))
       .forEach(logMessage)
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: markers, cfg.reportConflictMarkers(job:markers:))
       .map(cfg.makeSendReport(report:))
       .map(sendReport)

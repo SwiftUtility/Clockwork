@@ -3,35 +3,29 @@ import Facility
 import FacilityAutomates
 import FacilityQueries
 public struct GitlabMerger {
-  let handleApi: Try.Reply<GitlabCi.HandleApi>
-  let handleVoid: Try.Reply<Git.HandleVoid>
-  let handleLine: Try.Reply<Git.HandleLine>
+  let execute: Try.Reply<Execute>
   let resolveFlow: Try.Reply<ResolveFlow>
   let printLine: Act.Of<String>.Go
   let renderStencil: Try.Reply<RenderStencil>
   let sendReport: Try.Reply<SendReport>
   let logMessage: Act.Reply<LogMessage>
-  let dialect: AnyCodable.Dialect
+  let jsonDecoder: JSONDecoder
   public init(
-    handleApi: @escaping Try.Reply<GitlabCi.HandleApi>,
-    handleVoid: @escaping Try.Reply<Git.HandleVoid>,
-    handleLine: @escaping Try.Reply<Git.HandleLine>,
+    execute: @escaping Try.Reply<Execute>,
     resolveFlow: @escaping Try.Reply<ResolveFlow>,
     printLine: @escaping Act.Of<String>.Go,
     renderStencil: @escaping Try.Reply<RenderStencil>,
     sendReport: @escaping Try.Reply<SendReport>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    dialect: AnyCodable.Dialect
+    jsonDecoder: JSONDecoder
   ) {
-    self.handleApi = handleApi
-    self.handleVoid = handleVoid
-    self.handleLine = handleLine
+    self.execute = execute
     self.resolveFlow = resolveFlow
     self.printLine = printLine
     self.renderStencil = renderStencil
     self.sendReport = sendReport
     self.logMessage = logMessage
-    self.dialect = dialect
+    self.jsonDecoder = jsonDecoder
   }
   public func validateReviewTitle(cfg: Configuration, title: String) throws -> Bool {
     let titleRule = try resolveFlow(.init(cfg: cfg))
@@ -42,8 +36,8 @@ public struct GitlabMerger {
     try sendReport(cfg.makeSendReport(report: cfg.reportInvalidTitle(
       job: cfg.controls.gitlabCi
         .flatMap(\.getCurrentJob)
-        .map(handleApi)
-        .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+        .map(execute)
+        .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
         .get(),
       title: title
     )))
@@ -52,13 +46,13 @@ public struct GitlabMerger {
   public func validateReviewStatus(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(handleApi)
-      .reduce(Json.GitlabPipeline.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard pipeline.id == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
@@ -79,26 +73,26 @@ public struct GitlabMerger {
   public func acceptReview(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(handleApi)
-      .reduce(Json.GitlabPipeline.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard pipeline.id == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
       return false
     }
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard job.pipeline.ref == review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
       _ = try gitlabCi.postParentMrPipelines
-        .map(handleApi)
+        .map(execute)
         .get()
       return false
     }
@@ -109,8 +103,18 @@ public struct GitlabMerger {
       squash: squash,
       review: review
     )))
-    let targetSha = try handleLine(cfg.git.getSha(ref: target))
-    let headParent = try handleLine(cfg.git.getSha(ref: .make(sha: head).make(parent: 1)))
+    let targetSha = try Id(target)
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
+    let headParent = try Id(head)
+      .map(Git.Ref.make(sha:))
+      .reduce(tryCurry: 1, Git.Ref.make(parent:))
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
     guard targetSha == headParent else {
       if let sha = try commitMerge(
         cfg: cfg,
@@ -119,12 +123,12 @@ public struct GitlabMerger {
         sha: head
       ) {
         logMessage(.init(message: "Review was updated"))
-        try handleVoid(cfg.git.make(push: .init(
+        _ = try execute(cfg.git.push(
           url: gitlabCi.pushUrl.get(),
           branch: .init(name: review.sourceBranch),
           sha: sha,
           force: true
-        )))
+        ))
       } else {
         logMessage(.init(message: "Automatic merge failed"))
         try sendReport(cfg.makeSendReport(report: cfg.reportReviewMergeConflicts(
@@ -147,8 +151,8 @@ public struct GitlabMerger {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard !job.tag else { throw Thrown("Not on branch") }
     let merge = try integration.makeMerge(
@@ -161,7 +165,7 @@ public struct GitlabMerger {
       && rule.source.isMet(merge.source.name)
     }) else { throw Thrown("Integration not allowed for \(job.user.username)") }
     guard checkNeeded(cfg: cfg, merge: merge) else { return true }
-    guard case nil = try? handleLine(cfg.git.checkRefType(
+    guard case nil = try? execute(cfg.git.checkObjectType(
       ref: .make(remote: merge.supply)
     )) else { throw Thrown("Integration already in progress") }
     let message = try renderStencil(.make(generator: cfg.generateIntegrationCommitMessage(
@@ -169,7 +173,7 @@ public struct GitlabMerger {
       merge: merge
     )))
     let sha: Git.Sha
-    if case nil = try? handleVoid(cfg.git.check(
+    if case nil = try? execute(cfg.git.check(
       child: .make(sha: merge.fork),
       parent: .make(remote: merge.target)
     )) {
@@ -182,19 +186,19 @@ public struct GitlabMerger {
         sha: merge.fork
       ) ?? merge.fork
     }
-    try handleVoid(cfg.git.make(push: .init(
+    _ = try execute(cfg.git.push(
       url: gitlabCi.pushUrl.get(),
       branch: merge.supply,
       sha: sha,
       force: false
-    )))
+    ))
     _ = try gitlabCi
       .postMergeRequests(parameters: .init(
         sourceBranch: merge.supply.name,
         targetBranch: merge.target.name,
         title: message
       ))
-      .map(handleApi)
+      .map(execute)
       .get()
     return true
   }
@@ -202,17 +206,17 @@ public struct GitlabMerger {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let review = try gitlabCi.getParentMrState
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(handleApi)
-      .reduce(Json.GitlabPipeline.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard pipeline.id == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
@@ -229,24 +233,24 @@ public struct GitlabMerger {
       logMessage(.init(message: "Integration blocked by configuration"))
       _ = try gitlabCi
         .putMrState(parameters: .init(stateEvent: "close"))
-        .map(handleApi)
+        .map(execute)
         .get()
-      try handleVoid(cfg.git.push(remote: gitlabCi.pushUrl.get(), delete: merge.supply))
+      _ = try execute(cfg.git.push(url: gitlabCi.pushUrl.get(), delete: merge.supply))
       return true
     }
     let head = try Git.Sha(value: pipeline.sha)
-    guard case nil = try? handleVoid(cfg.git.check(
+    guard case nil = try? execute(cfg.git.check(
       child: .make(sha: merge.fork),
       parent: .make(remote: merge.target)
     )) else {
       guard pipeline.sha == merge.fork.value else {
         logMessage(.init(message: "Wrong integration state"))
-        try handleVoid(cfg.git.make(push: .init(
+        _ = try execute(cfg.git.push(
           url: gitlabCi.pushUrl.get(),
           branch: merge.supply,
           sha: merge.fork,
           force: true
-        )))
+        ))
         return true
       }
       return try acceptMerge(
@@ -261,19 +265,19 @@ public struct GitlabMerger {
     guard checkNeeded(cfg: cfg, merge: merge) else {
       _ = try gitlabCi
         .putMrState(parameters: .init(stateEvent: "close"))
-        .map(handleApi)
+        .map(execute)
         .get()
-      try handleVoid(cfg.git.push(remote: gitlabCi.pushUrl.get(), delete: merge.supply))
+      _ = try execute(cfg.git.push(url: gitlabCi.pushUrl.get(), delete: merge.supply))
       return true
     }
-    guard case merge.fork.value = try handleLine(cfg.git.mergeBase(
+    guard case merge.fork.value = try String.make(utf8: execute(cfg.git.mergeBase(
       .make(remote: merge.source),
       .make(sha: head)
-    )) else {
+    ))) else {
       logMessage(.init(message: "Integration is in wrong state"))
       _ = try gitlabCi
         .putMrState(parameters: .init(stateEvent: "close"))
-        .map(handleApi)
+        .map(execute)
         .get()
       let message = try renderStencil(.make(generator: cfg.generateIntegrationCommitMessage(
         integration: integration,
@@ -285,19 +289,19 @@ public struct GitlabMerger {
         message: message,
         sha: merge.fork
       ) ?? merge.fork
-      try handleVoid(cfg.git.make(push: .init(
+      _ = try execute(cfg.git.push(
         url: gitlabCi.pushUrl.get(),
         branch: merge.supply,
         sha: sha,
         force: false
-      )))
+      ))
       _ = try gitlabCi
         .postMergeRequests(parameters: .init(
           sourceBranch: merge.supply.name,
           targetBranch: merge.target.name,
           title: message
         ))
-        .map(handleApi)
+        .map(execute)
         .get()
       return true
     }
@@ -319,27 +323,37 @@ public struct GitlabMerger {
       )
       _ = try gitlabCi
         .putMrState(parameters: .init(stateEvent: "close"))
-        .map(handleApi)
+        .map(execute)
         .get()
-      try handleVoid(cfg.git.make(push: .init(
+      _ = try execute(cfg.git.push(
         url: gitlabCi.pushUrl.get(),
         branch: merge.supply,
         sha: sha,
         force: true
-      )))
+      ))
       _ = try gitlabCi
         .postMergeRequests(parameters: .init(
           sourceBranch: merge.supply.name,
           targetBranch: merge.target.name,
           title: message
         ))
-        .map(handleApi)
+        .map(execute)
         .get()
       return true
     }
-    let parents = try handleLine(cfg.git.listParents(ref: .make(sha: head)))
+    let parents = try Id(head)
+      .map(Git.Ref.make(sha:))
+      .map(cfg.git.listParents(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
       .components(separatedBy: .newlines)
-    let target = try handleLine(cfg.git.getSha(ref: .make(remote: merge.target)))
+    let target = try Id(merge.target)
+      .map(Git.Ref.make(remote:))
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
     guard [target, merge.fork.value] == parents else {
       let message = try renderStencil(.make(generator: cfg.generateIntegrationCommitMessage(
         integration: integration,
@@ -351,12 +365,12 @@ public struct GitlabMerger {
         message: message,
         sha: head
       ) {
-        try handleVoid(cfg.git.make(push: .init(
+        _ = try execute(cfg.git.push(
           url: gitlabCi.pushUrl.get(),
           branch: merge.supply,
           sha: sha,
           force: true
-        )))
+        ))
       } else {
         logMessage(.init(message: "Integration stopped due to conflicts"))
         try sendReport(cfg.makeSendReport(report: cfg.reportReviewMergeConflicts(
@@ -379,8 +393,8 @@ public struct GitlabMerger {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(handleApi)
-      .reduce(Json.GitlabPipeline.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     let fork = try Git.Sha(value: pipeline.sha)
     let source = try Git.Branch(name: pipeline.ref)
@@ -389,13 +403,18 @@ public struct GitlabMerger {
       .filter { $0.source.isMet(source.name) }
       .mapEmpty { throw Thrown("Integration for \(source.name) not configured") }
     var targets: [Git.Branch] = []
-    for line in try handleLine(cfg.git.listLocalRefs).components(separatedBy: .newlines) {
+    let lines = try Id(cfg.git.listLocalRefs)
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
+      .components(separatedBy: .newlines)
+    for line in lines {
       let pair = line.components(separatedBy: .whitespaces)
       guard pair.count == 2 else { throw MayDay("bad git reply") }
       guard let target = try? pair[1].dropPrefix("refs/remotes/origin/") else { continue }
       guard rules.contains(where: { $0.target.isMet(target) }) else { continue }
       let sha = try Git.Sha.init(value: pair[0])
-      guard case nil = try? handleVoid(cfg.git.check(
+      guard case nil = try? execute(cfg.git.check(
         child: .make(sha: sha),
         parent: .make(sha: fork)
       )) else { continue }
@@ -413,8 +432,8 @@ public struct GitlabMerger {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let replication = try resolveFlow(.init(cfg: cfg)).replication.get()
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard !job.tag else { throw Thrown("Not on branch") }
     guard replication.source.isMet(job.pipeline.ref) else {
@@ -429,7 +448,7 @@ public struct GitlabMerger {
       logMessage(.init(message: "No commits to replicate"))
       return true
     }
-    guard case nil = try? handleLine(cfg.git.checkRefType(
+    guard case nil = try? execute(cfg.git.checkObjectType(
       ref: .make(remote: merge.supply)
     )) else {
       logMessage(.init(message: "Replication already in progress"))
@@ -445,19 +464,19 @@ public struct GitlabMerger {
       message: message,
       sha: merge.fork
     ) ?? merge.fork
-    try handleVoid(cfg.git.make(push: .init(
+    _ = try execute(cfg.git.push(
       url: gitlabCi.pushUrl.get(),
       branch: merge.supply,
       sha: sha,
       force: false
-    )))
+    ))
     _ = try gitlabCi
       .postMergeRequests(parameters: .init(
         sourceBranch: merge.supply.name,
         targetBranch: merge.target.name,
         title: message
       ))
-      .map(handleApi)
+      .map(execute)
       .get()
     return true
   }
@@ -466,17 +485,17 @@ public struct GitlabMerger {
     let replication = try resolveFlow(.init(cfg: cfg)).replication.get()
     let pushUrl = try gitlabCi.pushUrl.get()
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let review = try gitlabCi.getParentMrState
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(handleApi)
-      .reduce(Json.GitlabPipeline.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard
       pipeline.id == review.pipeline.id,
@@ -492,32 +511,32 @@ public struct GitlabMerger {
       logMessage(.init(message: "Replication blocked by configuration"))
       _ = try gitlabCi
         .putMrState(parameters: .init(stateEvent: "close"))
-        .map(handleApi)
+        .map(execute)
         .get()
-      try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
+      _ = try execute(cfg.git.push(url: pushUrl, delete: merge.supply))
       return true
     }
     let head = try Git.Sha.init(value: pipeline.sha)
     guard
-      case nil = try? handleVoid(cfg.git.check(
+      case nil = try? execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
       )),
-      case ()? = try? handleVoid(cfg.git.check(
+      case _? = try? execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
       )),
-      case merge.fork.value = try handleLine(cfg.git.mergeBase(
+      case merge.fork.value = try String.make(utf8: execute(cfg.git.mergeBase(
         .make(remote: merge.source),
         .make(sha: head)
-      ))
+      )))
     else {
       logMessage(.init(message: "Replication is in wrong state"))
       _ = try gitlabCi
         .putMrState(parameters: .init(stateEvent: "close"))
-        .map(handleApi)
+        .map(execute)
         .get()
-      try handleVoid(cfg.git.push(remote: pushUrl, delete: merge.supply))
+      _ = try execute(cfg.git.push(url: pushUrl, delete: merge.supply))
       guard let merge = try makeMerge(
         cfg: cfg,
         replication: replication,
@@ -536,19 +555,19 @@ public struct GitlabMerger {
         message: message,
         sha: merge.fork
       ) ?? merge.fork
-      try handleVoid(cfg.git.make(push: .init(
+      _ = try execute(cfg.git.push(
         url: pushUrl,
         branch: merge.supply,
         sha: sha,
         force: false
-      )))
+      ))
       _ = try gitlabCi
         .postMergeRequests(parameters: .init(
           sourceBranch: merge.supply.name,
           targetBranch: merge.target.name,
           title: message
         ))
-        .map(handleApi)
+        .map(execute)
         .get()
       return true
     }
@@ -570,27 +589,37 @@ public struct GitlabMerger {
       )
       _ = try gitlabCi
         .putMrState(parameters: .init(stateEvent: "close"))
-        .map(handleApi)
+        .map(execute)
         .get()
-      try handleVoid(cfg.git.make(push: .init(
+      _ = try execute(cfg.git.push(
         url: pushUrl,
         branch: merge.supply,
         sha: sha,
         force: true
-      )))
+      ))
       _ = try gitlabCi
         .postMergeRequests(parameters: .init(
           sourceBranch: merge.supply.name,
           targetBranch: merge.target.name,
           title: message
         ))
-        .map(handleApi)
+        .map(execute)
         .get()
       return true
     }
-    let parents = try handleLine(cfg.git.listParents(ref: .make(sha: head)))
+    let parents = try Id(head)
+      .map(Git.Ref.make(sha:))
+      .map(cfg.git.listParents(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
       .components(separatedBy: .newlines)
-    let target = try handleLine(cfg.git.getSha(ref: .make(remote: merge.target)))
+    let target = try Id(merge.target)
+      .map(Git.Ref.make(remote:))
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
     guard [target, merge.fork.value] == parents else {
       let message = try renderStencil(.make(generator: cfg.generateReplicationCommitMessage(
         replication: replication,
@@ -602,12 +631,12 @@ public struct GitlabMerger {
         message: message,
         sha: head
       ) {
-        try handleVoid(cfg.git.make(push: .init(
+        _ = try execute(cfg.git.push(
           url: pushUrl,
           branch: merge.supply,
           sha: sha,
           force: true
-        )))
+        ))
       } else {
         logMessage(.init(message: "Replications stopped due to conflicts"))
         try sendReport(cfg.makeSendReport(report: cfg.reportReviewMergeConflicts(
@@ -625,7 +654,7 @@ public struct GitlabMerger {
       sha: head,
       users: resolveParticipants(cfg: cfg, gitlabCi: gitlabCi, merge: merge)
     ) else { return false }
-    try handleVoid(cfg.git.fetch)
+    _ = try execute(cfg.git.fetch)
     guard let merge = try makeMerge(
       cfg: cfg,
       replication: replication,
@@ -644,12 +673,12 @@ public struct GitlabMerger {
       message: message,
       sha: merge.fork
     ) ?? merge.fork
-    try handleVoid(cfg.git.make(push: .init(
+    _ = try execute(cfg.git.push(
       url: pushUrl,
       branch: merge.supply,
       sha: sha,
       force: false
-    )))
+    ))
     return true
   }
   func makeMerge(
@@ -657,14 +686,14 @@ public struct GitlabMerger {
     replication: Flow.Replication,
     source: String
   ) throws -> Flow.Merge? { try Id
-    .make(.init(
-      include: [.make(remote: .init(name: source))],
-      exclude: [.make(remote: .init(name: replication.target))],
+    .make(cfg.git.listCommits(
+      in: [.make(remote: .init(name: source))],
+      notIn: [.make(remote: .init(name: replication.target))],
       noMerges: false,
       firstParents: true
     ))
-    .map(cfg.git.make(listCommits:))
-    .map(handleLine)
+    .map(execute)
+    .map(String.make(utf8:))
     .get()
     .components(separatedBy: .newlines)
     .last
@@ -676,27 +705,38 @@ public struct GitlabMerger {
     message: String,
     sha: Git.Sha
   ) throws -> Git.Sha? {
-    let initial = try Git.Ref.make(sha: .init(value: handleLine(cfg.git.getSha(ref: .head))))
+    let initial = try Id(.head)
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .map(Git.Sha.init(value:))
+      .map(Git.Ref.make(sha:))
+      .get()
     let sha = Git.Ref.make(sha: sha)
-    try handleVoid(cfg.git.detach(to: ref))
-    try handleVoid(cfg.git.clean)
+    _ = try execute(cfg.git.detach(ref: ref))
+    _ = try execute(cfg.git.clean)
     do {
-      try handleVoid(cfg.git.make(merge: .init(
+      _ = try execute(cfg.git.merge(
         ref: sha,
         message: message,
         noFf: true,
-        env: Git.makeEnvironment(
-          authorName: handleLine(cfg.git.getAuthorName(ref: sha)),
-          authorEmail: handleLine(cfg.git.getAuthorEmail(ref: sha))
+        env: Git.env(
+          authorName: String.make(utf8: execute(cfg.git.getAuthorName(ref: sha))),
+          authorEmail: String.make(utf8: execute(cfg.git.getAuthorEmail(ref: sha)))
         )
-      )))
+      ))
     } catch {
-      try handleVoid(cfg.git.quitMerge)
-      try handleVoid(cfg.git.resetHard(ref: initial))
-      try handleVoid(cfg.git.clean)
+      _ = try execute(cfg.git.quitMerge)
+      _ = try execute(cfg.git.resetHard(ref: initial))
+      _ = try execute(cfg.git.clean)
       return nil
     }
-    return try .init(value: handleLine(cfg.git.getSha(ref: .head)))
+    return try Id(.head)
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .map(Git.Sha.init(value:))
+      .get()
   }
   func squashSupply(
     cfg: Configuration,
@@ -705,16 +745,21 @@ public struct GitlabMerger {
     sha: Git.Sha
   ) throws -> Git.Sha {
     let sha = Git.Ref.make(sha: sha)
-    let base = try handleLine(cfg.git.mergeBase(.make(remote: merge.target), sha))
-    return try .init(value: handleLine(cfg.git.make(commitTree: .init(
-      tree: sha.tree,
-      message: message,
-      parents: [.make(sha: .init(value: base)), .make(sha: merge.fork)],
-      env: Git.makeEnvironment(
-        authorName: handleLine(cfg.git.getAuthorName(ref: sha)),
-        authorEmail: handleLine(cfg.git.getAuthorEmail(ref: sha))
-      )
-    ))))
+    let base = try String.make(utf8: execute(cfg.git.mergeBase(.make(remote: merge.target), sha)))
+    return try Id
+      .make(cfg.git.commitTree(
+        tree: sha.tree,
+        message: message,
+        parents: [.make(sha: .init(value: base)), .make(sha: merge.fork)],
+        env: Git.env(
+          authorName: String.make(utf8: execute(cfg.git.getAuthorName(ref: sha))),
+          authorEmail: String.make(utf8: execute(cfg.git.getAuthorEmail(ref: sha)))
+        )
+      ))
+      .map(execute)
+      .map(String.make(utf8:))
+      .map(Git.Sha.init(value:))
+      .get()
   }
   func acceptMerge(
     cfg: Configuration,
@@ -731,7 +776,7 @@ public struct GitlabMerger {
         shouldRemoveSourceBranch: true,
         sha: sha
       ))
-      .map(handleApi)
+      .map(execute).reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
       .get()
     if case "merged"? = result.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
@@ -753,7 +798,7 @@ public struct GitlabMerger {
     }
   }
   func checkNeeded(cfg: Configuration, merge: Flow.Merge) -> Bool {
-    guard case ()? = try? handleVoid(cfg.git.check(
+    guard case _? = try? execute(cfg.git.check(
       child: .make(remote: merge.target),
       parent: .make(sha: merge.fork)
     )) else { return true }
@@ -765,21 +810,21 @@ public struct GitlabMerger {
     gitlabCi: GitlabCi,
     merge: Flow.Merge
   ) throws -> [String] { try Id
-    .make(.init(
-      include: [.make(sha: merge.fork)],
-      exclude: [.make(remote: merge.target)],
+    .make(cfg.git.listCommits(
+      in: [.make(sha: merge.fork)],
+      notIn: [.make(remote: merge.target)],
       noMerges: true,
       firstParents: false
     ))
-    .map(cfg.git.make(listCommits:))
-    .map(handleLine)
+    .map(execute)
+    .map(String.make(utf8:))
     .get()
     .components(separatedBy: .newlines)
     .map(Git.Sha.init(value:))
     .flatMap { sha in try gitlabCi
       .listShaMergeRequests(sha: sha)
-      .map(handleApi)
-      .reduce([Json.GitlabCommitMergeRequest].self, dialect.read(_:from:))
+      .map(execute)
+      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(_:from:))
       .get()
       .filter { $0.squashCommitSha == sha.value }
       .map(\.author.username)

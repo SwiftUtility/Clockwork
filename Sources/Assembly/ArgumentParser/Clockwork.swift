@@ -3,6 +3,7 @@ import Foundation
 import Facility
 import FacilityAutomates
 import FacilityQueries
+import InteractivityCommon
 struct Clockwork: ParsableCommand {
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"

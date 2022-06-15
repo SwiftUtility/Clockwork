@@ -73,8 +73,7 @@ public enum Yaml {
       }
     }
     public struct Requisition: Decodable {
-      public var keychainName: String
-      public var keychainFiles: [String: Keychain]
+      public var keychains: [String: Keychain]
       public var provisions: [String: String]
       public struct Keychain: Decodable {
         public var crypto: String

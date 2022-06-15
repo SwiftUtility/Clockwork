@@ -3,42 +3,43 @@ import Facility
 import FacilityAutomates
 import FacilityQueries
 public struct Processor {
-  private let task: Process = .init()
+  private let process: Process = .init()
   private let pipe: Pipe = .init()
-  private let pipeTask: PipeTask
-  private init(pipeTask: PipeTask) {
-    self.pipeTask = pipeTask
-    task.launchPath = pipeTask.launchPath
-    task.arguments = pipeTask.arguments
-    task.environment = pipeTask.environment
-    task.standardInput = FileHandle.nullDevice
-    task.standardOutput = pipe
-    if pipeTask.surpassStdErr {
-      task.standardError = FileHandle.nullDevice
+  private let task: Execute.Task
+  private init(task: Execute.Task) {
+    self.task = task
+    process.launchPath = task.launch
+    process.arguments = task.arguments
+    process.environment = task.environment
+    process.standardOutput = pipe
+    if task.verbose {
+      process.standardError = FileHandle.standardError
     } else {
-      task.standardError = FileHandle.standardError
+      process.standardError = FileHandle.nullDevice
     }
   }
-  private static func chain(pipe: Pipe, item: Self) -> Pipe {
-    item.task.standardInput = pipe
-    return item.pipe
+  private static func wire(pipe: Pipe, this: Self) -> Pipe {
+    this.process.standardInput = pipe
+    return this.pipe
   }
-  private static func run(this: Self) throws {
-    this.task.launch()
+  private static func launch(this: Self) {
+    this.process.launch()
   }
   private static func wait(this: Self) throws {
-    this.task.waitUntilExit()
-    if this.pipeTask.escalateFailure && this.task.terminationStatus != 0 {
-      throw Thrown("Exit with \(this.task.terminationStatus): \(this.pipeTask.bash)")
+    this.process.waitUntilExit()
+    if this.task.escalate && this.process.terminationStatus != 0 {
+      throw Thrown("Process termination status \(this.process.terminationStatus)")
     }
   }
-  public static func handleProcess<T: ProcessHandler>(query: T) throws -> T.Reply {
-    let items = query.tasks.map(Self.init(pipeTask:))
-    guard var pipe = items.first?.pipe else { throw MayDay("ExecuteProcess made no tasks") }
-    pipe = items.dropFirst().reduce(pipe, Self.chain(pipe:item:))
-    try items.forEach(Self.run(this:))
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    try items.forEach(Self.wait(this:))
-    return try query.handle(data: data)
+  public static func execute(query: Execute) throws -> Execute.Reply {
+    let processors = query.tasks.map(Self.init(task:))
+    let input = Pipe()
+    let output = processors.reduce(input, Self.wire(pipe:this:))
+    processors.forEach(Self.launch(this:))
+    try query.input.map(input.fileHandleForWriting.write(contentsOf:))
+    try input.fileHandleForWriting.close()
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    try processors.forEach(Self.wait(this:))
+    return data
   }
 }

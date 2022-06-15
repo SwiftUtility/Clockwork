@@ -3,17 +3,17 @@ import Facility
 import FacilityAutomates
 import FacilityQueries
 public struct GitlabMediator {
-  let handleApi: Try.Reply<GitlabCi.HandleApi>
+  let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>
-  let dialect: AnyCodable.Dialect
+  let jsonDecoder: JSONDecoder
   public init(
-    handleApi: @escaping Try.Reply<GitlabCi.HandleApi>,
+    execute: @escaping Try.Reply<Execute>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    dialect: AnyCodable.Dialect
+    jsonDecoder: JSONDecoder
   ) {
-    self.handleApi = handleApi
+    self.execute = execute
     self.logMessage = logMessage
-    self.dialect = dialect
+    self.jsonDecoder = jsonDecoder
   }
   public func triggerTargetPipeline(
     cfg: Configuration,
@@ -33,13 +33,13 @@ public struct GitlabMediator {
       .postTriggerPipeline(
         ref: ref,
         job: try gitlabCi.getCurrentJob
-          .map(handleApi)
-          .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+          .map(execute)
+          .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
           .get(),
         cfg: cfg,
         context: variables
       )
-      .map(handleApi)
+      .map(execute)
       .get()
     return true
   }
@@ -48,15 +48,15 @@ public struct GitlabMediator {
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
       return false
     }
     _ = try gitlabCi.postParentMrPipelines
-      .map(handleApi)
+      .map(execute)
       .get()
     return true
   }
@@ -66,8 +66,8 @@ public struct GitlabMediator {
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
@@ -80,8 +80,8 @@ public struct GitlabMediator {
     }
     _ = try gitlabCi
       .putMrState(parameters: .init(addLabels: labels.joined(separator: ",")))
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     logMessage(.init(message: "Labels added"))
     return true
@@ -89,12 +89,12 @@ public struct GitlabMediator {
   public func affectParentJob(
     configuration cfg: Configuration,
     name: String,
-    action: GitlabCi.HandleApi.JobAction
+    action: GitlabCi.JobAction
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
@@ -102,14 +102,14 @@ public struct GitlabMediator {
     }
     let job = try gitlabCi
       .getParentPipelineJobs(action: action)
-      .map(handleApi)
-      .reduce([Json.GitlabJob].self, dialect.read(_:from:))
+      .map(execute)
+      .reduce([Json.GitlabJob].self, jsonDecoder.decode(_:from:))
       .get()
       .first { $0.name == name }
       .or { throw Thrown("Job \(name) not found") }
     _ = try gitlabCi
       .postJobsAction(job: job.id, action: action)
-      .map(handleApi)
+      .map(execute)
       .get()
     return true
   }

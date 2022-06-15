@@ -4,6 +4,7 @@ import PackageDescription
 import Foundation
 let package = Package(
   name: "Clockwork",
+  platforms: [.macOS(.v11)],
   products: [.executable(name: "clockwork", targets: ["Clockwork"])],
   dependencies: [
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.1"),

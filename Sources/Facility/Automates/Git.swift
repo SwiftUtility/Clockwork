@@ -77,3 +77,167 @@ public struct Git {
     }
   }
 }
+public extension Git {
+  func listChangedFiles(source: Ref, target: Ref) -> Execute { proc(
+    args: ["diff", "--name-only", "--merge-base", target.value, source.value]
+  )}
+  var listConflictMarkers: Execute { proc(
+    args: [
+      "-c", "core.whitespace=" + [
+        "-trailing-space", "-space-before-tab", "-indent-with-non-tab",
+        "-tab-in-indent", "-cr-at-eol",
+      ].joined(separator: ","),
+      "diff", "--check", "HEAD"
+    ]
+  )}
+  var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"])}
+  var listLocalRefs: Execute { proc(args: ["diff", "show-ref", "--head"])}
+  func check(child: Ref, parent: Ref) -> Execute { proc(
+    args: ["merge-base", "--is-ancestor", parent.value, child.value]
+  )}
+  func detach(ref: Ref) -> Execute { proc(
+    args: ["checkout", "--force", "--detach", ref.value]
+  )}
+  func listChangedOutsideFiles(source: Ref, target: Ref) -> Execute { proc(
+    args: ["diff", "--name-only", "\(source.value)...\(target.value)"]
+  )}
+  func listAllTrackedFiles(ref: Ref) -> Execute { proc(
+    args: ["ls-tree", "-r", "--name-only", "--full-tree", ref.value, "."]
+  )}
+  func listTreeTrackedFiles(dir: Dir) -> Execute { proc(
+    args: ["ls-tree", "-r", "--name-only", "--full-tree", dir.ref.value, dir.path.value]
+  )}
+  func checkObjectType(ref: Ref) -> Execute { proc(args: ["cat-file", "-t", ref.value]) }
+  func listCommits(
+    in include: [Ref],
+    notIn exclude: [Ref],
+    noMerges: Bool,
+    firstParents: Bool
+  ) -> Execute { proc(
+    args: ["log", "--format=%H"]
+    + firstParents.then(["--first-parent"]).or([])
+    + noMerges.then(["--no-merges"]).or([])
+    + include.map(\.value)
+    + exclude.map { "^\($0.value)" }
+  )}
+  var writeTree: Execute { proc(args: ["write-tree"]) }
+  func commitTree(
+    tree: Tree,
+    message: String,
+    parents: [Ref],
+    env: [String: String]
+  ) -> Execute { proc(
+    args: ["commit-tree", tree.value, "-m", message] + parents.flatMap { ["-p", $0.value] },
+    env: env
+  )}
+  func getAuthorName(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%aN", ref.value]
+  )}
+  func getAuthorEmail(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%aE", ref.value]
+  )}
+  func getAuthorDate(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%ad", ref.value]
+  )}
+  func getCommiterName(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%cN", ref.value]
+  )}
+  func getCommiterEmail(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%cE", ref.value]
+  )}
+  func getCommiterDate(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%cd", ref.value]
+  )}
+  func getCommitMessage(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%B", ref.value]
+  )}
+  func listParents(ref: Ref) -> Execute { proc(
+    args: ["rev-parse", "\(ref.value)^@"]
+  )}
+  func mergeBase(_ one: Ref, _ two: Ref) -> Execute { proc(
+    args: ["merge-base", one.value, two.value]
+  )}
+  func push(url: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
+    args: ["push", url]
+    + force.then(["--force"]).or([])
+    + ["\(sha.value):\(Ref.make(local: branch).value)"]
+  )}
+  func push(url: String, delete branch: Branch) -> Execute { proc(
+    args: ["push", url, ":\(Ref.make(local: branch))"]
+  )}
+  var updateLfs: Execute { proc(args: ["lfs", "update"]) }
+  var fetch: Execute { proc(args: ["fetch", "origin", "--prune", "--prune-tags", "--tags"]) }
+  func cat(file: File) throws -> Execute {
+    var result = proc(args: ["show", "\(file.ref.value):\(file.path.value)"])
+    result.tasks += lfs.then(proc(args: ["lfs", "smudge"])).map(\.tasks).or([])
+    return result
+  }
+  var userName: Execute { proc(args: ["config", "user.name"]) }
+  func getSha(ref: Ref) -> Execute { proc(args: ["rev-parse", ref.value]) }
+  func create(branch: Branch, at sha: Sha) -> Execute { proc(
+    args: ["checkout", "-B", branch.name, sha.value]
+  )}
+  var clean: Execute { proc(args: ["clean", "-fdx"]) }
+  func merge(
+    ref: Ref,
+    message: String?,
+    noFf: Bool,
+    env: [String: String] = [:]
+  ) -> Execute { proc(
+    args: ["merge"]
+    + message.map { ["-m", $0] }.or(["--no-commit"])
+    + noFf.then(["--no-ff"]).or([])
+    + [ref.value],
+    env: env
+  )}
+  var quitMerge: Execute { proc(
+    args: ["merge", "--quit"]
+  )}
+  var addAll: Execute { proc(
+    args: ["add", "--all"]
+  )}
+  func resetHard(ref: Ref) -> Execute { proc(
+    args: ["reset", "--hard", ref.value]
+  )}
+  func resetSoft(ref: Ref) -> Execute { proc(
+    args: ["reset", "--soft", ref.value]
+  )}
+  func commit(message: String) -> Execute { proc(
+    args: ["commit", "-m", message]
+  )}
+  var listTags: Execute { proc(
+    args: ["ls-remote", "--tags", "--refs"]
+  )}
+  static func resolveTopLevel(
+    verbose: Bool,
+    path: Path.Absolute
+  ) -> Execute { .init(tasks: [.init(
+    verbose: verbose,
+    arguments: ["git", "-C", path.value, "rev-parse", "--show-toplevel"]
+  )])}
+  static func env(
+    authorName: String? = nil,
+    authorEmail: String? = nil,
+    authorDate: String? = nil,
+    commiterName: String? = nil,
+    commiterEmail: String? = nil,
+    commiterDate: String? = nil
+  ) -> [String: String] {
+    var result: [String: String] = [:]
+    result["GIT_AUTHOR_NAME"] = authorName
+    result["GIT_AUTHOR_EMAIL"] = authorEmail
+    result["GIT_AUTHOR_DATE"] = authorDate
+    result["GIT_COMMITTER_NAME"] = commiterName
+    result["GIT_COMMITTER_EMAIL"] = commiterEmail
+    result["GIT_COMMITTER_DATE"] = commiterDate
+    return result
+  }
+}
+extension Git {
+  func proc(args: [String], env: [String: String] = [:]) -> Execute { .init(tasks: [.init(
+    verbose: verbose,
+    arguments: ["git", "-C", root.value]
+    + ["-c", "core.quotepath=false", "-c", "core.precomposeunicode=true"]
+    + args
+  )])}
+}

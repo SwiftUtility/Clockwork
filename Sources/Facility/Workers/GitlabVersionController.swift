@@ -3,9 +3,7 @@ import Facility
 import FacilityAutomates
 import FacilityQueries
 public struct GitlabVersionController {
-  let handleApi: Try.Reply<GitlabCi.HandleApi>
-  let handleVoid: Try.Reply<Git.HandleVoid>
-  let handleLine: Try.Reply<Git.HandleLine>
+  let execute: Try.Reply<Execute>
   let renderStencil: Try.Reply<RenderStencil>
   let writeData: Try.Reply<WriteData>
   let resolveProduction: Try.Reply<ResolveProduction>
@@ -16,11 +14,9 @@ public struct GitlabVersionController {
   let sendReport: Try.Reply<SendReport>
   let logMessage: Act.Reply<LogMessage>
   let printLine: Act.Of<String>.Go
-  let dialect: AnyCodable.Dialect
+  let jsonDecoder: JSONDecoder
   public init(
-    handleApi: @escaping Try.Reply<GitlabCi.HandleApi>,
-    handleVoid: @escaping Try.Reply<Git.HandleVoid>,
-    handleLine: @escaping Try.Reply<Git.HandleLine>,
+    execute: @escaping Try.Reply<Execute>,
     renderStencil: @escaping Try.Reply<RenderStencil>,
     writeData: @escaping Try.Reply<WriteData>,
     resolveProduction: @escaping Try.Reply<ResolveProduction>,
@@ -31,11 +27,9 @@ public struct GitlabVersionController {
     sendReport: @escaping Try.Reply<SendReport>,
     logMessage: @escaping Act.Reply<LogMessage>,
     printLine: @escaping Act.Of<String>.Go,
-    dialect: AnyCodable.Dialect
+    jsonDecoder: JSONDecoder
   ) {
-    self.handleApi = handleApi
-    self.handleVoid = handleVoid
-    self.handleLine = handleLine
+    self.execute = execute
     self.renderStencil = renderStencil
     self.writeData = writeData
     self.resolveProduction = resolveProduction
@@ -46,14 +40,14 @@ public struct GitlabVersionController {
     self.sendReport = sendReport
     self.logMessage = logMessage
     self.printLine = printLine
-    self.dialect = dialect
+    self.jsonDecoder = jsonDecoder
   }
   public func createDeployTag(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard !job.tag else { throw Thrown("Not on branch") }
     let product = try production.productMatching(ref: job.pipeline.ref, tag: false)
@@ -89,7 +83,7 @@ public struct GitlabVersionController {
     ))
     _ = try gitlabCi
       .postTags(parameters: .init(name: tag, ref: job.pipeline.sha, message: annotation))
-      .map(handleApi)
+      .map(execute)
       .get()
     return true
   }
@@ -101,8 +95,8 @@ public struct GitlabVersionController {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let product = try production.productMatching(name: product)
     try product.checkPermission(job: job)
@@ -133,7 +127,7 @@ public struct GitlabVersionController {
     ))
     _ = try gitlabCi
       .postTags(parameters: .init(name: tag, ref: job.pipeline.sha, message: annotation))
-      .map(handleApi)
+      .map(execute)
       .get()
     return true
   }
@@ -141,8 +135,8 @@ public struct GitlabVersionController {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let review = try gitlabCi.getParentMrState
-      .map(handleApi)
-      .reduce(Json.GitlabReviewState.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     guard case nil = builds.first(where: { build in
@@ -167,8 +161,8 @@ public struct GitlabVersionController {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let product = try production.productMatching(name: product)
     try product.checkPermission(job: job)
@@ -181,7 +175,7 @@ public struct GitlabVersionController {
     )))
     _ = try gitlabCi
       .postBranches(name: name, ref: job.pipeline.sha)
-      .map(handleApi)
+      .map(execute)
       .get()
     let next = try renderStencil(.make(generator: cfg.generateNextVersion(
       product: product,
@@ -201,8 +195,8 @@ public struct GitlabVersionController {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(ref: job.pipeline.ref, tag: true)
@@ -221,31 +215,35 @@ public struct GitlabVersionController {
     )))
     _ = try gitlabCi
       .postBranches(name: name, ref: job.pipeline.sha)
-      .map(handleApi)
+      .map(execute)
       .get()
     return true
   }
   public func reportReleaseNotes(cfg: Configuration, tag: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard job.tag else { throw Thrown("Not on tag") }
-    let commits = try handleLine(cfg.git.make(listCommits: .init(
-      include: [.make(sha: .init(value: job.pipeline.sha))],
-      exclude: [.make(tag: tag)],
-      noMerges: true,
-      firstParents: false
-    )))
     try sendReport(cfg.makeSendReport(report: cfg.reportReleaseNotes(
       job: job,
-      commits: commits
+      commits: Id
+        .make(cfg.git.listCommits(
+          in: [.make(sha: .init(value: job.pipeline.sha))],
+          notIn: [.make(tag: tag)],
+          noMerges: true,
+          firstParents: false
+        ))
+        .map(execute)
+        .map(String.make(utf8:))
+        .get()
         .components(separatedBy: .newlines)
         .map(Git.Sha.init(value:))
         .map(Git.Ref.make(sha:))
         .map(cfg.git.getCommitMessage(ref:))
-        .map(handleLine)
+        .map(execute)
+        .map(String.make(utf8:))
     )))
     return true
   }
@@ -256,8 +254,8 @@ public struct GitlabVersionController {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let target = try gitlabCi.reviewTarget.or { throw Thrown("Not in review context") }
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
@@ -288,8 +286,8 @@ public struct GitlabVersionController {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
-      .map(handleApi)
-      .reduce(Json.GitlabJob.self, dialect.read(_:from:))
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let build: String
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))

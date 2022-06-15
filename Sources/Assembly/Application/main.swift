@@ -11,20 +11,17 @@ import InteractivityPathKit
 enum Main {
   static let version = "0.0.1"
   static let reporter = Reporter(
+    execute: Processor.execute(query:),
     logLine: FileHandle.standardError.write(message:),
     printLine: FileHandle.standardOutput.write(message:),
     getTime: Date.init,
-    renderStencil: stencilParser.renderStencil(query:),
-    handleSlackHook: Processor.handleProcess(query:)
+    renderStencil: stencilParser.renderStencil(query:)
   )
   static let configurator = Configurator(
+    execute: Processor.execute(query:),
     decodeYaml: YamlParser.decodeYaml(query:),
     resolveAbsolutePath: Finder.resolveAbsolutePath(query:),
     readFile: Finder.readFile(query:),
-    handleFileList: Processor.handleProcess(query:),
-    handleLine: Processor.handleProcess(query:),
-    handleCat: Processor.handleProcess(query:),
-    handleVoid: Processor.handleProcess(query:),
     renderStencil: stencilParser.renderStencil(query:),
     writeData: Finder.writeData(query:),
     logMessage: reporter.logMessage(query:),
@@ -33,23 +30,21 @@ enum Main {
   )
   static let environment = ProcessInfo.processInfo.environment
   static let validator = GitlabValidator(
-    handleApi: Processor.handleProcess(query:),
-    handleFileList: Processor.handleProcess(query:),
-    handleLine: Processor.handleProcess(query:),
-    handleVoid: Processor.handleProcess(query:),
-    handleCat: Processor.handleProcess(query:),
+    execute: Processor.execute(query:),
     resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
     resolveFileTaboos: configurator.resolveFileTaboos(query:),
     sendReport: reporter.sendReport(query:),
     logMessage: reporter.logMessage(query:),
-    dialect: .json
+    jsonDecoder: jsonDecoder
   )
-  static let requisitor = Requisitor()
+  static let requisitor = Requisitor(
+    execute: Processor.execute(query:),
+    resolveAbsolutePath: Finder.resolveAbsolutePath(query:),
+    resolveRequisition: configurator.resolveRequisition(query:),
+    plistDecoder: .init()
+  )
   static let gitlabAwardApprover = GitlabAwardApprover(
-    handleFileList: Processor.handleProcess(query:),
-    handleLine: Processor.handleProcess(query:),
-    handleVoid: Processor.handleProcess(query:),
-    handleApi: Processor.handleProcess(query:),
+    execute: Processor.execute(query:),
     resolveProfile: configurator.resolveProfile(query:),
     resolveAwardApproval: configurator.resolveAwardApproval(query:),
     resolveAwardApprovalUserActivity: configurator.resolveAwardApprovalUserActivity(query:),
@@ -58,28 +53,24 @@ enum Main {
     resolveFlow: configurator.resolveFlow(query:),
     sendReport: reporter.sendReport(query:),
     logMessage: reporter.logMessage(query:),
-    dialect: .json
+    jsonDecoder: jsonDecoder
   )
   static let gitlabMerger = GitlabMerger(
-    handleApi: Processor.handleProcess(query:),
-    handleVoid: Processor.handleProcess(query:),
-    handleLine: Processor.handleProcess(query:),
+    execute: Processor.execute(query:),
     resolveFlow: configurator.resolveFlow(query:),
     printLine: FileHandle.standardOutput.write(message:),
     renderStencil: stencilParser.renderStencil(query:),
     sendReport: reporter.sendReport(query:),
     logMessage: reporter.logMessage(query:),
-    dialect: .json
+    jsonDecoder: jsonDecoder
   )
   static let gitlabCommunicatior = GitlabMediator(
-    handleApi: Processor.handleProcess(query:),
+    execute: Processor.execute(query:),
     logMessage: reporter.logMessage(query:),
-    dialect: .json
+    jsonDecoder: jsonDecoder
   )
   static let gitlabVersionController = GitlabVersionController(
-    handleApi: Processor.handleProcess(query:),
-    handleVoid: Processor.handleProcess(query:),
-    handleLine: Processor.handleProcess(query:),
+    execute: Processor.execute(query:),
     renderStencil: stencilParser.renderStencil(query:),
     writeData: Finder.writeData(query:),
     resolveProduction: configurator.resolveProduction(query:),
@@ -90,9 +81,14 @@ enum Main {
     sendReport: reporter.sendReport(query:),
     logMessage: reporter.logMessage(query:),
     printLine: FileHandle.standardOutput.write(message:),
-    dialect: .json
+    jsonDecoder: jsonDecoder
   )
   static let stencilParser = StencilParser(notation: .json)
+  static let jsonDecoder: JSONDecoder = {
+    let result = JSONDecoder()
+    result.keyDecodingStrategy = .convertFromSnakeCase
+    return result
+  }()
 }
 MayDay.sideEffect = { mayDay in FileHandle.standardError.write(
   message: """

@@ -3,24 +3,24 @@ import Facility
 import FacilityQueries
 import FacilityAutomates
 public struct Reporter {
+  let execute: Try.Reply<Execute>
   let logLine: Act.Of<String>.Go
   let printLine: Act.Of<String>.Go
   let getTime: Act.Do<Date>
   let renderStencil: Try.Reply<RenderStencil>
-  let handleSlackHook: Try.Reply<HandleSlackHook>
   let formatter: DateFormatter
   public init(
+    execute: @escaping Try.Reply<Execute>,
     logLine: @escaping Act.Of<String>.Go,
     printLine: @escaping Act.Of<String>.Go,
     getTime: @escaping Act.Do<Date>,
-    renderStencil: @escaping Try.Reply<RenderStencil>,
-    handleSlackHook: @escaping Try.Reply<HandleSlackHook>
+    renderStencil: @escaping Try.Reply<RenderStencil>
   ) {
+    self.execute = execute
     self.logLine = logLine
     self.printLine = printLine
     self.getTime = getTime
     self.renderStencil = renderStencil
-    self.handleSlackHook = handleSlackHook
     self.formatter = .init()
     formatter.dateFormat = "HH:mm:ss"
   }
@@ -40,7 +40,7 @@ public struct Reporter {
     encoder.keyEncodingStrategy = .convertToSnakeCase
     for value in query.cfg.controls.communication[query.report.event].or([]) {
       switch value {
-      case .slackHookTextMessage(let value): try Id
+      case .slackHookTextMessage(let value): _ = try Id
         .make(query.cfg.controls.makeRenderStencil(
           template: value.messageTemplate,
           context: query.report.context
@@ -49,9 +49,8 @@ public struct Reporter {
         .map(value.makePayload(text:))
         .map(encoder.encode(_:))
         .map(String.make(utf8:))
-        .reduce(value.url, HandleSlackHook.init(url:payload:))
-        .map(handleSlackHook)
-        .get()
+        .reduce(value.url, query.cfg.curlSlackHook(url:payload:))
+        .map(execute)
       }
     }
   }

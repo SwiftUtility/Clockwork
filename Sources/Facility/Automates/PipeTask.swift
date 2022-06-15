@@ -21,7 +21,7 @@ public struct PipeTask {
   }
   public var bash: String {
     ([launchPath] + arguments)
-      .map { $0.replacingOccurrences(of: "", with: "\\ ") }
+      .map { $0.replacingOccurrences(of: " ", with: #"\ "#) }
       .joined(separator: " ")
   }
   public static func makeCurl(

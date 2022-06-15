@@ -3,39 +3,30 @@ import Facility
 import FacilityQueries
 import FacilityAutomates
 public struct Configurator {
+  let execute: Try.Reply<Execute>
   let decodeYaml: Try.Reply<DecodeYaml>
   let resolveAbsolutePath: Try.Reply<ResolveAbsolutePath>
   let readFile: Try.Reply<ReadFile>
-  let handleFileList: Try.Reply<Git.HandleFileList>
-  let handleLine: Try.Reply<Git.HandleLine>
-  let handleCat: Try.Reply<Git.HandleCat>
-  let handleVoid: Try.Reply<Git.HandleVoid>
   let renderStencil: Try.Reply<RenderStencil>
   let writeData: Try.Reply<WriteData>
   let logMessage: Act.Reply<LogMessage>
   let printLine: Act.Of<String>.Go
   let dialect: AnyCodable.Dialect
   public init(
+    execute: @escaping Try.Reply<Execute>,
     decodeYaml: @escaping Try.Reply<DecodeYaml>,
     resolveAbsolutePath: @escaping Try.Reply<ResolveAbsolutePath>,
     readFile: @escaping Try.Reply<ReadFile>,
-    handleFileList: @escaping Try.Reply<Git.HandleFileList>,
-    handleLine: @escaping Try.Reply<Git.HandleLine>,
-    handleCat: @escaping Try.Reply<Git.HandleCat>,
-    handleVoid: @escaping Try.Reply<Git.HandleVoid>,
     renderStencil: @escaping Try.Reply<RenderStencil>,
     writeData: @escaping Try.Reply<WriteData>,
     logMessage: @escaping Act.Reply<LogMessage>,
     printLine: @escaping Act.Of<String>.Go,
     dialect: AnyCodable.Dialect
   ) {
+    self.execute = execute
     self.decodeYaml = decodeYaml
     self.resolveAbsolutePath = resolveAbsolutePath
     self.readFile = readFile
-    self.handleFileList = handleFileList
-    self.handleLine = handleLine
-    self.handleCat = handleCat
-    self.handleVoid = handleVoid
     self.renderStencil = renderStencil
     self.writeData = writeData
     self.logMessage = logMessage
@@ -57,13 +48,14 @@ public struct Configurator {
       .joined(separator: "/")
     var git = try Id(repoPath)
       .map(Path.Absolute.init(value:))
-      .map(Git.HandleLine.make(resolveTopLevel:))
-      .map(handleLine)
+      .reduce(verbose, Git.resolveTopLevel(verbose:path:))
+      .map(execute)
+      .map(String.make(utf8:))
       .map(Path.Absolute.init(value:))
       .reduce(verbose, Git.init(verbose:root:))
       .get()
-    do { try handleVoid(git.updateLfs) } catch { git.lfs = false }
-    try handleVoid(git.fetch)
+    do { _ = try execute(git.updateLfs) } catch { git.lfs = false }
+    _ = try execute(git.fetch)
     let profile = try resolveProfile(query: .init(git: git, file: .init(
       ref: .head,
       path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
@@ -77,8 +69,13 @@ public struct Configurator {
       env: env,
       yaml: yaml
     )
-    let sha = try handleLine(git.getSha(ref: profile.controls.ref))
-    logMessage(.init(message: "Controls: \(sha)"))
+    _ = try Id(profile.controls.ref)
+      .map(git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .map { "Controls: " + $0 }
+      .map(LogMessage.init(message:))
+      .map(logMessage)
     controls.stencilCustom = try yaml.stencilCustom
       .map(Path.Relative.init(value:))
       .reduce(profile.controls.ref, Git.File.init(ref:path:))
@@ -120,7 +117,19 @@ public struct Configurator {
         controls.communication[event] = controls.communication[event].or([]) + [communication]
       }
     }
-    return .init(git: git, env: env, profile: profile, controls: controls)
+    return .init(verbose: verbose, git: git, env: env, profile: profile, controls: controls)
+  }
+  public func resolveRequisition(
+    query: ResolveRequisition
+  ) throws -> ResolveRequisition.Reply { try query.cfg.controls.requisition
+      .reduce(query.cfg.git, parse(git:yaml:))
+      .reduce(Yaml.Controls.Requisition.self, dialect.read(_:from:))
+      .map { yaml in try Requisition.make(
+        verbose: query.cfg.verbose,
+        ref: query.cfg.profile.controls.ref,
+        yaml: yaml
+      )}
+      .or { throw Thrown("requisition not configured") }
   }
   public func resolveFlow(
     query: ResolveFlow
@@ -214,7 +223,7 @@ public struct Configurator {
       product: query.product,
       version: query.version
     )))
-    return try handleVoid(query.cfg.git.make(push: .init(
+    _ = try execute(query.cfg.git.push(
       url: query.pushUrl,
       branch: query.production.versions.branch,
       sha: persist(
@@ -228,7 +237,7 @@ public struct Configurator {
         message: message
       ),
       force: false
-    )))
+    ))
   }
   public func persistBuilds(
     query: PersistBuilds
@@ -238,7 +247,7 @@ public struct Configurator {
       asset: query.production.builds,
       build: query.build.build
     )))
-    return try handleVoid(query.cfg.git.make(push: .init(
+    _ = try execute(query.cfg.git.push(
       url: query.pushUrl,
       branch: query.production.builds.branch,
       sha: persist(
@@ -253,7 +262,7 @@ public struct Configurator {
         message: message
       ),
       force: false
-    )))
+    ))
   }
   public func persistUserActivity(
     query: PersistUserActivity
@@ -265,7 +274,7 @@ public struct Configurator {
       user: query.user,
       active: query.active
     )))
-    return try handleVoid(query.cfg.git.make(push: .init(
+    _ = try execute(query.cfg.git.push(
       url: query.pushUrl,
       branch: query.awardApproval.userActivity.branch,
       sha: persist(
@@ -279,7 +288,7 @@ public struct Configurator {
         message: message
       ),
       force: false
-    )))
+    ))
   }
 }
 extension Configurator {
@@ -290,20 +299,31 @@ extension Configurator {
     yaml: String,
     message: String
   ) throws -> Git.Sha {
-    let initial = try handleLine(git.getSha(ref: .head))
-    try handleVoid(git.detach(to: .make(remote: branch)))
-    try handleVoid(git.clean)
+    let initial = try Id(.head)
+      .map(git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .map(Git.Sha.init(value:))
+      .map(Git.Ref.make(sha:))
+      .get()
+    _ = try execute(git.detach(ref: .make(remote: branch)))
+    _ = try execute(git.clean)
     try writeData(.init(path: "\(git.root.value)/\(file.value)", data: .init(yaml.utf8)))
-    try handleVoid(git.addAll)
-    try handleVoid(git.commit(message: message))
-    let result = try Git.Sha(value: handleLine(git.getSha(ref: .head)))
-    try handleVoid(git.detach(to: .make(sha: .init(value: initial))))
+    _ = try execute(git.addAll)
+    _ = try execute(git.commit(message: message))
+    let result = try Id(.head)
+      .map(git.getSha(ref:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .map(Git.Sha.init(value:))
+      .get()
+    _ = try execute(git.detach(ref: initial))
     return result
   }
   func parse(git: Git, yaml: Git.File) throws -> AnyCodable { try Id
     .make(yaml)
     .map(git.cat(file:))
-    .map(handleCat)
+    .map(execute)
     .map(String.make(utf8:))
     .map(DecodeYaml.init(content:))
     .map(decodeYaml)
@@ -330,13 +350,19 @@ extension Configurator {
     templates: Git.Dir
   ) throws -> [String: String] {
     var result: [String: String] = [:]
-    for file in try handleFileList(git.listTreeTrackedFiles(dir: templates)) {
+    let files = try Id(templates)
+      .map(git.listTreeTrackedFiles(dir:))
+      .map(execute)
+      .map(String.make(utf8:))
+      .get()
+      .components(separatedBy: .newlines)
+    for file in files {
       let template = try file.dropPrefix("\(templates.path.value)/")
       result[template] = try Id(file)
         .map(Path.Relative.init(value:))
         .reduce(templates.ref, Git.File.init(ref:path:))
         .map(git.cat(file:))
-        .map(handleCat)
+        .map(execute)
         .map(String.make(utf8:))
         .get()
     }
