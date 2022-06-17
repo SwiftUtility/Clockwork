@@ -116,7 +116,7 @@ public struct Requisitor {
         .map(Data.init(_:))
       for cert in certs {
         let lines = try Id(cert)
-          .map(requisition.readCertDetails(data:))
+          .map(requisition.decodeCert(data:))
           .map(execute)
           .map(String.make(utf8:))
           .get()

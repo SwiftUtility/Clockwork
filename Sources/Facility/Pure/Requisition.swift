@@ -67,7 +67,7 @@ public extension Requisition {
   func leaseXcode(keychain: String) -> Execute { proc(
     args: ["set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", "", keychain]
   )}
-  func readCertDetails(
+  func decodeCert(
     data: Data
   ) -> Execute { proc(
     args: ["openssl", "x509", "-enddate", "-subject", "-noout", "-nameopt", "multiline"],
