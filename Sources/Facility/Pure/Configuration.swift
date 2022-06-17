@@ -28,7 +28,7 @@ public struct Configuration {
     public var codeOwnage: Git.File?
     public var fileTaboos: Git.File?
     public var obsolescence: Criteria?
-    public var stencilTemplates: [String: String] = [:]
+    public var templates: [String: String] = [:]
     public static func make(
       profile: Git.File,
       yaml: Yaml.Profile
@@ -58,8 +58,8 @@ public struct Configuration {
     public var requisition: Git.File?
     public var flow: Git.File?
     public var forbiddenCommits: [Git.Sha]
-    public var stencilTemplates: [String: String] = [:]
-    public var stencilCustom: AnyCodable?
+    public var templates: [String: String] = [:]
+    public var context: AnyCodable?
     public var communication: [String: [Communication]] = [:]
     public var gitlabCi: Lossy<GitlabCi> = .error(Thrown("gitlabCi not configured"))
     public static func make(

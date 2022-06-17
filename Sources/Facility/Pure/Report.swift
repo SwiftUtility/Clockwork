@@ -137,7 +137,7 @@ public extension Configuration {
     error: Error
   ) -> Report { .init(cfg: self, reportable: Report.Unexpected(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     error: "\(error)"
   ))}
   func reportUnownedCode(
@@ -145,7 +145,7 @@ public extension Configuration {
     files: [String]
   ) -> Report { .init(cfg: self, reportable: Report.UnownedCode(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     user: job.user.username,
     files: files
   ))}
@@ -154,7 +154,7 @@ public extension Configuration {
     issues: [FileTaboo.Issue]
   ) -> Report { .init(cfg: self, reportable: Report.FileTabooIssues(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     user: job.user.username,
     issues: issues
   ))}
@@ -164,7 +164,7 @@ public extension Configuration {
     forbiddenCommits: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewObsolete(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     user: job.user.username,
     obsoleteFiles: obsoleteFiles.isEmpty.else(obsoleteFiles),
     forbiddenCommits: forbiddenCommits.isEmpty.else(forbiddenCommits)
@@ -174,7 +174,7 @@ public extension Configuration {
     markers: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ConflictMarkers(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     user: job.user.username,
     markers: markers
   ))}
@@ -183,7 +183,7 @@ public extension Configuration {
     title: String
   ) -> Report { .init(cfg: self, reportable: Report.InvalidTitle(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     user: job.user.username,
     title: title
   ))}
@@ -193,7 +193,7 @@ public extension Configuration {
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewBlocked(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     review: review,
     users: .init(users)
       .union([review.author.username]),
@@ -204,7 +204,7 @@ public extension Configuration {
     users: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewMergeConflicts(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     review: review,
     users: .init(users)
       .union([review.author.username])
@@ -214,7 +214,7 @@ public extension Configuration {
     users: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewMerged(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     review: review,
     users: .init(users)
       .union([review.author.username])
@@ -225,7 +225,7 @@ public extension Configuration {
     error: String
   ) -> Report { .init(cfg: self, reportable: Report.ReviewMergeError(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     review: review,
     users: .init(users)
       .union([review.author.username]),
@@ -238,7 +238,7 @@ public extension Configuration {
   ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovalGroup(
     event: "\(Report.NewAwardApprovalGroup.self)\(group.name)",
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     review: review,
     users: users,
     group: group
@@ -249,7 +249,7 @@ public extension Configuration {
     groups: [AwardApproval.Group.Report]
   ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovals(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     review: review,
     users: users,
     groups: groups
@@ -260,7 +260,7 @@ public extension Configuration {
     holders: Set<String>
   ) -> Report { .init(cfg: self, reportable: Report.AwardApprovalHolders(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     review: review,
     users: users,
     holders: holders
@@ -270,7 +270,7 @@ public extension Configuration {
     commits: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReleaseNotes(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     user: job.user.username,
     commits: commits
   ))}
@@ -278,7 +278,7 @@ public extension Configuration {
     items: [Report.ExpiringRequisites.Item]
   ) -> Report { .init(cfg: self, reportable: Report.ExpiringRequisites(
     env: env,
-    custom: controls.stencilCustom,
+    custom: controls.context,
     items: items
   ))}
 }
@@ -288,7 +288,7 @@ extension Configuration.Controls {
     reportable: Reportable
   ) -> Generate { .init(
     template: template,
-    templates: stencilTemplates,
+    templates: templates,
     context: reportable
   )}
 }

@@ -119,10 +119,10 @@ public extension Configuration {
     versions: [String: String]
   ) -> Generate { .init(
     template: template,
-    templates: profile.stencilTemplates,
+    templates: profile.templates,
     context: Generate.Versions(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       versions: versions
     )
   )}
@@ -132,10 +132,10 @@ public extension Configuration {
     versions: [String: String]
   ) -> Generate { .init(
     template: template,
-    templates: profile.stencilTemplates,
+    templates: profile.templates,
     context: Generate.Build(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       versions: versions,
       build: build
     )
@@ -145,10 +145,10 @@ public extension Configuration {
     targets: [String]
   ) -> Generate { .init(
     template: template,
-    templates: profile.stencilTemplates,
+    templates: profile.templates,
     context: Generate.Integration(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       targets: targets
     )
   )}
@@ -157,10 +157,10 @@ public extension Configuration {
     ref: String
   ) -> Generate { .init(
     template: product.releaseBranch.parseVersionTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.ReleaseVersion(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       product: product.name,
       ref: ref
     )
@@ -171,10 +171,10 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     template: product.deployTag.createTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.DeployName(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       product: product.name,
       version: version,
       build: build
@@ -187,10 +187,10 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     template: product.deployTag.createTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.DeployAnnotation(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       user: job.user.username,
       product: product.name,
       version: version,
@@ -202,10 +202,10 @@ public extension Configuration {
     version: String
   ) -> Generate { .init(
     template: product.releaseBranch.createTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.ReleaseName(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       product: product.name,
       version: version
     )
@@ -215,10 +215,10 @@ public extension Configuration {
     version: String
   ) -> Generate { .init(
     template: product.createNextVersionTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.NextVersion(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       product: product.name,
       version: version
     )
@@ -228,10 +228,10 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     template: production.createNextBuildTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.NextBuild(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       build: build
     )
   )}
@@ -240,10 +240,10 @@ public extension Configuration {
     ref: String
   ) -> Generate { .init(
     template: product.deployTag.parseVersionTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.DeployVersion(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       product: product.name,
       ref: ref
     )
@@ -253,10 +253,10 @@ public extension Configuration {
     ref: String
   ) -> Generate { .init(
     template: product.deployTag.parseBuildTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.DeployBuild(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       ref: ref
     )
   )}
@@ -265,10 +265,10 @@ public extension Configuration {
     version: String
   ) -> Generate { .init(
     template: product.createHotfixVersionTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.HotfixVersion(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       product: product.name,
       version: version
     )
@@ -279,10 +279,10 @@ public extension Configuration {
     version: String
   ) -> Generate { .init(
     template: asset.commitMessageTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.VersionCommitMessage(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       product: product.name,
       version: version
     )
@@ -292,10 +292,10 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     template: asset.commitMessageTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.BuildCommitMessage(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       build: build
     )
   )}
@@ -305,10 +305,10 @@ public extension Configuration {
     active: Bool
   ) -> Generate { .init(
     template: asset.commitMessageTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.UserActivityCommitMessage(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       user: user,
       active: active
     )
@@ -318,10 +318,10 @@ public extension Configuration {
     review: Json.GitlabReviewState
   ) -> Generate { .init(
     template: squash.messageTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.SquashCommitMessage(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       review: review
     )
   )}
@@ -330,10 +330,10 @@ public extension Configuration {
     merge: Flow.Merge
   ) -> Generate { .init(
     template: integration.messageTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.IntegrationCommitMessage(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
@@ -344,10 +344,10 @@ public extension Configuration {
     merge: Flow.Merge
   ) -> Generate { .init(
     template: replication.messageTemplate,
-    templates: controls.stencilTemplates,
+    templates: controls.templates,
     context: Generate.ReplicationCommitMessage(
       env: env,
-      custom: controls.stencilCustom,
+      custom: controls.context,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name

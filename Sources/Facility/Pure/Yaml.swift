@@ -6,7 +6,7 @@ public enum Yaml {
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var obsolescence: Criteria?
-    public var stencilTemplates: String?
+    public var templates: String?
     public struct FileTaboo: Decodable {
       public var rule: String
       public var file: Criteria?
@@ -21,8 +21,8 @@ public enum Yaml {
     public var production: String?
     public var requisition: String?
     public var flow: String?
-    public var stencilTemplates: String?
-    public var stencilCustom: String?
+    public var templates: String?
+    public var context: String?
     public var forbiddenCommits: [String]?
     public struct Production: Decodable {
       public var mainatiners: [String]?

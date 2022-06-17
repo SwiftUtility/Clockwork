@@ -75,11 +75,11 @@ public struct Configurator {
       .map { "Controls: " + $0 }
       .map(LogMessage.init(message:))
       .map(logMessage)
-    controls.stencilCustom = try yaml.stencilCustom
+    controls.context = try yaml.context
       .map(Files.Relative.init(value:))
       .reduce(profile.controls.ref, Git.File.init(ref:path:))
       .reduce(git, parse(git:yaml:))
-    controls.stencilTemplates = try yaml.stencilTemplates
+    controls.templates = try yaml.templates
       .map(Files.Relative.init(value:))
       .reduce(profile.controls.ref, Git.Dir.init(ref:path:))
       .reduce(git, parse(git:templates:))
@@ -104,7 +104,7 @@ public struct Configurator {
     let hooks = try communication.slackHooks
       .mapValues { try parse(env: env, secret: .init(yaml: $0)) }
     for yaml in communication.slackHookTextMessages.or([]) {
-      guard controls.stencilTemplates[yaml.messageTemplate] != nil else {
+      guard controls.templates[yaml.messageTemplate] != nil else {
         throw Thrown("No template \(yaml.messageTemplate)")
       }
       let communication = try Communication.slackHookTextMessage(.init(
@@ -174,7 +174,7 @@ public struct Configurator {
   ) throws -> Configuration.ResolveProfile.Reply {
     let yaml = try dialect.read(Yaml.Profile.self, from: parse(git: query.git, yaml: query.file))
     var result = try Configuration.Profile.make(profile: query.file, yaml: yaml)
-    result.stencilTemplates = try yaml.stencilTemplates
+    result.templates = try yaml.templates
       .map(Files.Relative.init(value:))
       .reduce(query.file.ref, Git.Dir.init(ref:path:))
       .reduce(query.git, parse(git:templates:))
