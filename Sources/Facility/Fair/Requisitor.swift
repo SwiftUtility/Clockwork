@@ -117,6 +117,9 @@ public struct Requisitor {
           .utf8
         }
         .map(Data.init(_:))
+      let formatter = DateFormatter()
+      formatter.locale = Locale(identifier: "en_US")
+      formatter.dateFormat = "MMM d HH:mm:ss yyyy zzz"
       for cert in certs {
         let lines = try Id(cert)
           .map(requisition.decodeCert(data:))
@@ -125,9 +128,6 @@ public struct Requisitor {
           .get()
           .components(separatedBy: .newlines)
           .map { $0.trimmingCharacters(in: .whitespaces) }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.dateFormat = "MMM d HH:mm:ss yyyy zzz"
         let date = try lines
           .compactMap { try? $0.dropPrefix("notAfter=") }
           .first
