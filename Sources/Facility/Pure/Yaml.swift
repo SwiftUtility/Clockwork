@@ -59,7 +59,7 @@ public enum Yaml {
       }
     }
     public struct Requisition: Decodable {
-      public var pkcs12: File
+      public var pkcs12: String
       public var password: Secret
       public var provisions: [String]
     }

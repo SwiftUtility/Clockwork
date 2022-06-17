@@ -24,8 +24,8 @@ public struct Requisition {
       yaml: Yaml.Controls.Requisition
     ) throws -> Self { try .init(
       pkcs12: .init(
-        ref: .make(remote: .init(name: yaml.pkcs12.branch)),
-        path: .init(value: yaml.pkcs12.path)
+        ref: ref,
+        path: .init(value: yaml.pkcs12)
       ),
       password: .init(yaml: yaml.password),
       provisions: yaml.provisions.map { yaml in try .init(
