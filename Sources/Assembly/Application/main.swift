@@ -38,6 +38,7 @@ enum Main {
   )
   static let requisitor = Requisitor(
     execute: Processor.execute(query:),
+    report: reporter.report(query:),
     resolveAbsolute: Finder.resolveAbsolute(query:),
     resolveRequisition: configurator.resolveRequisition(query:),
     resolveSecret: configurator.resolveSecret(query:),

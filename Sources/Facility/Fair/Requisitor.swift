@@ -3,6 +3,7 @@ import Facility
 import FacilityPure
 public struct Requisitor {
   let execute: Try.Reply<Execute>
+  let report: Try.Reply<Report>
   let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>
   let resolveRequisition: Try.Reply<Configuration.ResolveRequisition>
   let resolveSecret: Try.Reply<Configuration.ResolveSecret>
@@ -11,6 +12,7 @@ public struct Requisitor {
   let plistDecoder: PropertyListDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
+    report: @escaping Try.Reply<Report>,
     resolveAbsolute: @escaping Try.Reply<Files.ResolveAbsolute>,
     resolveRequisition: @escaping Try.Reply<Configuration.ResolveRequisition>,
     resolveSecret: @escaping Try.Reply<Configuration.ResolveSecret>,
@@ -19,6 +21,7 @@ public struct Requisitor {
     plistDecoder: PropertyListDecoder
   ) {
     self.execute = execute
+    self.report = report
     self.resolveAbsolute = resolveAbsolute
     self.resolveRequisition = resolveRequisition
     self.resolveSecret = resolveSecret
@@ -148,6 +151,8 @@ public struct Requisitor {
         )
       }
     }
+    guard !items.isEmpty else { return true }
+    try report(cfg.reportExpiringRequisites(items: items))
     return true
   }
   func cleanKeychain(
