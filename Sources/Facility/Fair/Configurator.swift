@@ -122,7 +122,7 @@ public struct Configurator {
     query: Configuration.ResolveRequisition
   ) throws -> Configuration.ResolveRequisition.Reply { try query.cfg.controls.requisition
       .reduce(query.cfg.git, parse(git:yaml:))
-      .reduce(Yaml.Controls.Requisition.self, dialect.read(_:from:))
+      .reduce([String: Yaml.Controls.Requisition].self, dialect.read(_:from:))
       .map { yaml in try Requisition.make(
         verbose: query.cfg.verbose,
         ref: query.cfg.profile.controls.ref,

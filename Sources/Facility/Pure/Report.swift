@@ -115,6 +115,22 @@ public struct Report: Query {
     public var user: String
     public var commits: [String]
   }
+  public struct ExpiringRequisites: Reportable {
+    public let event: String = "\(Self.self)"
+    public var env: [String: String]
+    public var custom: AnyCodable?
+    public var items: [Item]
+    public struct Item: Encodable {
+      public var file: String
+      public var name: String
+      public var days: String
+      public init(file: String, name: String, days: String) {
+        self.file = file
+        self.name = name
+        self.days = days
+      }
+    }
+  }
 }
 public extension Configuration {
   func reportUnexpected(
@@ -257,6 +273,13 @@ public extension Configuration {
     custom: controls.stencilCustom,
     user: job.user.username,
     commits: commits
+  ))}
+  func reportExpiringRequisites(
+    items: [Report.ExpiringRequisites.Item]
+  ) -> Report { .init(cfg: self, reportable: Report.ExpiringRequisites(
+    env: env,
+    custom: controls.stencilCustom,
+    items: items
   ))}
 }
 extension Configuration.Controls {

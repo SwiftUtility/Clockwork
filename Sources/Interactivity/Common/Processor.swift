@@ -9,7 +9,10 @@ public struct Processor {
     self.task = task
     process.launchPath = task.launch
     process.arguments = task.arguments
-    process.environment = task.environment
+    process.environment = ["LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"]
+    for (key, value) in task.environment {
+      process.environment?[key] = value
+    }
     process.standardOutput = pipe
     if task.verbose {
       process.standardError = FileHandle.standardError

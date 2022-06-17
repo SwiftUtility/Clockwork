@@ -2,31 +2,37 @@ import Foundation
 import Facility
 public struct Requisition {
   public var verbose: Bool
-  public var keychains: [String: Keychain]
-  public var provisions: [String: Git.Dir]
+  public var requisites: [String: Requisite]
+  public func requisite(name: String) throws -> Requisite {
+    try requisites[name].or { throw Thrown("No \(name) in requisition") }
+  }
   public static func make(
     verbose: Bool,
     ref: Git.Ref,
-    yaml: Yaml.Controls.Requisition
+    yaml: [String: Yaml.Controls.Requisition]
   ) throws -> Self { try .init(
     verbose: verbose,
-    keychains: yaml.keychains
-      .mapValues { yaml in try .init(
-        pkcs12: .init(
-          ref: .make(remote: .init(name: yaml.pkcs12.branch)),
-          path: .init(value: yaml.pkcs12.path)
-        ),
-        password: .init(yaml: yaml.password)
-      )},
-    provisions: yaml.provisions
-      .mapValues { try .init(
-        ref: ref,
-        path: .init(value: $0)
-      )}
+    requisites: yaml
+      .mapValues { try .make(ref: ref, yaml: $0) }
   )}
-  public struct Keychain {
+  public struct Requisite {
     public var pkcs12: Git.File
     public var password: Secret
+    public var provisions: [Git.Dir]
+    public static func make(
+      ref: Git.Ref,
+      yaml: Yaml.Controls.Requisition
+    ) throws -> Self { try .init(
+      pkcs12: .init(
+        ref: .make(remote: .init(name: yaml.pkcs12.branch)),
+        path: .init(value: yaml.pkcs12.path)
+      ),
+      password: .init(yaml: yaml.password),
+      provisions: yaml.provisions.map { yaml in try .init(
+        ref: ref,
+        path: .init(value: yaml)
+      )}
+    )}
   }
 }
 public extension Requisition {
@@ -55,12 +61,24 @@ public extension Requisition {
     args: ["import", file.value, "-k", keychain, "-P", pass]
     + ["-t" ,"priv", "-T", "/usr/bin/codesign", "-f", "pkcs12"]
   )}
+  func exportCerts(
+    keychain: String
+  ) -> Execute { proc(args: ["find-certificate", "-a", "-p", keychain]) }
   func leaseXcode(keychain: String) -> Execute { proc(
     args: ["set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", "", keychain]
   )}
+  func readCertDetails(
+    data: Data
+  ) -> Execute { proc(
+    args: ["openssl", "x509", "-enddate", "-subject", "-noout", "-nameopt", "multiline"],
+    input: data
+  )}
 }
 extension Requisition {
-  func proc(args: [String]) -> Execute {
-    .init(tasks: [.init(verbose: verbose, arguments: ["security"] + args)])
+  func proc(
+    args: [String],
+    input: Data? = nil
+  ) -> Execute {
+    .init(input: input, tasks: [.init(verbose: verbose, arguments: ["security"] + args)])
   }
 }

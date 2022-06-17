@@ -41,6 +41,8 @@ enum Main {
     resolveAbsolute: Finder.resolveAbsolute(query:),
     resolveRequisition: configurator.resolveRequisition(query:),
     resolveSecret: configurator.resolveSecret(query:),
+    getTime: Date.init,
+    getUuid: UUID.init,
     plistDecoder: .init()
   )
   static let gitlabAwardApprover = GitlabAwardApprover(

@@ -8,7 +8,7 @@ public struct Git {
     self.root = root
     self.verbose = verbose
   }
-  public struct File {
+  public struct File: Hashable {
     public var ref: Ref
     public var path: Files.Relative
     public init(ref: Ref, path: Files.Relative) {
@@ -16,7 +16,7 @@ public struct Git {
       self.path = path
     }
   }
-  public struct Dir {
+  public struct Dir: Hashable {
     public var ref: Ref
     public var path: Files.Relative
     public init(ref: Ref, path: Files.Relative) {
@@ -24,7 +24,7 @@ public struct Git {
       self.path = path
     }
   }
-  public struct Ref {
+  public struct Ref: Hashable {
     public let value: String
     public var tree: Tree { .init(ref: self) }
     public func make(parent number: Int) throws -> Self {

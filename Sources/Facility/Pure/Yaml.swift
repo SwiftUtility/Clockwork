@@ -59,12 +59,9 @@ public enum Yaml {
       }
     }
     public struct Requisition: Decodable {
-      public var keychains: [String: Keychain]
-      public var provisions: [String: String]
-      public struct Keychain: Decodable {
-        public var pkcs12: File
-        public var password: Secret
-      }
+      public var pkcs12: File
+      public var password: Secret
+      public var provisions: [String]
     }
     public struct Flow: Decodable {
       public var squash: Squash?

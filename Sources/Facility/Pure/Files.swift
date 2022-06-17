@@ -12,7 +12,7 @@ public enum Files {
       .init(path: path, relativeTo: self)
     }
   }
-  public struct Relative {
+  public struct Relative: Hashable {
     public let value: String
     public init(value: String) throws {
       try value.starts(with: "/").then { throw Thrown("Not relative path \(value)") }
