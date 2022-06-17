@@ -7,7 +7,7 @@ public struct Asset {
   public static func make(
     yaml: Yaml.Asset
   ) throws -> Self { try .init(
-    file: .init(value: yaml.file),
+    file: .init(value: yaml.path),
     branch: .init(name: yaml.branch),
     commitMessageTemplate: yaml.commitMessageTemplate
   )}

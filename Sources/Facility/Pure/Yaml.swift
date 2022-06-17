@@ -134,7 +134,7 @@ public enum Yaml {
     }
   }
   public struct Asset: Decodable {
-    public var file: String
+    public var path: String
     public var branch: String
     public var commitMessageTemplate: String
   }
