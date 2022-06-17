@@ -23,7 +23,7 @@ public enum Yaml {
     public var flow: String?
     public var templates: String?
     public var context: String?
-    public var forbiddenCommits: [String]?
+    public var forbiddenCommits: Asset?
     public struct Production: Decodable {
       public var mainatiners: [String]?
       public var builds: Asset

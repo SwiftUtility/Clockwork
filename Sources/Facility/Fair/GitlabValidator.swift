@@ -5,6 +5,7 @@ public struct GitlabValidator {
   let execute: Try.Reply<Execute>
   let resolveCodeOwnage: Try.Reply<Configuration.ResolveCodeOwnage>
   let resolveFileTaboos: Try.Reply<Configuration.ResolveFileTaboos>
+  let resolveForbiddenCommits: Try.Reply<Configuration.ResolveForbiddenCommits>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
@@ -12,6 +13,7 @@ public struct GitlabValidator {
     execute: @escaping Try.Reply<Execute>,
     resolveCodeOwnage: @escaping Try.Reply<Configuration.ResolveCodeOwnage>,
     resolveFileTaboos: @escaping Try.Reply<Configuration.ResolveFileTaboos>,
+    resolveForbiddenCommits: @escaping Try.Reply<Configuration.ResolveForbiddenCommits>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
@@ -19,6 +21,7 @@ public struct GitlabValidator {
     self.execute = execute
     self.resolveCodeOwnage = resolveCodeOwnage
     self.resolveFileTaboos = resolveFileTaboos
+    self.resolveForbiddenCommits = resolveForbiddenCommits
     self.report = report
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
@@ -110,7 +113,7 @@ public struct GitlabValidator {
       .filter(criteria.isMet(_:))
     }
     var forbiddenCommits: [String] = []
-    for sha in cfg.controls.forbiddenCommits {
+    for sha in try resolveForbiddenCommits(.init(cfg: cfg)) {
       if case _? = try? execute(cfg.git.check(
         child: .head,
         parent: .make(sha: sha)

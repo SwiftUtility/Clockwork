@@ -57,7 +57,7 @@ public struct Configuration {
     public var production: Git.File?
     public var requisition: Git.File?
     public var flow: Git.File?
-    public var forbiddenCommits: [Git.Sha]
+    public var forbiddenCommits: Asset?
     public var templates: [String: String] = [:]
     public var context: AnyCodable?
     public var communication: [String: [Communication]] = [:]
@@ -81,8 +81,7 @@ public struct Configuration {
         .map(Files.Relative.init(value:))
         .reduce(ref, Git.File.init(ref:path:)),
       forbiddenCommits: yaml.forbiddenCommits
-        .or([])
-        .map(Git.Sha.init(value:))
+        .map(Asset.make(yaml:))
     )}
   }
   public struct ResolveProfile: Query {
@@ -175,6 +174,13 @@ public struct Configuration {
       self.production = production
     }
     public typealias Reply = [String: String]
+  }
+  public struct ResolveForbiddenCommits: Query {
+    public var cfg: Configuration
+    public init(cfg: Configuration) {
+      self.cfg = cfg
+    }
+    public typealias Reply = [Git.Sha]
   }
   public struct PersistBuilds: Query {
     public var cfg: Configuration

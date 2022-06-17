@@ -15,6 +15,10 @@ public struct Git {
       self.ref = ref
       self.path = path
     }
+    public static func make(asset: Asset) -> Self { .init(
+      ref: .make(remote: asset.branch),
+      path: asset.file)
+    }
   }
   public struct Dir: Hashable {
     public var ref: Ref

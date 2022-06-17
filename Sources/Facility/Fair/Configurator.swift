@@ -148,11 +148,8 @@ public struct Configurator {
   }
   public func resolveProductionBuilds(
     query: Configuration.ResolveProductionBuilds
-  ) throws -> Configuration.ResolveProductionBuilds.Reply { try Id
-    .make(Git.File(
-      ref: .make(remote: query.production.builds.branch),
-      path: query.production.builds.file
-    ))
+  ) throws -> Configuration.ResolveProductionBuilds.Reply { try Id(query.production.builds)
+    .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([Yaml.Controls.Production.Build].self, dialect.read(_:from:))
     .get()
@@ -160,11 +157,8 @@ public struct Configurator {
   }
   public func resolveProductionVersions(
     query: Configuration.ResolveProductionVersions
-  ) throws -> Configuration.ResolveProductionVersions.Reply { try Id
-    .make(Git.File(
-      ref: .make(remote: query.production.versions.branch),
-      path: query.production.versions.file
-    ))
+  ) throws -> Configuration.ResolveProductionVersions.Reply { try Id(query.production.versions)
+    .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: String].self, dialect.read(_:from:))
     .get()
@@ -207,11 +201,20 @@ public struct Configurator {
   }
   public func resolveUserActivity(
     query: Configuration.ResolveUserActivity
-  ) throws -> Configuration.ResolveUserActivity.Reply { try Id
-    .make(query.awardApproval.userActivity.remote)
+  ) throws -> Configuration.ResolveUserActivity.Reply { try Id(query.awardApproval.userActivity)
+    .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Bool].self, dialect.read(_:from:))
     .get()
+  }
+  public func resolveForbiddenCommits(
+    query: Configuration.ResolveForbiddenCommits
+  ) throws -> Configuration.ResolveForbiddenCommits.Reply { try query.cfg.controls.forbiddenCommits
+    .map(Git.File.make(asset:))
+    .reduce(query.cfg.git, parse(git:yaml:))
+    .reduce([String].self, dialect.read(_:from:))
+    .or([])
+    .map(Git.Sha.init(value:))
   }
   public func persistVersions(
     query: Configuration.PersistVersions
