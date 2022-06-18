@@ -202,33 +202,33 @@ struct Clockwork: ParsableCommand {
   }
   struct ImportProvisions: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Groups to install, all when empty")
-    var requisites: [String] = []
+    @Argument(help: "Requisite to install, all when empty")
+    var requisite: String = ""
     static var abstract: String { "Import provisions locally" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.importProvisions(cfg: cfg, requisites: requisites)
+      try Main.requisitor.installProvisions(cfg: cfg, requisite: requisite)
     }
   }
   struct ImportKeychains: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Keychain name to import requisites into")
     var keychain: String
-    @Argument(help: "Groups to install, all when empty")
-    var requisites: [String] = []
+    @Argument(help: "Requisite to install, all when empty")
+    var requisite: String = ""
     static var abstract: String { "Import p12 and setup xcode access" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.importKeychains(cfg: cfg, keychain: keychain, requisites: requisites)
+      try Main.requisitor.installKeychain(cfg: cfg, keychain: keychain, requisite: requisite)
     }
   }
   struct ImportRequisites: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Keychain name to import requisites into")
     var keychain: String
-    @Argument(help: "Groups to install, all when empty")
-    var requisites: [String] = []
+    @Argument(help: "Requisite to install, all when empty")
+    var requisite: String = ""
     static var abstract: String { "Import p12 and provisions" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.importRequisites(cfg: cfg, keychain: keychain, requisites: requisites)
+      try Main.requisitor.installRequisite(cfg: cfg, keychain: keychain, requisite: requisite)
     }
   }
   struct ReportExpiringRequisites: ClockworkCommand {

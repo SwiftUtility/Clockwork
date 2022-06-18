@@ -38,35 +38,44 @@ public struct Requisition {
 public extension Requisition {
   func decode(file: Files.Absolute) -> Execute { proc(args: ["cms", "-D", "-i", file.value]) }
   func delete(keychain: String) -> Execute { proc(
-    args: ["delete-keychain", keychain]
+    args: ["security", "delete-keychain", keychain]
   )}
   func create(keychain: String) -> Execute { proc(
-    args: ["create-keychain", "-p", "", keychain]
+    args: ["security", "create-keychain", "-p", "", keychain]
   )}
   func unlock(keychain: String) -> Execute { proc(
-    args: ["unlock-keychain", "-p", "", keychain]
+    args: ["security", "unlock-keychain", "-p", "", keychain]
   )}
   func disableAutolock(keychain: String) -> Execute { proc(
-    args: ["set-keychain-settings", keychain]
+    args: ["security", "set-keychain-settings", keychain]
   )}
-  var listVisibleKeychains: Execute { proc(args: ["list-keychains", "-d", "user"]) }
+  var listVisibleKeychains: Execute { proc(
+    args: ["security", "list-keychains", "-d", "user"]
+  )}
   func resetVisibleKeychains(keychains: [String]) -> Execute { proc(
-    args: ["list-keychains", "-d", "user", "-s"] + keychains
+    args: ["security", "list-keychains", "-d", "user", "-s"] + keychains
   )}
   func importPkcs12(
     keychain: String,
     file: Files.Absolute,
     pass: String
   ) -> Execute { proc(
-    args: ["import", file.value, "-k", keychain, "-P", pass]
+    args: ["security", "import", file.value, "-k", keychain, "-P", pass]
     + ["-t" ,"priv", "-T", "/usr/bin/codesign", "-f", "pkcs12"]
   )}
-  func exportCerts(
-    keychain: String
-  ) -> Execute { proc(args: ["find-certificate", "-a", "-p", keychain]) }
-  func leaseXcode(keychain: String) -> Execute { proc(
+  func allowXcode(keychain: String) -> Execute { proc(
     args: ["set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", "", keychain]
   )}
+  func parsePkcs12Certs(
+    password: String,
+    execute: Execute
+  ) -> Execute {
+    var result = execute
+    result.tasks += proc(
+      args: ["openssl", "pkcs12", "-passin", "pass:\(password)", "-passout", "pass:"]
+    ).tasks
+    return result
+  }
   func decodeCert(
     data: Data
   ) -> Execute { proc(
@@ -79,6 +88,6 @@ extension Requisition {
     args: [String],
     input: Data? = nil
   ) -> Execute {
-    .init(input: input, tasks: [.init(verbose: verbose, arguments: ["security"] + args)])
+    .init(input: input, tasks: [.init(verbose: verbose, arguments: args)])
   }
 }

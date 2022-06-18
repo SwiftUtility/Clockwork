@@ -8,7 +8,6 @@ public struct Requisitor {
   let resolveRequisition: Try.Reply<Configuration.ResolveRequisition>
   let resolveSecret: Try.Reply<Configuration.ResolveSecret>
   let getTime: Act.Do<Date>
-  let getUuid: Act.Do<UUID>
   let plistDecoder: PropertyListDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -17,7 +16,6 @@ public struct Requisitor {
     resolveRequisition: @escaping Try.Reply<Configuration.ResolveRequisition>,
     resolveSecret: @escaping Try.Reply<Configuration.ResolveSecret>,
     getTime: @escaping Act.Do<Date>,
-    getUuid: @escaping Act.Do<UUID>,
     plistDecoder: PropertyListDecoder
   ) {
     self.execute = execute
@@ -26,46 +24,58 @@ public struct Requisitor {
     self.resolveRequisition = resolveRequisition
     self.resolveSecret = resolveSecret
     self.getTime = getTime
-    self.getUuid = getUuid
     self.plistDecoder = plistDecoder
   }
-  public func importProvisions(
+  public func installProvisions(
     cfg: Configuration,
-    requisites: [String]
+    requisite: String
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
-    try requisites
-      .flatMap { try getProvisions(git: cfg.git, requisition: requisition, requisite: $0)}
+    let requisites = requisite.isEmpty
+      .else([requisite])
+      .or(.init(requisition.requisites.keys))
+    try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }
     return true
   }
-  public func importKeychains(
+  public func installKeychain(
     cfg: Configuration,
     keychain: String,
-    requisites: [String]
+    requisite: String
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
     try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
-    try requisites.forEach {
-      try importKeychain(cfg: cfg, requisition: requisition, requisite: $0, keychain: keychain)
-    }
-    _ = try execute(requisition.leaseXcode(keychain: keychain))
+    try requisite.isEmpty
+      .else([requisite])
+      .or(.init(requisition.requisites.keys))
+      .forEach { requisite in try importKeychain(
+        cfg: cfg,
+        requisition: requisition,
+        requisite: requisition.requisite(name: requisite),
+        keychain: keychain
+      )}
+    _ = try execute(requisition.allowXcode(keychain: keychain))
     return true
   }
-  public func importRequisites(
+  public func installRequisite(
     cfg: Configuration,
     keychain: String,
-    requisites: [String]
+    requisite: String
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
-    try requisites
-      .flatMap { try getProvisions(git: cfg.git, requisition: requisition, requisite: $0)}
+    let requisites = requisite.isEmpty
+      .else([requisite])
+      .or(.init(requisition.requisites.keys))
+    try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }
     try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
-    try requisites.forEach {
-      try importKeychain(cfg: cfg, requisition: requisition, requisite: $0, keychain: keychain)
-    }
-    _ = try execute(requisition.leaseXcode(keychain: keychain))
+    try requisites.forEach { requisite in try importKeychain(
+      cfg: cfg,
+      requisition: requisition,
+      requisite: requisition.requisite(name: requisite),
+      keychain: keychain
+    )}
+    _ = try execute(requisition.allowXcode(keychain: keychain))
     return true
   }
   public func reportExpiringRequisites(
@@ -75,9 +85,11 @@ public struct Requisitor {
     let requisition = try resolveRequisition(.init(cfg: cfg))
     let threshold = getTime().advanced(by: .init(days) * .day)
     var items: [Report.ExpiringRequisites.Item] = []
-    let provisions: Set<Git.File> = try requisition.requisites.keys
-      .map { try getProvisions(git: cfg.git, requisition: requisition, requisite: $0) }
-      .reduce([]) { $0.union($1) }
+    let provisions = try getProvisions(
+      git: cfg.git,
+      requisition: requisition,
+      requisites: .init(requisition.requisites.keys)
+    )
     for file in provisions {
       let temp = try Id(cfg.systemTempFile)
         .map(execute)
@@ -98,20 +110,18 @@ public struct Requisitor {
       let days = min(0, Int(threshold.timeIntervalSince(provision.expirationDate) / .day))
       items.append(.init(file: file.path.value, name: provision.name, days: "\(days)"))
     }
-    let keychain = getUuid().uuidString
-    for (key, requisite) in requisition.requisites {
-      _ = try execute(requisition.create(keychain: keychain))
-      defer { _ = try? execute(requisition.delete(keychain: keychain)) }
-      _ = try execute(requisition.unlock(keychain: keychain))
-      try importKeychain(cfg: cfg, requisition: requisition, requisite: key, keychain: keychain)
-      let certs = try Id(keychain)
-        .map(requisition.exportCerts(keychain:))
+    for requisite in requisition.requisites.values {
+      let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
+      let certs = try Id(requisite.pkcs12)
+        .map(cfg.git.cat(file:))
+        .reduce(password, requisition.parsePkcs12Certs(password:execute:))
         .map(execute)
         .map(String.make(utf8:))
         .get()
         .components(separatedBy: .newlines)
         .split(separator: .certStart)
-        .map { ([.certStart] + $0)
+        .compactMap { $0.split(separator: .certEnd).first }
+        .map { ([.certStart] + $0 + [.certEnd])
           .map { $0 + "\n" }
           .joined()
           .utf8
@@ -175,10 +185,9 @@ public struct Requisitor {
   func importKeychain(
     cfg: Configuration,
     requisition: Requisition,
-    requisite: String,
+    requisite: Requisition.Requisite,
     keychain: String
   ) throws {
-    let requisite = try requisition.requisite(name: requisite)
     let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
     let temp = try Id(cfg.systemTempFile)
       .map(execute)
@@ -195,10 +204,13 @@ public struct Requisitor {
   func getProvisions(
     git: Git,
     requisition: Requisition,
-    requisite: String
+    requisites: [String]
   ) throws -> Set<Git.File> {
     var result: Set<Git.File> = []
-    for dir in try requisition.requisite(name: requisite).provisions { try Id(dir)
+    let dirs = try requisites
+      .map(requisition.requisite(name:))
+      .flatMap(\.provisions)
+    for dir in dirs { try Id(dir)
       .map(git.listTreeTrackedFiles(dir:))
       .map(execute)
       .map(String.make(utf8:))
@@ -237,4 +249,5 @@ extension TimeInterval {
 }
 extension String {
   static var certStart: Self { "-----BEGIN CERTIFICATE-----" }
+  static var certEnd: Self { "-----END CERTIFICATE-----" }
 }
