@@ -234,7 +234,7 @@ public struct Configurator {
         file: query.production.versions.file,
         branch: query.production.versions.branch,
         yaml: versions
-          .map { "\($0.key): '\($0.value)'\n" }
+          .map { "'\($0.key)': '\($0.value)'\n" }
           .sorted()
           .joined(),
         message: message
