@@ -348,6 +348,7 @@ extension ClockworkCommand {
       verbose: clockwork.verbose,
       env: Main.environment
     )
+    print("\(#fileID):\(#line)")
     try Lossy(cfg)
       .map(run(cfg:))
       .reduceError(cfg, Main.reporter.report(cfg:error:))
