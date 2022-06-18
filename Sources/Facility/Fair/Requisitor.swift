@@ -93,7 +93,7 @@ public struct Requisitor {
     for file in provisions {
       let temp = try Id(cfg.systemTempFile)
         .map(execute)
-        .map(String.make(utf8:))
+        .map(Execute.successText(reply:))
         .map(Files.Absolute.init(value:))
         .get()
       defer { _ = try? execute(cfg.systemDelete(file: temp)) }
@@ -104,6 +104,7 @@ public struct Requisitor {
       let provision = try Id(temp)
         .map(requisition.decode(file:))
         .map(execute)
+        .map(Execute.successData(reply:))
         .reduce(Plist.Provision.self, plistDecoder.decode(_:from:))
         .get()
       guard provision.expirationDate < threshold else { continue }
@@ -116,9 +117,8 @@ public struct Requisitor {
         .map(cfg.git.cat(file:))
         .reduce(password, requisition.parsePkcs12Certs(password:execute:))
         .map(execute)
-        .map(String.make(utf8:))
+        .map(Execute.successLines(reply:))
         .get()
-        .components(separatedBy: .newlines)
         .split(separator: .certStart)
         .mapEmpty([])
         .dropFirst()
@@ -136,9 +136,8 @@ public struct Requisitor {
         let lines = try Id(cert)
           .map(requisition.decodeCert(data:))
           .map(execute)
-          .map(String.make(utf8:))
+          .map(Execute.successLines(reply:))
           .get()
-          .components(separatedBy: .newlines)
           .map { $0.trimmingCharacters(in: .whitespaces) }
         let date = try lines
           .compactMap { try? $0.dropPrefix("notAfter=") }
@@ -178,9 +177,8 @@ public struct Requisitor {
     _ = try execute(requisition.disableAutolock(keychain: keychain))
     let keychains = try Id(requisition.listVisibleKeychains)
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
       .map { $0.trimmingCharacters(in: .whitespaces.union(["\""])) }
     _ = try execute(requisition.resetVisibleKeychains(keychains: keychains + [keychain]))
   }
@@ -193,7 +191,7 @@ public struct Requisitor {
     let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
     let temp = try Id(cfg.systemTempFile)
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Files.Absolute.init(value:))
       .get()
     defer { _ = try? execute(cfg.systemDelete(file: temp)) }
@@ -215,9 +213,8 @@ public struct Requisitor {
     for dir in dirs { try Id(dir)
       .map(git.listTreeTrackedFiles(dir:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
       .map(Files.Relative.init(value:))
       .forEach { result.insert(.init(ref: dir.ref, path: $0)) }
     }
@@ -226,7 +223,7 @@ public struct Requisitor {
   func install(cfg: Configuration, requisition: Requisition, provision: Git.File) throws {
     let temp = try Id(cfg.systemTempFile)
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Files.Absolute.init(value:))
       .get()
     defer { _ = try? execute(cfg.systemDelete(file: temp)) }
@@ -237,6 +234,7 @@ public struct Requisitor {
     _ = try Id(temp)
       .map(requisition.decode(file:))
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Plist.Provision.self, plistDecoder.decode(_:from:))
       .map(\.uuid)
       .map { "~/Library/MobileDevice/Provisioning Profiles/\($0).mobileprovision" }

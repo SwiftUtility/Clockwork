@@ -30,7 +30,43 @@ public struct Execute: Query {
     public var verbose: Bool
     public var arguments: [String]
   }
-  public typealias Reply = Data
+  public struct Reply {
+    public var data: Data?
+    public var status: [Int32]
+    public init(data: Data? = nil, status: [Int32]) {
+      self.data = data
+      self.status = status
+    }
+  }
+  public static func successData(reply: Reply) throws -> Data {
+    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    return reply.data.or(.init())
+  }
+  public static func errorData(reply: Reply) -> Data? {
+    guard reply.status.last != 0 else { return nil }
+    return reply.data
+  }
+  public static func successText(reply: Reply) throws -> String {
+    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    return try reply.data
+      .map(String.make(utf8:))
+      .or("")
+      .trimmingCharacters(in: .newlines)
+  }
+  public static func successLines(reply: Reply) throws -> [String] {
+    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    return try reply.data
+      .map(String.make(utf8:))
+      .or("")
+      .trimmingCharacters(in: .newlines)
+      .components(separatedBy: .newlines)
+  }
+  public static func success(reply: Reply) -> Bool {
+    reply.status.last == 0
+  }
+  public static func successVoid(reply: Reply) throws {
+    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+  }
 }
 public extension Configuration {
   var systemTempFile: Execute { .init(tasks: [

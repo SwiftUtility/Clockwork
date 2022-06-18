@@ -33,6 +33,7 @@ public struct GitlabMediator {
         ref: ref,
         job: try gitlabCi.getCurrentJob
           .map(execute)
+          .map(Execute.successData(reply:))
           .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
           .get(),
         cfg: cfg,
@@ -48,6 +49,7 @@ public struct GitlabMediator {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
@@ -66,6 +68,7 @@ public struct GitlabMediator {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
@@ -80,6 +83,7 @@ public struct GitlabMediator {
     _ = try gitlabCi
       .putMrState(parameters: .init(addLabels: labels.joined(separator: ",")))
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     logMessage(.init(message: "Labels added"))
@@ -93,6 +97,7 @@ public struct GitlabMediator {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
@@ -102,6 +107,7 @@ public struct GitlabMediator {
     let job = try gitlabCi
       .getParentPipelineJobs(action: action)
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce([Json.GitlabJob].self, jsonDecoder.decode(_:from:))
       .get()
       .first { $0.name == name }

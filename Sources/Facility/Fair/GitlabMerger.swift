@@ -36,6 +36,7 @@ public struct GitlabMerger {
       job: cfg.controls.gitlabCi
         .flatMap(\.getCurrentJob)
         .map(execute)
+        .map(Execute.successData(reply:))
         .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
         .get(),
       title: title
@@ -46,11 +47,13 @@ public struct GitlabMerger {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard pipeline.id == review.pipeline.id, review.state == "opened" else {
@@ -73,11 +76,13 @@ public struct GitlabMerger {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard pipeline.id == review.pipeline.id, review.state == "opened" else {
@@ -86,6 +91,7 @@ public struct GitlabMerger {
     }
     let job = try gitlabCi.getCurrentJob
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard job.pipeline.ref == review.targetBranch else {
@@ -105,14 +111,14 @@ public struct GitlabMerger {
     let targetSha = try Id(target)
       .map(cfg.git.getSha(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .get()
     let headParent = try Id(head)
       .map(Git.Ref.make(sha:))
       .reduce(tryCurry: 1, Git.Ref.make(parent:))
       .map(cfg.git.getSha(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .get()
     guard targetSha == headParent else {
       if let sha = try commitMerge(
@@ -151,6 +157,7 @@ public struct GitlabMerger {
     let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
     let job = try gitlabCi.getCurrentJob
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard !job.tag else { throw Thrown("Not on branch") }
@@ -206,15 +213,18 @@ public struct GitlabMerger {
     let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
     let job = try gitlabCi.getCurrentJob
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard pipeline.id == review.pipeline.id, review.state == "opened" else {
@@ -269,7 +279,7 @@ public struct GitlabMerger {
       _ = try execute(cfg.git.push(url: gitlabCi.pushUrl.get(), delete: merge.supply))
       return true
     }
-    guard case merge.fork.value = try String.make(utf8: execute(cfg.git.mergeBase(
+    guard case merge.fork.value = try Execute.successText(reply: execute(cfg.git.mergeBase(
       .make(remote: merge.source),
       .make(sha: head)
     ))) else {
@@ -344,14 +354,13 @@ public struct GitlabMerger {
       .map(Git.Ref.make(sha:))
       .map(cfg.git.listParents(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
     let target = try Id(merge.target)
       .map(Git.Ref.make(remote:))
       .map(cfg.git.getSha(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .get()
     guard [target, merge.fork.value] == parents else {
       let message = try generate(cfg.generateIntegrationCommitMessage(
@@ -393,6 +402,7 @@ public struct GitlabMerger {
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     let fork = try Git.Sha(value: pipeline.sha)
@@ -404,9 +414,8 @@ public struct GitlabMerger {
     var targets: [Git.Branch] = []
     let lines = try Id(cfg.git.listLocalRefs)
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
     for line in lines {
       let pair = line.components(separatedBy: .whitespaces)
       guard pair.count == 2 else { throw MayDay("bad git reply") }
@@ -432,6 +441,7 @@ public struct GitlabMerger {
     let replication = try resolveFlow(.init(cfg: cfg)).replication.get()
     let job = try gitlabCi.getCurrentJob
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard !job.tag else { throw Thrown("Not on branch") }
@@ -485,15 +495,18 @@ public struct GitlabMerger {
     let pushUrl = try gitlabCi.pushUrl.get()
     let job = try gitlabCi.getCurrentJob
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard
@@ -525,7 +538,7 @@ public struct GitlabMerger {
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
       )),
-      case merge.fork.value = try String.make(utf8: execute(cfg.git.mergeBase(
+      case merge.fork.value = try Execute.successText(reply: execute(cfg.git.mergeBase(
         .make(remote: merge.source),
         .make(sha: head)
       )))
@@ -610,14 +623,13 @@ public struct GitlabMerger {
       .map(Git.Ref.make(sha:))
       .map(cfg.git.listParents(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
     let target = try Id(merge.target)
       .map(Git.Ref.make(remote:))
       .map(cfg.git.getSha(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .get()
     guard [target, merge.fork.value] == parents else {
       let message = try generate(cfg.generateReplicationCommitMessage(
@@ -692,9 +704,8 @@ public struct GitlabMerger {
       firstParents: true
     ))
     .map(execute)
-    .map(String.make(utf8:))
+    .map(Execute.successLines(reply:))
     .get()
-    .components(separatedBy: .newlines)
     .last
     .reduce(source, replication.makeMerge(source:sha:))
   }
@@ -707,7 +718,7 @@ public struct GitlabMerger {
     let initial = try Id(.head)
       .map(cfg.git.getSha(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
@@ -720,8 +731,8 @@ public struct GitlabMerger {
         message: message,
         noFf: true,
         env: Git.env(
-          authorName: String.make(utf8: execute(cfg.git.getAuthorName(ref: sha))),
-          authorEmail: String.make(utf8: execute(cfg.git.getAuthorEmail(ref: sha)))
+          authorName: Execute.successText(reply: execute(cfg.git.getAuthorName(ref: sha))),
+          authorEmail: Execute.successText(reply: execute(cfg.git.getAuthorEmail(ref: sha)))
         )
       ))
     } catch {
@@ -733,7 +744,7 @@ public struct GitlabMerger {
     return try Id(.head)
       .map(cfg.git.getSha(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Git.Sha.init(value:))
       .get()
   }
@@ -744,19 +755,22 @@ public struct GitlabMerger {
     sha: Git.Sha
   ) throws -> Git.Sha {
     let sha = Git.Ref.make(sha: sha)
-    let base = try String.make(utf8: execute(cfg.git.mergeBase(.make(remote: merge.target), sha)))
+    let base = try Id(cfg.git.mergeBase(.make(remote: merge.target), sha))
+      .map(execute)
+      .map(Execute.successText(reply:))
+      .get()
     return try Id
       .make(cfg.git.commitTree(
         tree: sha.tree,
         message: message,
         parents: [.make(sha: .init(value: base)), .make(sha: merge.fork)],
         env: Git.env(
-          authorName: String.make(utf8: execute(cfg.git.getAuthorName(ref: sha))),
-          authorEmail: String.make(utf8: execute(cfg.git.getAuthorEmail(ref: sha)))
+          authorName: Execute.successText(reply: execute(cfg.git.getAuthorName(ref: sha))),
+          authorEmail: Execute.successText(reply: execute(cfg.git.getAuthorEmail(ref: sha)))
         )
       ))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Git.Sha.init(value:))
       .get()
   }
@@ -775,8 +789,11 @@ public struct GitlabMerger {
         shouldRemoveSourceBranch: true,
         sha: sha
       ))
-      .map(execute).reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
+      .map(execute)
+      .map(\.data)
       .get()
+      .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
+      .or { .value(.null) }
     if case "merged"? = result.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
       try report(cfg.reportReviewMerged(
@@ -816,13 +833,13 @@ public struct GitlabMerger {
       firstParents: false
     ))
     .map(execute)
-    .map(String.make(utf8:))
+    .map(Execute.successLines(reply:))
     .get()
-    .components(separatedBy: .newlines)
     .map(Git.Sha.init(value:))
     .flatMap { sha in try gitlabCi
       .listShaMergeRequests(sha: sha)
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(_:from:))
       .get()
       .filter { $0.squashCommitSha == sha.value }

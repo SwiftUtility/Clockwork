@@ -39,6 +39,7 @@ public struct GitlabAwardApprover {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let job = try gitlabCi.getCurrentJob
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     let awardApproval = try resolveAwardApproval(.init(cfg: cfg))
@@ -59,11 +60,13 @@ public struct GitlabAwardApprover {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
       .get()
     guard pipeline.id == review.pipeline.id, review.state == "opened" else {
@@ -72,6 +75,7 @@ public struct GitlabAwardApprover {
     }
     let job = try gitlabCi.getCurrentJob
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     guard job.pipeline.ref == review.targetBranch else {
@@ -100,9 +104,8 @@ public struct GitlabAwardApprover {
         .map(Git.Ref.make(remote:))
         .reduce(sha, cfg.git.listChangedFiles(source:target:))
         .map(execute)
-        .map(String.make(utf8:))
+        .map(Execute.successLines(reply:))
         .get()
-        .components(separatedBy: .newlines)
     case .replication:
       merge = try Lossy(.init(cfg: cfg))
         .map(resolveFlow)
@@ -141,6 +144,7 @@ public struct GitlabAwardApprover {
     )
     let awards = try gitlabCi.getParentMrAwarders
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce([Json.GitlabAward].self, jsonDecoder.decode(_:from:))
       .get()
     try approval.consider(awards: awards)
@@ -185,7 +189,7 @@ public struct GitlabAwardApprover {
     let initial = try Id(.head)
       .map(git.getSha(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
@@ -193,7 +197,7 @@ public struct GitlabAwardApprover {
     _ = try Id
       .make(git.mergeBase(.make(remote: merge.target), sha))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .map(git.detach(ref:))
@@ -211,9 +215,8 @@ public struct GitlabAwardApprover {
     _ = try execute(git.addAll)
     let result = try Id(git.listLocalChanges)
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
     _ = try execute(git.resetHard(ref: initial))
     _ = try execute(git.clean)
     return result
@@ -230,13 +233,13 @@ public struct GitlabAwardApprover {
       firstParents: false
     ))
     .map(execute)
-    .map(String.make(utf8:))
+    .map(Execute.successLines(reply:))
     .get()
-    .components(separatedBy: .newlines)
     .map(Git.Sha.init(value:))
     .flatMap { sha in try gitlabCi
       .listShaMergeRequests(sha: sha)
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(_:from:))
       .get()
       .filter { $0.squashCommitSha == sha.value }

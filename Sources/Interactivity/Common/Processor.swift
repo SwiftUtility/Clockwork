@@ -4,6 +4,7 @@ import FacilityPure
 public struct Processor {
   private let process: Process = .init()
   private let pipe: Pipe = .init()
+  private let log: Pipe = .init()
   private let task: Execute.Task
   private init(task: Execute.Task) {
     self.task = task
@@ -15,9 +16,9 @@ public struct Processor {
     }
     process.standardOutput = pipe
     if task.verbose {
-      process.standardError = FileHandle.standardError
-    } else {
-      process.standardError = FileHandle.nullDevice
+      print("verbose")
+      process.standardError = Pipe()
+
     }
   }
   private static func wire(pipe: Pipe, this: Self) -> Pipe {
@@ -27,11 +28,14 @@ public struct Processor {
   private static func launch(this: Self) {
     this.process.launch()
   }
-  private static func wait(this: Self) throws {
+  private static func wait(this: Self) throws -> Int32 {
+    try this.process.standardError
+      .flatMap { $0 as? Pipe }
+      .map(\.fileHandleForReading)
+      .flatMap { try $0.readToEnd() }
+      .map(FileHandle.standardError.write(contentsOf:))
     this.process.waitUntilExit()
-    if this.task.escalate && this.process.terminationStatus != 0 {
-      throw Thrown("Process termination status \(this.process.terminationStatus)")
-    }
+    return this.process.terminationStatus
   }
   public static func execute(query: Execute) throws -> Execute.Reply {
     let processors = query.tasks.map(Self.init(task:))
@@ -40,8 +44,8 @@ public struct Processor {
     processors.forEach(Self.launch(this:))
     try query.input.map(input.fileHandleForWriting.write(contentsOf:))
     try input.fileHandleForWriting.close()
-    let data = output.fileHandleForReading.readDataToEndOfFile()
-    try processors.forEach(Self.wait(this:))
-    return data
+    let data = try output.fileHandleForReading.readToEnd()
+    let status = try processors.map(Self.wait(this:))
+    return .init(data: data, status: status)
   }
 }

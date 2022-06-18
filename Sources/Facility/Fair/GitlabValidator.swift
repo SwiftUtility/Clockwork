@@ -35,9 +35,8 @@ public struct GitlabValidator {
       .make(cfg.git)
       .reduce(curry: .head, Git.listAllTrackedFiles(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
       .filter { file in !approvals.contains { $0.value.isMet(file) } }
     guard !files.isEmpty else { return true }
     files
@@ -47,6 +46,7 @@ public struct GitlabValidator {
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: files, cfg.reportUnownedCode(job:files:))
       .map(report)
@@ -61,9 +61,8 @@ public struct GitlabValidator {
       .make(Git.Ref.head)
       .map(cfg.git.listAllTrackedFiles(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
     var issues: [FileTaboo.Issue] = []
     for file in files {
       issues += nameRules
@@ -77,9 +76,8 @@ public struct GitlabValidator {
         .reduce(.head, Git.File.init(ref:path:))
         .map(cfg.git.cat(file:))
         .map(execute)
-        .map(String.make(utf8:))
+        .map(Execute.successLines(reply:))
         .get()
-        .components(separatedBy: .newlines)
         .enumerated()
         .flatMap { row, line in lineRules
           .filter { $0.lines.isMet(line) }
@@ -94,6 +92,7 @@ public struct GitlabValidator {
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: issues, cfg.reportFileTabooIssues(job:issues:))
       .map(report)
@@ -107,9 +106,8 @@ public struct GitlabValidator {
       .map(Git.Ref.make(remote:))
       .reduce(.head, cfg.git.listChangedOutsideFiles(source:target:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
       .filter(criteria.isMet(_:))
     }
     var forbiddenCommits: [String] = []
@@ -131,6 +129,7 @@ public struct GitlabValidator {
     let job = try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .get()
     try report(cfg.reportReviewObsolete(
@@ -144,23 +143,22 @@ public struct GitlabValidator {
     let initial = try Id(.head)
       .map(cfg.git.getSha(ref:))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
     _ = try Id
       .make(cfg.git.mergeBase(.head, .make(remote: .init(name: target))))
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .map(cfg.git.resetSoft(ref:))
       .map(execute)
     let markers = try Id(cfg.git.listConflictMarkers)
       .map(execute)
-      .map(String.make(utf8:))
+      .map(Execute.successLines(reply:))
       .get()
-      .components(separatedBy: .newlines)
     _ = try execute(cfg.git.resetHard(ref: initial))
     _ = try execute(cfg.git.clean)
     guard !markers.isEmpty else { return true }
@@ -170,6 +168,7 @@ public struct GitlabValidator {
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
+      .map(Execute.successData(reply:))
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
       .reduce(invert: markers, cfg.reportConflictMarkers(job:markers:))
       .map(report)

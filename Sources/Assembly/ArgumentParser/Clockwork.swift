@@ -7,7 +7,7 @@ struct Clockwork: ParsableCommand {
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
   @Flag(help: "Should log everything")
-  var verbose = false
+  var logmore = false
   static let configuration = CommandConfiguration(
     abstract: "Distributed scalable monorepo management tool",
     version: Main.version,
@@ -345,10 +345,9 @@ extension ClockworkCommand {
   mutating func run() throws {
     let cfg = try Main.configurator.configure(
       profile: clockwork.profile,
-      verbose: clockwork.verbose,
+      verbose: clockwork.logmore,
       env: Main.environment
     )
-    print("\(#fileID):\(#line)")
     try Lossy(cfg)
       .map(run(cfg:))
       .reduceError(cfg, Main.reporter.report(cfg:error:))
