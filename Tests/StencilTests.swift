@@ -27,7 +27,14 @@ final class StencilTests: XCTestCase {
         #}{% patch %}{#
           #}{{_.1}}.{{_.2 | filter:"incremented"}}.{{_.3}}{#
         #}{% endscan %}
-        """#
+        """#,
+      "testLine": #"""
+        {% line %}
+        a
+        b
+         c
+        {% endline %}
+        """#,
     ],
     context: AnyCodable.map([
       "env": .map([
@@ -78,5 +85,10 @@ final class StencilTests: XCTestCase {
     let result = try StencilParser(notation: .json)
       .generate(query: makeQuery("testScanInplace"))
     XCTAssertEqual(result, #"1.3.3"#)
+  }
+  func testLine() throws {
+    let result = try StencilParser(notation: .json)
+      .generate(query: makeQuery("testLine"))
+    XCTAssertEqual(result, #"ab c"#)
   }
 }

@@ -15,6 +15,7 @@ public struct StencilParser {
     ext.registerFilter("regexp", filter: Filters.regexp(value:arguments:))
     ext.registerFilter("incremented", filter: Filters.incremented(value:))
     ext.registerTag("scan", parser: ScanNode.parse(parser:token:))
+    ext.registerTag("line", parser: LineNode.parse(parser:token:))
     let result = try Environment
       .init(loader: DictionaryLoader(templates: query.templates), extensions: [ext])
       .loadTemplate(name: query.template)
