@@ -90,7 +90,7 @@ public struct Report: Query {
     public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
-    public var group: AwardApproval.Group.Report
+    public var group: AwardApproval.Group.New
   }
   public struct NewAwardApprovals: Reportable {
     public let event: String = "\(Self.self)"
@@ -98,7 +98,7 @@ public struct Report: Query {
     public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
-    public var groups: [AwardApproval.Group.Report]
+    public var groups: [AwardApproval.Group.New]
   }
   public struct AwardApprovalHolders: Reportable {
     public let event: String = "\(Self.self)"
@@ -234,7 +234,7 @@ public extension Configuration {
   func reportNewAwardApprovalGroup(
     review: Json.GitlabReviewState,
     users: Set<String>,
-    group: AwardApproval.Group.Report
+    group: AwardApproval.Group.New
   ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovalGroup(
     event: "\(Report.NewAwardApprovalGroup.self)\(group.name)",
     env: env,
@@ -246,7 +246,7 @@ public extension Configuration {
   func reportNewAwardApprovals(
     review: Json.GitlabReviewState,
     users: Set<String>,
-    groups: [AwardApproval.Group.Report]
+    groups: [AwardApproval.Group.New]
   ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovals(
     env: env,
     ctx: controls.context,

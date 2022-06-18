@@ -97,23 +97,21 @@ public struct AwardApproval {
     review: Json.GitlabReviewState
   ) throws -> [Report]? {
     guard !state.unnotified.isEmpty else { return nil }
-    var newGroups: [Group.Report] = []
+    var newGroups: [Group.New] = []
     for name in state.unnotified {
       let group = try getGroup(name: name)
       let required = group.required.subtracting(state.outstanders)
       var optional = group.optional.subtracting(state.outstanders)
       let reserved = group.reserved.subtracting(state.outstanders)
       if required.union(optional).count < group.quorum { optional = optional.union(reserved) }
-      let involved = group.required.union(optional)
       newGroups.append(.init(
         name: name,
         award: group.award,
-        required: .init(approval: self, members: required, award: group.award),
-        optional: .init(approval: self, members: optional, award: group.award),
-        involved: .init(approval: self, members: involved, award: group.award),
-        quote: (required.count < group.quorum)
-          .then(group.quorum - required.count),
-        quorum: group.quorum
+        required: required.isEmpty
+          .else(.init(required)),
+        optional: (required.count < group.quorum)
+          .then(.init(optional)),
+        optionals: group.quorum - required.count
       ))
     }
     return [cfg.reportNewAwardApprovals(
@@ -199,30 +197,12 @@ public struct AwardApproval {
       self.optional = .init(yaml.optional.or([]))
       self.required = .init(yaml.required.or([]))
     }
-    public struct Report: Encodable {
+    public struct New: Encodable {
       public var name: String
       public var award: String
-      public var required: Approvers
-      public var optional: Approvers
-      public var involved: Approvers
-      public var quote: Int?
-      public var quorum: Int
-      public struct Approvers: Encodable {
-        public var all: Set<String>?
-        public var done: Set<String>?
-        public var miss: Set<String>?
-        public var hold: Set<String>?
-        public init(approval: AwardApproval, members: Set<String>, award: String) {
-          let awarders = approval.state.awarders[award].or([])
-          self.all = members
-          self.done = members.intersection(awarders)
-          self.miss = members.subtracting(awarders)
-          self.hold = members.intersection(approval.state.holders)
-          if case true = done?.isEmpty { done = nil }
-          if case true = miss?.isEmpty { miss = nil }
-          if case true = hold?.isEmpty { hold = nil }
-        }
-      }
+      public var required: [String]?
+      public var optional: [String]?
+      public var optionals: Int
     }
   }
   public enum Mode {
