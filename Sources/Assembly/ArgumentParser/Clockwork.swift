@@ -6,14 +6,14 @@ import InteractivityCommon
 struct Clockwork: ParsableCommand {
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
-  @Flag(help: "Should log everything")
-  var logmore = false
+  @Flag(help: "Should log subprocesses")
+  var logsubs = false
   static let configuration = CommandConfiguration(
     abstract: "Distributed scalable monorepo management tool",
     version: Main.version,
     subcommands: [
       CheckUnownedCode.self,
-      CheckFileRules.self,
+      CheckFileTaboos.self,
       CheckReviewConflictMarkers.self,
       CheckReviewObsolete.self,
       CheckReviewTitle.self,
@@ -32,7 +32,7 @@ struct Clockwork: ParsableCommand {
       StartGitlabIntegration.self,
       FinishGitlabIntegration.self,
       ImportProvisions.self,
-      ImportKeychains.self,
+      ImportKeychain.self,
       ImportRequisites.self,
       ReportExpiringRequisites.self,
       CreateGitlabDeployTag.self,
@@ -54,7 +54,7 @@ struct Clockwork: ParsableCommand {
       try Main.validator.validateUnownedCode(cfg: cfg)
     }
   }
-  struct CheckFileRules: ClockworkCommand {
+  struct CheckFileTaboos: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Ensure files match defined rules" }
     func run(cfg: Configuration) throws -> Bool {
@@ -209,7 +209,7 @@ struct Clockwork: ParsableCommand {
       try Main.requisitor.installProvisions(cfg: cfg, requisite: requisite)
     }
   }
-  struct ImportKeychains: ClockworkCommand {
+  struct ImportKeychain: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Keychain name to import requisites into")
     var keychain: String
@@ -345,7 +345,7 @@ extension ClockworkCommand {
   mutating func run() throws {
     let cfg = try Main.configurator.configure(
       profile: clockwork.profile,
-      verbose: clockwork.logmore,
+      verbose: clockwork.logsubs,
       env: Main.environment
     )
     try Lossy(cfg)
