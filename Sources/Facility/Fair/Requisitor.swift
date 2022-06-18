@@ -158,7 +158,7 @@ public struct Requisitor {
         let days = min(0, Int(threshold.timeIntervalSince(date) / .day))
         items.append(.init(
           file: requisite.pkcs12.path.value,
-          name: name as String,
+          name: .init(name),
           days: "\(days)")
         )
       }
