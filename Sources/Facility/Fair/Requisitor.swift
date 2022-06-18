@@ -120,6 +120,8 @@ public struct Requisitor {
         .get()
         .components(separatedBy: .newlines)
         .split(separator: .certStart)
+        .mapEmpty([])
+        .dropFirst()
         .compactMap { $0.split(separator: .certEnd).first }
         .map { ([.certStart] + $0 + [.certEnd])
           .map { $0 + "\n" }
