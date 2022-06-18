@@ -39,8 +39,7 @@ public struct GitlabAwardApprover {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     let awardApproval = try resolveAwardApproval(.init(cfg: cfg))
     _ = try persistUserActivity(.init(
@@ -60,14 +59,12 @@ public struct GitlabAwardApprover {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
     let pipeline = try gitlabCi.parent.pipeline
       .flatMap(gitlabCi.getPipeline(pipeline:))
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
     guard pipeline.id == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
@@ -75,8 +72,7 @@ public struct GitlabAwardApprover {
     }
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     guard job.pipeline.ref == review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
@@ -144,8 +140,7 @@ public struct GitlabAwardApprover {
     )
     let awards = try gitlabCi.getParentMrAwarders
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce([Json.GitlabAward].self, jsonDecoder.decode(_:from:))
+      .reduce([Json.GitlabAward].self, jsonDecoder.decode(success:reply:))
       .get()
     try approval.consider(awards: awards)
     for award in approval.state.unhighlighted {
@@ -239,8 +234,7 @@ public struct GitlabAwardApprover {
     .flatMap { sha in try gitlabCi
       .listShaMergeRequests(sha: sha)
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(_:from:))
+      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
       .get()
       .filter { $0.squashCommitSha == sha.value }
       .map(\.author.username)

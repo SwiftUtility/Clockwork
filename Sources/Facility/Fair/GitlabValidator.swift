@@ -46,8 +46,7 @@ public struct GitlabValidator {
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .reduce(invert: files, cfg.reportUnownedCode(job:files:))
       .map(report)
       .get()
@@ -92,8 +91,7 @@ public struct GitlabValidator {
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .reduce(invert: issues, cfg.reportFileTabooIssues(job:issues:))
       .map(report)
       .get()
@@ -129,8 +127,7 @@ public struct GitlabValidator {
     let job = try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     try report(cfg.reportReviewObsolete(
       job: job,
@@ -168,8 +165,7 @@ public struct GitlabValidator {
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .reduce(invert: markers, cfg.reportConflictMarkers(job:markers:))
       .map(report)
       .get()

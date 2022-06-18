@@ -33,8 +33,7 @@ public struct GitlabMediator {
         ref: ref,
         job: try gitlabCi.getCurrentJob
           .map(execute)
-          .map(Execute.successData(reply:))
-          .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+          .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
           .get(),
         cfg: cfg,
         context: variables
@@ -49,8 +48,7 @@ public struct GitlabMediator {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
@@ -68,8 +66,7 @@ public struct GitlabMediator {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
@@ -83,8 +80,7 @@ public struct GitlabMediator {
     _ = try gitlabCi
       .putMrState(parameters: .init(addLabels: labels.joined(separator: ",")))
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
     logMessage(.init(message: "Labels added"))
     return true
@@ -97,8 +93,7 @@ public struct GitlabMediator {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
     guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
@@ -107,8 +102,7 @@ public struct GitlabMediator {
     let job = try gitlabCi
       .getParentPipelineJobs(action: action)
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce([Json.GitlabJob].self, jsonDecoder.decode(_:from:))
+      .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
       .get()
       .first { $0.name == name }
       .or { throw Thrown("Job \(name) not found") }

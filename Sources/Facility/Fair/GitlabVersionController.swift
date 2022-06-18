@@ -46,8 +46,7 @@ public struct GitlabVersionController {
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     guard !job.tag else { throw Thrown("Not on branch") }
     let product = try production.productMatching(ref: job.pipeline.ref, tag: false)
@@ -95,8 +94,7 @@ public struct GitlabVersionController {
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     let product = try production.productMatching(name: product)
     try product.checkPermission(job: job)
@@ -135,8 +133,7 @@ public struct GitlabVersionController {
     let production = try resolveProduction(.init(cfg: cfg))
     let review = try gitlabCi.getParentMrState
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     guard case nil = builds.first(where: { build in
@@ -161,8 +158,7 @@ public struct GitlabVersionController {
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     let product = try production.productMatching(name: product)
     try product.checkPermission(job: job)
@@ -196,8 +192,7 @@ public struct GitlabVersionController {
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     guard job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(ref: job.pipeline.ref, tag: true)
@@ -224,8 +219,7 @@ public struct GitlabVersionController {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     guard job.tag else { throw Thrown("Not on tag") }
     try report(cfg.reportReleaseNotes(
@@ -256,8 +250,7 @@ public struct GitlabVersionController {
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     let target = try gitlabCi.reviewTarget.or { throw Thrown("Not in review context") }
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
@@ -289,8 +282,7 @@ public struct GitlabVersionController {
     let production = try resolveProduction(.init(cfg: cfg))
     let job = try gitlabCi.getCurrentJob
       .map(execute)
-      .map(Execute.successData(reply:))
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     let build: String
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))

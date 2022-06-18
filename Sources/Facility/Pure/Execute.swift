@@ -95,3 +95,11 @@ public extension Configuration {
     return execute
   }
 }
+public extension JSONDecoder {
+  func decode<T: Decodable>(success: T.Type, reply: Execute.Reply) throws -> T {
+    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    return try reply.data
+      .reduce(success, decode(_:from:))
+      .or { throw Thrown("Subprocess no output data") }
+  }
+}

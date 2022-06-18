@@ -126,10 +126,10 @@ public enum Yaml {
       public struct SlackHookTextMessage: Decodable {
         public var hook: String
         public var messageTemplate: String
+        public var events: [String]
         public var userName: String?
         public var channel: String?
         public var emojiIcon: String?
-        public var events: [String]
       }
     }
   }
