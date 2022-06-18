@@ -10,27 +10,27 @@ public struct Report: Query {
   public struct Unexpected: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var error: String
   }
   public struct UnownedCode: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var user: String
     public var files: [String]
   }
   public struct FileTabooIssues: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var user: String
     public var issues: [FileTaboo.Issue]
   }
   public struct ReviewObsolete: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var user: String
     public var obsoleteFiles: [String]?
     public var forbiddenCommits: [String]?
@@ -38,21 +38,21 @@ public struct Report: Query {
   public struct ConflictMarkers: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var user: String
     public var markers: [String]
   }
   public struct InvalidTitle: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var user: String
     public var title: String
   }
   public struct ReviewBlocked: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
     public var reasons: [Reason]
@@ -65,21 +65,21 @@ public struct Report: Query {
   public struct ReviewMergeConflicts: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
   }
   public struct ReviewMerged: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
   }
   public struct ReviewMergeError: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
     public var error: String
@@ -87,7 +87,7 @@ public struct Report: Query {
   public struct NewAwardApprovalGroup: Reportable {
     public let event: String
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
     public var group: AwardApproval.Group.Report
@@ -95,7 +95,7 @@ public struct Report: Query {
   public struct NewAwardApprovals: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
     public var groups: [AwardApproval.Group.Report]
@@ -103,7 +103,7 @@ public struct Report: Query {
   public struct AwardApprovalHolders: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
     public var holders: Set<String>
@@ -111,14 +111,14 @@ public struct Report: Query {
   public struct ReleaseNotes: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var user: String
     public var commits: [String]
   }
   public struct ExpiringRequisites: Reportable {
     public let event: String = "\(Self.self)"
     public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var items: [Item]
     public struct Item: Encodable {
       public var file: String
@@ -137,7 +137,7 @@ public extension Configuration {
     error: Error
   ) -> Report { .init(cfg: self, reportable: Report.Unexpected(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     error: "\(error)"
   ))}
   func reportUnownedCode(
@@ -145,7 +145,7 @@ public extension Configuration {
     files: [String]
   ) -> Report { .init(cfg: self, reportable: Report.UnownedCode(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     user: job.user.username,
     files: files
   ))}
@@ -154,7 +154,7 @@ public extension Configuration {
     issues: [FileTaboo.Issue]
   ) -> Report { .init(cfg: self, reportable: Report.FileTabooIssues(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     user: job.user.username,
     issues: issues
   ))}
@@ -164,7 +164,7 @@ public extension Configuration {
     forbiddenCommits: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewObsolete(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     user: job.user.username,
     obsoleteFiles: obsoleteFiles.isEmpty.else(obsoleteFiles),
     forbiddenCommits: forbiddenCommits.isEmpty.else(forbiddenCommits)
@@ -174,7 +174,7 @@ public extension Configuration {
     markers: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ConflictMarkers(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     user: job.user.username,
     markers: markers
   ))}
@@ -183,7 +183,7 @@ public extension Configuration {
     title: String
   ) -> Report { .init(cfg: self, reportable: Report.InvalidTitle(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     user: job.user.username,
     title: title
   ))}
@@ -193,7 +193,7 @@ public extension Configuration {
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewBlocked(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     review: review,
     users: .init(users)
       .union([review.author.username]),
@@ -204,7 +204,7 @@ public extension Configuration {
     users: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewMergeConflicts(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     review: review,
     users: .init(users)
       .union([review.author.username])
@@ -214,7 +214,7 @@ public extension Configuration {
     users: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewMerged(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     review: review,
     users: .init(users)
       .union([review.author.username])
@@ -225,7 +225,7 @@ public extension Configuration {
     error: String
   ) -> Report { .init(cfg: self, reportable: Report.ReviewMergeError(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     review: review,
     users: .init(users)
       .union([review.author.username]),
@@ -238,7 +238,7 @@ public extension Configuration {
   ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovalGroup(
     event: "\(Report.NewAwardApprovalGroup.self)\(group.name)",
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     review: review,
     users: users,
     group: group
@@ -249,7 +249,7 @@ public extension Configuration {
     groups: [AwardApproval.Group.Report]
   ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovals(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     review: review,
     users: users,
     groups: groups
@@ -260,7 +260,7 @@ public extension Configuration {
     holders: Set<String>
   ) -> Report { .init(cfg: self, reportable: Report.AwardApprovalHolders(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     review: review,
     users: users,
     holders: holders
@@ -270,7 +270,7 @@ public extension Configuration {
     commits: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReleaseNotes(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     user: job.user.username,
     commits: commits
   ))}
@@ -278,7 +278,7 @@ public extension Configuration {
     items: [Report.ExpiringRequisites.Item]
   ) -> Report { .init(cfg: self, reportable: Report.ExpiringRequisites(
     env: env,
-    custom: controls.context,
+    ctx: controls.context,
     items: items
   ))}
 }
