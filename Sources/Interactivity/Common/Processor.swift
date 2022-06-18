@@ -15,11 +15,7 @@ public struct Processor {
       process.environment?[key] = value
     }
     process.standardOutput = pipe
-    if task.verbose {
-      print("verbose")
-      process.standardError = Pipe()
-
-    }
+    if task.verbose { process.standardError = Pipe() }
   }
   private static func wire(pipe: Pipe, this: Self) -> Pipe {
     this.process.standardInput = pipe
