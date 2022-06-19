@@ -58,8 +58,11 @@ public struct Execute: Query {
     return try reply.data
       .map(String.make(utf8:))
       .or("")
-      .trimmingCharacters(in: .newlines)
       .components(separatedBy: .newlines)
+      .drop(while: \.isEmpty)
+      .reversed()
+      .drop(while: \.isEmpty)
+      .reversed()
   }
   public static func success(reply: Reply) -> Bool {
     reply.status.last == 0

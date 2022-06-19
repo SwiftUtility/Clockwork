@@ -366,7 +366,6 @@ extension Configurator {
       .map(execute)
       .map(Execute.successLines(reply:))
       .get()
-      .filter { !$0.isEmpty }
     for file in files {
       let template = try file.dropPrefix("\(templates.path.value)/")
       result[template] = try Id(file)
