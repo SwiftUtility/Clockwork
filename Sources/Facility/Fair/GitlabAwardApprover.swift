@@ -37,10 +37,6 @@ public struct GitlabAwardApprover {
   }
   public func updateUser(cfg: Configuration, active: Bool) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
     let awardApproval = try resolveAwardApproval(.init(cfg: cfg))
     _ = try persistUserActivity(.init(
       cfg: cfg,
@@ -50,7 +46,7 @@ public struct GitlabAwardApprover {
         cfg: cfg,
         awardApproval: awardApproval
       )),
-      user: job.user.username,
+      user: gitlabCi.job.user.username,
       active: active
     ))
     return true
@@ -70,11 +66,7 @@ public struct GitlabAwardApprover {
       logMessage(.init(message: "Pipeline outdated"))
       return false
     }
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard job.pipeline.ref == review.targetBranch else {
+    guard gitlabCi.job.pipeline.ref == review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
       _ = try gitlabCi.postParentMrPipelines
         .map(execute)

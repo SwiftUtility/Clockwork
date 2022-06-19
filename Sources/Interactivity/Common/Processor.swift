@@ -24,14 +24,14 @@ public struct Processor {
   private static func launch(this: Self) {
     this.process.launch()
   }
-  private static func wait(this: Self) throws -> Int32 {
+  private static func wait(this: Self) throws -> Execute.Reply.Status {
     try this.process.standardError
       .flatMap { $0 as? Pipe }
       .map(\.fileHandleForReading)
       .flatMap { try $0.readToEnd() }
       .map(FileHandle.standardError.write(contentsOf:))
     this.process.waitUntilExit()
-    return this.process.terminationStatus
+    return .init(termination: this.process.terminationStatus, escalate: this.task.escalate)
   }
   public static func execute(query: Execute) throws -> Execute.Reply {
     let processors = query.tasks.map(Self.init(task:))
@@ -41,7 +41,7 @@ public struct Processor {
     try query.input.map(input.fileHandleForWriting.write(contentsOf:))
     try input.fileHandleForWriting.close()
     let data = try output.fileHandleForReading.readToEnd()
-    let status = try processors.map(Self.wait(this:))
-    return .init(data: data, status: status)
+    let statuses = try processors.map(Self.wait(this:))
+    return .init(data: data, statuses: statuses)
   }
 }

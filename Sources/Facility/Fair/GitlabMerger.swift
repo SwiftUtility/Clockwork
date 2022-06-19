@@ -33,11 +33,6 @@ public struct GitlabMerger {
       .get()
     guard titleRule.isMet(title) else { return true }
     try report(cfg.reportInvalidTitle(
-      job: cfg.controls.gitlabCi
-        .flatMap(\.getCurrentJob)
-        .map(execute)
-        .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-        .get(),
       title: title
     ))
     return false
@@ -84,11 +79,7 @@ public struct GitlabMerger {
       logMessage(.init(message: "Pipeline outdated"))
       return false
     }
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard job.pipeline.ref == review.targetBranch else {
+    guard gitlabCi.job.pipeline.ref == review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
       _ = try gitlabCi.postParentMrPipelines
         .map(execute)
@@ -149,20 +140,16 @@ public struct GitlabMerger {
   public func startIntegration(cfg: Configuration, target: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard !job.tag else { throw Thrown("Not on branch") }
+    guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     let merge = try integration.makeMerge(
-      target: target, source: job.pipeline.ref,
-      sha: job.pipeline.sha
+      target: target, source: gitlabCi.job.pipeline.ref,
+      sha: gitlabCi.job.pipeline.sha
     )
     guard integration.rules.contains(where: { rule in
-      rule.mainatiners.contains(job.user.username)
+      rule.mainatiners.contains(gitlabCi.job.user.username)
       && rule.target.isMet(merge.target.name)
       && rule.source.isMet(merge.source.name)
-    }) else { throw Thrown("Integration not allowed for \(job.user.username)") }
+    }) else { throw Thrown("Integration not allowed for \(gitlabCi.job.user.username)") }
     guard checkNeeded(cfg: cfg, merge: merge) else { return true }
     guard case nil = try? execute(cfg.git.checkObjectType(
       ref: .make(remote: merge.supply)
@@ -204,10 +191,6 @@ public struct GitlabMerger {
   public func finishIntegration(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
@@ -223,7 +206,7 @@ public struct GitlabMerger {
     }
     let merge = try integration.makeMerge(supply: review.sourceBranch)
     guard
-      case review.targetBranch = job.pipeline.ref,
+      case review.targetBranch = gitlabCi.job.pipeline.ref,
       review.targetBranch == merge.target.name
     else { throw Thrown("Integration preconditions broken") }
     guard integration.rules.contains(where: { rule in
@@ -428,19 +411,15 @@ public struct GitlabMerger {
   public func startReplication(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let replication = try resolveFlow(.init(cfg: cfg)).replication.get()
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard !job.tag else { throw Thrown("Not on branch") }
-    guard replication.source.isMet(job.pipeline.ref) else {
+    guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
+    guard replication.source.isMet(gitlabCi.job.pipeline.ref) else {
       logMessage(.init(message: "Replication blocked by configuration"))
       return true
     }
     guard let merge = try makeMerge(
       cfg: cfg,
       replication: replication,
-      source: job.pipeline.ref
+      source: gitlabCi.job.pipeline.ref
     ) else {
       logMessage(.init(message: "No commits to replicate"))
       return true
@@ -481,10 +460,6 @@ public struct GitlabMerger {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let replication = try resolveFlow(.init(cfg: cfg)).replication.get()
     let pushUrl = try gitlabCi.pushUrl.get()
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
@@ -501,7 +476,9 @@ public struct GitlabMerger {
       logMessage(.init(message: "Pipeline outdated"))
       return true
     }
-    guard review.targetBranch == job.pipeline.ref, review.targetBranch == replication.target
+    guard
+      review.targetBranch == gitlabCi.job.pipeline.ref,
+      review.targetBranch == replication.target
     else { throw Thrown("Replication preconditions broken") }
     let merge = try replication.makeMerge(supply: review.sourceBranch)
     guard replication.source.isMet(merge.source.name) else {

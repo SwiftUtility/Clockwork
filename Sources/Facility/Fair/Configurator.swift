@@ -11,6 +11,7 @@ public struct Configurator {
   let logMessage: Act.Reply<LogMessage>
   let printLine: Act.Of<String>.Go
   let dialect: AnyCodable.Dialect
+  let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     decodeYaml: @escaping Try.Reply<Yaml.Decode>,
@@ -20,7 +21,8 @@ public struct Configurator {
     writeFile: @escaping Try.Reply<Files.WriteFile>,
     logMessage: @escaping Act.Reply<LogMessage>,
     printLine: @escaping Act.Of<String>.Go,
-    dialect: AnyCodable.Dialect
+    dialect: AnyCodable.Dialect,
+    jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.decodeYaml = decodeYaml
@@ -31,6 +33,7 @@ public struct Configurator {
     self.logMessage = logMessage
     self.printLine = printLine
     self.dialect = dialect
+    self.jsonDecoder = jsonDecoder
   }
   public func configure(
     profile: String,
@@ -89,6 +92,9 @@ public struct Configurator {
         verbose: verbose,
         env: env,
         yaml: yaml,
+        job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
+          .map(execute)
+          .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
         apiToken: GitlabCi.makeApiToken(env: env, yaml: yaml)
           .reduce(env, parse(env:secret:)),
         pushToken: GitlabCi.makePushToken(env: env, yaml: yaml)

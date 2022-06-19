@@ -44,16 +44,12 @@ public struct GitlabVersionController {
   public func createDeployTag(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard !job.tag else { throw Thrown("Not on branch") }
-    let product = try production.productMatching(ref: job.pipeline.ref, tag: false)
-    try product.checkPermission(job: job)
+    guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
+    let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: false)
+    try product.checkPermission(job: gitlabCi.job)
     let version = try generate(cfg.generateReleaseVersion(
       product: product,
-      ref: job.pipeline.ref
+      ref: gitlabCi.job.pipeline.ref
     ))
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     let build = try builds.last
@@ -67,7 +63,7 @@ public struct GitlabVersionController {
       build: build
     ))
     let annotation = try generate(cfg.generateDeployAnnotation(
-      job: job,
+      job: gitlabCi.job,
       product: product,
       version: version,
       build: build
@@ -77,10 +73,10 @@ public struct GitlabVersionController {
       pushUrl: gitlabCi.pushUrl.get(),
       production: production,
       builds: builds,
-      build: .make(value: build, sha: job.pipeline.sha, ref: .tag(tag))
+      build: .make(value: build, sha: gitlabCi.job.pipeline.sha, ref: .tag(tag))
     ))
     _ = try gitlabCi
-      .postTags(parameters: .init(name: tag, ref: job.pipeline.sha, message: annotation))
+      .postTags(parameters: .init(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation))
       .map(execute)
       .get()
     return true
@@ -92,12 +88,8 @@ public struct GitlabVersionController {
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
     let product = try production.productMatching(name: product)
-    try product.checkPermission(job: job)
+    try product.checkPermission(job: gitlabCi.job)
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     let build = try builds.last
       .map(\.value)
@@ -110,7 +102,7 @@ public struct GitlabVersionController {
       build: build
     ))
     let annotation = try generate(cfg.generateDeployAnnotation(
-      job: job,
+      job: gitlabCi.job,
       product: product,
       version: version,
       build: build
@@ -120,10 +112,10 @@ public struct GitlabVersionController {
       pushUrl: gitlabCi.pushUrl.get(),
       production: production,
       builds: builds,
-      build: .make(value: build, sha: job.pipeline.sha, ref: .tag(tag))
+      build: .make(value: build, sha: gitlabCi.job.pipeline.sha, ref: .tag(tag))
     ))
     _ = try gitlabCi
-      .postTags(parameters: .init(name: tag, ref: job.pipeline.sha, message: annotation))
+      .postTags(parameters: .init(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation))
       .map(execute)
       .get()
     return true
@@ -156,12 +148,8 @@ public struct GitlabVersionController {
   public func createReleaseBranch(cfg: Configuration, product: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
     let product = try production.productMatching(name: product)
-    try product.checkPermission(job: job)
+    try product.checkPermission(job: gitlabCi.job)
     let versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     let version = try versions[product.name]
       .or { throw Thrown("No version for \(product.name)") }
@@ -170,7 +158,7 @@ public struct GitlabVersionController {
       version: version
     ))
     _ = try gitlabCi
-      .postBranches(name: name, ref: job.pipeline.sha)
+      .postBranches(name: name, ref: gitlabCi.job.pipeline.sha)
       .map(execute)
       .get()
     let next = try generate(cfg.generateNextVersion(
@@ -190,16 +178,12 @@ public struct GitlabVersionController {
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard job.tag else { throw Thrown("Not on tag") }
-    let product = try production.productMatching(ref: job.pipeline.ref, tag: true)
-    try product.checkPermission(job: job)
+    guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
+    let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
+    try product.checkPermission(job: gitlabCi.job)
     let version = try generate(cfg.generateDeployVersion(
       product: product,
-      ref: job.pipeline.ref
+      ref: gitlabCi.job.pipeline.ref
     ))
     let hotfix = try generate(cfg.generateHotfixVersion(
       product: product,
@@ -210,23 +194,18 @@ public struct GitlabVersionController {
       version: hotfix
     ))
     _ = try gitlabCi
-      .postBranches(name: name, ref: job.pipeline.sha)
+      .postBranches(name: name, ref: gitlabCi.job.pipeline.sha)
       .map(execute)
       .get()
     return true
   }
   public func reportReleaseNotes(cfg: Configuration, tag: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard job.tag else { throw Thrown("Not on tag") }
+    guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
     try report(cfg.reportReleaseNotes(
-      job: job,
       commits: Id
         .make(cfg.git.listCommits(
-          in: [.make(sha: .init(value: job.pipeline.sha))],
+          in: [.make(sha: .init(value: gitlabCi.job.pipeline.sha))],
           notIn: [.make(tag: tag)],
           noMerges: true,
           firstParents: false
@@ -248,14 +227,10 @@ public struct GitlabVersionController {
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
     let target = try gitlabCi.reviewTarget.or { throw Thrown("Not in review context") }
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     guard let build = builds.reversed().first(where: { build in
-      build.sha == job.pipeline.sha && build.branch == target
+      build.sha == gitlabCi.job.pipeline.sha && build.branch == target
     }) else {
       logMessage(.init(message: "Build number not reserved"))
       return false
@@ -280,26 +255,22 @@ public struct GitlabVersionController {
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let job = try gitlabCi.getCurrentJob
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
     let build: String
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
-    if job.tag {
-      let product = try production.productMatching(ref: job.pipeline.ref, tag: true)
+    if gitlabCi.job.tag {
+      let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
       build = try generate(cfg.generateDeployBuild(
         product: product,
-        ref: job.pipeline.ref
+        ref: gitlabCi.job.pipeline.ref
       ))
       versions[product.name] = try generate(cfg.generateReleaseVersion(
         product: product,
-        ref: job.pipeline.ref
+        ref: gitlabCi.job.pipeline.ref
       ))
     } else {
       let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
       if let present =  builds.reversed().first(where: { build in
-        build.sha == job.pipeline.sha && build.branch == job.pipeline.ref
+        build.sha == gitlabCi.job.pipeline.sha && build.branch == gitlabCi.job.pipeline.ref
       }) {
         build = present.value
       } else {
@@ -313,7 +284,11 @@ public struct GitlabVersionController {
           pushUrl: gitlabCi.pushUrl.get(),
           production: production,
           builds: builds,
-          build: .make(value: newBuild, sha: job.pipeline.sha, ref: .branch(job.pipeline.ref))
+          build: .make(
+            value: newBuild,
+            sha: gitlabCi.job.pipeline.sha,
+            ref: .branch(gitlabCi.job.pipeline.ref)
+          )
         ))
         build = newBuild
       }

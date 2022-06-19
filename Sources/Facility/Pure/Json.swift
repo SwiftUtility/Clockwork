@@ -16,6 +16,7 @@ public enum Json {
     public var user: GitlabUser
     public var pipeline: Pipeline
     public var tag: Bool
+    public var webUrl: String
     public struct Pipeline: Codable {
       public var id: UInt
       public var ref: String
@@ -54,6 +55,8 @@ public enum Json {
     public var user: GitlabUser
   }
   public struct GitlabUser: Codable {
+    public var id: Int
+    public var name: String
     public var username: String
   }
 }

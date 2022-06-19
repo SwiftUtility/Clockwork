@@ -47,6 +47,17 @@ struct Clockwork: ParsableCommand {
       CreateReviewPipeline.self,
     ]
   )
+  struct ReportCustom: ClockworkCommand {
+    @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should read stdin")
+    var stdin = false
+    @Argument(help: "Event name to send report for")
+    var event: String
+    static var abstract: String { "Sends preconfigured report" }
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.reporter.reportCustom(cfg: cfg, event: event, stdin: stdin)
+    }
+  }
   struct CheckUnownedCode: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Ensure no unowned files" }

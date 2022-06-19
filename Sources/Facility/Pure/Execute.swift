@@ -32,29 +32,43 @@ public struct Execute: Query {
   }
   public struct Reply {
     public var data: Data?
-    public var status: [Int32]
-    public init(data: Data? = nil, status: [Int32]) {
+    public var statuses: [Status]
+    public init(data: Data? = nil, statuses: [Status]) {
       self.data = data
-      self.status = status
+      self.statuses = statuses
+    }
+    public func checkStatus() throws {
+      for status in statuses {
+        guard status.escalate, status.termination != 0 else { continue }
+        throw Thrown("Subprocess termination status")
+      }
+    }
+    public struct Status {
+      public var termination: Int32
+      public var escalate: Bool
+      public init(termination: Int32, escalate: Bool) {
+        self.termination = termination
+        self.escalate = escalate
+      }
     }
   }
   public static func successData(reply: Reply) throws -> Data {
-    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    try reply.checkStatus()
     return reply.data.or(.init())
   }
   public static func errorData(reply: Reply) -> Data? {
-    guard reply.status.last != 0 else { return nil }
+    guard case nil = try? reply.checkStatus() else { return nil }
     return reply.data
   }
   public static func successText(reply: Reply) throws -> String {
-    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    try reply.checkStatus()
     return try reply.data
       .map(String.make(utf8:))
       .or("")
       .trimmingCharacters(in: .newlines)
   }
   public static func successLines(reply: Reply) throws -> [String] {
-    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    try reply.checkStatus()
     return try reply.data
       .map(String.make(utf8:))
       .or("")
@@ -65,10 +79,10 @@ public struct Execute: Query {
       .reversed()
   }
   public static func success(reply: Reply) -> Bool {
-    reply.status.last == 0
+    if case nil = try? reply.checkStatus() { return false } else { return true }
   }
   public static func successVoid(reply: Reply) throws {
-    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    try reply.checkStatus()
   }
 }
 public extension Configuration {
@@ -100,7 +114,7 @@ public extension Configuration {
 }
 public extension JSONDecoder {
   func decode<T: Decodable>(success: T.Type, reply: Execute.Reply) throws -> T {
-    guard reply.status.last == 0 else { throw Thrown("Subprocess termination status") }
+    try reply.checkStatus()
     return try reply.data
       .reduce(success, decode(_:from:))
       .or { throw Thrown("Subprocess no output data") }

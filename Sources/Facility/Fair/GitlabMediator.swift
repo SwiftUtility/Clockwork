@@ -31,10 +31,6 @@ public struct GitlabMediator {
     _ = try gitlabCi
       .postTriggerPipeline(
         ref: ref,
-        job: try gitlabCi.getCurrentJob
-          .map(execute)
-          .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-          .get(),
         cfg: cfg,
         context: variables
       )

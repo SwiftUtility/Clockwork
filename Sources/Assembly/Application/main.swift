@@ -14,7 +14,9 @@ enum Main {
     logLine: FileHandle.standardError.write(message:),
     printLine: FileHandle.standardOutput.write(message:),
     getTime: Date.init,
-    generate: stencilParser.generate(query:)
+    readInput: FileHandle.readStdin,
+    generate: stencilParser.generate(query:),
+    jsonDecoder: jsonDecoder
   )
   static let configurator = Configurator(
     execute: Processor.execute(query:),
@@ -25,7 +27,8 @@ enum Main {
     writeFile: Finder.writeFile(query:),
     logMessage: reporter.logMessage(query:),
     printLine: FileHandle.standardOutput.write(message:),
-    dialect: .json
+    dialect: .json,
+    jsonDecoder: jsonDecoder
   )
   static let environment = ProcessInfo.processInfo.environment
   static let validator = GitlabValidator(

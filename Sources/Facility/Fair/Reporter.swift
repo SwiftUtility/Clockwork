@@ -6,20 +6,26 @@ public struct Reporter {
   let logLine: Act.Of<String>.Go
   let printLine: Act.Of<String>.Go
   let getTime: Act.Do<Date>
+  let readInput: Try.Do<Execute.Reply>
   let generate: Try.Reply<Generate>
+  let jsonDecoder: JSONDecoder
   let formatter: DateFormatter
   public init(
     execute: @escaping Try.Reply<Execute>,
     logLine: @escaping Act.Of<String>.Go,
     printLine: @escaping Act.Of<String>.Go,
     getTime: @escaping Act.Do<Date>,
-    generate: @escaping Try.Reply<Generate>
+    readInput: @escaping Try.Do<Execute.Reply>,
+    generate: @escaping Try.Reply<Generate>,
+    jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.logLine = logLine
     self.printLine = printLine
     self.getTime = getTime
+    self.readInput = readInput
     self.generate = generate
+    self.jsonDecoder = jsonDecoder
     self.formatter = .init()
     formatter.dateFormat = "HH:mm:ss"
   }
@@ -32,6 +38,14 @@ public struct Reporter {
       .map(report(query:))
       .get()
     throw error
+  }
+  public func reportCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
+    let stdin = try stdin
+      .then(readInput())
+      .map(Execute.successLines(reply:))
+      .or([])
+    try report(query: cfg.reportCustom(event: event, stdin: stdin))
+    return true
   }
   public func report(query: Report) throws -> Report.Reply {
     let encoder = JSONEncoder()

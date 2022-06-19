@@ -43,13 +43,7 @@ public struct GitlabValidator {
       .map { $0 + ": unowned" }
       .map(LogMessage.init(message:))
       .forEach(logMessage)
-    try cfg.controls.gitlabCi
-      .flatMap(\.getCurrentJob)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .reduce(invert: files, cfg.reportUnownedCode(job:files:))
-      .map(report)
-      .get()
+    try report(cfg.reportUnownedCode(files: files))
     return false
   }
   public func validateFileTaboos(cfg: Configuration) throws -> Bool {
@@ -92,13 +86,7 @@ public struct GitlabValidator {
         }
     }}
     guard !issues.isEmpty else { return true }
-    try cfg.controls.gitlabCi
-      .flatMap(\.getCurrentJob)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .reduce(invert: issues, cfg.reportFileTabooIssues(job:issues:))
-      .map(report)
-      .get()
+    try report(cfg.reportFileTabooIssues(issues: issues))
     return false
   }
   public func validateReviewObsolete(cfg: Configuration, target: String) throws -> Bool {
@@ -128,13 +116,7 @@ public struct GitlabValidator {
       .map { "forbidden commit: " + $0 }
       .map(LogMessage.init(message:))
       .forEach(logMessage)
-    let job = try cfg.controls.gitlabCi
-      .flatMap(\.getCurrentJob)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
     try report(cfg.reportReviewObsolete(
-      job: job,
       obsoleteFiles: obsoleteFiles,
       forbiddenCommits: forbiddenCommits
     ))
@@ -166,13 +148,7 @@ public struct GitlabValidator {
     markers
       .map(LogMessage.init(message:))
       .forEach(logMessage)
-    try cfg.controls.gitlabCi
-      .flatMap(\.getCurrentJob)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .reduce(invert: markers, cfg.reportConflictMarkers(job:markers:))
-      .map(report)
-      .get()
+    try report(cfg.reportConflictMarkers(markers: markers))
     return false
   }
 }

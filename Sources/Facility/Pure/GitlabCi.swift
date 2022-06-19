@@ -6,17 +6,29 @@ public struct GitlabCi {
   public var trigger: Trigger
   public var api: String
   public var project: String
+  public var job: Json.GitlabJob
   public var jobToken: String
-  public var review: String?
+  public var review: UInt?
   public var reviewTarget: String?
   public var botAuth: Lossy<String>
   public var pushUrl: Lossy<String>
   public var parent: Parent
   public var url: String { "\(api)/projects/\(project)" }
+  public var info: Info { .init(
+    job: job,
+    bot: botLogin,
+    url: job.webUrl
+      .components(separatedBy: "/-/")
+      .first,
+    mr: review,
+    parentMr: try? parent.review.get(),
+    parentPipe: try? parent.pipeline.get()
+  )}
   public static func make(
     verbose: Bool,
     env: [String: String],
     yaml: Yaml.Controls.GitlabCi,
+    job: Lossy<Json.GitlabJob>,
     apiToken: Lossy<String>,
     pushToken: Lossy<String>
   ) -> Lossy<Self> {
@@ -33,8 +45,9 @@ public struct GitlabCi {
       trigger: trigger,
       api: apiV4.get(env: env),
       project: projectId.get(env: env),
+      job: job.get(),
       jobToken: jobToken.get(env: env),
-      review: env[review],
+      review: env[review].flatMap(UInt.init(_:)),
       reviewTarget: env[reviewTarget],
       botAuth: apiToken
         .map { "Authorization: Bearer " + $0 },
@@ -108,8 +121,24 @@ public struct GitlabCi {
     public var review: Lossy<UInt>
     public var profile: Lossy<Files.Relative>
   }
+  public struct Info: Encodable {
+    public var job: Json.GitlabJob
+    public var bot: String
+    public var url: String?
+    public var mr: UInt?
+    public var parentMr: UInt?
+    public var parentPipe: UInt?
+  }
 }
 public extension GitlabCi {
+  static func getCurrentJob(
+    verbose: Bool,
+    env: [String: String]
+  ) -> Lossy<Execute> { .init(try .makeCurl(
+    verbose: verbose,
+    url: "\(apiV4.get(env: env))/job",
+    headers: ["Authorization: Bearer \(jobToken.get(env: env))"]
+  ))}
   func getPipeline(
     pipeline: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
@@ -162,7 +191,6 @@ public extension GitlabCi {
   ))}
   func postTriggerPipeline(
     ref: String,
-    job: Json.GitlabJob,
     cfg: Configuration,
     context: [String: String]
   ) -> Lossy<Execute> { .init(.makeCurl(
@@ -203,11 +231,6 @@ public extension GitlabCi {
     verbose: verbose,
     url: "\(url)/pipelines/\(parent.pipeline.get())/jobs?\(action.jobsQuery(page: page))",
     headers: [botAuth.get()]
-  ))}
-  var getCurrentJob: Lossy<Execute> { .init(.makeCurl(
-    verbose: verbose,
-    url: "\(api)/job",
-    headers: ["Authorization: Bearer \(jobToken)"]
   ))}
   func postJobsAction(
     job: UInt,
