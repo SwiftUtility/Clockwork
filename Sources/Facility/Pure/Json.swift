@@ -43,6 +43,7 @@ public enum Json {
     public var blockingDiscussionsResolved: Bool
     public var labels: [String]
     public var iid: UInt
+    public var webUrl: String
     public struct Pipeline: Codable {
       public var id: UInt
       public var sha: String

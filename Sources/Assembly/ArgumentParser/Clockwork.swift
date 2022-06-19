@@ -12,6 +12,7 @@ struct Clockwork: ParsableCommand {
     abstract: "Distributed scalable monorepo management tool",
     version: Main.version,
     subcommands: [
+      ReportCustom.self,
       CheckUnownedCode.self,
       CheckFileTaboos.self,
       CheckReviewConflictMarkers.self,
