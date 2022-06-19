@@ -63,14 +63,18 @@ public struct GitlabValidator {
       .map(Execute.successLines(reply:))
       .get()
     var issues: [FileTaboo.Issue] = []
-    for file in files {
-      issues += nameRules
+    for file in files { try autoreleasepool {
+      nameRules
         .filter { $0.files.isMet(file) }
-        .map { .init(rule: $0.rule, file: file) }
+        .map { FileTaboo.Issue(rule: $0.rule, file: file) }
+        .forEach { issue in
+          logMessage(.init(message: issue.logMessage))
+          issues.append(issue)
+        }
       let lineRules = lineRules
         .filter { $0.files.isMet(file) }
-      if lineRules.isEmpty { continue }
-      issues += try Id(file)
+      if lineRules.isEmpty { return }
+      try Id(file)
         .map(Files.Relative.init(value:))
         .reduce(.head, Git.File.init(ref:path:))
         .map(cfg.git.cat(file:))
@@ -80,14 +84,14 @@ public struct GitlabValidator {
         .enumerated()
         .flatMap { row, line in lineRules
           .filter { $0.lines.isMet(line) }
-          .map { .init(rule: $0.rule, file: file, line: row) }
+          .map { FileTaboo.Issue(rule: $0.rule, file: file, line: row) }
         }
-    }
+        .forEach { issue in
+          logMessage(.init(message: issue.logMessage))
+          issues.append(issue)
+        }
+    }}
     guard !issues.isEmpty else { return true }
-    issues
-      .map(\.logMessage)
-      .map(LogMessage.init(message:))
-      .forEach(logMessage)
     try cfg.controls.gitlabCi
       .flatMap(\.getCurrentJob)
       .map(execute)
