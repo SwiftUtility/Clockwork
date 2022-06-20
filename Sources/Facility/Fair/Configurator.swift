@@ -389,7 +389,7 @@ extension Configurator {
       "- build: '\(build.value)'\n",
       "  sha: '\(build.sha)'\n",
       "  ref: '\(build.ref)'\n",
-      "  tag: '\(build.tag)'\n",
+      "  tag: \(build.tag)\n",
     ]
     + build.review.map { "  review: \($0)\n" }.makeArray()
   }
