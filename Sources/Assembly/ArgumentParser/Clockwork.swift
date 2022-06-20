@@ -303,7 +303,7 @@ struct Clockwork: ParsableCommand {
     @Option(help: "Local template name to use for rendering")
     var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.renderBuild(cfg: cfg, template: template)
+      try Main.gitlabVersionController.renderProtectedBuild(cfg: cfg, template: template)
     }
   }
   struct RenderReviewBuild: ClockworkCommand {

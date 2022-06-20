@@ -7,18 +7,18 @@ public struct Production {
   public var products: [Product]
   public var releaseNotesTemplate: String?
   public var maxBuildsCount: Int?
-  public func productMatching(ref: String, tag: Bool) throws -> Product {
+  public func productMatching(ref: String, tag: Bool) throws -> Product? {
     var product: Product? = nil
-    let path = tag.then(\Product.deployTag.nameMatch).or(\Product.releaseBranch.nameMatch)
+    let keyPath = tag.then(\Product.deployTag.nameMatch).or(\Product.releaseBranch.nameMatch)
     for value in products {
-      guard value[keyPath: path].isMet(ref) else { continue }
+      guard value[keyPath: keyPath].isMet(ref) else { continue }
       if let product = product {
         throw Thrown("\(ref) matches both \(product.name) and \(value.name)")
       } else {
         product = value
       }
     }
-    return try product.or { throw Thrown("No product match \(ref)") }
+    return product
   }
   public func productMatching(name: String) throws -> Product { try products
     .first(where: { $0.name == name })
@@ -79,31 +79,49 @@ public struct Production {
   public struct Build {
     public var value: String
     public var sha: String
-    public var ref: Ref
-    public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self { try .init(
+    public var ref: String
+    public var tag: Bool
+    public var review: UInt?
+    public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self { .init(
       value: yaml.build,
       sha: yaml.sha,
-      ref: yaml.branch
-        .map(Ref.branch(_:))
-        .flatMapNil(yaml.tag.map(Ref.tag(_:)))
-        .or { throw Thrown("No branch or tag in build") }
+      ref: yaml.ref,
+      tag: yaml.tag,
+      review: yaml.review
     )}
-    public static func make(value: String, sha: String, ref: Ref) -> Self { .init(
+    public static func make(
+      value: String,
+      sha: String,
+      targer: String,
+      review: UInt
+    ) -> Self { .init(
       value: value,
       sha: sha,
-      ref: ref
+      ref: targer,
+      tag: false,
+      review: review
     )}
-    public var branch: String? {
-      guard case .branch(let branch) = ref else { return nil }
-      return branch
-    }
-    public var tag: String? {
-      guard case .tag(let tag) = ref else { return nil }
-      return tag
-    }
-    public enum Ref {
-      case branch(String)
-      case tag(String)
-    }
+    public static func make(
+      value: String,
+      sha: String,
+      tag: String
+    ) -> Self { .init(
+      value: value,
+      sha: sha,
+      ref: tag,
+      tag: true,
+      review: nil
+    )}
+    public static func make(
+      value: String,
+      sha: String,
+      branch: String
+    ) -> Self { .init(
+      value: value,
+      sha: sha,
+      ref: branch,
+      tag: false,
+      review: nil
+    )}
   }
 }

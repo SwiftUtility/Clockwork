@@ -385,8 +385,12 @@ extension Configurator {
     return result
   }
   func makeYaml(build: Production.Build) -> [String] {
-    ["- build: '\(build.value)'\n", "  sha: '\(build.sha)'\n"]
-    + build.branch.map { "  branch: '\($0)'\n" }.makeArray()
-    + build.tag.map { "  tag: '\($0)'\n" }.makeArray()
+    [
+      "- build: '\(build.value)'\n",
+      "  sha: '\(build.sha)'\n",
+      "  ref: '\(build.ref)'\n",
+      "  tag: '\(build.tag)'\n",
+    ]
+    + build.review.map { "  review: \($0)\n" }.makeArray()
   }
 }

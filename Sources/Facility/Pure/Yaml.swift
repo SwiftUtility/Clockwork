@@ -54,8 +54,9 @@ public enum Yaml {
       public struct Build: Codable {
         public var build: String
         public var sha: String
-        public var branch: String?
-        public var tag: String?
+        public var ref: String
+        public var tag: Bool
+        public var review: UInt?
       }
     }
     public struct Requisition: Decodable {

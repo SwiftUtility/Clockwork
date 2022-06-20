@@ -22,6 +22,12 @@ public enum Json {
       public var ref: String
       public var sha: String
     }
+    public func matches(build: Production.Build) -> Bool {
+      build.sha == pipeline.sha
+      && build.ref == pipeline.ref
+      && build.tag == tag
+      && build.review == nil
+    }
   }
   public struct GitlabCommitMergeRequest: Codable {
     public var squashCommitSha: String
@@ -48,6 +54,11 @@ public enum Json {
       public var id: UInt
       public var sha: String
       public var status: String
+    }
+    public func matches(build: Production.Build) -> Bool {
+      build.sha == pipeline.sha
+      && build.tag == false
+      && build.review == iid
     }
   }
   public struct GitlabAward: Codable {

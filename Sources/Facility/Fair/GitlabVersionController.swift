@@ -45,7 +45,9 @@ public struct GitlabVersionController {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
-    let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: false)
+    let product = try production
+      .productMatching(ref: gitlabCi.job.pipeline.ref, tag: false)
+      .or { throw Thrown("No product matches \(gitlabCi.job.pipeline.ref)") }
     try product.checkPermission(job: gitlabCi.job)
     let version = try generate(cfg.generateReleaseVersion(
       product: product,
@@ -73,7 +75,11 @@ public struct GitlabVersionController {
       pushUrl: gitlabCi.pushUrl.get(),
       production: production,
       builds: builds,
-      build: .make(value: build, sha: gitlabCi.job.pipeline.sha, ref: .tag(tag))
+      build: .make(
+        value: build,
+        sha: gitlabCi.job.pipeline.sha,
+        tag: tag
+      )
     ))
     _ = try gitlabCi
       .postTags(parameters: .init(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation))
@@ -112,7 +118,11 @@ public struct GitlabVersionController {
       pushUrl: gitlabCi.pushUrl.get(),
       production: production,
       builds: builds,
-      build: .make(value: build, sha: gitlabCi.job.pipeline.sha, ref: .tag(tag))
+      build: .make(
+        value: build,
+        sha: gitlabCi.job.pipeline.sha,
+        tag: tag
+      )
     ))
     _ = try gitlabCi
       .postTags(parameters: .init(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation))
@@ -123,25 +133,61 @@ public struct GitlabVersionController {
   public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
+    let pipeline = try gitlabCi.parent.pipeline
+      .flatMap(gitlabCi.getPipeline(pipeline:))
+      .map(execute)
+      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
+      .get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
+    guard review.pipeline.sha == pipeline.sha else {
+      logMessage(.init(message: "Pipeline outdated"))
+      return false
+    }
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-    guard case nil = builds.first(where: { build in
-      build.sha == review.pipeline.sha && review.targetBranch == build.branch
-    }) else { throw Thrown("Build already exists") }
-    let build = try builds.last
-      .map(\.value)
-      .reduce(production, cfg.generateNextBuild(production:build:))
-      .map(generate)
-      .or { throw Thrown("Push first build number manually") }
+    guard !builds.contains(where: review.matches(build:))
+    else { throw Thrown("Build already exists") }
     try persistBuilds(.init(
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),
       production: production,
       builds: builds,
-      build: .make(value: build, sha: review.pipeline.sha, ref: .branch(review.targetBranch))
+      build: .make(
+        value: try builds.last
+          .map(\.value)
+          .reduce(production, cfg.generateNextBuild(production:build:))
+          .map(generate)
+          .or { throw Thrown("Push first build number manually") },
+        sha: pipeline.sha,
+        targer: review.targetBranch,
+        review: review.iid
+      )
+    ))
+    return true
+  }
+  public func reserveBranchBuild(cfg: Configuration) throws -> Bool {
+    let gitlabCi = try cfg.controls.gitlabCi.get()
+    guard !gitlabCi.job.tag else { throw Thrown("Must be branch job") }
+    let production = try resolveProduction(.init(cfg: cfg))
+    let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
+    guard !builds.contains(where: gitlabCi.job.matches(build:))
+    else { throw Thrown("Build already exists") }
+    try persistBuilds(.init(
+      cfg: cfg,
+      pushUrl: gitlabCi.pushUrl.get(),
+      production: production,
+      builds: builds,
+      build: .make(
+        value: try builds.last
+          .map(\.value)
+          .reduce(production, cfg.generateNextBuild(production:build:))
+          .map(generate)
+          .or { throw Thrown("Push first build number manually") },
+        sha: gitlabCi.job.pipeline.sha,
+        branch: gitlabCi.job.pipeline.ref
+      )
     ))
     return true
   }
@@ -180,6 +226,7 @@ public struct GitlabVersionController {
     let production = try resolveProduction(.init(cfg: cfg))
     guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
+      .or { throw Thrown("No product match \(gitlabCi.job.pipeline.ref)") }
     try product.checkPermission(job: gitlabCi.job)
     let version = try generate(cfg.generateDeployVersion(
       product: product,
@@ -227,19 +274,16 @@ public struct GitlabVersionController {
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let target = try gitlabCi.reviewTarget.or { throw Thrown("Not in review context") }
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-    guard let build = builds.reversed().first(where: { build in
-      build.sha == gitlabCi.job.pipeline.sha && build.branch == target
-    }) else {
+    guard let build = builds.reversed().first(where: gitlabCi.job.matches(build:)) else {
       logMessage(.init(message: "Build number not reserved"))
       return false
     }
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
-    if let product = try? production.productMatching(ref: target, tag: false) {
+    if let product = try? production.productMatching(ref: build.ref, tag: false) {
       versions[product.name] = try generate(cfg.generateReleaseVersion(
         product: product,
-        ref: target
+        ref: build.ref
       ))
     }
     try printLine(generate(cfg.generateBuild(
@@ -249,7 +293,7 @@ public struct GitlabVersionController {
     )))
     return true
   }
-  public func renderBuild(
+  public func renderProtectedBuild(
     cfg: Configuration,
     template: String
   ) throws -> Bool {
@@ -258,7 +302,9 @@ public struct GitlabVersionController {
     let build: String
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     if gitlabCi.job.tag {
-      let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
+      let product = try production
+        .productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
+        .or { throw Thrown("No product for \(gitlabCi.job.pipeline.ref)") }
       build = try generate(cfg.generateDeployBuild(
         product: product,
         ref: gitlabCi.job.pipeline.ref
@@ -268,29 +314,16 @@ public struct GitlabVersionController {
         ref: gitlabCi.job.pipeline.ref
       ))
     } else {
-      let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-      if let present =  builds.reversed().first(where: { build in
-        build.sha == gitlabCi.job.pipeline.sha && build.branch == gitlabCi.job.pipeline.ref
-      }) {
-        build = present.value
-      } else {
-        let newBuild = try builds.last
-          .map(\.value)
-          .reduce(production, cfg.generateNextBuild(production:build:))
-          .map(generate)
-          .or { throw Thrown("Push first build number manually") }
-        try persistBuilds(.init(
-          cfg: cfg,
-          pushUrl: gitlabCi.pushUrl.get(),
-          production: production,
-          builds: builds,
-          build: .make(
-            value: newBuild,
-            sha: gitlabCi.job.pipeline.sha,
-            ref: .branch(gitlabCi.job.pipeline.ref)
-          )
+      build = try resolveProductionBuilds(.init(cfg: cfg, production: production))
+       .reversed()
+       .first(where: gitlabCi.job.matches(build:))
+       .map(\.value)
+       .or { throw Thrown("No build number reserved") }
+      if let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: false) {
+        versions[product.name] = try generate(cfg.generateReleaseVersion(
+          product: product,
+          ref: gitlabCi.job.pipeline.ref
         ))
-        build = newBuild
       }
     }
     try printLine(generate(cfg.generateBuild(
@@ -304,20 +337,12 @@ public struct GitlabVersionController {
     cfg: Configuration,
     template: String
   ) throws -> Bool {
-    let production = try resolveProduction(.init(cfg: cfg))
-    var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
-    if
-      let target = try? cfg.controls.gitlabCi.map(\.reviewTarget).get(),
-      let product = try? production.productMatching(ref: target, tag: false)
-    {
-      versions[product.name] = try generate(cfg.generateReleaseVersion(
-        product: product,
-        ref: target
-      ))
-    }
     try printLine(generate(cfg.generateVersions(
       template: template,
-      versions: versions
+      versions: resolveProductionVersions(.init(
+        cfg: cfg,
+        production: resolveProduction(.init(cfg: cfg))
+      ))
     )))
     return true
   }
