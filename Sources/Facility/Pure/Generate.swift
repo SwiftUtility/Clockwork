@@ -6,108 +6,90 @@ public struct Generate: Query {
   public var context: Encodable
   public typealias Reply = String
   public struct Versions: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var versions: [String: String]
   }
   public struct Build: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var versions: [String: String]
     public var build: String
   }
   public struct Integration: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var targets: [String]
   }
   public struct ReleaseVersion: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var product: String
     public var ref: String
   }
   public struct ReleaseName: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
   public struct DeployName: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var product: String
     public var version: String
     public var build: String
   }
   public struct DeployAnnotation: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var user: String
     public var product: String
     public var version: String
     public var build: String
   }
   public struct NextVersion: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
   public struct NextBuild: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var build: String
   }
   public struct DeployVersion: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var product: String
     public var ref: String
   }
   public struct DeployBuild: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var ref: String
   }
   public struct HotfixVersion: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
   public struct VersionCommitMessage: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
   public struct BuildCommitMessage: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var build: String
   }
   public struct UserActivityCommitMessage: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var user: String
     public var active: Bool
   }
   public struct SquashCommitMessage: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
   }
   public struct IntegrationCommitMessage: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var fork: String
     public var source: String
     public var target: String
   }
   public struct ReplicationCommitMessage: Codable {
-    public var env: [String: String]
-    public var custom: AnyCodable?
+    public var ctx: AnyCodable?
     public var fork: String
     public var source: String
     public var target: String
@@ -121,8 +103,7 @@ public extension Configuration {
     template: template,
     templates: profile.templates,
     context: Generate.Versions(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       versions: versions
     )
   )}
@@ -134,8 +115,7 @@ public extension Configuration {
     template: template,
     templates: profile.templates,
     context: Generate.Build(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       versions: versions,
       build: build
     )
@@ -147,8 +127,7 @@ public extension Configuration {
     template: template,
     templates: profile.templates,
     context: Generate.Integration(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       targets: targets
     )
   )}
@@ -159,8 +138,7 @@ public extension Configuration {
     template: product.releaseBranch.parseVersionTemplate,
     templates: controls.templates,
     context: Generate.ReleaseVersion(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       product: product.name,
       ref: ref
     )
@@ -173,8 +151,7 @@ public extension Configuration {
     template: product.deployTag.createTemplate,
     templates: controls.templates,
     context: Generate.DeployName(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       product: product.name,
       version: version,
       build: build
@@ -189,8 +166,7 @@ public extension Configuration {
     template: product.deployTag.createTemplate,
     templates: controls.templates,
     context: Generate.DeployAnnotation(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       user: job.user.username,
       product: product.name,
       version: version,
@@ -204,8 +180,7 @@ public extension Configuration {
     template: product.releaseBranch.createTemplate,
     templates: controls.templates,
     context: Generate.ReleaseName(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       product: product.name,
       version: version
     )
@@ -217,8 +192,7 @@ public extension Configuration {
     template: product.createNextVersionTemplate,
     templates: controls.templates,
     context: Generate.NextVersion(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       product: product.name,
       version: version
     )
@@ -230,8 +204,7 @@ public extension Configuration {
     template: production.createNextBuildTemplate,
     templates: controls.templates,
     context: Generate.NextBuild(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       build: build
     )
   )}
@@ -242,8 +215,7 @@ public extension Configuration {
     template: product.deployTag.parseVersionTemplate,
     templates: controls.templates,
     context: Generate.DeployVersion(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       product: product.name,
       ref: ref
     )
@@ -255,8 +227,7 @@ public extension Configuration {
     template: product.deployTag.parseBuildTemplate,
     templates: controls.templates,
     context: Generate.DeployBuild(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       ref: ref
     )
   )}
@@ -267,8 +238,7 @@ public extension Configuration {
     template: product.createHotfixVersionTemplate,
     templates: controls.templates,
     context: Generate.HotfixVersion(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       product: product.name,
       version: version
     )
@@ -281,8 +251,7 @@ public extension Configuration {
     template: asset.commitMessageTemplate,
     templates: controls.templates,
     context: Generate.VersionCommitMessage(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       product: product.name,
       version: version
     )
@@ -294,8 +263,7 @@ public extension Configuration {
     template: asset.commitMessageTemplate,
     templates: controls.templates,
     context: Generate.BuildCommitMessage(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       build: build
     )
   )}
@@ -307,8 +275,7 @@ public extension Configuration {
     template: asset.commitMessageTemplate,
     templates: controls.templates,
     context: Generate.UserActivityCommitMessage(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       user: user,
       active: active
     )
@@ -320,8 +287,7 @@ public extension Configuration {
     template: squash.messageTemplate,
     templates: controls.templates,
     context: Generate.SquashCommitMessage(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       review: review
     )
   )}
@@ -332,8 +298,7 @@ public extension Configuration {
     template: integration.messageTemplate,
     templates: controls.templates,
     context: Generate.IntegrationCommitMessage(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
@@ -346,8 +311,7 @@ public extension Configuration {
     template: replication.messageTemplate,
     templates: controls.templates,
     context: Generate.ReplicationCommitMessage(
-      env: env,
-      custom: controls.context,
+      ctx: controls.context,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
