@@ -76,7 +76,7 @@ public struct Production {
       public var parseVersionTemplate: String
     }
   }
-  public struct Build {
+  public struct Build: Encodable {
     public var value: String
     public var sha: String
     public var ref: String

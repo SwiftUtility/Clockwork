@@ -35,6 +35,7 @@ final class StencilTests: XCTestCase {
          c
         {% endline %}
         """#,
+      "testBool": #"{% if not env.bool %}good{% endif %}"#
     ],
     context: AnyCodable.map([
       "env": .map([
@@ -42,6 +43,7 @@ final class StencilTests: XCTestCase {
         "text": .value(.string(#"<Mr-123> & Co"#)),
         "CI_MERGE_REQUEST_TITLE": .value(.string(#"MR-123, MB-234 ME-123: asd "asdas" [MR-234], RF-345'"#)),
         "version": .value(.string("11")),
+        "bool": .value(.bool(false))
       ]),
       "custom": .map([
         "members": .map([
@@ -90,5 +92,10 @@ final class StencilTests: XCTestCase {
     let result = try StencilParser(notation: .json)
       .generate(query: makeQuery("testLine"))
     XCTAssertEqual(result, #"ab c"#)
+  }
+  func testBool() throws {
+    let result = try StencilParser(notation: .json)
+      .generate(query: makeQuery("testBool"))
+    XCTAssertEqual(result, #"good"#)
   }
 }

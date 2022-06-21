@@ -39,10 +39,9 @@ final class ScanNode: NodeType {
         match.range.location != NSNotFound,
         let range = Range(match.range, in: value)
       else { continue }
-      let matches = try (0..<match.numberOfRanges)
+      let matches = (0..<match.numberOfRanges)
         .map(match.range(at:))
-        .map { try value[?!.init($0, in: value)] }
-        .map(String.init(_:))
+        .map { try? String(value[?!.init($0, in: value)]) }
       let replace = try context.push(dictionary: ["_": matches] as [String: Any]) {
         try renderNodes(patch, context)
       }

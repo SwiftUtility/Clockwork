@@ -5,90 +5,90 @@ public struct Generate: Query {
   public var templates: [String: String]
   public var context: Encodable
   public typealias Reply = String
-  public struct Versions: Codable {
+  public struct Versions: Encodable {
     public var ctx: AnyCodable?
     public var versions: [String: String]
   }
-  public struct Build: Codable {
+  public struct Build: Encodable {
     public var ctx: AnyCodable?
     public var versions: [String: String]
-    public var build: String
+    public var build: Production.Build
   }
-  public struct Integration: Codable {
+  public struct Integration: Encodable {
     public var ctx: AnyCodable?
     public var targets: [String]
   }
-  public struct ReleaseVersion: Codable {
+  public struct ReleaseVersion: Encodable {
     public var ctx: AnyCodable?
     public var product: String
     public var ref: String
   }
-  public struct ReleaseName: Codable {
+  public struct ReleaseName: Encodable {
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
-  public struct DeployName: Codable {
+  public struct DeployName: Encodable {
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct DeployAnnotation: Codable {
+  public struct DeployAnnotation: Encodable {
     public var ctx: AnyCodable?
     public var user: String
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct NextVersion: Codable {
+  public struct NextVersion: Encodable {
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
-  public struct NextBuild: Codable {
+  public struct NextBuild: Encodable {
     public var ctx: AnyCodable?
     public var build: String
   }
-  public struct DeployVersion: Codable {
+  public struct DeployVersion: Encodable {
     public var ctx: AnyCodable?
     public var product: String
     public var ref: String
   }
-  public struct DeployBuild: Codable {
+  public struct DeployBuild: Encodable {
     public var ctx: AnyCodable?
     public var ref: String
   }
-  public struct HotfixVersion: Codable {
+  public struct HotfixVersion: Encodable {
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
-  public struct VersionCommitMessage: Codable {
+  public struct VersionCommitMessage: Encodable {
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
-  public struct BuildCommitMessage: Codable {
+  public struct BuildCommitMessage: Encodable {
     public var ctx: AnyCodable?
     public var build: String
   }
-  public struct UserActivityCommitMessage: Codable {
+  public struct UserActivityCommitMessage: Encodable {
     public var ctx: AnyCodable?
     public var user: String
     public var active: Bool
   }
-  public struct SquashCommitMessage: Codable {
+  public struct SquashCommitMessage: Encodable {
     public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
   }
-  public struct IntegrationCommitMessage: Codable {
+  public struct IntegrationCommitMessage: Encodable {
     public var ctx: AnyCodable?
     public var fork: String
     public var source: String
     public var target: String
   }
-  public struct ReplicationCommitMessage: Codable {
+  public struct ReplicationCommitMessage: Encodable {
     public var ctx: AnyCodable?
     public var fork: String
     public var source: String
@@ -109,8 +109,8 @@ public extension Configuration {
   )}
   func generateBuild(
     template: String,
-    build: String,
-    versions: [String: String]
+    versions: [String: String],
+    build: Production.Build
   ) -> Generate { .init(
     template: template,
     templates: profile.templates,

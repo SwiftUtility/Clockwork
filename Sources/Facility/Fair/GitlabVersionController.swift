@@ -288,8 +288,8 @@ public struct GitlabVersionController {
     }
     try printLine(generate(cfg.generateBuild(
       template: template,
-      build: build.value,
-      versions: versions
+      versions: versions,
+      build: build
     )))
     return true
   }
@@ -299,16 +299,20 @@ public struct GitlabVersionController {
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let build: String
+    let build: Production.Build
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     if gitlabCi.job.tag {
       let product = try production
         .productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
         .or { throw Thrown("No product for \(gitlabCi.job.pipeline.ref)") }
-      build = try generate(cfg.generateDeployBuild(
-        product: product,
-        ref: gitlabCi.job.pipeline.ref
-      ))
+      build = .make(
+        value: try generate(cfg.generateDeployBuild(
+          product: product,
+          ref: gitlabCi.job.pipeline.ref
+        )),
+        sha: gitlabCi.job.pipeline.sha,
+        tag: gitlabCi.job.pipeline.ref
+      )
       versions[product.name] = try generate(cfg.generateReleaseVersion(
         product: product,
         ref: gitlabCi.job.pipeline.ref
@@ -317,7 +321,6 @@ public struct GitlabVersionController {
       build = try resolveProductionBuilds(.init(cfg: cfg, production: production))
        .reversed()
        .first(where: gitlabCi.job.matches(build:))
-       .map(\.value)
        .or { throw Thrown("No build number reserved") }
       if let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: false) {
         versions[product.name] = try generate(cfg.generateReleaseVersion(
@@ -328,8 +331,8 @@ public struct GitlabVersionController {
     }
     try printLine(generate(cfg.generateBuild(
       template: template,
-      build: build,
-      versions: versions
+      versions: versions,
+      build: build
     )))
     return true
   }

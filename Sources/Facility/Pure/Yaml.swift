@@ -51,7 +51,7 @@ public enum Yaml {
           public var parseVersionTemplate: String
         }
       }
-      public struct Build: Codable {
+      public struct Build: Decodable {
         public var build: String
         public var sha: String
         public var ref: String

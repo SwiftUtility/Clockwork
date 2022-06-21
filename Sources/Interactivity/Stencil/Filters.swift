@@ -23,10 +23,9 @@ enum Filters {
         match.range.location != NSNotFound,
         let range = Range(match.range, in: value)
       else { continue }
-      let matches = try? (0..<match.numberOfRanges)
+      let matches = (0..<match.numberOfRanges)
         .map(match.range(at:))
-        .map { try value[?!.init($0, in: value)] }
-        .map(String.init(_:))
+        .map { try? String(value[?!.init($0, in: value)]) }
       let replace = try Template(templateString: template).render(["_": matches as Any])
       value.replaceSubrange(range, with: replace)
     }
@@ -37,5 +36,13 @@ enum Filters {
       .map { "\($0)" }
       .flatMap(Int.init(_:))
       .or { throw TemplateSyntaxError("'incremented' filter expects Int value") }
+  }
+  static func emptyLines(value: Any?) throws -> Any? {
+    let value = try (value as? String)
+      .or { throw TemplateSyntaxError("'emptyLines' filter expects string value") }
+    return value
+      .components(separatedBy: .newlines)
+      .filter { !$0.isEmpty }
+      .joined(separator: "\n")
   }
 }
