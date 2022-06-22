@@ -67,12 +67,18 @@ public struct Configurator {
       .map(Files.Absolute.init(value:))
       .reduce(verbose, Git.resolveTopLevel(verbose:path:))
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Files.Absolute.init(value:))
       .reduce(verbose, Git.init(verbose:root:))
       .get()
-    do { _ = try execute(git.updateLfs) } catch { git.lfs = false }
-    _ = try execute(git.fetch)
+    git.lfs = try Id(git.updateLfs)
+      .map(execute)
+      .map(Execute.parseSuccess(reply:))
+      .get()
+    try Id(git.fetch)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
     let profile = try resolveProfile(query: .init(git: git, file: .init(
       ref: .head,
       path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
@@ -86,13 +92,14 @@ public struct Configurator {
       env: env,
       yaml: yaml
     )
-    _ = try Id(profile.controls.ref)
+    try Id(profile.controls.ref)
       .map(git.getSha(ref:))
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map { "Controls: " + $0 }
       .map(LogMessage.init(message:))
       .map(logMessage)
+      .get()
     controls.context = try yaml.context
       .map(Files.Relative.init(value:))
       .reduce(profile.controls.ref, Git.File.init(ref:path:))
@@ -247,7 +254,7 @@ public struct Configurator {
       product: query.product,
       version: query.version
     ))
-    _ = try execute(query.cfg.git.push(
+    try Execute.checkStatus(reply: execute(query.cfg.git.push(
       url: query.pushUrl,
       branch: query.production.versions.branch,
       sha: persist(
@@ -261,7 +268,7 @@ public struct Configurator {
         message: message
       ),
       force: false
-    ))
+    )))
   }
   public func persistBuilds(
     query: Configuration.PersistBuilds
@@ -271,7 +278,7 @@ public struct Configurator {
       asset: query.production.builds,
       build: query.build.value
     ))
-    _ = try execute(query.cfg.git.push(
+    try Execute.checkStatus(reply: execute(query.cfg.git.push(
       url: query.pushUrl,
       branch: query.production.builds.branch,
       sha: persist(
@@ -286,7 +293,7 @@ public struct Configurator {
         message: message
       ),
       force: false
-    ))
+    )))
   }
   public func persistUserActivity(
     query: Configuration.PersistUserActivity
@@ -298,7 +305,7 @@ public struct Configurator {
       user: query.user,
       active: query.active
     ))
-    _ = try execute(query.cfg.git.push(
+    try Execute.checkStatus(reply: execute(query.cfg.git.push(
       url: query.pushUrl,
       branch: query.awardApproval.userActivity.branch,
       sha: persist(
@@ -312,7 +319,7 @@ public struct Configurator {
         message: message
       ),
       force: false
-    ))
+    )))
   }
   public func resolveSecret(
     query: Configuration.ResolveSecret
@@ -331,32 +338,32 @@ extension Configurator {
     let initial = try Id(.head)
       .map(git.getSha(ref:))
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    _ = try execute(git.detach(ref: .make(remote: branch)))
-    _ = try execute(git.clean)
+    try Execute.checkStatus(reply: execute(git.detach(ref: .make(remote: branch))))
+    try Execute.checkStatus(reply: execute(git.clean))
     try writeFile(.init(
       file: .init(value: "\(git.root.value)/\(file.value)"),
       data: .init(yaml.utf8)
     ))
-    _ = try execute(git.addAll)
-    _ = try execute(git.commit(message: message))
+    try Execute.checkStatus(reply: execute(git.addAll))
+    try Execute.checkStatus(reply: execute(git.commit(message: message)))
     let result = try Id(.head)
       .map(git.getSha(ref:))
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Git.Sha.init(value:))
       .get()
-    _ = try execute(git.detach(ref: initial))
+    try Execute.checkStatus(reply: execute(git.detach(ref: initial)))
     return result
   }
   func parse(git: Git, yaml: Git.File) throws -> AnyCodable { try Id
     .make(yaml)
     .map(git.cat(file:))
     .map(execute)
-    .map(Execute.successText(reply:))
+    .map(Execute.parseText(reply:))
     .map(Yaml.Decode.init(content:))
     .map(decodeYaml)
     .get()
@@ -385,7 +392,7 @@ extension Configurator {
     let files = try Id(templates)
       .map(git.listTreeTrackedFiles(dir:))
       .map(execute)
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .get()
     for file in files {
       let template = try file.dropPrefix("\(templates.path.value)/")
@@ -394,7 +401,7 @@ extension Configurator {
         .reduce(templates.ref, Git.File.init(ref:path:))
         .map(git.cat(file:))
         .map(execute)
-        .map(Execute.successText(reply:))
+        .map(Execute.parseText(reply:))
         .get()
     }
     return result

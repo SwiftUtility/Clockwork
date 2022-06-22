@@ -39,35 +39,33 @@ public struct Execute: Query {
     }
     public func checkStatus() throws {
       for status in statuses {
-        guard status.escalate, status.termination != 0 else { continue }
-        throw Thrown("Subprocess termination status")
+        guard status.task.escalate, status.termination != 0 else { continue }
+        let message = ["\(status.termination):", "\(status.task.launch)"]
+        + status.task.arguments
+        throw Thrown(message.joined(separator: " "))
       }
     }
     public struct Status {
       public var termination: Int32
-      public var escalate: Bool
-      public init(termination: Int32, escalate: Bool) {
+      public var task: Task
+      public init(termination: Int32, task: Task) {
         self.termination = termination
-        self.escalate = escalate
+        self.task = task
       }
     }
   }
-  public static func successData(reply: Reply) throws -> Data {
+  public static func parseData(reply: Reply) throws -> Data {
     try reply.checkStatus()
     return reply.data.or(.init())
   }
-  public static func errorData(reply: Reply) -> Data? {
-    guard case nil = try? reply.checkStatus() else { return nil }
-    return reply.data
-  }
-  public static func successText(reply: Reply) throws -> String {
+  public static func parseText(reply: Reply) throws -> String {
     try reply.checkStatus()
     return try reply.data
       .map(String.make(utf8:))
       .or("")
       .trimmingCharacters(in: .newlines)
   }
-  public static func successLines(reply: Reply) throws -> [String] {
+  public static func parseLines(reply: Reply) throws -> [String] {
     try reply.checkStatus()
     return try reply.data
       .map(String.make(utf8:))
@@ -78,12 +76,10 @@ public struct Execute: Query {
       .drop(while: \.isEmpty)
       .reversed()
   }
-  public static func success(reply: Reply) -> Bool {
+  public static func parseSuccess(reply: Reply) throws -> Bool {
     if case nil = try? reply.checkStatus() { return false } else { return true }
   }
-  public static func successVoid(reply: Reply) throws {
-    try reply.checkStatus()
-  }
+  public static func checkStatus(reply: Reply) throws { try reply.checkStatus() }
 }
 public extension Configuration {
   var systemTempFile: Execute { .init(tasks: [
@@ -93,7 +89,7 @@ public extension Configuration {
     .init(verbose: verbose, arguments: ["mv", "-f", file.value, location.value])
   ])}
   func systemDelete(file: Files.Absolute) -> Execute { .init(tasks: [
-    .init(verbose: verbose, arguments: ["rm", "-f", file.value])
+    .init(escalate: false, verbose: verbose, arguments: ["rm", "-f", file.value])
   ])}
   func systemWrite(file: Files.Absolute, execute: Execute) -> Execute { .init(
     input: execute.input,

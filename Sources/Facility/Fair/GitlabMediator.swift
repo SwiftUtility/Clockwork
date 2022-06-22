@@ -28,13 +28,14 @@ public struct GitlabMediator {
       let value = variable[index..<variable.endIndex].dropFirst()
       variables[.init(key)] = .init(value)
     }
-    _ = try gitlabCi
+    try gitlabCi
       .postTriggerPipeline(
         ref: ref,
         cfg: cfg,
         context: variables
       )
       .map(execute)
+      .map(Execute.checkStatus(reply:))
       .get()
     return true
   }
@@ -50,8 +51,9 @@ public struct GitlabMediator {
       logMessage(.init(message: "Pipeline outdated"))
       return false
     }
-    _ = try gitlabCi.postParentMrPipelines
+    try gitlabCi.postParentMrPipelines
       .map(execute)
+      .map(Execute.checkStatus(reply:))
       .get()
     return true
   }
@@ -73,10 +75,10 @@ public struct GitlabMediator {
       logMessage(.init(message: "No new labels"))
       return false
     }
-    _ = try gitlabCi
+    try gitlabCi
       .putMrState(parameters: .init(addLabels: labels.joined(separator: ",")))
       .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
+      .map(Execute.checkStatus(reply:))
       .get()
     logMessage(.init(message: "Labels added"))
     return true
@@ -102,9 +104,10 @@ public struct GitlabMediator {
       .get()
       .first { $0.name == name }
       .or { throw Thrown("Job \(name) not found") }
-    _ = try gitlabCi
+    try gitlabCi
       .postJobsAction(job: job.id, action: action)
       .map(execute)
+      .map(Execute.checkStatus(reply:))
       .get()
     return true
   }

@@ -35,7 +35,7 @@ public struct GitlabValidator {
       .make(cfg.git)
       .reduce(curry: .head, Git.listAllTrackedFiles(ref:))
       .map(execute)
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .get()
       .filter { file in !approvals.contains { $0.value.isMet(file) } }
     guard !files.isEmpty else { return true }
@@ -54,7 +54,7 @@ public struct GitlabValidator {
       .make(Git.Ref.head)
       .map(cfg.git.listAllTrackedFiles(ref:))
       .map(execute)
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .get()
     var issues: [FileTaboo.Issue] = []
     for file in files { try autoreleasepool {
@@ -73,7 +73,7 @@ public struct GitlabValidator {
         .reduce(.head, Git.File.init(ref:path:))
         .map(cfg.git.cat(file:))
         .map(execute)
-        .map(Execute.successLines(reply:))
+        .map(Execute.parseLines(reply:))
         .get()
         .enumerated()
         .flatMap { row, line in lineRules
@@ -96,7 +96,7 @@ public struct GitlabValidator {
       .map(Git.Ref.make(remote:))
       .reduce(.head, cfg.git.listChangedOutsideFiles(source:target:))
       .map(execute)
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .get()
       .filter(criteria.isMet(_:))
     }
@@ -126,24 +126,26 @@ public struct GitlabValidator {
     let initial = try Id(.head)
       .map(cfg.git.getSha(ref:))
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    _ = try Id
+    try Id
       .make(cfg.git.mergeBase(.head, .make(remote: .init(name: target))))
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .map(cfg.git.resetSoft(ref:))
       .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
     let markers = try Id(cfg.git.listConflictMarkers)
       .map(execute)
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .get()
-    _ = try execute(cfg.git.resetHard(ref: initial))
-    _ = try execute(cfg.git.clean)
+    try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: initial)))
+    try Execute.checkStatus(reply: execute(cfg.git.clean))
     guard !markers.isEmpty else { return true }
     markers
       .map(LogMessage.init(message:))

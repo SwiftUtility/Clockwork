@@ -38,7 +38,7 @@ public struct GitlabAwardApprover {
   public func updateUser(cfg: Configuration, active: Bool) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let awardApproval = try resolveAwardApproval(.init(cfg: cfg))
-    _ = try persistUserActivity(.init(
+    try persistUserActivity(.init(
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),
       awardApproval: awardApproval,
@@ -68,8 +68,9 @@ public struct GitlabAwardApprover {
     }
     guard gitlabCi.job.pipeline.ref == review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
-      _ = try gitlabCi.postParentMrPipelines
+      try gitlabCi.postParentMrPipelines
         .map(execute)
+        .map(Execute.checkStatus(reply:))
         .get()
       return false
     }
@@ -92,7 +93,7 @@ public struct GitlabAwardApprover {
         .map(Git.Ref.make(remote:))
         .reduce(sha, cfg.git.listChangedFiles(source:target:))
         .map(execute)
-        .map(Execute.successLines(reply:))
+        .map(Execute.parseLines(reply:))
         .get()
     case .replication:
       merge = try Lossy(.init(cfg: cfg))
@@ -136,14 +137,15 @@ public struct GitlabAwardApprover {
       .get()
     try approval.consider(awards: awards)
     for award in approval.state.unhighlighted {
-      _ = try gitlabCi
+      try gitlabCi
         .postParentMrAward(award: award)
         .map(execute)
+        .map(Execute.checkStatus(reply:))
         .get()
     }
     if let reports = try approval.makeNewApprovals(cfg: cfg, review: review) {
       try reports.forEach(report)
-      _ = try gitlabCi
+      try gitlabCi
         .putMrState(parameters: .init(
           addLabels: approval.state.unnotified
             .joined(separator: ","),
@@ -152,6 +154,7 @@ public struct GitlabAwardApprover {
             .joined(separator: ",")
         ))
         .map(execute)
+        .map(Execute.checkStatus(reply:))
         .get()
     }
     if let unapprovedGroups = try approval.makeUnapprovedGroups() {
@@ -176,36 +179,39 @@ public struct GitlabAwardApprover {
     let initial = try Id(.head)
       .map(git.getSha(ref:))
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
     let sha = try Git.Ref.make(sha: .init(value: pipeline.sha))
-    _ = try Id
+    try Id
       .make(git.mergeBase(.make(remote: merge.target), sha))
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .map(git.detach(ref:))
       .map(execute)
-    _ = try execute(git.clean)
-    _ = try? execute(git.merge(
+      .map(Execute.checkStatus(reply:))
+      .get()
+    try Execute.checkStatus(reply: try execute(git.clean))
+    try Execute.checkStatus(reply: execute(git.merge(
       ref: .make(sha: merge.fork),
       message: nil,
       noFf: true,
-      env: [:]
-    ))
-    _ = try execute(git.quitMerge)
-    _ = try execute(git.addAll)
-    _ = try execute(git.resetSoft(ref: sha))
-    _ = try execute(git.addAll)
+      env: [:],
+      escalate: false
+    )))
+    try Execute.checkStatus(reply: execute(git.quitMerge))
+    try Execute.checkStatus(reply: execute(git.addAll))
+    try Execute.checkStatus(reply: execute(git.resetSoft(ref: sha)))
+    try Execute.checkStatus(reply: execute(git.addAll))
     let result = try Id(git.listLocalChanges)
       .map(execute)
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .get()
-    _ = try execute(git.resetHard(ref: initial))
-    _ = try execute(git.clean)
+    try Execute.checkStatus(reply: execute(git.resetHard(ref: initial)))
+    try Execute.checkStatus(reply: execute(git.clean))
     return result
   }
   func resolveParticipants(
@@ -220,7 +226,7 @@ public struct GitlabAwardApprover {
       firstParents: false
     ))
     .map(execute)
-    .map(Execute.successLines(reply:))
+    .map(Execute.parseLines(reply:))
     .get()
     .map(Git.Sha.init(value:))
     .flatMap { sha in try gitlabCi

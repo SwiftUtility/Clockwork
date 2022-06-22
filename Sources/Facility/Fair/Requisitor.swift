@@ -54,7 +54,7 @@ public struct Requisitor {
         requisite: requisition.requisite(name: requisite),
         keychain: keychain
       )}
-    _ = try execute(requisition.allowXcode(keychain: keychain))
+    try Execute.checkStatus(reply: execute(requisition.allowXcode(keychain: keychain)))
     return true
   }
   public func installRequisite(
@@ -75,7 +75,7 @@ public struct Requisitor {
       requisite: requisition.requisite(name: requisite),
       keychain: keychain
     )}
-    _ = try execute(requisition.allowXcode(keychain: keychain))
+    try Execute.checkStatus(reply: execute(requisition.allowXcode(keychain: keychain)))
     return true
   }
   public func reportExpiringRequisites(
@@ -93,18 +93,20 @@ public struct Requisitor {
     for file in provisions {
       let temp = try Id(cfg.systemTempFile)
         .map(execute)
-        .map(Execute.successText(reply:))
+        .map(Execute.parseText(reply:))
         .map(Files.Absolute.init(value:))
         .get()
-      defer { _ = try? execute(cfg.systemDelete(file: temp)) }
-      _ = try Id(file)
+      defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(file: temp))) }
+      try Id(file)
         .map(cfg.git.cat(file:))
         .reduce(temp, cfg.systemWrite(file:execute:))
         .map(execute)
+        .map(Execute.checkStatus(reply:))
+        .get()
       let provision = try Id(temp)
         .map(requisition.decode(file:))
         .map(execute)
-        .map(Execute.successData(reply:))
+        .map(Execute.parseData(reply:))
         .reduce(Plist.Provision.self, plistDecoder.decode(_:from:))
         .get()
       guard provision.expirationDate < threshold else { continue }
@@ -117,7 +119,7 @@ public struct Requisitor {
         .map(cfg.git.cat(file:))
         .reduce(password, requisition.parsePkcs12Certs(password:execute:))
         .map(execute)
-        .map(Execute.successLines(reply:))
+        .map(Execute.parseLines(reply:))
         .get()
         .split(separator: .certStart)
         .mapEmpty([])
@@ -136,7 +138,7 @@ public struct Requisitor {
         let lines = try Id(cert)
           .map(requisition.decodeCert(data:))
           .map(execute)
-          .map(Execute.successLines(reply:))
+          .map(Execute.parseLines(reply:))
           .get()
           .map { $0.trimmingCharacters(in: .whitespaces) }
         let date = try lines
@@ -171,16 +173,19 @@ public struct Requisitor {
     requisition: Requisition,
     keychain: String
   ) throws {
-    _ = try execute(requisition.delete(keychain: keychain))
-    _ = try execute(requisition.create(keychain: keychain))
-    _ = try execute(requisition.unlock(keychain: keychain))
-    _ = try execute(requisition.disableAutolock(keychain: keychain))
+    try Execute.checkStatus(reply: execute(requisition.delete(keychain: keychain)))
+    try Execute.checkStatus(reply: execute(requisition.create(keychain: keychain)))
+    try Execute.checkStatus(reply: execute(requisition.unlock(keychain: keychain)))
+    try Execute.checkStatus(reply: execute(requisition.disableAutolock(keychain: keychain)))
     let keychains = try Id(requisition.listVisibleKeychains)
       .map(execute)
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .get()
       .map { $0.trimmingCharacters(in: .whitespaces.union(["\""])) }
-    _ = try execute(requisition.resetVisibleKeychains(keychains: keychains + [keychain]))
+    try Id(requisition.resetVisibleKeychains(keychains: keychains + [keychain]))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
   }
   func importKeychain(
     cfg: Configuration,
@@ -191,15 +196,20 @@ public struct Requisitor {
     let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
     let temp = try Id(cfg.systemTempFile)
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Files.Absolute.init(value:))
       .get()
-    defer { _ = try? execute(cfg.systemDelete(file: temp)) }
-    _ = try Id(requisite.pkcs12)
+    defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(file: temp))) }
+    try Id(requisite.pkcs12)
       .map(cfg.git.cat(file:))
       .reduce(temp, cfg.write(file:execute:))
       .map(execute)
-    _ = try execute(requisition.importPkcs12(keychain: keychain, file: temp, pass: password))
+      .map(Execute.checkStatus(reply:))
+      .get()
+    try Id(requisition.importPkcs12(keychain: keychain, file: temp, pass: password))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
   }
   func getProvisions(
     git: Git,
@@ -213,7 +223,7 @@ public struct Requisitor {
     for dir in dirs { try Id(dir)
       .map(git.listTreeTrackedFiles(dir:))
       .map(execute)
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .get()
       .map(Files.Relative.init(value:))
       .forEach { result.insert(.init(ref: dir.ref, path: $0)) }
@@ -223,18 +233,20 @@ public struct Requisitor {
   func install(cfg: Configuration, requisition: Requisition, provision: Git.File) throws {
     let temp = try Id(cfg.systemTempFile)
       .map(execute)
-      .map(Execute.successText(reply:))
+      .map(Execute.parseText(reply:))
       .map(Files.Absolute.init(value:))
       .get()
-    defer { _ = try? execute(cfg.systemDelete(file: temp)) }
-    _ = try Id(provision)
+    defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(file: temp))) }
+    try Id(provision)
       .map(cfg.git.cat(file:))
       .reduce(temp, cfg.systemWrite(file:execute:))
       .map(execute)
-    _ = try Id(temp)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    try Id(temp)
       .map(requisition.decode(file:))
       .map(execute)
-      .map(Execute.successData(reply:))
+      .map(Execute.parseData(reply:))
       .reduce(Plist.Provision.self, plistDecoder.decode(_:from:))
       .map(\.uuid)
       .map { "~/Library/MobileDevice/Provisioning Profiles/\($0).mobileprovision" }
@@ -242,6 +254,8 @@ public struct Requisitor {
       .map(resolveAbsolute)
       .reduce(temp, cfg.systemMove(file:location:))
       .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
   }
 }
 extension TimeInterval {

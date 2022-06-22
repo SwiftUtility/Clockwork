@@ -81,9 +81,10 @@ public struct GitlabVersionController {
         tag: tag
       )
     ))
-    _ = try gitlabCi
+    try gitlabCi
       .postTags(parameters: .init(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation))
       .map(execute)
+      .map(Execute.checkStatus(reply:))
       .get()
     return true
   }
@@ -124,9 +125,10 @@ public struct GitlabVersionController {
         tag: tag
       )
     ))
-    _ = try gitlabCi
+    try gitlabCi
       .postTags(parameters: .init(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation))
       .map(execute)
+      .map(Execute.checkStatus(reply:))
       .get()
     return true
   }
@@ -203,9 +205,10 @@ public struct GitlabVersionController {
       product: product,
       version: version
     ))
-    _ = try gitlabCi
+    try gitlabCi
       .postBranches(name: name, ref: gitlabCi.job.pipeline.sha)
       .map(execute)
+      .map(Execute.checkStatus(reply:))
       .get()
     let next = try generate(cfg.generateNextVersion(
       product: product,
@@ -240,9 +243,10 @@ public struct GitlabVersionController {
       product: product,
       version: hotfix
     ))
-    _ = try gitlabCi
+    try gitlabCi
       .postBranches(name: name, ref: gitlabCi.job.pipeline.sha)
       .map(execute)
+      .map(Execute.checkStatus(reply:))
       .get()
     return true
   }
@@ -258,13 +262,13 @@ public struct GitlabVersionController {
           firstParents: false
         ))
         .map(execute)
-        .map(Execute.successLines(reply:))
+        .map(Execute.parseLines(reply:))
         .get()
         .map(Git.Sha.init(value:))
         .map(Git.Ref.make(sha:))
         .map(cfg.git.getCommitMessage(ref:))
         .map(execute)
-        .map(Execute.successText(reply:))
+        .map(Execute.parseText(reply:))
     ))
     return true
   }

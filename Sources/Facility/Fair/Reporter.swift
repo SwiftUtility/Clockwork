@@ -42,7 +42,7 @@ public struct Reporter {
   public func reportCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
     let stdin = try stdin
       .then(readInput())
-      .map(Execute.successLines(reply:))
+      .map(Execute.parseLines(reply:))
       .or([])
     try report(query: cfg.reportCustom(event: event, stdin: stdin))
     return true
@@ -52,7 +52,7 @@ public struct Reporter {
     encoder.keyEncodingStrategy = .convertToSnakeCase
     for value in query.cfg.controls.communication[query.reportable.event].or([]) {
       switch value {
-      case .slackHookTextMessage(let value): _ = try Id
+      case .slackHookTextMessage(let value): try Id
         .make(query.cfg.controls.generateReport(
           template: value.messageTemplate,
           reportable: query.reportable
@@ -63,6 +63,8 @@ public struct Reporter {
         .map(String.make(utf8:))
         .reduce(value.url, query.cfg.curlSlackHook(url:payload:))
         .map(execute)
+        .map(Execute.checkStatus(reply:))
+        .get()
       }
     }
   }

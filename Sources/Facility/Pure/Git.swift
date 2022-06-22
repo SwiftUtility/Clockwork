@@ -92,7 +92,8 @@ public extension Git {
         "-tab-in-indent", "-cr-at-eol",
       ].joined(separator: ","),
       "diff", "--check", "HEAD"
-    ]
+    ],
+    escalate: false
   )}
   var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"])}
   var listLocalRefs: Execute { proc(args: ["diff", "show-ref", "--head"])}
@@ -186,13 +187,15 @@ public extension Git {
     ref: Ref,
     message: String?,
     noFf: Bool,
-    env: [String: String] = [:]
+    env: [String: String] = [:],
+    escalate: Bool
   ) -> Execute { proc(
     args: ["merge"]
     + message.map { ["-m", $0] }.or(["--no-commit"])
     + noFf.then(["--no-ff"]).or([])
     + [ref.value],
-    env: env
+    env: env,
+    escalate: escalate
   )}
   var quitMerge: Execute { proc(
     args: ["merge", "--quit"]
@@ -238,7 +241,13 @@ public extension Git {
   }
 }
 extension Git {
-  func proc(args: [String], env: [String: String] = [:]) -> Execute { .init(tasks: [.init(
+  func proc(
+    args: [String],
+    env: [String: String] = [:],
+    escalate: Bool = true
+  ) -> Execute { .init(tasks: [.init(
+    escalate: escalate,
+    environment: env,
     verbose: verbose,
     arguments: ["git", "-C", root.value]
     + ["-c", "core.quotepath=false", "-c", "core.precomposeunicode=true"]
