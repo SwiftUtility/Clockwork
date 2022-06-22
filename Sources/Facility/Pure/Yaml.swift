@@ -20,7 +20,7 @@ public enum Yaml {
     public var awardApproval: String?
     public var production: String?
     public var requisition: String?
-    public var flow: String?
+    public var fusion: String?
     public var templates: String?
     public var context: String?
     public var forbiddenCommits: Asset?
@@ -64,13 +64,17 @@ public enum Yaml {
       public var password: Secret
       public var provisions: [String]
     }
-    public struct Flow: Decodable {
-      public var squash: Squash?
+    public struct Fusion: Decodable {
+      public var resolution: Resolution?
       public var replication: Replication?
       public var integration: Integration?
-      public struct Squash: Decodable {
+      public struct Resolution: Decodable {
         public var messageTemplate: String
-        public var titleRule: Criteria?
+        public var rules: [Rule]
+        public struct Rule: Decodable {
+          public var title: Criteria?
+          public var source: Criteria
+        }
       }
       public struct Replication: Decodable {
         public var target: String

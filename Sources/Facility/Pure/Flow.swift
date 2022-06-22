@@ -1,15 +1,15 @@
 import Foundation
 import Facility
-public struct Flow {
-  public var squash: Lossy<Squash>
+public struct Fusion {
+  public var resolution: Lossy<Resolution>
   public var replication: Lossy<Replication>
   public var integration: Lossy<Integration>
   public static func make(
     mainatiners: Set<String>,
-    yaml: Yaml.Controls.Flow
+    yaml: Yaml.Controls.Fusion
   ) throws -> Self { try .init(
-    squash: yaml.squash
-      .map(Squash.make(yaml:))
+    resolution: yaml.resolution
+      .map(Resolution.make(yaml:))
       .map(Lossy.value(_:))
       .or(Lossy.error(Thrown("review not configured"))),
     replication: yaml.replication
@@ -21,18 +21,25 @@ public struct Flow {
       .map(Lossy.value(_:))
       .or(Lossy.error(Thrown("integration not configured")))
   )}
-  public struct Squash {
+  public struct Resolution {
     public var messageTemplate: String
-    public var titleRule: Lossy<Criteria>
+    public var rules: [Rule]
     public static func make(
-      yaml: Yaml.Controls.Flow.Squash
+      yaml: Yaml.Controls.Fusion.Resolution
     ) throws -> Self { try .init(
       messageTemplate: yaml.messageTemplate,
-      titleRule: yaml.titleRule
-        .map(Criteria.init(yaml:))
-        .map(Lossy.value(_:))
-        .or(.error(Thrown("titleRule not configured")))
+      rules: yaml.rules
+        .map { yaml in try .init(
+          title: yaml.title
+            .map(Criteria.init(yaml:))
+            .or(.init()),
+          source: .init(yaml: yaml.source)
+        )}
     )}
+    public struct Rule {
+      public var title: Criteria
+      public var source: Criteria
+    }
   }
   public struct Replication {
     public var target: String
@@ -40,7 +47,7 @@ public struct Flow {
     public var source: Criteria
     public var messageTemplate: String
     public static func make(
-      yaml: Yaml.Controls.Flow.Replication
+      yaml: Yaml.Controls.Fusion.Replication
     ) throws -> Self { try .init(
       target: yaml.target,
       prefix: yaml.prefix,
@@ -78,7 +85,7 @@ public struct Flow {
     public var messageTemplate: String
     public static func make(
       mainatiners: Set<String>,
-      yaml: Yaml.Controls.Flow.Integration
+      yaml: Yaml.Controls.Fusion.Integration
     ) throws -> Self { try .init(
       rules: yaml.rules
         .map { yaml in try .init(

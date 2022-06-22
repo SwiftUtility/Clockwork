@@ -82,7 +82,7 @@ public struct Generate: Query {
     public var user: String
     public var active: Bool
   }
-  public struct SquashCommitMessage: Encodable {
+  public struct ResolutionCommitMessage: Encodable {
     public var ctx: AnyCodable?
     public var review: Json.GitlabReviewState
   }
@@ -295,20 +295,20 @@ public extension Configuration {
       active: active
     )
   )}
-  func generateSquashCommitMessage(
-    squash: Flow.Squash,
+  func generateResolutionCommitMessage(
+    resolution: Fusion.Resolution,
     review: Json.GitlabReviewState
   ) -> Generate { .init(
-    template: squash.messageTemplate,
+    template: resolution.messageTemplate,
     templates: controls.templates,
-    context: Generate.SquashCommitMessage(
+    context: Generate.ResolutionCommitMessage(
       ctx: controls.context,
       review: review
     )
   )}
   func generateIntegrationCommitMessage(
-    integration: Flow.Integration,
-    merge: Flow.Merge
+    integration: Fusion.Integration,
+    merge: Fusion.Merge
   ) -> Generate { .init(
     template: integration.messageTemplate,
     templates: controls.templates,
@@ -320,8 +320,8 @@ public extension Configuration {
     )
   )}
   func generateReplicationCommitMessage(
-    replication: Flow.Replication,
-    merge: Flow.Merge
+    replication: Fusion.Replication,
+    merge: Fusion.Merge
   ) -> Generate { .init(
     template: replication.messageTemplate,
     templates: controls.templates,

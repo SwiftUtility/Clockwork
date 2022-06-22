@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct GitlabMediator {
+public final class Mediator {
   let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder

@@ -56,7 +56,7 @@ public struct Configuration {
     public var awardApproval: Git.File?
     public var production: Git.File?
     public var requisition: Git.File?
-    public var flow: Git.File?
+    public var fusion: Git.File?
     public var forbiddenCommits: Asset?
     public var templates: [String: String] = [:]
     public var context: AnyCodable?
@@ -77,7 +77,7 @@ public struct Configuration {
       requisition: yaml.requisition
         .map(Files.Relative.init(value:))
         .reduce(ref, Git.File.init(ref:path:)),
-      flow: yaml.flow
+      fusion: yaml.fusion
         .map(Files.Relative.init(value:))
         .reduce(ref, Git.File.init(ref:path:)),
       forbiddenCommits: yaml.forbiddenCommits
@@ -143,12 +143,12 @@ public struct Configuration {
     }
     public typealias Reply = Requisition
   }
-  public struct ResolveFlow: Query {
+  public struct ResolveFusion: Query {
     public var cfg: Configuration
     public init(cfg: Configuration) {
       self.cfg = cfg
     }
-    public typealias Reply = Flow
+    public typealias Reply = Fusion
   }
   public struct ResolveProduction: Query {
     public var cfg: Configuration

@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct Reporter {
+public final class Reporter {
   let execute: Try.Reply<Execute>
   let logLine: Act.Of<String>.Go
   let printLine: Act.Of<String>.Go

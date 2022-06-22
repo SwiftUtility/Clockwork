@@ -1,9 +1,9 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct GitlabMerger {
+public final class Blender {
   let execute: Try.Reply<Execute>
-  let resolveFlow: Try.Reply<Configuration.ResolveFlow>
+  let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let printLine: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Try.Reply<Report>
@@ -11,7 +11,7 @@ public struct GitlabMerger {
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    resolveFlow: @escaping Try.Reply<Configuration.ResolveFlow>,
+    resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     printLine: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Try.Reply<Report>,
@@ -19,23 +19,25 @@ public struct GitlabMerger {
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
-    self.resolveFlow = resolveFlow
+    self.resolveFusion = resolveFusion
     self.printLine = printLine
     self.generate = generate
     self.report = report
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
-  public func validateReviewTitle(cfg: Configuration, title: String) throws -> Bool {
-    let titleRule = try resolveFlow(.init(cfg: cfg))
-      .squash
-      .flatMap(\.titleRule)
-      .get()
-    guard titleRule.isMet(title) else { return true }
-    try report(cfg.reportInvalidTitle(
-      title: title
-    ))
-    return false
+  public func validateResolutionTitle(cfg: Configuration, title: String) throws -> Bool {
+    let gitlabCi = try cfg.controls.gitlabCi.get()
+    guard !gitlabCi.job.tag else { throw Thrown("Not branch job") }
+    for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
+      guard
+        rule.source.isMet(gitlabCi.job.pipeline.ref),
+        rule.title.isMet(title)
+      else { continue }
+      try report(cfg.reportInvalidTitle(title: title))
+      return false
+    }
+    return true
   }
   public func validateReviewStatus(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
@@ -64,7 +66,7 @@ public struct GitlabMerger {
     ))
     return false
   }
-  public func acceptReview(cfg: Configuration) throws -> Bool {
+  public func acceptResolution(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
@@ -89,9 +91,9 @@ public struct GitlabMerger {
     }
     let head = try Git.Sha(value: review.pipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: review.targetBranch))
-    let squash = try resolveFlow(.init(cfg: cfg)).squash.get()
-    let message = try generate(cfg.generateSquashCommitMessage(
-      squash: squash,
+    let resolution = try resolveFusion(.init(cfg: cfg)).resolution.get()
+    let message = try generate(cfg.generateResolutionCommitMessage(
+      resolution: resolution,
       review: review
     ))
     let targetSha = try Id(target)
@@ -140,7 +142,7 @@ public struct GitlabMerger {
   }
   public func startIntegration(cfg: Configuration, target: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
-    let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
+    let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     let merge = try integration.makeMerge(
       target: target, source: gitlabCi.job.pipeline.ref,
@@ -192,7 +194,7 @@ public struct GitlabMerger {
   }
   public func finishIntegration(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
-    let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
+    let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
@@ -401,7 +403,7 @@ public struct GitlabMerger {
       .get()
     let fork = try Git.Sha(value: pipeline.sha)
     let source = try Git.Branch(name: pipeline.ref)
-    let integration = try resolveFlow(.init(cfg: cfg)).integration.get()
+    let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
     let rules = try integration.rules
       .filter { $0.source.isMet(source.name) }
       .mapEmpty { throw Thrown("Integration for \(source.name) not configured") }
@@ -432,7 +434,7 @@ public struct GitlabMerger {
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
-    let replication = try resolveFlow(.init(cfg: cfg)).replication.get()
+    let replication = try resolveFusion(.init(cfg: cfg)).replication.get()
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     guard replication.source.isMet(gitlabCi.job.pipeline.ref) else {
       logMessage(.init(message: "Replication blocked by configuration"))
@@ -485,7 +487,7 @@ public struct GitlabMerger {
   }
   public func updateReplication(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
-    let replication = try resolveFlow(.init(cfg: cfg)).replication.get()
+    let replication = try resolveFusion(.init(cfg: cfg)).replication.get()
     let pushUrl = try gitlabCi.pushUrl.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
@@ -710,9 +712,9 @@ public struct GitlabMerger {
   }
   func makeMerge(
     cfg: Configuration,
-    replication: Flow.Replication,
+    replication: Fusion.Replication,
     source: String
-  ) throws -> Flow.Merge? { try Id
+  ) throws -> Fusion.Merge? { try Id
     .make(cfg.git.listCommits(
       in: [.make(remote: .init(name: source))],
       notIn: [.make(remote: .init(name: replication.target))],
@@ -767,7 +769,7 @@ public struct GitlabMerger {
   }
   func squashSupply(
     cfg: Configuration,
-    merge: Flow.Merge,
+    merge: Fusion.Merge,
     message: String,
     sha: Git.Sha
   ) throws -> Git.Sha {
@@ -830,7 +832,7 @@ public struct GitlabMerger {
       throw MayDay("Unexpected merge response")
     }
   }
-  func checkNeeded(cfg: Configuration, merge: Flow.Merge) -> Bool {
+  func checkNeeded(cfg: Configuration, merge: Fusion.Merge) -> Bool {
     guard case _? = try? execute(cfg.git.check(
       child: .make(remote: merge.target),
       parent: .make(sha: merge.fork)
@@ -841,7 +843,7 @@ public struct GitlabMerger {
   func resolveParticipants(
     cfg: Configuration,
     gitlabCi: GitlabCi,
-    merge: Flow.Merge
+    merge: Fusion.Merge
   ) throws -> [String] { try Id
     .make(cfg.git.listCommits(
       in: [.make(sha: merge.fork)],

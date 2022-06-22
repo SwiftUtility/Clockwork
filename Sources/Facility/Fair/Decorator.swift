@@ -1,14 +1,14 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct GitlabAwardApprover {
+public final class Decorator {
   let execute: Try.Reply<Execute>
   let resolveProfile: Try.Reply<Configuration.ResolveProfile>
   let resolveAwardApproval: Try.Reply<Configuration.ResolveAwardApproval>
   let resolveUserActivity: Try.Reply<Configuration.ResolveUserActivity>
   let resolveCodeOwnage: Try.Reply<Configuration.ResolveCodeOwnage>
   let persistUserActivity: Try.Reply<Configuration.PersistUserActivity>
-  let resolveFlow: Try.Reply<Configuration.ResolveFlow>
+  let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
@@ -19,7 +19,7 @@ public struct GitlabAwardApprover {
     resolveUserActivity: @escaping Try.Reply<Configuration.ResolveUserActivity>,
     resolveCodeOwnage: @escaping Try.Reply<Configuration.ResolveCodeOwnage>,
     persistUserActivity: @escaping Try.Reply<Configuration.PersistUserActivity>,
-    resolveFlow: @escaping Try.Reply<Configuration.ResolveFlow>,
+    resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
@@ -30,7 +30,7 @@ public struct GitlabAwardApprover {
     self.resolveUserActivity = resolveUserActivity
     self.resolveCodeOwnage = resolveCodeOwnage
     self.persistUserActivity = persistUserActivity
-    self.resolveFlow = resolveFlow
+    self.resolveFusion = resolveFusion
     self.report = report
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
@@ -85,9 +85,9 @@ public struct GitlabAwardApprover {
       path: gitlabCi.parent.profile.get()
     )))
     var changedFiles: [String] = []
-    var merge: Flow.Merge? = nil
+    var merge: Fusion.Merge? = nil
     switch mode {
-    case .review:
+    case .resolution:
       changedFiles = try Id(review.targetBranch)
         .map(Git.Branch.init(name:))
         .map(Git.Ref.make(remote:))
@@ -97,13 +97,13 @@ public struct GitlabAwardApprover {
         .get()
     case .replication:
       merge = try Lossy(.init(cfg: cfg))
-        .map(resolveFlow)
+        .map(resolveFusion)
         .flatMap(\.replication)
         .get()
         .makeMerge(supply: review.sourceBranch)
     case .integration:
       merge = try Lossy(.init(cfg: cfg))
-        .map(resolveFlow)
+        .map(resolveFusion)
         .flatMap(\.integration)
         .get()
         .makeMerge(supply: review.sourceBranch)
@@ -118,7 +118,7 @@ public struct GitlabAwardApprover {
         git: cfg.git,
         gitlabCi: gitlabCi,
         merge: try Lossy(.init(cfg: cfg))
-          .map(resolveFlow)
+          .map(resolveFusion)
           .flatMap(\.replication)
           .get()
           .makeMerge(supply: review.sourceBranch),
@@ -170,7 +170,7 @@ public struct GitlabAwardApprover {
   func resolveChanges(
     git: Git,
     gitlabCi: GitlabCi,
-    merge: Flow.Merge,
+    merge: Fusion.Merge,
     review: Json.GitlabReviewState,
     pipeline: Json.GitlabPipeline
   ) throws -> [String] {
@@ -217,7 +217,7 @@ public struct GitlabAwardApprover {
   func resolveParticipants(
     cfg: Configuration,
     gitlabCi: GitlabCi,
-    merge: Flow.Merge
+    merge: Fusion.Merge
   ) throws -> [String] { try Id
     .make(cfg.git.listCommits(
       in: [.make(sha: merge.fork)],

@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct GitlabVersionController {
+public final class Producer {
   let execute: Try.Reply<Execute>
   let generate: Try.Reply<Generate>
   let writeFile: Try.Reply<Files.WriteFile>

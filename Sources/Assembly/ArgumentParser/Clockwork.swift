@@ -17,30 +17,30 @@ struct Clockwork: ParsableCommand {
       CheckFileTaboos.self,
       CheckReviewConflictMarkers.self,
       CheckReviewObsolete.self,
-      CheckReviewTitle.self,
+      CheckResolutionTitle.self,
       CheckReviewStatus.self,
-      CheckGitlabReviewAwardApproval.self,
-      CheckGitlabReplicationAwardApproval.self,
-      CheckGitlabIntegrationAwardApproval.self,
-      AddGitlabReviewLabels.self,
-      ActivateGitlabApprover.self,
-      DeactivateGitlabApprover.self,
-      AcceptGitlabReview.self,
-      TriggerGitlabPipeline.self,
-      StartGitlabReplication.self,
-      UpdateGitlabReplication.self,
-      RenderGitlabIntegration.self,
-      StartGitlabIntegration.self,
-      FinishGitlabIntegration.self,
+      CheckResolutionAwardApproval.self,
+      CheckReplicationAwardApproval.self,
+      CheckIntegrationAwardApproval.self,
+      AddReviewLabels.self,
+      ActivateAwardApprover.self,
+      DeactivateAwardApprover.self,
+      AcceptResolution.self,
+      TriggerPipeline.self,
+      StartReplication.self,
+      UpdateReplication.self,
+      RenderIntegration.self,
+      StartIntegration.self,
+      FinishIntegration.self,
       ImportProvisions.self,
       ImportKeychain.self,
       ImportRequisites.self,
       ReportExpiringRequisites.self,
-      CreateGitlabDeployTag.self,
-      CreateGitlabCustomDeployTag.self,
-      CreateGitlabReleaseBranch.self,
-      CreateGitlabHotfixBranch.self,
-      ReserveGitlabBuildNumber.self,
+      CreateDeployTag.self,
+      CreateCustomDeployTag.self,
+      CreateReleaseBranch.self,
+      CreateHotfixBranch.self,
+      ReserveBuildNumber.self,
       RenderProtectedBuild.self,
       RenderReviewBuild.self,
       RenderVersions.self,
@@ -91,60 +91,60 @@ struct Clockwork: ParsableCommand {
       try Main.validator.validateReviewObsolete(cfg: cfg, target: target)
     }
   }
-  struct CheckReviewTitle: ClockworkCommand {
+  struct CheckResolutionTitle: ClockworkCommand {
     static var abstract: String { "Ensure title matches defined rules" }
     @OptionGroup var clockwork: Clockwork
     @Argument(help: "Title to be validated")
     var title: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabMerger.validateReviewTitle(cfg: cfg, title: title)
+      try Main.blender.validateResolutionTitle(cfg: cfg, title: title)
     }
   }
   struct CheckReviewStatus: ClockworkCommand {
     static var abstract: String { "Ensure review is ready to automatic merge" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabMerger.validateReviewStatus(cfg: cfg)
+      try Main.blender.validateReviewStatus(cfg: cfg)
     }
   }
-  struct CheckGitlabReviewAwardApproval: ClockworkCommand {
+  struct CheckResolutionAwardApproval: ClockworkCommand {
     static var abstract: String { "Check approval state and report new involved" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabAwardApprover.checkAwardApproval(cfg: cfg, mode: .review)
+      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .resolution)
     }
   }
-  struct AddGitlabReviewLabels: ClockworkCommand {
+  struct AddReviewLabels: ClockworkCommand {
     static var abstract: String { "Add labels to triggerer review" }
     @OptionGroup var clockwork: Clockwork
     @Argument(help: "Labels to be added to triggerer review")
     var labels: [String]
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabCommunicatior.addReviewLabels(cfg: cfg, labels: labels)
+      try Main.mediator.addReviewLabels(cfg: cfg, labels: labels)
     }
   }
-  struct ActivateGitlabApprover: ClockworkCommand {
+  struct ActivateAwardApprover: ClockworkCommand {
     static var abstract: String { "Set user status to active" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabAwardApprover.updateUser(cfg: cfg, active: true)
+      try Main.decorator.updateUser(cfg: cfg, active: true)
     }
   }
-  struct DeactivateGitlabApprover: ClockworkCommand {
+  struct DeactivateAwardApprover: ClockworkCommand {
     static var abstract: String { "Set user status to inactive" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabAwardApprover.updateUser(cfg: cfg, active: false)
+      try Main.decorator.updateUser(cfg: cfg, active: false)
     }
   }
-  struct AcceptGitlabReview: ClockworkCommand {
+  struct AcceptResolution: ClockworkCommand {
     static var abstract: String { "Rebase and accept review" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabMerger.acceptReview(cfg: cfg)
+      try Main.blender.acceptResolution(cfg: cfg)
     }
   }
-  struct TriggerGitlabPipeline: ClockworkCommand {
+  struct TriggerPipeline: ClockworkCommand {
     static var abstract: String { "Trigger pipeline and pass context" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Ref to run pipeline on")
@@ -152,64 +152,60 @@ struct Clockwork: ParsableCommand {
     @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
     var context: [String] = []
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabCommunicatior.triggerTargetPipeline(
-        cfg: cfg,
-        ref: ref,
-        context: context
-      )
+      try Main.mediator.triggerTargetPipeline(cfg: cfg, ref: ref, context: context)
     }
   }
-  struct CheckGitlabReplicationAwardApproval: ClockworkCommand {
+  struct CheckReplicationAwardApproval: ClockworkCommand {
     static var abstract: String { "Check approval state and report new involved" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabAwardApprover.checkAwardApproval(cfg: cfg, mode: .replication)
+      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .replication)
     }
   }
-  struct StartGitlabReplication: ClockworkCommand {
+  struct StartReplication: ClockworkCommand {
     static var abstract: String { "Create replication review" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabMerger.updateReplication(cfg: cfg)
+      try Main.blender.updateReplication(cfg: cfg)
     }
   }
-  struct UpdateGitlabReplication: ClockworkCommand {
+  struct UpdateReplication: ClockworkCommand {
     static var abstract: String { "Update or accept replication review" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabMerger.updateReplication(cfg: cfg)
+      try Main.blender.updateReplication(cfg: cfg)
     }
   }
-  struct CheckGitlabIntegrationAwardApproval: ClockworkCommand {
+  struct CheckIntegrationAwardApproval: ClockworkCommand {
     static var abstract: String { "Check approval state and report new involved" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabAwardApprover.checkAwardApproval(cfg: cfg, mode: .integration)
+      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .integration)
     }
   }
-  struct RenderGitlabIntegration: ClockworkCommand {
+  struct RenderIntegration: ClockworkCommand {
     static var abstract: String { "Stdouts rendered job template for suitable branches" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Local template name to use for rendering")
     var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabMerger.renderIntegration(cfg: cfg, template: template)
+      try Main.blender.renderIntegration(cfg: cfg, template: template)
     }
   }
-  struct StartGitlabIntegration: ClockworkCommand {
+  struct StartIntegration: ClockworkCommand {
     static var abstract: String { "Create integration review" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Integration target branch")
     var target: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabMerger.startIntegration(cfg: cfg, target: target)
+      try Main.blender.startIntegration(cfg: cfg, target: target)
     }
   }
-  struct FinishGitlabIntegration: ClockworkCommand {
+  struct FinishIntegration: ClockworkCommand {
     static var abstract: String { "Accept or update integration review" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabMerger.finishIntegration(cfg: cfg)
+      try Main.blender.finishIntegration(cfg: cfg)
     }
   }
   struct ImportProvisions: ClockworkCommand {
@@ -252,14 +248,14 @@ struct Clockwork: ParsableCommand {
       try Main.requisitor.reportExpiringRequisites(cfg: cfg, days: days)
     }
   }
-  struct CreateGitlabDeployTag: ClockworkCommand {
+  struct CreateDeployTag: ClockworkCommand {
     static var abstract: String { "Create deploy tag with next build number on release branch" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.createDeployTag(cfg: cfg)
+      try Main.producer.createDeployTag(cfg: cfg)
     }
   }
-  struct CreateGitlabCustomDeployTag: ClockworkCommand {
+  struct CreateCustomDeployTag: ClockworkCommand {
     static var abstract: String { "Create deploy tag with next build number on any protected ref" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Product to deploy")
@@ -267,34 +263,34 @@ struct Clockwork: ParsableCommand {
     @Option(help: "Version to deploy")
     var version: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.createCustomDeployTag(
+      try Main.producer.createCustomDeployTag(
         cfg: cfg,
         product: product,
         version: version
       )
     }
   }
-  struct CreateGitlabReleaseBranch: ClockworkCommand {
+  struct CreateReleaseBranch: ClockworkCommand {
     static var abstract: String { "Cut release branch and bump current product version" }
     @OptionGroup var clockwork: Clockwork
     @Argument(help: "Product name to make branch for")
     var product: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.createReleaseBranch(cfg: cfg, product: product)
+      try Main.producer.createReleaseBranch(cfg: cfg, product: product)
     }
   }
-  struct CreateGitlabHotfixBranch: ClockworkCommand {
+  struct CreateHotfixBranch: ClockworkCommand {
     static var abstract: String { "Cut release branch from deploy tag" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.createHotfixBranch(cfg: cfg)
+      try Main.producer.createHotfixBranch(cfg: cfg)
     }
   }
-  struct ReserveGitlabBuildNumber: ClockworkCommand {
+  struct ReserveBuildNumber: ClockworkCommand {
     static var abstract: String { "Reserves build number for parent review pipeline" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.reserveReviewBuild(cfg: cfg)
+      try Main.producer.reserveReviewBuild(cfg: cfg)
     }
   }
   struct RenderProtectedBuild: ClockworkCommand {
@@ -303,7 +299,7 @@ struct Clockwork: ParsableCommand {
     @Argument(help: "Local template name to use for rendering")
     var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.renderProtectedBuild(cfg: cfg, template: template)
+      try Main.producer.renderProtectedBuild(cfg: cfg, template: template)
     }
   }
   struct RenderReviewBuild: ClockworkCommand {
@@ -314,7 +310,7 @@ struct Clockwork: ParsableCommand {
     @Argument(help: "Local template name to use for rendering")
     var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.renderReviewBuild(cfg: cfg, template: template)
+      try Main.producer.renderReviewBuild(cfg: cfg, template: template)
     }
   }
   struct RenderVersions: ClockworkCommand {
@@ -323,7 +319,7 @@ struct Clockwork: ParsableCommand {
     @Argument(help: "Local template name to use for rendering")
     var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.renderVersions(cfg: cfg, template: template)
+      try Main.producer.renderVersions(cfg: cfg, template: template)
     }
   }
   struct RenderCustom: ClockworkCommand {
@@ -345,14 +341,14 @@ struct Clockwork: ParsableCommand {
     @Argument(help: "Tag to diff with")
     var tag: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabVersionController.reportReleaseNotes(cfg: cfg, tag: tag)
+      try Main.producer.reportReleaseNotes(cfg: cfg, tag: tag)
     }
   }
   struct CreateReviewPipeline: ClockworkCommand {
     @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Creates new pipeline for parent review" }
     func run(cfg: Configuration) throws -> Bool {
-      try Main.gitlabCommunicatior.createReviewPipeline(cfg: cfg)
+      try Main.mediator.createReviewPipeline(cfg: cfg)
     }
   }
 }

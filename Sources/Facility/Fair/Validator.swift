@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct GitlabValidator {
+public final class Validator {
   let execute: Try.Reply<Execute>
   let resolveCodeOwnage: Try.Reply<Configuration.ResolveCodeOwnage>
   let resolveFileTaboos: Try.Reply<Configuration.ResolveFileTaboos>

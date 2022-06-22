@@ -31,7 +31,7 @@ enum Main {
     jsonDecoder: jsonDecoder
   )
   static let environment = ProcessInfo.processInfo.environment
-  static let validator = GitlabValidator(
+  static let validator = Validator(
     execute: Processor.execute(query:),
     resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
     resolveFileTaboos: configurator.resolveFileTaboos(query:),
@@ -50,33 +50,33 @@ enum Main {
     getTime: Date.init,
     plistDecoder: .init()
   )
-  static let gitlabAwardApprover = GitlabAwardApprover(
+  static let decorator = Decorator(
     execute: Processor.execute(query:),
     resolveProfile: configurator.resolveProfile(query:),
     resolveAwardApproval: configurator.resolveAwardApproval(query:),
     resolveUserActivity: configurator.resolveUserActivity(query:),
     resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
     persistUserActivity: configurator.persistUserActivity(query:),
-    resolveFlow: configurator.resolveFlow(query:),
+    resolveFusion: configurator.resolveFusion(query:),
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
-  static let gitlabMerger = GitlabMerger(
+  static let blender = Blender(
     execute: Processor.execute(query:),
-    resolveFlow: configurator.resolveFlow(query:),
+    resolveFusion: configurator.resolveFusion(query:),
     printLine: FileHandle.standardOutput.write(message:),
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
-  static let gitlabCommunicatior = GitlabMediator(
+  static let mediator = Mediator(
     execute: Processor.execute(query:),
     logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
-  static let gitlabVersionController = GitlabVersionController(
+  static let producer = Producer(
     execute: Processor.execute(query:),
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),

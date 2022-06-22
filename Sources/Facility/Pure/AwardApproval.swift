@@ -206,7 +206,7 @@ public struct AwardApproval {
     }
   }
   public enum Mode {
-    case review
+    case resolution
     case replication
     case integration
   }

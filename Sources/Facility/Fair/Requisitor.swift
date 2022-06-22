@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct Requisitor {
+public final class Requisitor {
   let execute: Try.Reply<Execute>
   let report: Try.Reply<Report>
   let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>

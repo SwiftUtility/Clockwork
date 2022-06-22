@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct Configurator {
+public final class Configurator {
   let execute: Try.Reply<Execute>
   let decodeYaml: Try.Reply<Yaml.Decode>
   let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>
@@ -158,13 +158,13 @@ public struct Configurator {
       )}
       .or { throw Thrown("requisition not configured") }
   }
-  public func resolveFlow(
-    query: Configuration.ResolveFlow
-  ) throws -> Configuration.ResolveFlow.Reply { try query.cfg.controls.flow
+  public func resolveFusion(
+    query: Configuration.ResolveFusion
+  ) throws -> Configuration.ResolveFusion.Reply { try query.cfg.controls.fusion
       .reduce(query.cfg.git, parse(git:yaml:))
-      .reduce(Yaml.Controls.Flow.self, dialect.read(_:from:))
-      .reduce(query.cfg.controls.mainatiners, Flow.make(mainatiners:yaml:))
-      .or { throw Thrown("flow not configured") }
+      .reduce(Yaml.Controls.Fusion.self, dialect.read(_:from:))
+      .reduce(query.cfg.controls.mainatiners, Fusion.make(mainatiners:yaml:))
+      .or { throw Thrown("fusion not configured") }
   }
   public func resolveProduction(
     query: Configuration.ResolveProduction
