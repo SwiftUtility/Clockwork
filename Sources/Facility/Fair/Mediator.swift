@@ -14,7 +14,7 @@ public final class Mediator {
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
-  public func triggerTargetPipeline(
+  public func triggerPipeline(
     cfg: Configuration,
     ref: String,
     context: [String]

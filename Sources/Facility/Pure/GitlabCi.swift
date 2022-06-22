@@ -35,9 +35,10 @@ public struct GitlabCi {
     guard case "true" = env[Self.gitlabci]
     else { return .error(Thrown("Not in GitlabCI context")) }
     let trigger = Trigger(
-      pipeline: yaml.trigger.pipeline,
+      name: yaml.trigger.name,
       review: yaml.trigger.review,
-      profile: yaml.trigger.profile
+      profile: yaml.trigger.profile,
+      pipeline: yaml.trigger.pipeline
     )
     return .init(try .init(
       verbose: verbose,
@@ -95,31 +96,35 @@ public struct GitlabCi {
   static var review: String { "CI_MERGE_REQUEST_IID" }
   static var reviewTarget: String { "CI_MERGE_REQUEST_TARGET_BRANCH_NAME" }
   public struct Trigger {
-    public var pipeline: String
+    public var name: String
     public var review: String
     public var profile: String
+    public var pipeline: String
     func makeParent(env: [String: String]) -> Parent {
       guard case "true" = env[GitlabCi.triggered] else { return .init(
-        pipeline: .error(Thrown("Not triggered pipeline")),
+        name: .error(Thrown("Not triggered pipeline")),
         review: .error(Thrown("Not triggered pipeline")),
-        profile: .error(Thrown("Not triggered pipeline"))
+        profile: .error(Thrown("Not triggered pipeline")),
+        pipeline: .error(Thrown("Not triggered pipeline"))
       )}
       return .init(
-        pipeline: Lossy(try pipeline.get(env: env))
-          .map(UInt.init(_:))
-          .reduce(curry: Thrown("Malformed \(pipeline)"), Optional.or(error:)),
+        name: Lossy(try name.get(env: env)),
         review: Lossy(env[review])
           .reduce(curry: Thrown("Triggered not from review"), Optional.or(error:))
           .map(UInt.init(_:))
           .reduce(curry: Thrown("Malformed \(review)"), Optional.or(error:)),
-        profile: Lossy(try .init(value: profile.get(env: env)))
+        profile: Lossy(try .init(value: profile.get(env: env))),
+        pipeline: Lossy(try pipeline.get(env: env))
+          .map(UInt.init(_:))
+          .reduce(curry: Thrown("Malformed \(pipeline)"), Optional.or(error:))
       )
     }
   }
   public struct Parent {
-    public var pipeline: Lossy<UInt>
+    public var name: Lossy<String>
     public var review: Lossy<UInt>
     public var profile: Lossy<Files.Relative>
+    public var pipeline: Lossy<UInt>
   }
   public struct Info: Encodable {
     public var job: Json.GitlabJob
@@ -200,8 +205,9 @@ public extension GitlabCi {
     form: [
       "token=\(jobToken)",
       "ref=\(ref)",
-      "variables[\(trigger.pipeline)]=\(job.pipeline.id)",
+      "variables[\(trigger.name)]=\(job.name)",
       "variables[\(trigger.profile)]=\(cfg.profile.profile.path)",
+      "variables[\(trigger.pipeline)]=\(job.pipeline.id)",
     ] + review
       .map { "variables[\(trigger.review)]=\($0)" }
       .makeArray()

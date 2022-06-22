@@ -152,7 +152,7 @@ struct Clockwork: ParsableCommand {
     @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
     var context: [String] = []
     func run(cfg: Configuration) throws -> Bool {
-      try Main.mediator.triggerTargetPipeline(cfg: cfg, ref: ref, context: context)
+      try Main.mediator.triggerPipeline(cfg: cfg, ref: ref, context: context)
     }
   }
   struct CheckReplicationAwardApproval: ClockworkCommand {
