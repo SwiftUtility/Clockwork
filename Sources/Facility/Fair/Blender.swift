@@ -30,10 +30,8 @@ public final class Blender {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     guard !gitlabCi.job.tag else { throw Thrown("Not branch job") }
     for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
-      guard
-        rule.source.isMet(gitlabCi.job.pipeline.ref),
-        rule.title.isMet(title)
-      else { continue }
+      guard rule.source.isMet(gitlabCi.job.pipeline.ref) else { continue }
+      guard !rule.title.isMet(title) else { continue }
       try report(cfg.reportInvalidTitle(title: title))
       return false
     }

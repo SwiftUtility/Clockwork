@@ -127,7 +127,7 @@ public final class Decorator {
       )
     }
     try approval.consider(
-      sanityFiles: profile.sanityFiles,
+      sanityFiles: profile.sanityFiles + [gitlabCi.config],
       fileApproval: resolveCodeOwnage(.init(cfg: cfg, profile: profile)),
       changedFiles: changedFiles
     )

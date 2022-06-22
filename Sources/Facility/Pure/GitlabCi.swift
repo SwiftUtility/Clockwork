@@ -6,6 +6,7 @@ public struct GitlabCi {
   public var trigger: Trigger
   public var api: String
   public var project: String
+  public var config: String
   public var job: Json.GitlabJob
   public var jobToken: String
   public var review: UInt?
@@ -46,6 +47,7 @@ public struct GitlabCi {
       trigger: trigger,
       api: apiV4.get(env: env),
       project: projectId.get(env: env),
+      config: config.get(env: env),
       job: job.get(),
       jobToken: jobToken.get(env: env),
       review: env[review].flatMap(UInt.init(_:)),
@@ -95,6 +97,7 @@ public struct GitlabCi {
   static var path: String { "CI_PROJECT_PATH" }
   static var review: String { "CI_MERGE_REQUEST_IID" }
   static var reviewTarget: String { "CI_MERGE_REQUEST_TARGET_BRANCH_NAME" }
+  static var config: String { "CI_CONFIG_PATH" }
   public struct Trigger {
     public var name: String
     public var review: String
