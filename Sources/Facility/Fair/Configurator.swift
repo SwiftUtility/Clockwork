@@ -35,6 +35,21 @@ public struct Configurator {
     self.dialect = dialect
     self.jsonDecoder = jsonDecoder
   }
+  public func renderCustom(
+    cfg: Configuration,
+    yaml: String,
+    template: String
+  ) throws -> Bool {
+    try yaml.isEmpty
+      .else(yaml)
+      .map(Files.Relative.init(value:))
+      .reduce(.head, Git.File.init(ref:path:))
+      .reduce(cfg.git, parse(git:yaml:))
+      .reduce(template, cfg.generateCustom(template:yaml:))
+      .map(generate)
+      .map(printLine)
+    return true
+  }
   public func configure(
     profile: String,
     verbose: Bool,

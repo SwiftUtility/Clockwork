@@ -5,6 +5,10 @@ public struct Generate: Query {
   public var templates: [String: String]
   public var context: Encodable
   public typealias Reply = String
+  public struct Custom: Encodable {
+    public var ctx: AnyCodable?
+    public var yaml: AnyCodable?
+  }
   public struct Versions: Encodable {
     public var ctx: AnyCodable?
     public var versions: [String: String]
@@ -96,6 +100,17 @@ public struct Generate: Query {
   }
 }
 public extension Configuration {
+  func generateCustom(
+    template: String,
+    yaml: AnyCodable?
+  ) -> Generate { .init(
+    template: template,
+    templates: profile.templates,
+    context: Generate.Custom(
+      ctx: controls.context,
+      yaml: yaml
+    )
+  )}
   func generateVersions(
     template: String,
     versions: [String: String]

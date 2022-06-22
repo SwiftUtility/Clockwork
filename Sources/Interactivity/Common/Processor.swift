@@ -25,6 +25,11 @@ public struct Processor {
     this.process.launch()
   }
   private static func wait(this: Self) throws -> Execute.Reply.Status {
+    if this.process.terminationStatus != 0 && this.task.escalate {
+      let message = ["\(this.process.terminationStatus): \(this.task.launch)"]
+      + this.task.arguments
+      FileHandle.standardError.write(contentsOf: "\(message.joined(separator: "\n  "))\n".utf8)
+    }
     try this.process.standardError
       .flatMap { $0 as? Pipe }
       .map(\.fileHandleForReading)

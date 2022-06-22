@@ -326,6 +326,17 @@ struct Clockwork: ParsableCommand {
       try Main.gitlabVersionController.renderVersions(cfg: cfg, template: template)
     }
   }
+  struct RenderCustom: ClockworkCommand {
+    static var abstract: String { "Renders custom context to stdout" }
+    @OptionGroup var clockwork: Clockwork
+    @Option(help: "Local yaml to be used in template")
+    var yaml: String = ""
+    @Argument(help: "Local template name to use for rendering")
+    var template: String
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.configurator.renderCustom(cfg: cfg, yaml: yaml, template: template)
+    }
+  }
   struct ReportReleaseNotes: ClockworkCommand {
     static var abstract: String {
       "Produce and report notes of commits between HEAD tag and provided tag"
