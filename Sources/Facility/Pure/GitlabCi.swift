@@ -209,7 +209,7 @@ public extension GitlabCi {
       "token=\(jobToken)",
       "ref=\(ref)",
       "variables[\(trigger.name)]=\(job.name)",
-      "variables[\(trigger.profile)]=\(cfg.profile.profile.path)",
+      "variables[\(trigger.profile)]=\(cfg.profile.profile.path.value)",
       "variables[\(trigger.pipeline)]=\(job.pipeline.id)",
     ] + review
       .map { "variables[\(trigger.review)]=\($0)" }
