@@ -40,9 +40,7 @@ public struct Execute: Query {
     public func checkStatus() throws {
       for status in statuses {
         guard status.task.escalate, status.termination != 0 else { continue }
-        let message = ["\(status.termination):", "\(status.task.launch)"]
-        + status.task.arguments
-        throw Thrown(message.joined(separator: " "))
+        throw Thrown("Subprocess termination status")
       }
     }
     public struct Status {
