@@ -36,6 +36,7 @@ enum Main {
     resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
     resolveFileTaboos: configurator.resolveFileTaboos(query:),
     resolveForbiddenCommits: configurator.resolveForbiddenCommits(query:),
+    listFileLines: FileLiner.listFileLines(query:),
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder

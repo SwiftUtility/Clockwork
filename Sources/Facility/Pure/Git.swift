@@ -95,6 +95,7 @@ public extension Git {
     ],
     escalate: false
   )}
+  var notCommited: Execute { proc(args: ["status", "--porcelain"]) }
   var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"])}
   var listLocalRefs: Execute { proc(args: ["diff", "show-ref", "--head"])}
   func check(child: Ref, parent: Ref) -> Execute { proc(

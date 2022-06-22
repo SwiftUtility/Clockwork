@@ -6,6 +6,7 @@ public struct GitlabValidator {
   let resolveCodeOwnage: Try.Reply<Configuration.ResolveCodeOwnage>
   let resolveFileTaboos: Try.Reply<Configuration.ResolveFileTaboos>
   let resolveForbiddenCommits: Try.Reply<Configuration.ResolveForbiddenCommits>
+  let listFileLines: Try.Reply<Files.ListFileLines>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
@@ -14,6 +15,7 @@ public struct GitlabValidator {
     resolveCodeOwnage: @escaping Try.Reply<Configuration.ResolveCodeOwnage>,
     resolveFileTaboos: @escaping Try.Reply<Configuration.ResolveFileTaboos>,
     resolveForbiddenCommits: @escaping Try.Reply<Configuration.ResolveForbiddenCommits>,
+    listFileLines: @escaping Try.Reply<Files.ListFileLines>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
@@ -22,6 +24,7 @@ public struct GitlabValidator {
     self.resolveCodeOwnage = resolveCodeOwnage
     self.resolveFileTaboos = resolveFileTaboos
     self.resolveForbiddenCommits = resolveForbiddenCommits
+    self.listFileLines = listFileLines
     self.report = report
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
@@ -48,6 +51,8 @@ public struct GitlabValidator {
   }
   public func validateFileTaboos(cfg: Configuration) throws -> Bool {
     let rules = try resolveFileTaboos(.init(cfg: cfg, profile: cfg.profile))
+    guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
+    else { throw Thrown("Git is dirty") }
     let nameRules = rules.filter { $0.lines.isEmpty }
     let lineRules = rules.filter { !$0.lines.isEmpty }
     let files = try Id
@@ -68,12 +73,10 @@ public struct GitlabValidator {
       let lineRules = lineRules
         .filter { $0.files.isMet(file) }
       if lineRules.isEmpty { return }
-      try Id(file)
-        .map(Files.Relative.init(value:))
-        .reduce(.head, Git.File.init(ref:path:))
-        .map(cfg.git.cat(file:))
-        .map(execute)
-        .map(Execute.parseLines(reply:))
+      try Id("\(cfg.git.root.value)/\(file)")
+        .map(Files.Absolute.init(value:))
+        .map(Files.ListFileLines.init(file:))
+        .map(listFileLines)
         .get()
         .enumerated()
         .flatMap { row, line in lineRules
