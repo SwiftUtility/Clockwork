@@ -75,6 +75,11 @@ public final class Decorator {
       return false
     }
     var approval = try resolveAwardApproval(.init(cfg: cfg))
+    try approval.consider(activeUsers: resolveUserActivity(.init(
+      cfg: cfg,
+      awardApproval: approval
+    )))
+    approval.consider(gitlab: gitlabCi)
     approval.consider(review: review)
     let sha = try Id(review.pipeline.sha)
       .map(Git.Sha.init(value:))
