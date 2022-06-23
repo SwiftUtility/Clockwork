@@ -31,7 +31,7 @@ public final class Mediator {
     variables[gitlabCi.trigger.name] = gitlabCi.job.name
     variables[gitlabCi.trigger.review] = gitlabCi.review.map(String.init(_:))
     variables[gitlabCi.trigger.profile] = cfg.profile.profile.path.value
-    variables[gitlabCi.trigger.pipeline] = gitlabCi.job.pipeline.id.map(String.init(_:))
+    variables[gitlabCi.trigger.pipeline] = .init(gitlabCi.job.pipeline.id)
     try gitlabCi
       .postTriggerPipeline(ref: ref, cfg: cfg, variables: variables)
       .map(execute)
