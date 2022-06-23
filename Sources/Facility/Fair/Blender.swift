@@ -56,7 +56,7 @@ public final class Blender {
     if review.draft { reasons.append(.draft) }
     if review.workInProgress { reasons.append(.workInProgress) }
     if !review.blockingDiscussionsResolved { reasons.append(.blockingDiscussions) }
-    guard reasons.isEmpty else { return true }
+    guard !reasons.isEmpty else { return true }
     try report(cfg.reportReviewBlocked(
       review: review,
       users: [review.author.username],
