@@ -200,7 +200,7 @@ public extension GitlabCi {
   func postTriggerPipeline(
     ref: String,
     cfg: Configuration,
-    context: [String: String]
+    variables: [String: String]
   ) -> Lossy<Execute> { .init(.makeCurl(
     verbose: verbose,
     url: "\(url)/trigger/pipeline",
@@ -208,14 +208,10 @@ public extension GitlabCi {
     form: [
       "token=\(jobToken)",
       "ref=\(ref)",
-      "variables[\(trigger.name)]=\(job.name)",
-      "variables[\(trigger.profile)]=\(cfg.profile.profile.path.value)",
-      "variables[\(trigger.pipeline)]=\(job.pipeline.id)",
-    ] + review
-      .map { "variables[\(trigger.review)]=\($0)" }
-      .makeArray()
-    + context
-      .map { "variables[\($0.key)]=\($0.value)" }
+    ] + variables.compactMap { pair in pair.value
+      .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+      .map { "variables[\(pair.key)]=\($0)" }
+    }
   ))}
   func postMergeRequests(
     parameters: PostMergeRequests

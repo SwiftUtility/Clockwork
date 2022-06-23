@@ -28,12 +28,12 @@ public final class Mediator {
       let value = variable[index..<variable.endIndex].dropFirst()
       variables[.init(key)] = .init(value)
     }
+    variables[gitlabCi.trigger.name] = gitlabCi.job.name
+    variables[gitlabCi.trigger.review] = gitlabCi.review.map(String.init(_:))
+    variables[gitlabCi.trigger.profile] = cfg.profile.profile.path.value
+    variables[gitlabCi.trigger.pipeline] = gitlabCi.job.pipeline.id.map(String.init(_:))
     try gitlabCi
-      .postTriggerPipeline(
-        ref: ref,
-        cfg: cfg,
-        context: variables
-      )
+      .postTriggerPipeline(ref: ref, cfg: cfg, variables: variables)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
