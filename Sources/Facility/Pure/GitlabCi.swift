@@ -62,7 +62,17 @@ public struct GitlabCi {
           let path = try path.get(env: env)
           return "\(scheme)://\(yaml.bot.login):\(pushToken)@\(host):\(port)/\(path)"
         },
-      parent: trigger.makeParent(env: env)
+      parent: .init(
+        name: Lossy(try trigger.name.get(env: env)),
+        review: Lossy(env[trigger.review])
+          .reduce(curry: Thrown("Triggered not from review"), Optional.or(error:))
+          .map(UInt.init(_:))
+          .reduce(curry: Thrown("Malformed \(trigger.review)"), Optional.or(error:)),
+        profile: Lossy(try .init(value: trigger.profile.get(env: env))),
+        pipeline: Lossy(try trigger.pipeline.get(env: env))
+          .map(UInt.init(_:))
+          .reduce(curry: Thrown("Malformed \(trigger.pipeline)"), Optional.or(error:))
+      )
     ))
   }
   public static func makeApiToken(
@@ -87,7 +97,6 @@ public struct GitlabCi {
   }
   static var gitlabci: String { "GITLAB_CI" }
   static var protected: String { "CI_COMMIT_REF_PROTECTED" }
-  static var triggered: String { "CI_PIPELINE_TRIGGERED" }
   static var apiV4: String { "CI_API_V4_URL" }
   static var projectId: String { "CI_PROJECT_ID" }
   static var jobToken: String { "CI_JOB_TOKEN" }
@@ -103,25 +112,6 @@ public struct GitlabCi {
     public var review: String
     public var profile: String
     public var pipeline: String
-    func makeParent(env: [String: String]) -> Parent {
-      guard case "true" = env[GitlabCi.triggered] else { return .init(
-        name: .error(Thrown("Not triggered pipeline")),
-        review: .error(Thrown("Not triggered pipeline")),
-        profile: .error(Thrown("Not triggered pipeline")),
-        pipeline: .error(Thrown("Not triggered pipeline"))
-      )}
-      return .init(
-        name: Lossy(try name.get(env: env)),
-        review: Lossy(env[review])
-          .reduce(curry: Thrown("Triggered not from review"), Optional.or(error:))
-          .map(UInt.init(_:))
-          .reduce(curry: Thrown("Malformed \(review)"), Optional.or(error:)),
-        profile: Lossy(try .init(value: profile.get(env: env))),
-        pipeline: Lossy(try pipeline.get(env: env))
-          .map(UInt.init(_:))
-          .reduce(curry: Thrown("Malformed \(pipeline)"), Optional.or(error:))
-      )
-    }
   }
   public struct Parent {
     public var name: Lossy<String>
