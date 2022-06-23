@@ -71,12 +71,17 @@ public struct AwardApproval {
     for award in awards {
       state.awarders[award.name] = state.awarders[award.name].or([]).union([award.user.username])
     }
-    for group in state.involved.union([holdAward]) {
-      if state.awarders[group].or([]).intersection(state.bots).isEmpty {
-        state.unhighlighted.insert(group)
+    let allAwards = [holdAward] + allGroups
+      .compactMap { state.involved
+        .contains($0.key)
+        .then($0.value.award)
       }
-      state.awarders[group] = state.awarders[group]?.subtracting(state.bots)
-    }
+    state.unhighlighted = Set(allAwards)
+      .filter { award in !state.awarders[award]
+        .or([])
+        .intersection(state.bots)
+        .isEmpty
+      }
     state.holders = state.awarders[holdAward]
       .or([])
       .intersection(state.activeUsers)
