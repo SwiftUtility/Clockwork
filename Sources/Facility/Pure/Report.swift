@@ -56,7 +56,8 @@ public struct Report: Query {
     public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var title: String
+    public var review: Json.GitlabReviewState
+    public var users: Set<String>
   }
   public struct ReviewBlocked: Reportable {
     public let event: String = Self.event
@@ -193,11 +194,12 @@ public extension Configuration {
     markers: markers
   ))}
   func reportInvalidTitle(
-    title: String
+    review: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, reportable: Report.InvalidTitle(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
-    title: title
+    review: review,
+    users: [review.author.username]
   ))}
   func reportReviewBlocked(
     review: Json.GitlabReviewState,

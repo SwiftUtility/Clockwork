@@ -26,17 +26,25 @@ public final class Blender {
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
-  public func validateResolutionTitle(cfg: Configuration, title: String) throws -> Bool {
+  public func validateResolutionTitle(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
-    guard !gitlabCi.job.tag else { throw Thrown("Not branch job") }
-    print("\(#fileID):\(#line): \(gitlabCi.job.pipeline.ref)")
+    let review = try gitlabCi.getParentMrState
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
+      .get()
+    let pipeline = try gitlabCi.parent.pipeline
+      .flatMap(gitlabCi.getPipeline(pipeline:))
+      .map(execute)
+      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
+      .get()
+    guard pipeline.id == review.pipeline.id, review.state == "opened" else {
+      logMessage(.init(message: "Pipeline outdated"))
+      return false
+    }
     for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
-      print("\(#fileID):\(#line)")
-      guard rule.source.isMet(gitlabCi.job.pipeline.ref) else { continue }
-      print("\(#fileID):\(#line)")
-      guard !rule.title.isMet(title) else { continue }
-      print("\(#fileID):\(#line)")
-      try report(cfg.reportInvalidTitle(title: title))
+      guard rule.source.isMet(review.sourceBranch) else { continue }
+      guard !rule.title.isMet(review.title) else { continue }
+      try report(cfg.reportInvalidTitle(review: review))
       return false
     }
     return true
