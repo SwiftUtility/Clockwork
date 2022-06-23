@@ -17,6 +17,7 @@ struct Clockwork: ParsableCommand {
       CheckFileTaboos.self,
       CheckReviewConflictMarkers.self,
       CheckReviewObsolete.self,
+      CheckForbiddenCommits.self,
       CheckResolutionTitle.self,
       CheckReviewStatus.self,
       CheckResolutionAwardApproval.self,
@@ -89,6 +90,13 @@ struct Clockwork: ParsableCommand {
     var target: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.validator.validateReviewObsolete(cfg: cfg, target: target)
+    }
+  }
+  struct CheckForbiddenCommits: ClockworkCommand {
+    static var abstract: String { "Ensure contains no forbidden commits" }
+    @OptionGroup var clockwork: Clockwork
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.validator.validateForbiddenCommits(cfg: cfg)
     }
   }
   struct CheckResolutionTitle: ClockworkCommand {

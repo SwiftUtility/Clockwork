@@ -38,8 +38,13 @@ public struct Report: Query {
     public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var obsoleteFiles: [String]?
-    public var forbiddenCommits: [String]?
+    public var files: [String]?
+  }
+  public struct ForbiddenCommits: Reportable {
+    public let event: String = Self.event
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var commits: [String]?
   }
   public struct ConflictMarkers: Reportable {
     public let event: String = Self.event
@@ -167,13 +172,18 @@ public extension Configuration {
     issues: issues
   ))}
   func reportReviewObsolete(
-    obsoleteFiles: [String],
-    forbiddenCommits: [String]
+    files: [String]
   ) -> Report { .init(cfg: self, reportable: Report.ReviewObsolete(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
-    obsoleteFiles: obsoleteFiles.isEmpty.else(obsoleteFiles),
-    forbiddenCommits: forbiddenCommits.isEmpty.else(forbiddenCommits)
+    files: files
+  ))}
+  func reportForbiddenCommits(
+    commits: [String]
+  ) -> Report { .init(cfg: self, reportable: Report.ForbiddenCommits(
+    ctx: controls.context,
+    info: try? controls.gitlabCi.get().info,
+    commits: commits
   ))}
   func reportConflictMarkers(
     markers: [String]

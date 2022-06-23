@@ -27,7 +27,7 @@ public struct Configuration {
     public var controls: Git.File
     public var codeOwnage: Git.File?
     public var fileTaboos: Git.File?
-    public var obsolescence: Criteria?
+    public var obsolescence: Lossy<Criteria>
     public var templates: [String: String] = [:]
     public static func make(
       profile: Git.File,
@@ -46,6 +46,8 @@ public struct Configuration {
         .reduce(profile.ref, Git.File.init(ref:path:)),
       obsolescence: yaml.obsolescence
         .map(Criteria.init(yaml:))
+        .map(Lossy.value(_:))
+        .or(.error(Thrown("obsolescence not configured")))
     )}
     public var sanityFiles: [String] {
       [profile, codeOwnage, fileTaboos].compactMap(\.?.path.value)

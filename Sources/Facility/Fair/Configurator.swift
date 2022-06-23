@@ -241,7 +241,7 @@ public final class Configurator {
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String].self, dialect.read(_:from:))
-    .or([])
+    .or { throw Thrown("ForbiddenCommits not configured") }
     .map(Git.Sha.init(value:))
   }
   public func persistVersions(

@@ -93,36 +93,30 @@ public final class Validator {
     return false
   }
   public func validateReviewObsolete(cfg: Configuration, target: String) throws -> Bool {
-    var obsoleteFiles: [String] = []
-    if let criteria = cfg.profile.obsolescence { obsoleteFiles += try Id(target)
+    let obsolescence = try cfg.profile.obsolescence.get()
+    let files = try Id(target)
       .map(Git.Branch.init(name:))
       .map(Git.Ref.make(remote:))
       .reduce(.head, cfg.git.listChangedOutsideFiles(source:target:))
       .map(execute)
       .map(Execute.parseLines(reply:))
       .get()
-      .filter(criteria.isMet(_:))
+      .filter(obsolescence.isMet(_:))
+    guard !files.isEmpty else { return true }
+    try report(cfg.reportReviewObsolete(files: files))
+    return false
+  }
+  public func validateForbiddenCommits(cfg: Configuration) throws -> Bool {
+    let commits = try resolveForbiddenCommits(.init(cfg: cfg)).compactMap { sha in try Id
+      .make(.make(sha: sha))
+      .reduce(.head, cfg.git.check(child:parent:))
+      .map(execute)
+      .map(Execute.parseSuccess(reply:))
+      .get()
+      .then(sha.value)
     }
-    var forbiddenCommits: [String] = []
-    for sha in try resolveForbiddenCommits(.init(cfg: cfg)) {
-      if case _? = try? execute(cfg.git.check(
-        child: .head,
-        parent: .make(sha: sha)
-      )) { forbiddenCommits.append(sha.value) }
-    }
-    guard !obsoleteFiles.isEmpty || !forbiddenCommits.isEmpty else { return true }
-    obsoleteFiles
-      .map { $0 + ": obsolete" }
-      .map(LogMessage.init(message:))
-      .forEach(logMessage)
-    forbiddenCommits
-      .map { "forbidden commit: " + $0 }
-      .map(LogMessage.init(message:))
-      .forEach(logMessage)
-    try report(cfg.reportReviewObsolete(
-      obsoleteFiles: obsoleteFiles,
-      forbiddenCommits: forbiddenCommits
-    ))
+    guard !commits.isEmpty else { return true }
+    try report(cfg.reportForbiddenCommits(commits: commits))
     return false
   }
   public func validateReviewConflictMarkers(cfg: Configuration, target: String) throws -> Bool {
