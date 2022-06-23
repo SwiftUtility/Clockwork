@@ -102,8 +102,6 @@ struct Clockwork: ParsableCommand {
   struct CheckResolutionTitle: ClockworkCommand {
     static var abstract: String { "Ensure title matches defined rules" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Title to be validated")
-    var title: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.blender.validateResolutionTitle(cfg: cfg)
     }
