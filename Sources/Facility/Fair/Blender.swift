@@ -29,7 +29,7 @@ public final class Blender {
   public func validateResolutionTitle(cfg: Configuration, title: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     guard !gitlabCi.job.tag else { throw Thrown("Not branch job") }
-    print("\(#fileID):\(#line): gitlabCi.job.pipeline.ref")
+    print("\(#fileID):\(#line): \(gitlabCi.job.pipeline.ref)")
     for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
       print("\(#fileID):\(#line)")
       guard rule.source.isMet(gitlabCi.job.pipeline.ref) else { continue }
