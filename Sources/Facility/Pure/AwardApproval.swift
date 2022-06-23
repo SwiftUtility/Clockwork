@@ -45,6 +45,7 @@ public struct AwardApproval {
       if users.contains(review.author.username) { state.involved.insert(group) }
     }
     state.author.insert(review.author.username)
+    state.participants.insert(review.author.username)
     state.labels = .init(review.labels)
   }
   public mutating func consider(participants: [String]) throws {
@@ -77,7 +78,7 @@ public struct AwardApproval {
         .then($0.value.award)
       }
     state.unhighlighted = Set(allAwards)
-      .filter { award in !state.awarders[award]
+      .filter { award in state.awarders[award]
         .or([])
         .intersection(state.bots)
         .isEmpty
