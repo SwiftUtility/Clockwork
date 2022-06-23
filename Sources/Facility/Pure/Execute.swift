@@ -21,6 +21,7 @@ public struct Execute: Query {
     arguments += headers.flatMap { ["--header", $0] }
     arguments += urlencode.flatMap { ["--data-urlencode", $0] }
     arguments += form.flatMap { ["--data", $0] }
+    arguments += data.map { ["--data", $0] }.or([])
     return .init(tasks: [.init(escalate: checkHttp, verbose: verbose, arguments: arguments)])
   }
   public struct Task {
