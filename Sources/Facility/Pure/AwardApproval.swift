@@ -173,11 +173,14 @@ public struct AwardApproval {
       reserved: .init(yaml.reserve.get([]))
     )}
     public func isApproved(users: Users) throws -> Bool {
+      print("\(#fileID):\(#line) \(users)")
+      print("\(#fileID):\(#line) \(users.awarders[award].get([]))")
       guard quorum <= required.union(optional).union(reserved).subtracting(users.voiceless).count
       else { throw Thrown("Unapprovable group: \(name)") }
       let awarders = users.awarders[award].get([])
       let required = required
         .subtracting(users.voiceless)
+      print("\(#fileID):\(#line)")
       guard awarders.isSuperset(of: required) else { return false }
       var quote = quorum - required.count
       guard quote > 0 else { return true }
