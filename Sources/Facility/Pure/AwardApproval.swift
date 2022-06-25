@@ -53,6 +53,7 @@ public struct AwardApproval {
       self.holdables = known
         .subtracting(voiceless)
         .union([author])
+        .subtracting([bot])
       self.awarders = awards.reduce(into: [:]) { awarders, award in
         awarders[award.name] = awarders[award.name].get([]).union([award.user.username])
       }
