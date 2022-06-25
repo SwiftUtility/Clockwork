@@ -97,7 +97,7 @@ enum Main {
     return result
   }()
 }
-MayDay.sideEffect = { mayDay in FileHandle.standardError.write(
+SideEffects.reportMayDay = { mayDay in FileHandle.standardError.write(
   message: """
     ⚠️⚠️⚠️
     Please submit an issue at https://github.com/SwiftUtility/Clockwork/issues/new/choose
@@ -108,4 +108,5 @@ MayDay.sideEffect = { mayDay in FileHandle.standardError.write(
     ⚠️⚠️⚠️
     """
 )}
+SideEffects.printDebug = FileHandle.standardError.write(message:)
 Clockwork.main()
