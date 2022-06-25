@@ -27,132 +27,6 @@ public struct AwardApproval {
       .get([:])
       .mapValues(Set.init(_:))
   )}
-//  public mutating func consider(activeUsers: [String: Bool]) {
-//    state.activeUsers = Set(activeUsers.filter(\.value).keys)
-//    state.inactiveUsers = Set(activeUsers.keys).subtracting(state.activeUsers)
-//  }
-//  public mutating func consider(gitlab: GitlabCi) {
-//    state.bots.insert(gitlab.botLogin)
-//  }
-//  public mutating func consider(review: Json.GitlabReviewState) {
-//    for (group, criteria) in targetBranch {
-//      guard !state.involved.contains(group) else { continue }
-//      if criteria.isMet(review.targetBranch) { state.involved.insert(group) }
-//    }
-//    for (group, users) in personal {
-//      guard !state.involved.contains(group) else { continue }
-//      if users.contains(review.author.username) { state.involved.insert(group) }
-//    }
-//    state.author.insert(review.author.username)
-//    state.participants.insert(review.author.username)
-//    state.labels = .init(review.labels)
-//  }
-//  public mutating func consider(participants: [String]) throws {
-//    state.participants.formUnion(participants)
-//  }
-//  public mutating func consider(
-//    sanityFiles: [String],
-//    fileApproval: [String: Criteria],
-//    changedFiles: [String]
-//  ) throws {
-//    let sanityCriteria = try fileApproval[sanityGroup]
-//      .get { throw Thrown("No sanity ownage") }
-//    for file in sanityFiles where !sanityCriteria.isMet(file) {
-//      throw Thrown("\(file) not in \(sanityGroup)")
-//    }
-//    for file in changedFiles {
-//      for (group, criteria) in fileApproval {
-//        guard !state.involved.contains(group) else { continue }
-//        if criteria.isMet(file) { state.involved.insert(group) }
-//      }
-//    }
-//  }
-//  public mutating func consider(awards: [Json.GitlabAward]) throws {
-//    state.outstanders = state.bots.union(state.author).union(state.inactiveUsers)
-//    for award in awards {
-//      state.awarders[award.name] = state.awarders[award.name].or([]).union([award.user.username])
-//    }
-//    let allAwards = [holdAward] + allGroups
-//      .compactMap { state.involved
-//        .contains($0.key)
-//        .then($0.value.award)
-//      }
-//    state.unhighlighted = Set(allAwards)
-//      .filter { award in state.awarders[award]
-//        .or([])
-//        .intersection(state.bots)
-//        .isEmpty
-//      }
-//    state.holders = state.awarders[holdAward]
-//      .or([])
-//      .intersection(state.activeUsers)
-//    if let emergency = emergencyGroup {
-//      state.isEmergent = try Id(emergency)
-//        .map(getGroup(name:))
-//        .map(isApproved(group:))
-//        .get()
-//      if state.isEmergent { state.involved.insert(emergency) }
-//    }
-//    for group in state.involved where !state.labels.contains(group) {
-//      state.unnotified.insert(group)
-//    }
-//  }
-//  public func makeNewApprovals(
-//    cfg: Configuration,
-//    review: Json.GitlabReviewState
-//  ) throws -> [Report]? {
-//    guard !state.unnotified.isEmpty else { return nil }
-//    var newGroups: [Group.New] = []
-//    for name in state.unnotified {
-//      let group = try getGroup(name: name)
-//      let required = group.required.subtracting(state.outstanders)
-//      var optional = group.optional.subtracting(state.outstanders)
-//      let reserved = group.reserved.subtracting(state.outstanders)
-//      if required.union(optional).count < group.quorum { optional = optional.union(reserved) }
-//      newGroups.append(.init(
-//        name: name,
-//        award: group.award,
-//        required: required.isEmpty
-//          .else(.init(required)),
-//        optional: (required.count < group.quorum)
-//          .then(.init(optional)),
-//        optionals: group.quorum - required.count
-//      ))
-//    }
-//    return [cfg.reportNewAwardApprovals(
-//      review: review,
-//      users: state.participants,
-//      groups: newGroups
-//    )] + newGroups.map { group in cfg.reportNewAwardApprovalGroup(
-//      review: review,
-//      users: state.participants,
-//      group: group
-//    )}
-//  }
-//  public func makeUnapprovedGroups() throws -> Set<String>? {
-//    guard !state.isEmergent else { return nil }
-//    let unapproved = try state.involved
-//      .filter { try !isApproved(group: getGroup(name: $0)) }
-//    return unapproved.isEmpty.else(unapproved)
-//  }
-//  public func makeHoldersReport(
-//    cfg: Configuration,
-//    review: Json.GitlabReviewState
-//  ) throws -> Report? {
-//    var holders = state.holders.subtracting(state.inactiveUsers)
-//    if state.isEmergent { holders = try emergencyGroup
-//      .map(getGroup(name:))
-//      .map { $0.required.union($0.reserved) }
-//      .get { throw MayDay("No emergency group") }
-//      .intersection(holders)
-//    }
-//    guard holders.isEmpty else { return nil }
-//    return cfg.reportAwardApprovalHolders(
-//      review: review,
-//      users: state.participants,
-//      holders: holders
-//    )
-//  }
   public func get(group: String) throws -> Group {
     try allGroups[group].get { throw Thrown("Group \(group) not configured") }
   }
@@ -231,6 +105,8 @@ public struct AwardApproval {
       where !involved.contains(group) && changedFiles.contains(where: criteria.isMet(_:))
       { involved.insert(group) }
       let reported: Set = .init(labels)
+      if !users.awarders[approval.holdAward].get([]).contains(users.bot)
+      { unhighlighted.insert(approval.holdAward) }
       for group in try involved.map(approval.get(group:)) {
         if !users.awarders[group.award].get([]).contains(users.bot)
         { unhighlighted.insert(group.award) }
