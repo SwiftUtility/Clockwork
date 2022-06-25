@@ -121,8 +121,8 @@ public extension Git {
     firstParents: Bool
   ) -> Execute { proc(
     args: ["log", "--format=%H"]
-    + firstParents.then(["--first-parent"]).or([])
-    + noMerges.then(["--no-merges"]).or([])
+    + firstParents.then(["--first-parent"]).get([])
+    + noMerges.then(["--no-merges"]).get([])
     + include.map(\.value)
     + exclude.map { "^\($0.value)" }
   )}
@@ -165,7 +165,7 @@ public extension Git {
   )}
   func push(url: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
     args: ["push", url]
-    + force.then(["--force"]).or([])
+    + force.then(["--force"]).get([])
     + ["\(sha.value):\(Ref.make(local: branch).value)"]
   )}
   func push(url: String, delete branch: Branch) -> Execute { proc(
@@ -175,7 +175,7 @@ public extension Git {
   var fetch: Execute { proc(args: ["fetch", "origin", "--prune", "--prune-tags", "--tags"]) }
   func cat(file: File) throws -> Execute {
     var result = proc(args: ["show", "\(file.ref.value):\(file.path.value)"])
-    result.tasks += lfs.then(proc(args: ["lfs", "smudge"])).map(\.tasks).or([])
+    result.tasks += lfs.then(proc(args: ["lfs", "smudge"])).map(\.tasks).get([])
     return result
   }
   var userName: Execute { proc(args: ["config", "user.name"]) }
@@ -192,8 +192,8 @@ public extension Git {
     escalate: Bool
   ) -> Execute { proc(
     args: ["merge"]
-    + message.map { ["-m", $0] }.or(["--no-commit"])
-    + noFf.then(["--no-ff"]).or([])
+    + message.map { ["-m", $0] }.get(["--no-commit"])
+    + noFf.then(["--no-ff"]).get([])
     + [ref.value],
     env: env,
     escalate: escalate

@@ -94,13 +94,29 @@ public struct Report: Query {
     public var users: Set<String>
     public var error: String
   }
+  public struct EmergencyAwardApproval: Reportable {
+    public let event: String = Self.event
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState
+    public var users: Set<String>
+    public var cheaters: Set<String>
+  }
   public struct NewAwardApproval: Reportable {
     public let event: String
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
-    public var group: AwardApproval.Group.New
+    public var group: AwardApproval.Group.Report
+  }
+  public struct WaitAwardApproval: Reportable {
+    public let event: String
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState
+    public var users: Set<String>
+    public var group: AwardApproval.Group.Report
   }
   public struct NewAwardApprovals: Reportable {
     public let event: String = Self.event
@@ -108,7 +124,15 @@ public struct Report: Query {
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
-    public var groups: [AwardApproval.Group.New]
+    public var groups: [AwardApproval.Group.Report]
+  }
+  public struct WaitAwardApprovals: Reportable {
+    public let event: String = Self.event
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState
+    public var users: Set<String>
+    public var groups: [AwardApproval.Group.Report]
   }
   public struct AwardApprovalHolders: Reportable {
     public let event: String = Self.event
@@ -245,12 +269,35 @@ public extension Configuration {
       .union([review.author.username]),
     error: error
   ))}
-  func reportNewAwardApprovalGroup(
+  func reportEmergencyAwardApproval(
     review: Json.GitlabReviewState,
     users: Set<String>,
-    group: AwardApproval.Group.New
+    cheaters: Set<String>
+  ) -> Report { .init(cfg: self, reportable: Report.EmergencyAwardApproval(
+    ctx: controls.context,
+    info: try? controls.gitlabCi.get().info,
+    review: review,
+    users: users,
+    cheaters: cheaters
+  ))}
+  func reportNewAwardApproval(
+    review: Json.GitlabReviewState,
+    users: Set<String>,
+    group: AwardApproval.Group.Report
   ) -> Report { .init(cfg: self, reportable: Report.NewAwardApproval(
     event: "\(Report.NewAwardApproval.self)/\(group.name)",
+    ctx: controls.context,
+    info: try? controls.gitlabCi.get().info,
+    review: review,
+    users: users,
+    group: group
+  ))}
+  func reportWaitAwardApproval(
+    review: Json.GitlabReviewState,
+    users: Set<String>,
+    group: AwardApproval.Group.Report
+  ) -> Report { .init(cfg: self, reportable: Report.WaitAwardApproval(
+    event: "\(Report.WaitAwardApproval.self)/\(group.name)",
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -260,8 +307,19 @@ public extension Configuration {
   func reportNewAwardApprovals(
     review: Json.GitlabReviewState,
     users: Set<String>,
-    groups: [AwardApproval.Group.New]
+    groups: [AwardApproval.Group.Report]
   ) -> Report { .init(cfg: self, reportable: Report.NewAwardApprovals(
+    ctx: controls.context,
+    info: try? controls.gitlabCi.get().info,
+    review: review,
+    users: users,
+    groups: groups
+  ))}
+  func reportWaitAwardApprovals(
+    review: Json.GitlabReviewState,
+    users: Set<String>,
+    groups: [AwardApproval.Group.Report]
+  ) -> Report { .init(cfg: self, reportable: Report.WaitAwardApprovals(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,

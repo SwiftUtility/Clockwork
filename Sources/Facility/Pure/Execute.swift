@@ -15,13 +15,13 @@ public struct Execute: Query {
     headers: [String] = []
   ) -> Self {
     var arguments = ["curl", "--url", url]
-    arguments += checkHttp.then(["--fail"]).or([])
-    arguments += (retry > 0).then(["--retry", "\(retry)"]).or([])
-    arguments += (method == "GET").else(["--request", method]).or([])
+    arguments += checkHttp.then(["--fail"]).get([])
+    arguments += (retry > 0).then(["--retry", "\(retry)"]).get([])
+    arguments += (method == "GET").else(["--request", method]).get([])
     arguments += headers.flatMap { ["--header", $0] }
     arguments += urlencode.flatMap { ["--data-urlencode", $0] }
     arguments += form.flatMap { ["--data", $0] }
-    arguments += data.map { ["--data", $0] }.or([])
+    arguments += data.map { ["--data", $0] }.get([])
     return .init(tasks: [.init(escalate: checkHttp, verbose: verbose, arguments: arguments)])
   }
   public struct Task {
@@ -55,20 +55,20 @@ public struct Execute: Query {
   }
   public static func parseData(reply: Reply) throws -> Data {
     try reply.checkStatus()
-    return reply.data.or(.init())
+    return reply.data.get(.init())
   }
   public static func parseText(reply: Reply) throws -> String {
     try reply.checkStatus()
     return try reply.data
       .map(String.make(utf8:))
-      .or("")
+      .get("")
       .trimmingCharacters(in: .newlines)
   }
   public static func parseLines(reply: Reply) throws -> [String] {
     try reply.checkStatus()
     return try reply.data
       .map(String.make(utf8:))
-      .or("")
+      .get("")
       .components(separatedBy: .newlines)
       .drop(while: \.isEmpty)
       .reversed()
@@ -112,6 +112,6 @@ public extension JSONDecoder {
     try reply.checkStatus()
     return try reply.data
       .reduce(success, decode(_:from:))
-      .or { throw Thrown("Subprocess no output data") }
+      .get { throw Thrown("Subprocess no output data") }
   }
 }

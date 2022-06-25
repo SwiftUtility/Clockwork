@@ -11,15 +11,15 @@ public struct Fusion {
     resolution: yaml.resolution
       .map(Resolution.make(yaml:))
       .map(Lossy.value(_:))
-      .or(Lossy.error(Thrown("review not configured"))),
+      .get(Lossy.error(Thrown("review not configured"))),
     replication: yaml.replication
       .map(Replication.make(yaml:))
       .map(Lossy.value(_:))
-      .or(Lossy.error(Thrown("replication not configured"))),
+      .get(Lossy.error(Thrown("replication not configured"))),
     integration: yaml.integration
       .reduce(mainatiners, Integration.make(mainatiners:yaml:))
       .map(Lossy.value(_:))
-      .or(Lossy.error(Thrown("integration not configured")))
+      .get(Lossy.error(Thrown("integration not configured")))
   )}
   public struct Resolution {
     public var messageTemplate: String
@@ -32,7 +32,7 @@ public struct Fusion {
         .map { yaml in try .init(
           title: yaml.title
             .map(Criteria.init(yaml:))
-            .or(.init()),
+            .get(.init()),
           source: .init(yaml: yaml.source)
         )}
     )}
@@ -90,7 +90,7 @@ public struct Fusion {
       rules: yaml.rules
         .map { yaml in try .init(
           mainatiners: mainatiners
-            .union(Set(yaml.mainatiners.or([]))),
+            .union(Set(yaml.mainatiners.get([]))),
           source: .init(yaml: yaml.source),
           target: .init(yaml: yaml.target)
         )},

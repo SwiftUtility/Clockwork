@@ -47,6 +47,12 @@ struct Clockwork: ParsableCommand {
       RenderVersions.self,
       ReportReleaseNotes.self,
       CreateReviewPipeline.self,
+      PlayParentJob.self,
+      CancelParentJob.self,
+      RetryParentJob.self,
+      PlayNeighborJob.self,
+      CancelNeighborJob.self,
+      RetryNeighborJob.self,
     ]
   )
   struct ReportCustom: ClockworkCommand {
@@ -116,8 +122,10 @@ struct Clockwork: ParsableCommand {
   struct CheckResolutionAwardApproval: ClockworkCommand {
     static var abstract: String { "Check approval state and report new involved" }
     @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should remind present groups")
+    var remind = false
     func run(cfg: Configuration) throws -> Bool {
-      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .resolution)
+      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .resolution, remind: remind)
     }
   }
   struct AddReviewLabels: ClockworkCommand {
@@ -164,8 +172,10 @@ struct Clockwork: ParsableCommand {
   struct CheckReplicationAwardApproval: ClockworkCommand {
     static var abstract: String { "Check approval state and report new involved" }
     @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should remind present groups")
+    var remind = false
     func run(cfg: Configuration) throws -> Bool {
-      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .replication)
+      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .replication, remind: remind)
     }
   }
   struct StartReplication: ClockworkCommand {
@@ -185,8 +195,10 @@ struct Clockwork: ParsableCommand {
   struct CheckIntegrationAwardApproval: ClockworkCommand {
     static var abstract: String { "Check approval state and report new involved" }
     @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should remind present groups")
+    var remind = false
     func run(cfg: Configuration) throws -> Bool {
-      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .integration)
+      try Main.decorator.checkAwardApproval(cfg: cfg, mode: .integration, remind: remind)
     }
   }
   struct RenderIntegration: ClockworkCommand {
@@ -351,10 +363,64 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct CreateReviewPipeline: ClockworkCommand {
-    @OptionGroup var clockwork: Clockwork
     static var abstract: String { "Creates new pipeline for parent review" }
+    @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
       try Main.mediator.createReviewPipeline(cfg: cfg)
+    }
+  }
+  struct PlayParentJob: ClockworkCommand {
+    static var abstract: String { "Plays parent pipeline's job with matching name" }
+    @OptionGroup var clockwork: Clockwork
+    @Argument(help: "Job name to paly")
+    var name: String
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.mediator.affectParentJob(configuration: cfg, name: name, action: .play)
+    }
+  }
+  struct CancelParentJob: ClockworkCommand {
+    static var abstract: String { "Cancels parent pipeline's job with matching name" }
+    @OptionGroup var clockwork: Clockwork
+    @Argument(help: "Job name to cancel")
+    var name: String
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.mediator.affectParentJob(configuration: cfg, name: name, action: .cancel)
+    }
+  }
+  struct RetryParentJob: ClockworkCommand {
+    static var abstract: String { "Retries parent pipeline's job with matching name" }
+    @OptionGroup var clockwork: Clockwork
+    @Argument(help: "Job name to retry")
+    var name: String
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.mediator.affectParentJob(configuration: cfg, name: name, action: .retry)
+    }
+  }
+  struct PlayNeighborJob: ClockworkCommand {
+    static var abstract: String { "Plays current pipeline's job with matching name" }
+    @OptionGroup var clockwork: Clockwork
+    @Argument(help: "Job name to paly")
+    var name: String
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.mediator.affectNeighborJob(configuration: cfg, name: name, action: .play)
+    }
+  }
+  struct CancelNeighborJob: ClockworkCommand {
+    static var abstract: String { "Cancels current pipeline's job with matching name" }
+    @OptionGroup var clockwork: Clockwork
+    @Argument(help: "Job name to cancel")
+    var name: String
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.mediator.affectNeighborJob(configuration: cfg, name: name, action: .cancel)
+    }
+  }
+  struct RetryNeighborJob: ClockworkCommand {
+    static var abstract: String { "Retries current pipeline's job with matching name" }
+    @OptionGroup var clockwork: Clockwork
+    @Argument(help: "Job name to retry")
+    var name: String
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.mediator.affectNeighborJob(configuration: cfg, name: name, action: .retry)
     }
   }
 }

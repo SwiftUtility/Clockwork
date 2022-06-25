@@ -23,7 +23,7 @@ public final class Mediator {
     var variables: [String: String] = [:]
     for variable in context {
       let index = try variable.firstIndex(of: "=")
-        .or { throw Thrown("wrong argument format \(variable)") }
+        .get { throw Thrown("wrong argument format \(variable)") }
       let key = variable[variable.startIndex..<index]
       let value = variable[index..<variable.endIndex].dropFirst()
       variables[.init(key)] = .init(value)
@@ -98,12 +98,32 @@ public final class Mediator {
       return false
     }
     let job = try gitlabCi
-      .getParentPipelineJobs(action: action)
+      .getJobs(action: action, pipeline: review.pipeline.id)
       .map(execute)
       .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
       .get()
       .first { $0.name == name }
-      .or { throw Thrown("Job \(name) not found") }
+      .get { throw Thrown("Job \(name) not found") }
+    try gitlabCi
+      .postJobsAction(job: job.id, action: action)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return true
+  }
+  public func affectNeighborJob(
+    configuration cfg: Configuration,
+    name: String,
+    action: GitlabCi.JobAction
+  ) throws -> Bool {
+    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let job = try gitlabCi
+      .getJobs(action: action, pipeline: gitlabCi.job.pipeline.id)
+      .map(execute)
+      .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
+      .get()
+      .first { $0.name == name }
+      .get { throw Thrown("Job \(name) not found") }
     try gitlabCi
       .postJobsAction(job: job.id, action: action)
       .map(execute)

@@ -47,7 +47,7 @@ public final class Producer {
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     let product = try production
       .productMatching(ref: gitlabCi.job.pipeline.ref, tag: false)
-      .or { throw Thrown("No product matches \(gitlabCi.job.pipeline.ref)") }
+      .get { throw Thrown("No product matches \(gitlabCi.job.pipeline.ref)") }
     try product.checkPermission(job: gitlabCi.job)
     let version = try generate(cfg.generateReleaseVersion(
       product: product,
@@ -58,7 +58,7 @@ public final class Producer {
       .map(\.value)
       .reduce(production, cfg.generateNextBuild(production:build:))
       .map(generate)
-      .or { throw Thrown("Push first build number manually") }
+      .get { throw Thrown("Push first build number manually") }
     let tag = try generate(cfg.generateDeployName(
       product: product,
       version: version,
@@ -102,7 +102,7 @@ public final class Producer {
       .map(\.value)
       .reduce(production, cfg.generateNextBuild(production:build:))
       .map(generate)
-      .or { throw Thrown("Push first build number manually") }
+      .get { throw Thrown("Push first build number manually") }
     let tag = try generate(cfg.generateDeployName(
       product: product,
       version: version,
@@ -161,7 +161,7 @@ public final class Producer {
           .map(\.value)
           .reduce(production, cfg.generateNextBuild(production:build:))
           .map(generate)
-          .or { throw Thrown("Push first build number manually") },
+          .get { throw Thrown("Push first build number manually") },
         sha: pipeline.sha,
         targer: review.targetBranch,
         review: review.iid
@@ -186,7 +186,7 @@ public final class Producer {
           .map(\.value)
           .reduce(production, cfg.generateNextBuild(production:build:))
           .map(generate)
-          .or { throw Thrown("Push first build number manually") },
+          .get { throw Thrown("Push first build number manually") },
         sha: gitlabCi.job.pipeline.sha,
         branch: gitlabCi.job.pipeline.ref
       )
@@ -200,7 +200,7 @@ public final class Producer {
     try product.checkPermission(job: gitlabCi.job)
     let versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     let version = try versions[product.name]
-      .or { throw Thrown("No version for \(product.name)") }
+      .get { throw Thrown("No version for \(product.name)") }
     let name = try generate(cfg.generateReleaseName(
       product: product,
       version: version
@@ -229,7 +229,7 @@ public final class Producer {
     let production = try resolveProduction(.init(cfg: cfg))
     guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
-      .or { throw Thrown("No product match \(gitlabCi.job.pipeline.ref)") }
+      .get { throw Thrown("No product match \(gitlabCi.job.pipeline.ref)") }
     try product.checkPermission(job: gitlabCi.job)
     let version = try generate(cfg.generateDeployVersion(
       product: product,
@@ -308,7 +308,7 @@ public final class Producer {
     if gitlabCi.job.tag {
       let product = try production
         .productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
-        .or { throw Thrown("No product for \(gitlabCi.job.pipeline.ref)") }
+        .get { throw Thrown("No product for \(gitlabCi.job.pipeline.ref)") }
       build = .make(
         value: try generate(cfg.generateDeployBuild(
           product: product,
@@ -325,7 +325,7 @@ public final class Producer {
       build = try resolveProductionBuilds(.init(cfg: cfg, production: production))
        .reversed()
        .first(where: gitlabCi.job.matches(build:))
-       .or { throw Thrown("No build number reserved") }
+       .get { throw Thrown("No build number reserved") }
       if let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: false) {
         versions[product.name] = try generate(cfg.generateReleaseVersion(
           product: product,

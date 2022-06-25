@@ -65,13 +65,13 @@ public struct GitlabCi {
       parent: .init(
         name: Lossy(try trigger.name.get(env: env)),
         review: Lossy(env[trigger.review])
-          .reduce(curry: Thrown("Triggered not from review"), Optional.or(error:))
+          .reduce(Thrown("Triggered not from review"), Optional.get(or:value:))
           .map(UInt.init(_:))
-          .reduce(curry: Thrown("Malformed \(trigger.review)"), Optional.or(error:)),
+          .reduce(Thrown("Malformed \(trigger.review)"), Optional.get(or:value:)),
         profile: Lossy(try .init(value: trigger.profile.get(env: env))),
         pipeline: Lossy(try trigger.pipeline.get(env: env))
           .map(UInt.init(_:))
-          .reduce(curry: Thrown("Malformed \(trigger.pipeline)"), Optional.or(error:))
+          .reduce(Thrown("Malformed \(trigger.pipeline)"), Optional.get(or:value:))
       )
     ))
   }
@@ -82,7 +82,7 @@ public struct GitlabCi {
     guard case "true" = env[Self.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
     return Lossy.value(yaml.bot.apiToken)
-      .reduce(curry: Thrown("apiToken not configured"), Optional.or(error:))
+      .reduce(Thrown("apiToken not configured"), Optional.get(or:value:))
       .map(Secret.init(yaml:))
   }
   public static func makePushToken(
@@ -92,7 +92,7 @@ public struct GitlabCi {
     guard case "true" = env[Self.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
     return Lossy.value(yaml.bot.pushToken)
-      .reduce(curry: Thrown("pushToken not configured"), Optional.or(error:))
+      .reduce(Thrown("pushToken not configured"), Optional.get(or:value:))
       .map(Secret.init(yaml:))
   }
   static var gitlabci: String { "GITLAB_CI" }
@@ -219,12 +219,13 @@ public extension GitlabCi {
     url: "\(url)/repository/commits/\(sha)/merge_requests",
     headers: [botAuth.get()]
   ))}
-  func getParentPipelineJobs(
+  func getJobs(
     action: JobAction,
+    pipeline: UInt,
     page: Int = 0
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/pipelines/\(parent.pipeline.get())/jobs?\(action.jobsQuery(page: page))",
+    url: "\(url)/pipelines/\(pipeline)/jobs?\(action.jobsQuery(page: page))",
     headers: [botAuth.get()]
   ))}
   func postJobsAction(
@@ -335,7 +336,7 @@ public extension GitlabCi {
     func query() throws -> String {
       let message = try message
         .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-        .or { throw Thrown("Invalid tag annotation message") }
+        .get { throw Thrown("Invalid tag annotation message") }
       return ["tag_name=\(name)", "ref=\(ref)", "message=\(message)"]
         .joined(separator: "&")
     }

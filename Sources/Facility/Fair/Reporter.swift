@@ -43,14 +43,14 @@ public final class Reporter {
     let stdin = try stdin
       .then(readInput())
       .map(Execute.parseLines(reply:))
-      .or([])
+      .get([])
     try report(query: cfg.reportCustom(event: event, stdin: stdin))
     return true
   }
   public func report(query: Report) throws -> Report.Reply {
     let encoder = JSONEncoder()
     encoder.keyEncodingStrategy = .convertToSnakeCase
-    for value in query.cfg.controls.communication[query.reportable.event].or([]) {
+    for value in query.cfg.controls.communication[query.reportable.event].get([]) {
       switch value {
       case .slackHookTextMessage(let value): try Id
         .make(query.cfg.controls.generateReport(

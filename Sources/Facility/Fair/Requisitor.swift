@@ -33,7 +33,7 @@ public final class Requisitor {
     let requisition = try resolveRequisition(.init(cfg: cfg))
     let requisites = requisite.isEmpty
       .else([requisite])
-      .or(.init(requisition.requisites.keys))
+      .get(.init(requisition.requisites.keys))
     try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }
     return true
@@ -47,7 +47,7 @@ public final class Requisitor {
     try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
     try requisite.isEmpty
       .else([requisite])
-      .or(.init(requisition.requisites.keys))
+      .get(.init(requisition.requisites.keys))
       .forEach { requisite in try importKeychain(
         cfg: cfg,
         requisition: requisition,
@@ -65,7 +65,7 @@ public final class Requisitor {
     let requisition = try resolveRequisition(.init(cfg: cfg))
     let requisites = requisite.isEmpty
       .else([requisite])
-      .or(.init(requisition.requisites.keys))
+      .get(.init(requisition.requisites.keys))
     try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }
     try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
@@ -145,12 +145,12 @@ public final class Requisitor {
           .compactMap { try? $0.dropPrefix("notAfter=") }
           .first
           .flatMap(formatter.date(from:))
-          .or { throw MayDay("openssl output") }
+          .get { throw MayDay("openssl output") }
         guard date < threshold else { continue }
         let escaped = try lines
           .compactMap { try? $0.dropPrefix("commonName") }
           .first
-          .or { throw MayDay("openssl output") }
+          .get { throw MayDay("openssl output") }
           .trimmingCharacters(in: .newlines)
           .dropPrefix("= ")
           .replacingOccurrences(of: "\\U", with: "\\u")

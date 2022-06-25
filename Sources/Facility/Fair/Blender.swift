@@ -822,7 +822,7 @@ public final class Blender {
       .map(\.data)
       .get()
       .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
-      .or { .value(.null) }
+      .get { .value(.null) }
     if case "merged"? = result.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
       try report(cfg.reportReviewMerged(

@@ -20,7 +20,7 @@ public struct Configuration {
     self.controls = controls
   }
   public func get(env key: String) throws -> String {
-    try env[key].or { throw Thrown("No \(key) in environment") }
+    try env[key].get { throw Thrown("No \(key) in environment") }
   }
   public struct Profile {
     public var profile: Git.File
@@ -47,7 +47,7 @@ public struct Configuration {
       obsolescence: yaml.obsolescence
         .map(Criteria.init(yaml:))
         .map(Lossy.value(_:))
-        .or(.error(Thrown("obsolescence not configured")))
+        .get(.error(Thrown("obsolescence not configured")))
     )}
     public var sanityFiles: [String] {
       [profile, codeOwnage, fileTaboos].compactMap(\.?.path.value)
@@ -69,7 +69,7 @@ public struct Configuration {
       env: [String: String],
       yaml: Yaml.Controls
     ) throws -> Self { try .init(
-      mainatiners: .init(yaml.mainatiners.or([])),
+      mainatiners: .init(yaml.mainatiners.get([])),
       awardApproval: yaml.awardApproval
         .map(Files.Relative.init(value:))
         .reduce(ref, Git.File.init(ref:path:)),
@@ -256,6 +256,6 @@ public struct Configuration {
 }
 public extension String {
   func get(env: [String: String]) throws -> String {
-    try env[self].or { throw Thrown("No env \(self)") }
+    try env[self].get { throw Thrown("No env \(self)") }
   }
 }

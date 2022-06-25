@@ -4,7 +4,7 @@ import Stencil
 enum Filters {
   static func regexp(value: Any?, arguments: [Any?]) throws -> Any? {
     var value = try (value as? String)
-      .or { throw TemplateSyntaxError("'regexp' filter expects string value") }
+      .get { throw TemplateSyntaxError("'regexp' filter expects string value") }
     guard let arguments = (arguments as? [String]), arguments.count == 2 else {
       throw TemplateSyntaxError("'regexp' filter expects 2 string arguments regexp and template")
     }
@@ -35,11 +35,11 @@ enum Filters {
     try 1 + value
       .map { "\($0)" }
       .flatMap(Int.init(_:))
-      .or { throw TemplateSyntaxError("'incremented' filter expects Int value") }
+      .get { throw TemplateSyntaxError("'incremented' filter expects Int value") }
   }
   static func emptyLines(value: Any?) throws -> Any? {
     let value = try (value as? String)
-      .or { throw TemplateSyntaxError("'emptyLines' filter expects string value") }
+      .get { throw TemplateSyntaxError("'emptyLines' filter expects string value") }
     return value
       .components(separatedBy: .newlines)
       .filter { !$0.isEmpty }

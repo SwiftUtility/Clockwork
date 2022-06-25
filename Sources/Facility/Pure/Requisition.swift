@@ -4,7 +4,7 @@ public struct Requisition {
   public var verbose: Bool
   public var requisites: [String: Requisite]
   public func requisite(name: String) throws -> Requisite {
-    try requisites[name].or { throw Thrown("No \(name) in requisition") }
+    try requisites[name].get { throw Thrown("No \(name) in requisition") }
   }
   public static func make(
     verbose: Bool,

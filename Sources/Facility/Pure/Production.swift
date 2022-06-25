@@ -9,7 +9,7 @@ public struct Production {
   public var maxBuildsCount: Int?
   public func productMatching(ref: String, tag: Bool) throws -> Product? {
     var product: Product? = nil
-    let keyPath = tag.then(\Product.deployTag.nameMatch).or(\Product.releaseBranch.nameMatch)
+    let keyPath = tag.then(\Product.deployTag.nameMatch).get(\Product.releaseBranch.nameMatch)
     for value in products {
       guard value[keyPath: keyPath].isMet(ref) else { continue }
       if let product = product {
@@ -22,7 +22,7 @@ public struct Production {
   }
   public func productMatching(name: String) throws -> Product { try products
     .first(where: { $0.name == name })
-    .or { throw Thrown("No product \(name)") }
+    .get { throw Thrown("No product \(name)") }
   }
   public static func make(
     mainatiners: Set<String>,
@@ -35,7 +35,7 @@ public struct Production {
       .map { name, yaml in try .init(
         name: name,
         mainatiners: mainatiners
-          .union(Set(yaml.mainatiners.or([]))),
+          .union(Set(yaml.mainatiners.get([]))),
         deployTag: .init(
           nameMatch: .init(yaml: yaml.deployTag.nameMatch),
           createTemplate: yaml.deployTag.createTemplate,

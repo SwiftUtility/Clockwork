@@ -51,7 +51,11 @@ public final class Decorator {
     ))
     return true
   }
-  public func checkAwardApproval(cfg: Configuration, mode: AwardApproval.Mode) throws -> Bool {
+  public func checkAwardApproval(
+    cfg: Configuration,
+    mode: AwardApproval.Mode,
+    remind: Bool
+  ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let review = try gitlabCi.getParentMrState
       .map(execute)
@@ -74,32 +78,15 @@ public final class Decorator {
         .get()
       return false
     }
-    var approval = try resolveAwardApproval(.init(cfg: cfg))
-    try approval.consider(activeUsers: resolveUserActivity(.init(
-      cfg: cfg,
-      awardApproval: approval
-    )))
-    approval.consider(gitlab: gitlabCi)
-    approval.consider(review: review)
+    let approval = try resolveAwardApproval(.init(cfg: cfg))
     let sha = try Id(review.pipeline.sha)
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    let profile = try resolveProfile(.init(git: cfg.git, file: .init(
-      ref: sha,
-      path: gitlabCi.parent.profile.get()
-    )))
-    var changedFiles: [String] = []
-    var merge: Fusion.Merge? = nil
+    let merge: Fusion.Merge?
     switch mode {
     case .resolution:
-      changedFiles = try Id(review.targetBranch)
-        .map(Git.Branch.init(name:))
-        .map(Git.Ref.make(remote:))
-        .reduce(sha, cfg.git.listChangedFiles(source:target:))
-        .map(execute)
-        .map(Execute.parseLines(reply:))
-        .get()
+      merge = nil
     case .replication:
       merge = try Lossy(.init(cfg: cfg))
         .map(resolveFusion)
@@ -113,12 +100,14 @@ public final class Decorator {
         .get()
         .makeMerge(supply: review.sourceBranch)
     }
+    let participants: [String]
+    let changedFiles: [String]
     if let merge = merge {
-      try approval.consider(participants: resolveParticipants(
+      participants = try resolveParticipants(
         cfg: cfg,
         gitlabCi: gitlabCi,
         merge: merge
-      ))
+      )
       changedFiles = try resolveChanges(
         git: cfg.git,
         gitlabCi: gitlabCi,
@@ -130,44 +119,100 @@ public final class Decorator {
         review: review,
         pipeline: pipeline
       )
+    } else {
+      participants = []
+      changedFiles = try Id(review.targetBranch)
+        .map(Git.Branch.init(name:))
+        .map(Git.Ref.make(remote:))
+        .reduce(sha, cfg.git.listChangedFiles(source:target:))
+        .map(execute)
+        .map(Execute.parseLines(reply:))
+        .get()
     }
-    try approval.consider(
+    let users = try AwardApproval.Users(
+      bot: gitlabCi.botLogin,
+      author: review.author.username,
+      participants: participants,
+      approval: approval,
+      awards: gitlabCi.getParentMrAwarders
+        .map(execute)
+        .reduce([Json.GitlabAward].self, jsonDecoder.decode(success:reply:))
+        .get(),
+      userActivity: resolveUserActivity(.init(cfg: cfg, awardApproval: approval))
+    )
+    let profile = try resolveProfile(.init(git: cfg.git, file: .init(
+      ref: sha,
+      path: gitlabCi.parent.profile.get()
+    )))
+    let groups = try AwardApproval.Groups(
+      sourceBranch: review.sourceBranch,
+      targetBranch: review.targetBranch,
+      labels: review.labels,
+      users: users,
+      approval: approval,
       sanityFiles: profile.sanityFiles + [gitlabCi.config],
       fileApproval: resolveCodeOwnage(.init(cfg: cfg, profile: profile)),
       changedFiles: changedFiles
     )
-    let awards = try gitlabCi.getParentMrAwarders
-      .map(execute)
-      .reduce([Json.GitlabAward].self, jsonDecoder.decode(success:reply:))
-      .get()
-    try approval.consider(awards: awards)
-    for award in approval.state.unhighlighted {
+    for award in groups.unhighlighted {
       try gitlabCi
         .postParentMrAward(award: award)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
     }
-    if let reports = try approval.makeNewApprovals(cfg: cfg, review: review) {
-      try reports.forEach(report)
+    if !groups.unreported.isEmpty {
+      try report(cfg.reportNewAwardApprovals(
+        review: review,
+        users: users.coauthors,
+        groups: groups.unreported
+      ))
+      try groups.unreported.forEach { group in try report(cfg.reportNewAwardApproval(
+        review: review,
+        users: users.coauthors,
+        group: group
+      ))}
+    }
+    if groups.emergency, !groups.cheaters.isEmpty {
+      try report(cfg.reportEmergencyAwardApproval(
+        review: review,
+        users: users.coauthors,
+        cheaters: groups.cheaters
+      ))
+    }
+    if !groups.neededLabels.isEmpty || !groups.extraLabels.isEmpty {
       try gitlabCi
         .putMrState(parameters: .init(
-          addLabels: approval.state.unnotified
-            .joined(separator: ","),
-          removeLabels: Set(approval.allGroups.keys)
-            .subtracting(approval.state.involved)
-            .joined(separator: ",")
+          addLabels: groups.neededLabels.isEmpty.else(groups.neededLabels),
+          removeLabels: groups.extraLabels.isEmpty.else(groups.extraLabels)
         ))
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
     }
-    if let unapprovedGroups = try approval.makeUnapprovedGroups() {
-      unapprovedGroups.forEach { logMessage(.init(message: "\($0) unapproved")) }
+    if remind, groups.unreported.isEmpty, !groups.unapproved.isEmpty {
+      try report(cfg.reportWaitAwardApprovals(
+        review: review,
+        users: users.coauthors,
+        groups: groups.unapproved
+      ))
+      try groups.unapproved.forEach { group in try report(cfg.reportWaitAwardApproval(
+        review: review,
+        users: users.coauthors,
+        group: group
+      ))}
+    }
+    guard groups.emergency || groups.unapproved.isEmpty else {
+      groups.unapproved.forEach { logMessage(.init(message: "\($0) unapproved")) }
       return false
     }
-    if let holders = try approval.makeHoldersReport(cfg: cfg, review: review) {
-      try report(holders)
+    guard groups.holders.isEmpty else {
+      logMessage(.init(message: "On hold by: \(groups.holders.joined(separator: ", "))"))
+      try report(cfg.reportAwardApprovalHolders(
+        review: review,
+        users: users.coauthors,
+        holders: groups.holders
+      ))
       return false
     }
     return true

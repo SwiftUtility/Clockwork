@@ -108,7 +108,7 @@ public final class Configurator {
       .map(Files.Relative.init(value:))
       .reduce(profile.controls.ref, Git.Dir.init(ref:path:))
       .reduce(git, parse(git:templates:))
-      .or([:])
+      .get([:])
     if let yaml = yaml.gitlabCi {
       controls.gitlabCi = GitlabCi.make(
         verbose: verbose,
@@ -131,17 +131,17 @@ public final class Configurator {
       .get()
     let hooks = try communication.slackHooks
       .mapValues { try parse(env: env, secret: .init(yaml: $0)) }
-    for yaml in communication.slackHookTextMessages.or([]) {
+    for yaml in communication.slackHookTextMessages.get([]) {
       guard controls.templates[yaml.messageTemplate] != nil else {
         throw Thrown("No template \(yaml.messageTemplate)")
       }
       let communication = try Communication.slackHookTextMessage(.init(
         url: hooks[yaml.hook]
-          .or { throw Thrown("No \(yaml.hook) in slackHooks") },
+          .get { throw Thrown("No \(yaml.hook) in slackHooks") },
         yaml: yaml
       ))
       for event in yaml.events {
-        controls.communication[event] = controls.communication[event].or([]) + [communication]
+        controls.communication[event] = controls.communication[event].get([]) + [communication]
       }
     }
     return .init(verbose: verbose, git: git, env: env, profile: profile, controls: controls)
@@ -156,7 +156,7 @@ public final class Configurator {
         ref: query.cfg.profile.controls.ref,
         yaml: yaml
       )}
-      .or { throw Thrown("requisition not configured") }
+      .get { throw Thrown("requisition not configured") }
   }
   public func resolveFusion(
     query: Configuration.ResolveFusion
@@ -164,7 +164,7 @@ public final class Configurator {
       .reduce(query.cfg.git, parse(git:yaml:))
       .reduce(Yaml.Controls.Fusion.self, dialect.read(_:from:))
       .reduce(query.cfg.controls.mainatiners, Fusion.make(mainatiners:yaml:))
-      .or { throw Thrown("fusion not configured") }
+      .get { throw Thrown("fusion not configured") }
   }
   public func resolveProduction(
     query: Configuration.ResolveProduction
@@ -172,7 +172,7 @@ public final class Configurator {
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce(Yaml.Controls.Production.self, dialect.read(_:from:))
     .reduce(query.cfg.controls.mainatiners, Production.make(mainatiners:yaml:))
-    .or { throw Thrown("production not configured") }
+    .get { throw Thrown("production not configured") }
   }
   public func resolveProductionBuilds(
     query: Configuration.ResolveProductionBuilds
@@ -200,7 +200,7 @@ public final class Configurator {
       .map(Files.Relative.init(value:))
       .reduce(query.file.ref, Git.Dir.init(ref:path:))
       .reduce(query.git, parse(git:templates:))
-      .or([:])
+      .get([:])
     return result
   }
   public func resolveCodeOwnage(
@@ -208,7 +208,7 @@ public final class Configurator {
   ) throws -> Configuration.ResolveCodeOwnage.Reply { try query.profile.codeOwnage
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Yaml.Criteria].self, dialect.read(_:from:))
-    .or { throw Thrown("codeOwnage not configured") }
+    .get { throw Thrown("codeOwnage not configured") }
     .mapValues(Criteria.init(yaml:))
   }
   public func resolveFileTaboos(
@@ -216,7 +216,7 @@ public final class Configurator {
   ) throws -> Configuration.ResolveFileTaboos.Reply { try query.profile.fileTaboos
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([Yaml.Profile.FileTaboo].self, dialect.read(_:from:))
-    .or { throw Thrown("fileTaboos not configured") }
+    .get { throw Thrown("fileTaboos not configured") }
     .map(FileTaboo.init(yaml:))
   }
   public func resolveAwardApproval(
@@ -225,7 +225,7 @@ public final class Configurator {
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce(Yaml.Controls.AwardApproval.self, dialect.read(_:from:))
     .map(AwardApproval.make(yaml:))
-    .or { throw Thrown("AwardApproval not configured") }
+    .get { throw Thrown("AwardApproval not configured") }
   }
   public func resolveUserActivity(
     query: Configuration.ResolveUserActivity
@@ -241,7 +241,7 @@ public final class Configurator {
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String].self, dialect.read(_:from:))
-    .or { throw Thrown("ForbiddenCommits not configured") }
+    .get { throw Thrown("ForbiddenCommits not configured") }
     .map(Git.Sha.init(value:))
   }
   public func persistVersions(
@@ -287,7 +287,7 @@ public final class Configurator {
         branch: query.production.builds.branch,
         yaml: query.production.maxBuildsCount
           .map(builds.suffix(_:))
-          .or(builds)
+          .get(builds)
           .flatMap(makeYaml(build:))
           .joined(),
         message: message
@@ -375,13 +375,13 @@ extension Configurator {
     switch secret {
     case .value(let value): return value
     case .envVar(let envVar): return try env[envVar]
-      .or { throw Thrown("No env \(envVar)") }
+      .get { throw Thrown("No env \(envVar)") }
     case .envFile(let envFile): return try env[envFile]
       .map(Files.Absolute.init(value:))
       .map(Files.ReadFile.init(file:))
       .map(readFile)
       .map(String.make(utf8:))
-      .or { throw Thrown("No env \(envFile)") }
+      .get { throw Thrown("No env \(envFile)") }
     }
   }
   func parse(
@@ -413,6 +413,6 @@ extension Configurator {
       "  ref: '\(build.ref)'\n",
       "  tag: \(build.tag)\n",
     ]
-    + build.review.map { "  review: \($0)\n" }.makeArray()
+    + build.review.map { "  review: \($0)\n" }.array
   }
 }
