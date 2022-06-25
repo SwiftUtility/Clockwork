@@ -203,7 +203,7 @@ public final class Decorator {
       ))}
     }
     guard groups.emergency || groups.unapproved.isEmpty else {
-      groups.unapproved.forEach { logMessage(.init(message: "\($0) unapproved")) }
+      groups.unapproved.forEach { logMessage(.init(message: "\($0.name) unapproved")) }
       return false
     }
     guard groups.holders.isEmpty else {
