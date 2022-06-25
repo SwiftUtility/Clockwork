@@ -102,7 +102,9 @@ public final class Mediator {
       .map(execute)
       .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
       .get()
-      .first { $0.name == name }
+      .filter { $0.name == name }
+      .sorted { $0.id < $1.id }
+      .last
       .get { throw Thrown("Job \(name) not found") }
     try gitlabCi
       .postJobsAction(job: job.id, action: action)
@@ -122,7 +124,9 @@ public final class Mediator {
       .map(execute)
       .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
       .get()
-      .first { $0.name == name }
+      .filter { $0.name == name }
+      .sorted { $0.id < $1.id }
+      .last
       .get { throw Thrown("Job \(name) not found") }
     try gitlabCi
       .postJobsAction(job: job.id, action: action)

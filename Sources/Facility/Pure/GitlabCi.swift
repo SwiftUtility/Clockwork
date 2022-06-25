@@ -10,7 +10,6 @@ public struct GitlabCi {
   public var job: Json.GitlabJob
   public var jobToken: String
   public var review: UInt?
-  public var reviewTarget: String?
   public var botAuth: Lossy<String>
   public var pushUrl: Lossy<String>
   public var parent: Parent
@@ -50,8 +49,12 @@ public struct GitlabCi {
       config: config.get(env: env),
       job: job.get(),
       jobToken: jobToken.get(env: env),
-      review: env[review].flatMap(UInt.init(_:)),
-      reviewTarget: env[reviewTarget],
+      review: try? job
+        .map(\.pipeline.ref)
+        .reduce(curry: "refs/merge-requests/", String.dropPrefix(_:))
+        .reduce(curry: "/head", String.dropSuffix(_:))
+        .map(UInt.init(_:))
+        .get(),
       botAuth: apiToken
         .map { "Authorization: Bearer " + $0 },
       pushUrl: pushToken
@@ -104,8 +107,6 @@ public struct GitlabCi {
   static var host: String { "CI_SERVER_HOST" }
   static var port: String { "CI_SERVER_PORT" }
   static var path: String { "CI_PROJECT_PATH" }
-  static var review: String { "CI_MERGE_REQUEST_IID" }
-  static var reviewTarget: String { "CI_MERGE_REQUEST_TARGET_BRANCH_NAME" }
   static var config: String { "CI_CONFIG_PATH" }
   public struct Trigger {
     public var name: String
