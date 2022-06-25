@@ -89,7 +89,7 @@ public final class Validator {
         }
     }}
     guard !issues.isEmpty else { return true }
-    try report(cfg.reportFileTabooIssues(issues: issues))
+    try report(cfg.reportFileTaboos(issues: issues))
     return false
   }
   public func validateReviewObsolete(cfg: Configuration, target: String) throws -> Bool {

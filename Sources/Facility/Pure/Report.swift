@@ -28,7 +28,7 @@ public struct Report: Query {
     public var info: GitlabCi.Info?
     public var files: [String]
   }
-  public struct FileTabooIssues: Reportable {
+  public struct FileTaboos: Reportable {
     public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
@@ -196,9 +196,9 @@ public extension Configuration {
     info: try? controls.gitlabCi.get().info,
     files: files
   ))}
-  func reportFileTabooIssues(
+  func reportFileTaboos(
     issues: [FileTaboo.Issue]
-  ) -> Report { .init(cfg: self, reportable: Report.FileTabooIssues(
+  ) -> Report { .init(cfg: self, reportable: Report.FileTaboos(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     issues: issues
