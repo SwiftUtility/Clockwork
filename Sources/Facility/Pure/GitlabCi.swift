@@ -235,6 +235,7 @@ public extension GitlabCi {
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/jobs/\(job)/\(action.rawValue)",
+    method: "POST",
     headers: [botAuth.get()]
   ))}
   func postTags(
