@@ -823,6 +823,10 @@ public final class Blender {
       .debug()
       .map(\.data)
       .get()
+      .map {
+        try? print(String.make(utf8: $0))
+        return $0
+      }
       .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
       .get { .value(.null) }
     if case "merged"? = result?.map?["state"]?.value?.string {
