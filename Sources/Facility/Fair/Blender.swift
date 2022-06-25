@@ -811,26 +811,28 @@ public final class Blender {
     sha: Git.Sha,
     users: [String]
   ) throws -> Bool {
-    let result = try gitlabCi
+    let result = try? gitlabCi
       .putMrMerge(parameters: .init(
         mergeCommitMessage: message,
+        squashCommitMessage: message,
         squash: message != nil,
         shouldRemoveSourceBranch: true,
         sha: sha
       ))
       .map(execute)
+      .debug()
       .map(\.data)
       .get()
       .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
       .get { .value(.null) }
-    if case "merged"? = result.map?["state"]?.value?.string {
+    if case "merged"? = result?.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
       try report(cfg.reportReviewMerged(
         review: review,
         users: users
       ))
       return true
-    } else if let message = result.map?["message"]?.value?.string {
+    } else if let message = result?.map?["message"]?.value?.string {
       logMessage(.init(message: message))
       try report(cfg.reportReviewMergeError(
         review: review,

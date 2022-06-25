@@ -187,7 +187,7 @@ public extension Configuration {
   ) -> Report { .init(cfg: self, reportable: Report.Unexpected(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
-    error: "\(error)"
+    error: verbose.then(String(reflecting: error)).get(String(describing: error))
   ))}
   func reportUnownedCode(
     files: [String]
