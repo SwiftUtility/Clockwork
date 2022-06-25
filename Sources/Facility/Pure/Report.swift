@@ -102,7 +102,7 @@ public struct Report: Query {
     public var users: Set<String>
     public var cheaters: Set<String>
   }
-  public struct DoneAwardApproval: Reportable {
+  public struct AwardApprovalReady: Reportable {
     public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
@@ -287,10 +287,10 @@ public extension Configuration {
     users: users,
     cheaters: cheaters
   ))}
-  func reportDoneAwardApproval(
+  func reportAwardApprovalReady(
     review: Json.GitlabReviewState,
     users: Set<String>
-  ) -> Report { .init(cfg: self, reportable: Report.DoneAwardApproval(
+  ) -> Report { .init(cfg: self, reportable: Report.AwardApprovalReady(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,

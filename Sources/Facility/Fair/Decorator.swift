@@ -215,7 +215,7 @@ public final class Decorator {
       ))
       return false
     }
-    try report(cfg.reportDoneAwardApproval(review: review, users: users.coauthors))
+    if !remind { try report(cfg.reportAwardApprovalReady(review: review, users: users.coauthors)) }
     return true
   }
   func resolveChanges(
