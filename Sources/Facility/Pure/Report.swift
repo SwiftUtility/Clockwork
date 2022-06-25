@@ -102,6 +102,13 @@ public struct Report: Query {
     public var users: Set<String>
     public var cheaters: Set<String>
   }
+  public struct DoneAwardApproval: Reportable {
+    public let event: String = Self.event
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState
+    public var users: Set<String>
+  }
   public struct NewAwardApproval: Reportable {
     public let event: String
     public var ctx: AnyCodable?
@@ -279,6 +286,15 @@ public extension Configuration {
     review: review,
     users: users,
     cheaters: cheaters
+  ))}
+  func reportDoneAwardApproval(
+    review: Json.GitlabReviewState,
+    users: Set<String>
+  ) -> Report { .init(cfg: self, reportable: Report.DoneAwardApproval(
+    ctx: controls.context,
+    info: try? controls.gitlabCi.get().info,
+    review: review,
+    users: users
   ))}
   func reportNewAwardApproval(
     review: Json.GitlabReviewState,
