@@ -254,8 +254,3 @@ public struct Configuration {
     public typealias Reply = Void
   }
 }
-public extension String {
-  func get(env: [String: String]) throws -> String {
-    try env[self].get { throw Thrown("No env \(self)") }
-  }
-}

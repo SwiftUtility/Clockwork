@@ -103,6 +103,7 @@ public enum Yaml {
         public var pushToken: Secret?
       }
       public struct Trigger: Decodable {
+        public var job: String
         public var name: String
         public var review: String
         public var profile: String

@@ -17,16 +17,21 @@ public enum Json {
     public var pipeline: Pipeline
     public var tag: Bool
     public var webUrl: String
-    public struct Pipeline: Codable {
-      public var id: UInt
-      public var ref: String
-      public var sha: String
+    public var review: UInt? { try? pipeline.ref
+      .dropPrefix("refs/merge-requests/")
+      .dropSuffix("/head")
+      .getUInt()
     }
     public func matches(build: Production.Build) -> Bool {
       build.sha == pipeline.sha
       && build.ref == pipeline.ref
       && build.tag == tag
       && build.review == nil
+    }
+    public struct Pipeline: Codable {
+      public var id: UInt
+      public var ref: String
+      public var sha: String
     }
   }
   public struct GitlabCommitMergeRequest: Codable {

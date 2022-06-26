@@ -28,8 +28,9 @@ public final class Mediator {
       let value = variable[index..<variable.endIndex].dropFirst()
       variables[.init(key)] = .init(value)
     }
+    variables[gitlabCi.trigger.job] = "\(gitlabCi.job.id)"
     variables[gitlabCi.trigger.name] = gitlabCi.job.name
-    variables[gitlabCi.trigger.review] = gitlabCi.review.map(String.init(_:))
+    variables[gitlabCi.trigger.review] = gitlabCi.job.review.map(String.init(_:))
     variables[gitlabCi.trigger.profile] = cfg.profile.profile.path.value
     variables[gitlabCi.trigger.pipeline] = .init(gitlabCi.job.pipeline.id)
     try gitlabCi

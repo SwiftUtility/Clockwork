@@ -26,10 +26,10 @@ struct Clockwork: ParsableCommand {
       AddReviewLabels.self,
       ActivateAwardApprover.self,
       DeactivateAwardApprover.self,
-      AcceptResolution.self,
+      FinishResolution.self,
       TriggerPipeline.self,
       StartReplication.self,
-      UpdateReplication.self,
+      FinishReplication.self,
       RenderIntegration.self,
       StartIntegration.self,
       FinishIntegration.self,
@@ -151,7 +151,7 @@ struct Clockwork: ParsableCommand {
       try Main.decorator.updateUser(cfg: cfg, active: false)
     }
   }
-  struct AcceptResolution: ClockworkCommand {
+  struct FinishResolution: ClockworkCommand {
     static var abstract: String { "Rebase and accept review" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
@@ -185,7 +185,7 @@ struct Clockwork: ParsableCommand {
       try Main.blender.updateReplication(cfg: cfg)
     }
   }
-  struct UpdateReplication: ClockworkCommand {
+  struct FinishReplication: ClockworkCommand {
     static var abstract: String { "Update or accept replication review" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {

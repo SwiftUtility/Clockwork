@@ -9,7 +9,6 @@ public struct GitlabCi {
   public var config: String
   public var job: Json.GitlabJob
   public var jobToken: String
-  public var review: UInt?
   public var botAuth: Lossy<String>
   public var pushUrl: Lossy<String>
   public var parent: Parent
@@ -20,7 +19,7 @@ public struct GitlabCi {
     url: job.webUrl
       .components(separatedBy: "/-/")
       .first,
-    mr: review,
+    mr: job.review,
     parentMr: try? parent.review.get(),
     parentPipe: try? parent.pipeline.get()
   )}
@@ -35,6 +34,7 @@ public struct GitlabCi {
     guard case "true" = env[Self.gitlabci]
     else { return .error(Thrown("Not in GitlabCI context")) }
     let trigger = Trigger(
+      job: yaml.trigger.job,
       name: yaml.trigger.name,
       review: yaml.trigger.review,
       profile: yaml.trigger.profile,
@@ -49,12 +49,6 @@ public struct GitlabCi {
       config: config.get(env: env),
       job: job.get(),
       jobToken: jobToken.get(env: env),
-      review: try? job
-        .map(\.pipeline.ref)
-        .reduce(curry: "refs/merge-requests/", String.dropPrefix(_:))
-        .reduce(curry: "/head", String.dropSuffix(_:))
-        .map(UInt.init(_:))
-        .get(),
       botAuth: apiToken
         .map { "Authorization: Bearer " + $0 },
       pushUrl: pushToken
@@ -98,6 +92,14 @@ public struct GitlabCi {
       .reduce(Thrown("pushToken not configured"), Optional.get(or:value:))
       .map(Secret.init(yaml:))
   }
+  public static func makeParent(
+    env: [String: String],
+    yaml: Yaml.Controls.GitlabCi
+  ) -> Lossy<UInt> {
+    guard case "true" = env[Self.protected]
+    else { return .error(Thrown("Not in protected pipeline")) }
+    return .init(try yaml.trigger.job.get(env: env).getUInt())
+  }
   static var gitlabci: String { "GITLAB_CI" }
   static var protected: String { "CI_COMMIT_REF_PROTECTED" }
   static var apiV4: String { "CI_API_V4_URL" }
@@ -109,6 +111,7 @@ public struct GitlabCi {
   static var path: String { "CI_PROJECT_PATH" }
   static var config: String { "CI_CONFIG_PATH" }
   public struct Trigger {
+    public var job: String
     public var name: String
     public var review: String
     public var profile: String
