@@ -68,7 +68,6 @@ public final class Producer {
       build: build
     ))
     let annotation = try generate(cfg.generateDeployAnnotation(
-      job: gitlabCi.job,
       product: product,
       version: version,
       build: build
@@ -112,7 +111,6 @@ public final class Producer {
       build: build
     ))
     let annotation = try generate(cfg.generateDeployAnnotation(
-      job: gitlabCi.job,
       product: product,
       version: version,
       build: build

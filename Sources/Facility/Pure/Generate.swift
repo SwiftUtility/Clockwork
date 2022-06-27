@@ -7,15 +7,18 @@ public struct Generate: Query {
   public typealias Reply = String
   public struct Versions: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var versions: [String: String]
   }
   public struct Build: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var versions: [String: String]
     public var build: Production.Build
   }
   public struct Integration: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info
     public var targets: [String]
   }
   public struct ReleaseVersion: Encodable {
@@ -40,7 +43,7 @@ public struct Generate: Query {
   }
   public struct DeployAnnotation: Encodable {
     public var ctx: AnyCodable?
-    public var user: String
+    public var info: GitlabCi.Info
     public var product: String
     public var version: String
     public var build: String
@@ -70,30 +73,36 @@ public struct Generate: Query {
   }
   public struct VersionCommitMessage: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info
     public var product: String
     public var version: String
   }
   public struct BuildCommitMessage: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info
     public var build: String
   }
   public struct UserActivityCommitMessage: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info
     public var user: String
     public var active: Bool
   }
   public struct ResolutionCommitMessage: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info
     public var review: Json.GitlabReviewState
   }
   public struct IntegrationCommitMessage: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info
     public var fork: String
     public var source: String
     public var target: String
   }
   public struct ReplicationCommitMessage: Encodable {
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info
     public var fork: String
     public var source: String
     public var target: String
@@ -129,6 +138,7 @@ public extension Configuration {
     templates: profile.templates,
     context: Generate.Integration(
       ctx: controls.context,
+      info: controls.gitlabCi.get().info,
       targets: targets
     )
   )}
@@ -159,16 +169,15 @@ public extension Configuration {
     )
   )}
   func generateDeployAnnotation(
-    job: Json.GitlabJob,
     product: Production.Product,
     version: String,
     build: String
-  ) -> Generate { .init(
-    template: product.deployTag.generateName,
+  ) throws -> Generate { try .init(
+    template: product.deployTag.generateAnnotation,
     templates: controls.templates,
     context: Generate.DeployAnnotation(
       ctx: controls.context,
-      user: job.user.username,
+      info: controls.gitlabCi.get().info,
       product: product.name,
       version: version,
       build: build
@@ -265,6 +274,7 @@ public extension Configuration {
     templates: controls.templates,
     context: Generate.VersionCommitMessage(
       ctx: controls.context,
+      info: controls.gitlabCi.get().info,
       product: product.name,
       version: version
     )
@@ -278,6 +288,7 @@ public extension Configuration {
     templates: controls.templates,
     context: Generate.BuildCommitMessage(
       ctx: controls.context,
+      info: controls.gitlabCi.get().info,
       build: build
     )
   )}
@@ -291,6 +302,7 @@ public extension Configuration {
     templates: controls.templates,
     context: Generate.UserActivityCommitMessage(
       ctx: controls.context,
+      info: controls.gitlabCi.get().info,
       user: user,
       active: active
     )
@@ -298,22 +310,24 @@ public extension Configuration {
   func generateResolutionCommitMessage(
     resolution: Fusion.Resolution,
     review: Json.GitlabReviewState
-  ) -> Generate { .init(
+  ) throws -> Generate { try .init(
     template: resolution.commitMessage,
     templates: controls.templates,
     context: Generate.ResolutionCommitMessage(
       ctx: controls.context,
+      info: controls.gitlabCi.get().info,
       review: review
     )
   )}
   func generateIntegrationCommitMessage(
     integration: Fusion.Integration,
     merge: Fusion.Merge
-  ) -> Generate { .init(
+  ) throws -> Generate { try .init(
     template: integration.commitMessage,
     templates: controls.templates,
     context: Generate.IntegrationCommitMessage(
       ctx: controls.context,
+      info: controls.gitlabCi.get().info,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
@@ -322,11 +336,12 @@ public extension Configuration {
   func generateReplicationCommitMessage(
     replication: Fusion.Replication,
     merge: Fusion.Merge
-  ) -> Generate { .init(
+  ) throws -> Generate { try .init(
     template: replication.commitMessage,
     templates: controls.templates,
     context: Generate.ReplicationCommitMessage(
       ctx: controls.context,
+      info: controls.gitlabCi.get().info,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name

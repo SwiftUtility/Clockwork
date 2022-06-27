@@ -40,6 +40,7 @@ public struct Production {
         deployTag: .init(
           nameMatch: .init(yaml: yaml.deployTag.nameMatch),
           generateName: .make(yaml: yaml.deployTag.generateName),
+          generateAnnotation: .make(yaml: yaml.deployTag.generateAnnotation),
           parseBuild: .make(yaml: yaml.deployTag.parseBuild),
           parseVersion: .make(yaml: yaml.deployTag.parseVersion)
         ),
@@ -74,6 +75,7 @@ public struct Production {
     public struct DeployTag {
       public var nameMatch: Criteria
       public var generateName: Configuration.Template
+      public var generateAnnotation: Configuration.Template
       public var parseBuild: Configuration.Template
       public var parseVersion: Configuration.Template
     }
