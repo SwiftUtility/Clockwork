@@ -28,9 +28,9 @@ public struct Generate: Query {
     public var product: String
     public var version: String
   }
-  public struct CustomBranchName: Encodable {
+  public struct AccessoryName: Encodable {
     public var ctx: AnyCodable?
-    public var name: String
+    public var custom: String
   }
   public struct DeployName: Encodable {
     public var ctx: AnyCodable?
@@ -186,16 +186,15 @@ public extension Configuration {
       version: version
     )
   )}
-  func generateCustomBranchName(
-    production: Production,
-    name: String
-  ) throws -> Generate { try .init(
-    template: production.generateCustomBranchName
-      .get { throw Thrown("generateCustomBranchName not configured") },
+  func generateAccessoryName(
+    accessoryBranch: Production.AccessoryBranch,
+    custom: String
+  ) -> Generate { .init(
+    template: accessoryBranch.generateName,
     templates: controls.templates,
-    context: Generate.CustomBranchName(
+    context: Generate.AccessoryName(
       ctx: controls.context,
-      name: name
+      custom: custom
     )
   )}
   func generateNextVersion(

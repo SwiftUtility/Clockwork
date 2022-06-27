@@ -51,7 +51,7 @@ public final class Producer {
     let product = try production
       .productMatching(ref: gitlabCi.job.pipeline.ref, tag: false)
       .get { throw Thrown("No product matches \(gitlabCi.job.pipeline.ref)") }
-    try product.checkPermission(job: gitlabCi.job)
+    try gitlabCi.job.checkPermission(users: product.mainatiners)
     let version = try generate(cfg.generateReleaseVersion(
       product: product,
       ref: gitlabCi.job.pipeline.ref
@@ -99,7 +99,7 @@ public final class Producer {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let product = try production.productMatching(name: product)
-    try product.checkPermission(job: gitlabCi.job)
+    try gitlabCi.job.checkPermission(users: product.mainatiners)
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     let build = try builds.last
       .map(\.value)
@@ -187,7 +187,7 @@ public final class Producer {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let product = try production.productMatching(name: product)
-    try product.checkPermission(job: gitlabCi.job)
+    try gitlabCi.job.checkPermission(users: product.mainatiners)
     let versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     let version = try versions[product.name]
       .get { throw Thrown("No version for \(product.name)") }
@@ -220,7 +220,7 @@ public final class Producer {
     guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
       .get { throw Thrown("No product match \(gitlabCi.job.pipeline.ref)") }
-    try product.checkPermission(job: gitlabCi.job)
+    try gitlabCi.job.checkPermission(users: product.mainatiners)
     let version = try generate(cfg.generateDeployVersion(
       product: product,
       ref: gitlabCi.job.pipeline.ref
@@ -240,13 +240,15 @@ public final class Producer {
       .get()
     return true
   }
-  public func createCustomBranch(cfg: Configuration, name: String) throws -> Bool {
+  public func createCustomBranch(cfg: Configuration, custom: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
+    let accessoryBranch = try resolveProduction(.init(cfg: cfg)).accessoryBranch.get()
+    try gitlabCi.job.checkPermission(users: accessoryBranch.mainatiners)
     try gitlabCi
       .postBranches(
-        name: generate(cfg.generateCustomBranchName(
-          production: resolveProduction(.init(cfg: cfg)),
-          name: name
+        name: generate(cfg.generateAccessoryName(
+          accessoryBranch: accessoryBranch,
+          custom: custom
         )),
         ref: gitlabCi.job.pipeline.sha
       )

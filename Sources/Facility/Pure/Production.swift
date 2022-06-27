@@ -5,7 +5,7 @@ public struct Production {
   public var versions: Configuration.Asset
   public var generateNextBuild: Configuration.Template
   public var products: [Product]
-  public var generateCustomBranchName: Configuration.Template?
+  public var accessoryBranch: Lossy<AccessoryBranch>
   public var generateReleaseNotes: Configuration.Template?
   public var maxBuildsCount: Int?
   public func productMatching(ref: String, tag: Bool) throws -> Product? {
@@ -51,8 +51,15 @@ public struct Production {
         generateNextVersion: .make(yaml: yaml.generateNextVersion),
         generateHotfixVersion: .make(yaml: yaml.generateHotfixVersion)
       )},
-    generateCustomBranchName: yaml.generateCustomBranchName
-      .map(Configuration.Template.make(yaml:)),
+    accessoryBranch: yaml.accessoryBranch
+      .map { yaml in .init(try .init(
+        generateName: .make(yaml: yaml.generateName),
+        mainatiners: yaml.mainatiners
+          .map(Set.init(_:))
+          .get([])
+          .union(mainatiners)
+      ))}
+      .get(.error(Thrown("accessoryBranch not configured"))),
     generateReleaseNotes: yaml.generateReleaseNotes
       .map(Configuration.Template.make(yaml:)),
     maxBuildsCount: yaml.maxBuildsCount
@@ -64,10 +71,6 @@ public struct Production {
     public var releaseBranch: ReleaseBranch
     public var generateNextVersion: Configuration.Template
     public var generateHotfixVersion: Configuration.Template
-    public func checkPermission(job: Json.GitlabJob) throws {
-      guard mainatiners.contains(job.user.username)
-      else { throw Thrown("Permission denied for \(job.user.username)") }
-    }
     public struct DeployTag {
       public var nameMatch: Criteria
       public var generateName: Configuration.Template
@@ -79,6 +82,10 @@ public struct Production {
       public var generateName: Configuration.Template
       public var parseVersion: Configuration.Template
     }
+  }
+  public struct AccessoryBranch {
+    public var generateName: Configuration.Template
+    public var mainatiners: Set<String>
   }
   public struct Build: Encodable {
     public var value: String

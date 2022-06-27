@@ -26,6 +26,10 @@ public enum Json {
       && build.tag == tag
       && build.review == nil
     }
+    public func checkPermission(users: Set<String>) throws {
+      guard users.contains(user.username)
+      else { throw Thrown("Permission denied for \(user.name) (\(user.username))") }
+    }
     public struct Pipeline: Codable {
       public var id: UInt
       public var ref: String

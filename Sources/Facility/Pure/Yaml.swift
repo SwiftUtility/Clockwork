@@ -33,6 +33,7 @@ public enum Yaml {
       public var versions: Asset
       public var generateNextBuild: Template
       public var products: [String: Product]
+      public var accessoryBranch: AccessoryBranch?
       public var generateCustomBranchName: Template?
       public var generateReleaseNotes: Template?
       public var maxBuildsCount: Int?
@@ -54,6 +55,10 @@ public enum Yaml {
           public var generateName: Template
           public var parseVersion: Template
         }
+      }
+      public struct AccessoryBranch: Decodable {
+        public var mainatiners: [String]?
+        public var generateName: Template
       }
       public struct Build: Decodable {
         public var build: String
