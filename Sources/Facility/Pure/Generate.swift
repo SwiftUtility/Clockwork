@@ -5,10 +5,6 @@ public struct Generate: Query {
   public var templates: [String: String]
   public var context: Encodable
   public typealias Reply = String
-  public struct Custom: Encodable {
-    public var ctx: AnyCodable?
-    public var yaml: AnyCodable?
-  }
   public struct Versions: Encodable {
     public var ctx: AnyCodable?
     public var versions: [String: String]
@@ -31,6 +27,10 @@ public struct Generate: Query {
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
+  }
+  public struct CustomBranchName: Encodable {
+    public var ctx: AnyCodable?
+    public var name: String
   }
   public struct DeployName: Encodable {
     public var ctx: AnyCodable?
@@ -184,6 +184,18 @@ public extension Configuration {
       ctx: controls.context,
       product: product.name,
       version: version
+    )
+  )}
+  func generateCustomBranchName(
+    production: Production,
+    name: String
+  ) throws -> Generate { try .init(
+    template: production.generateCustomBranchName
+      .get { throw Thrown("generateCustomBranchName not configured") },
+    templates: controls.templates,
+    context: Generate.CustomBranchName(
+      ctx: controls.context,
+      name: name
     )
   )}
   func generateNextVersion(

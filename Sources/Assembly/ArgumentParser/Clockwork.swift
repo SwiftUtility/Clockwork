@@ -302,6 +302,15 @@ struct Clockwork: ParsableCommand {
       try Main.producer.createHotfixBranch(cfg: cfg)
     }
   }
+  struct CreateCustomBranch: ClockworkCommand {
+    static var abstract: String { "Cut custom branch" }
+    @OptionGroup var clockwork: Clockwork
+    @Argument(help: "Name to use for rendering branch name")
+    var name: String
+    func run(cfg: Configuration) throws -> Bool {
+      try Main.producer.createCustomBranch(cfg: cfg, name: name)
+    }
+  }
   struct ReserveBuildNumber: ClockworkCommand {
     static var abstract: String { "Reserves build number for parent review pipeline" }
     @OptionGroup var clockwork: Clockwork

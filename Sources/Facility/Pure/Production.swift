@@ -5,6 +5,7 @@ public struct Production {
   public var versions: Configuration.Asset
   public var generateNextBuild: Configuration.Template
   public var products: [Product]
+  public var generateCustomBranchName: Configuration.Template?
   public var generateReleaseNotes: Configuration.Template?
   public var maxBuildsCount: Int?
   public func productMatching(ref: String, tag: Bool) throws -> Product? {
@@ -50,6 +51,8 @@ public struct Production {
         generateNextVersion: .make(yaml: yaml.generateNextVersion),
         generateHotfixVersion: .make(yaml: yaml.generateHotfixVersion)
       )},
+    generateCustomBranchName: yaml.generateCustomBranchName
+      .map(Configuration.Template.make(yaml:)),
     generateReleaseNotes: yaml.generateReleaseNotes
       .map(Configuration.Template.make(yaml:)),
     maxBuildsCount: yaml.maxBuildsCount

@@ -20,15 +20,15 @@ public struct StencilParser {
     ext.registerTag("line", parser: LineNode.parse(parser:token:))
     let result: String
     switch query.template {
-    case .text(let value): result = try Environment
-      .init(extensions: [ext])
-      .renderTemplate(string: value, context: context)
-    case .file(let value): result = try Environment
+    case .name(let value): result = try Environment
       .init(
         loader: DictionaryLoader(templates: query.templates),
         extensions: [ext]
       )
       .renderTemplate(name: value, context: context)
+    case .value(let value): result = try Environment
+      .init(extensions: [ext])
+      .renderTemplate(string: value, context: context)
     }
     return try result
       .trimmingCharacters(in: .newlines)

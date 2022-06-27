@@ -240,6 +240,21 @@ public final class Producer {
       .get()
     return true
   }
+  public func createCustomBranch(cfg: Configuration, name: String) throws -> Bool {
+    let gitlabCi = try cfg.controls.gitlabCi.get()
+    try gitlabCi
+      .postBranches(
+        name: generate(cfg.generateCustomBranchName(
+          production: resolveProduction(.init(cfg: cfg)),
+          name: name
+        )),
+        ref: gitlabCi.job.pipeline.sha
+      )
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return true
+  }
   public func reportReleaseNotes(cfg: Configuration, tag: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     guard gitlabCi.job.tag else { throw Thrown("Not on tag") }

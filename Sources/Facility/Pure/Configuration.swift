@@ -115,13 +115,13 @@ public struct Configuration {
     )}
   }
   public enum Template {
-    case file(String)
-    case text(String)
+    case name(String)
+    case value(String)
     public static func make(yaml: Yaml.Template) throws -> Self {
-      guard [yaml.text, yaml.file].compactMap({$0}).count < 2
+      guard [yaml.name, yaml.value].compactMap({$0}).count < 2
       else { throw Thrown("Multiple values in template") }
-      if let value = yaml.text { return .text(value) }
-      else if let value = yaml.file { return .file(value) }
+      if let value = yaml.name { return .name(value) }
+      else if let value = yaml.value { return .value(value) }
       else { throw Thrown("No value in template") }
     }
   }

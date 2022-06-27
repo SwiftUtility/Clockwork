@@ -33,6 +33,7 @@ public enum Yaml {
       public var versions: Asset
       public var generateNextBuild: Template
       public var products: [String: Product]
+      public var generateCustomBranchName: Template?
       public var generateReleaseNotes: Template?
       public var maxBuildsCount: Int?
       public struct Product: Decodable {
@@ -168,7 +169,7 @@ public enum Yaml {
     public typealias Reply = AnyCodable
   }
   public struct Template: Decodable {
-    public var file: String?
-    public var text: String?
+    public var name: String?
+    public var value: String?
   }
 }

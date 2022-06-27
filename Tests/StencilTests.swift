@@ -4,7 +4,7 @@ import XCTest
 @testable import FacilityPure
 final class StencilTests: XCTestCase {
   func makeQuery(_ name: String) -> Generate { .init(
-    template: .file(name),
+    template: .name(name),
     templates: [
       "testSubscript": "{{custom.members[env.login].mention}}",
       "testRegexp": #"""
