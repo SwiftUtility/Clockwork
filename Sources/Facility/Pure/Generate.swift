@@ -1,6 +1,7 @@
 import Foundation
 import Facility
 public struct Generate: Query {
+  public var allowEmpty: Bool
   public var template: Configuration.Template
   public var templates: [String: String]
   public var context: Encodable
@@ -112,6 +113,7 @@ public extension Configuration {
   func generateVersions(
     versions: [String: String]
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: profile.renderVersions.get(),
     templates: profile.templates,
     context: Generate.Versions(
@@ -123,6 +125,7 @@ public extension Configuration {
     versions: [String: String],
     build: Production.Build
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: profile.renderBuild.get(),
     templates: profile.templates,
     context: Generate.Build(
@@ -134,6 +137,7 @@ public extension Configuration {
   func generateIntegration(
     targets: [String]
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: profile.renderIntegration.get(),
     templates: profile.templates,
     context: Generate.Integration(
@@ -146,6 +150,7 @@ public extension Configuration {
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: product.releaseBranch.parseVersion,
     templates: controls.templates,
     context: Generate.ReleaseVersion(
@@ -159,6 +164,7 @@ public extension Configuration {
     version: String,
     build: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: product.deployTag.generateName,
     templates: controls.templates,
     context: Generate.DeployName(
@@ -173,6 +179,7 @@ public extension Configuration {
     version: String,
     build: String
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: product.deployTag.generateAnnotation,
     templates: controls.templates,
     context: Generate.DeployAnnotation(
@@ -187,6 +194,7 @@ public extension Configuration {
     product: Production.Product,
     version: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: product.releaseBranch.generateName,
     templates: controls.templates,
     context: Generate.ReleaseName(
@@ -199,6 +207,7 @@ public extension Configuration {
     accessoryBranch: Production.AccessoryBranch,
     custom: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: accessoryBranch.generateName,
     templates: controls.templates,
     context: Generate.AccessoryName(
@@ -210,6 +219,7 @@ public extension Configuration {
     product: Production.Product,
     version: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: product.generateNextVersion,
     templates: controls.templates,
     context: Generate.NextVersion(
@@ -222,6 +232,7 @@ public extension Configuration {
     production: Production,
     build: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: production.generateNextBuild,
     templates: controls.templates,
     context: Generate.NextBuild(
@@ -233,6 +244,7 @@ public extension Configuration {
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: product.deployTag.parseVersion,
     templates: controls.templates,
     context: Generate.DeployVersion(
@@ -245,6 +257,7 @@ public extension Configuration {
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: product.deployTag.parseBuild,
     templates: controls.templates,
     context: Generate.DeployBuild(
@@ -256,6 +269,7 @@ public extension Configuration {
     product: Production.Product,
     version: String
   ) -> Generate { .init(
+    allowEmpty: false,
     template: product.generateHotfixVersion,
     templates: controls.templates,
     context: Generate.HotfixVersion(
@@ -269,6 +283,7 @@ public extension Configuration {
     product: Production.Product,
     version: String
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: asset.commitMessage
       .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
@@ -283,6 +298,7 @@ public extension Configuration {
     asset: Asset,
     build: String
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: asset.commitMessage
       .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
@@ -297,6 +313,7 @@ public extension Configuration {
     user: String,
     active: Bool
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: asset.commitMessage
       .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
@@ -311,6 +328,7 @@ public extension Configuration {
     resolution: Fusion.Resolution,
     review: Json.GitlabReviewState
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: resolution.commitMessage,
     templates: controls.templates,
     context: Generate.ResolutionCommitMessage(
@@ -323,6 +341,7 @@ public extension Configuration {
     integration: Fusion.Integration,
     merge: Fusion.Merge
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: integration.commitMessage,
     templates: controls.templates,
     context: Generate.IntegrationCommitMessage(
@@ -337,6 +356,7 @@ public extension Configuration {
     replication: Fusion.Replication,
     merge: Fusion.Merge
   ) throws -> Generate { try .init(
+    allowEmpty: false,
     template: replication.commitMessage,
     templates: controls.templates,
     context: Generate.ReplicationCommitMessage(

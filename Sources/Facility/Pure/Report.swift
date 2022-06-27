@@ -155,6 +155,30 @@ public struct Report: Query {
     public var info: GitlabCi.Info?
     public var commits: [String]
   }
+  public struct Release: Reportable {
+    public let event: String
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var commits: [String]
+  }
+  public struct Hotfix: Reportable {
+    public let event: String
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var commits: [String]
+  }
+  public struct Deploy: Reportable {
+    public let event: String
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var commits: [String]
+  }
+  public struct Accessory: Reportable {
+    public let event: String
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var commits: [String]
+  }
   public struct ExpiringRequisites: Reportable {
     public let event: String = Self.event
     public var ctx: AnyCodable?
@@ -373,6 +397,7 @@ extension Configuration.Controls {
     template: Configuration.Template,
     reportable: Reportable
   ) -> Generate { .init(
+    allowEmpty: true,
     template: template,
     templates: templates,
     context: reportable

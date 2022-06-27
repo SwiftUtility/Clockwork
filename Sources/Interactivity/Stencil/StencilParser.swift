@@ -18,7 +18,7 @@ public struct StencilParser {
     ext.registerFilter("emptyLines", filter: Filters.emptyLines(value:))
     ext.registerTag("scan", parser: ScanNode.parse(parser:token:))
     ext.registerTag("line", parser: LineNode.parse(parser:token:))
-    let result: String
+    var result: String
     switch query.template {
     case .name(let value): result = try Environment
       .init(
@@ -30,8 +30,9 @@ public struct StencilParser {
       .init(extensions: [ext])
       .renderTemplate(string: value, context: context)
     }
-    return try result
-      .trimmingCharacters(in: .newlines)
-      .mapEmpty { throw Thrown("Empty rendering result") }
+    result = result.trimmingCharacters(in: .newlines)
+    guard query.allowEmpty || !result.isEmpty
+    else { throw Thrown("Empty rendering result") }
+    return result
   }
 }

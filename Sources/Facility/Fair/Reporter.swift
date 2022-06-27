@@ -52,12 +52,13 @@ public final class Reporter {
     encoder.keyEncodingStrategy = .convertToSnakeCase
     for value in query.cfg.controls.communication[query.reportable.event].get([]) {
       switch value {
-      case .slackHookTextMessage(let value): try Id
-        .make(query.cfg.controls.generateReport(
+      case .slackHookTextMessage(let value):
+        let message = try generate(query.cfg.controls.generateReport(
           template: value.message,
           reportable: query.reportable
         ))
-        .map(generate)
+        guard !message.isEmpty else { continue }
+        try Id(message)
         .map(value.makePayload(text:))
         .map(encoder.encode(_:))
         .map(String.make(utf8:))
