@@ -54,7 +54,7 @@ public final class Reporter {
       switch value {
       case .slackHookTextMessage(let value): try Id
         .make(query.cfg.controls.generateReport(
-          template: value.messageTemplate,
+          template: value.message,
           reportable: query.reportable
         ))
         .map(generate)

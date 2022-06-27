@@ -35,21 +35,6 @@ public final class Configurator {
     self.dialect = dialect
     self.jsonDecoder = jsonDecoder
   }
-  public func renderCustom(
-    cfg: Configuration,
-    yaml: String,
-    template: String
-  ) throws -> Bool {
-    try yaml.isEmpty
-      .else(yaml)
-      .map(Files.Relative.init(value:))
-      .reduce(.head, Git.File.init(ref:path:))
-      .reduce(cfg.git, parse(git:yaml:))
-      .reduce(template, cfg.generateCustom(template:yaml:))
-      .map(generate)
-      .map(printLine)
-    return true
-  }
   public func configure(
     profile: String,
     verbose: Bool,
@@ -130,18 +115,15 @@ public final class Configurator {
       .reduce(Yaml.Controls.Communication.self, dialect.read(_:from:))
       .get()
     let hooks = try communication.slackHooks
-      .mapValues { try parse(env: env, secret: .init(yaml: $0)) }
+      .mapValues { try parse(env: env, secret: .make(yaml: $0)) }
     for yaml in communication.slackHookTextMessages.get([]) {
-      guard controls.templates[yaml.messageTemplate] != nil else {
-        throw Thrown("No template \(yaml.messageTemplate)")
-      }
-      let communication = try Communication.slackHookTextMessage(.init(
+      let communication = try [Communication.slackHookTextMessage(.init(
         url: hooks[yaml.hook]
           .get { throw Thrown("No \(yaml.hook) in slackHooks") },
         yaml: yaml
-      ))
+      ))]
       for event in yaml.events {
-        controls.communication[event] = controls.communication[event].get([]) + [communication]
+        controls.communication[event] = controls.communication[event].get([]) + communication
       }
     }
     return .init(verbose: verbose, git: git, env: env, profile: profile, controls: controls)
@@ -370,7 +352,7 @@ extension Configurator {
   }
   func parse(
     env: [String: String],
-    secret: Secret
+    secret: Configuration.Secret
   ) throws -> String {
     switch secret {
     case .value(let value): return value

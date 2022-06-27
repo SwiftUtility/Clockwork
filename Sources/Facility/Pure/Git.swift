@@ -15,7 +15,7 @@ public struct Git {
       self.ref = ref
       self.path = path
     }
-    public static func make(asset: Asset) -> Self { .init(
+    public static func make(asset: Configuration.Asset) -> Self { .init(
       ref: .make(remote: asset.branch),
       path: asset.file)
     }

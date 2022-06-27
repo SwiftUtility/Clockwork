@@ -4,7 +4,7 @@ import XCTest
 @testable import FacilityPure
 final class StencilTests: XCTestCase {
   func makeQuery(_ name: String) -> Generate { .init(
-    template: name,
+    template: .file(name),
     templates: [
       "testSubscript": "{{custom.members[env.login].mention}}",
       "testRegexp": #"""
@@ -35,7 +35,7 @@ final class StencilTests: XCTestCase {
          c
         {% endline %}
         """#,
-      "testBool": #"{% if not env.bool %}good{% endif %}"#
+      "testBool": #"{% if not env.bool %}good{% endif %}"#,
     ],
     context: AnyCodable.map([
       "env": .map([

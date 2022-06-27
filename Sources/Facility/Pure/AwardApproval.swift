@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 public struct AwardApproval {
-  public var userActivity: Asset
+  public var userActivity: Configuration.Asset
   public var holdAward: String
   public var sanityGroup: String
   public var allGroups: [String: Group]

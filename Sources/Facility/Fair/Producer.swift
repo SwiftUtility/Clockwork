@@ -13,6 +13,7 @@ public final class Producer {
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let printLine: Act.Of<String>.Go
+  let restler: Restler
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -26,6 +27,7 @@ public final class Producer {
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     printLine: @escaping Act.Of<String>.Go,
+    restler: Restler,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
@@ -39,6 +41,7 @@ public final class Producer {
     self.report = report
     self.logMessage = logMessage
     self.printLine = printLine
+    self.restler = restler
     self.jsonDecoder = jsonDecoder
   }
   public func createDeployTag(cfg: Configuration) throws -> Bool {
@@ -133,27 +136,14 @@ public final class Producer {
     return true
   }
   public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
-    let pipeline = try gitlabCi.parent.pipeline
-      .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(execute)
-      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard review.pipeline.sha == pipeline.sha else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-    guard !builds.contains(where: review.matches(build:))
+    guard !builds.contains(where: ctx.review.matches(build:))
     else { throw Thrown("Build already exists") }
     try persistBuilds(.init(
       cfg: cfg,
-      pushUrl: gitlabCi.pushUrl.get(),
+      pushUrl: ctx.gitlab.pushUrl.get(),
       production: production,
       builds: builds,
       build: .make(
@@ -162,9 +152,9 @@ public final class Producer {
           .reduce(production, cfg.generateNextBuild(production:build:))
           .map(generate)
           .get { throw Thrown("Push first build number manually") },
-        sha: pipeline.sha,
-        targer: review.targetBranch,
-        review: review.iid
+        sha: ctx.review.pipeline.sha,
+        targer: ctx.review.targetBranch,
+        review: ctx.review.iid
       )
     ))
     return true
@@ -272,10 +262,7 @@ public final class Producer {
     ))
     return true
   }
-  public func renderReviewBuild(
-    cfg: Configuration,
-    template: String
-  ) throws -> Bool {
+  public func renderReviewBuild(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
@@ -290,17 +277,10 @@ public final class Producer {
         ref: build.ref
       ))
     }
-    try printLine(generate(cfg.generateBuild(
-      template: template,
-      versions: versions,
-      build: build
-    )))
+    try printLine(generate(cfg.generateBuild(versions: versions, build: build)))
     return true
   }
-  public func renderProtectedBuild(
-    cfg: Configuration,
-    template: String
-  ) throws -> Bool {
+  public func renderProtectedBuild(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let build: Production.Build
@@ -333,19 +313,11 @@ public final class Producer {
         ))
       }
     }
-    try printLine(generate(cfg.generateBuild(
-      template: template,
-      versions: versions,
-      build: build
-    )))
+    try printLine(generate(cfg.generateBuild(versions: versions, build: build)))
     return true
   }
-  public func renderVersions(
-    cfg: Configuration,
-    template: String
-  ) throws -> Bool {
+  public func renderVersions(cfg: Configuration) throws -> Bool {
     try printLine(generate(cfg.generateVersions(
-      template: template,
       versions: resolveProductionVersions(.init(
         cfg: cfg,
         production: resolveProduction(.init(cfg: cfg))

@@ -11,18 +11,27 @@ public struct StencilParser {
     let context = try notation
       .write(query.context)
       .anyObject
+    as? [String: Any] ?? [:]
     let ext = Extension()
     ext.registerFilter("regexp", filter: Filters.regexp(value:arguments:))
     ext.registerFilter("incremented", filter: Filters.incremented(value:))
     ext.registerFilter("emptyLines", filter: Filters.emptyLines(value:))
     ext.registerTag("scan", parser: ScanNode.parse(parser:token:))
     ext.registerTag("line", parser: LineNode.parse(parser:token:))
-    let result = try Environment
-      .init(loader: DictionaryLoader(templates: query.templates), extensions: [ext])
-      .loadTemplate(name: query.template)
-      .render(context as? [String: Any])
+    let result: String
+    switch query.template {
+    case .text(let value): result = try Environment
+      .init(extensions: [ext])
+      .renderTemplate(string: value, context: context)
+    case .file(let value): result = try Environment
+      .init(
+        loader: DictionaryLoader(templates: query.templates),
+        extensions: [ext]
+      )
+      .renderTemplate(name: value, context: context)
+    }
+    return try result
       .trimmingCharacters(in: .newlines)
-    guard !result.isEmpty else { throw Thrown("Empty result for \(query.template)") }
-    return result
+      .mapEmpty { throw Thrown("Empty rendering result") }
   }
 }

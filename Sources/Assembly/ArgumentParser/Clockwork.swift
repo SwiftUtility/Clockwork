@@ -204,16 +204,14 @@ struct Clockwork: ParsableCommand {
   struct RenderIntegration: ClockworkCommand {
     static var abstract: String { "Stdouts rendered job template for suitable branches" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Local template name to use for rendering")
-    var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.blender.renderIntegration(cfg: cfg, template: template)
+      try Main.blender.renderIntegration(cfg: cfg)
     }
   }
   struct StartIntegration: ClockworkCommand {
     static var abstract: String { "Create integration review" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Integration target branch")
+    @Argument(help: "Integration target branch")
     var target: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.blender.startIntegration(cfg: cfg, target: target)
@@ -229,10 +227,10 @@ struct Clockwork: ParsableCommand {
   struct ImportProvisions: ClockworkCommand {
     static var abstract: String { "Import provisions locally" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Requisite to install, all when empty")
-    var requisite: String = ""
+    @Argument(help: "Requisites to install, all when empty")
+    var requisites: [String] = []
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.installProvisions(cfg: cfg, requisite: requisite)
+      try Main.requisitor.installProvisions(cfg: cfg, requisites: requisites)
     }
   }
   struct ImportKeychain: ClockworkCommand {
@@ -240,10 +238,10 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Keychain name to import requisites into")
     var keychain: String
-    @Argument(help: "Requisite to install, all when empty")
-    var requisite: String = ""
+    @Argument(help: "Requisites to install, all when empty")
+    var requisites: [String] = []
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.installKeychain(cfg: cfg, keychain: keychain, requisite: requisite)
+      try Main.requisitor.installKeychain(cfg: cfg, keychain: keychain, requisites: requisites)
     }
   }
   struct ImportRequisites: ClockworkCommand {
@@ -252,9 +250,9 @@ struct Clockwork: ParsableCommand {
     @Option(help: "Keychain name to import requisites into")
     var keychain: String
     @Argument(help: "Requisite to install, all when empty")
-    var requisite: String = ""
+    var requisites: [String] = []
     func run(cfg: Configuration) throws -> Bool {
-      try Main.requisitor.installRequisite(cfg: cfg, keychain: keychain, requisite: requisite)
+      try Main.requisitor.installRequisite(cfg: cfg, keychain: keychain, requisites: requisites)
     }
   }
   struct ReportExpiringRequisites: ClockworkCommand {
@@ -314,41 +312,22 @@ struct Clockwork: ParsableCommand {
   struct RenderProtectedBuild: ClockworkCommand {
     static var abstract: String { "Resolves or creates build and versions and renders to stdout" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Local template name to use for rendering")
-    var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.renderProtectedBuild(cfg: cfg, template: template)
+      try Main.producer.renderProtectedBuild(cfg: cfg)
     }
   }
   struct RenderReviewBuild: ClockworkCommand {
-    static var abstract: String {
-      "Resolves reserved review build and versions and renders to stdout"
-    }
+    static var abstract: String { "Stdouts resolves reserved review build and versions" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Local template name to use for rendering")
-    var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.renderReviewBuild(cfg: cfg, template: template)
+      try Main.producer.renderReviewBuild(cfg: cfg)
     }
   }
   struct RenderVersions: ClockworkCommand {
     static var abstract: String { "Resolves versions and renders to stdout" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Local template name to use for rendering")
-    var template: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.renderVersions(cfg: cfg, template: template)
-    }
-  }
-  struct RenderCustom: ClockworkCommand {
-    static var abstract: String { "Renders custom context to stdout" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Local yaml to be used in template")
-    var yaml: String = ""
-    @Argument(help: "Local template name to use for rendering")
-    var template: String
-    func run(cfg: Configuration) throws -> Bool {
-      try Main.configurator.renderCustom(cfg: cfg, yaml: yaml, template: template)
+      try Main.producer.renderVersions(cfg: cfg)
     }
   }
   struct ReportReleaseNotes: ClockworkCommand {

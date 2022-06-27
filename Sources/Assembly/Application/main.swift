@@ -60,6 +60,7 @@ enum Main {
     resolveFusion: configurator.resolveFusion(query:),
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
+    restler: restler,
     jsonDecoder: jsonDecoder
   )
   static let blender = Blender(
@@ -69,11 +70,13 @@ enum Main {
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
+    restler: restler,
     jsonDecoder: jsonDecoder
   )
   static let mediator = Mediator(
     execute: Processor.execute(query:),
     logMessage: reporter.logMessage(query:),
+    restler: restler,
     jsonDecoder: jsonDecoder
   )
   static let producer = Producer(
@@ -88,6 +91,12 @@ enum Main {
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     printLine: FileHandle.standardOutput.write(message:),
+    restler: restler,
+    jsonDecoder: jsonDecoder
+  )
+  static let restler = Restler(
+    execute: Processor.execute(query:),
+    logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let stencilParser = StencilParser(notation: .json)

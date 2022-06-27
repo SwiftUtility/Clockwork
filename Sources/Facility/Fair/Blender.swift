@@ -8,6 +8,7 @@ public final class Blender {
   let generate: Try.Reply<Generate>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
+  let restler: Restler
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -16,6 +17,7 @@ public final class Blender {
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
+    restler: Restler,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
@@ -24,87 +26,49 @@ public final class Blender {
     self.generate = generate
     self.report = report
     self.logMessage = logMessage
+    self.restler = restler
     self.jsonDecoder = jsonDecoder
   }
   public func validateResolutionTitle(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let pipeline = try gitlabCi.parent.pipeline
-      .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(execute)
-      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard pipeline.id == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
     for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
-      guard rule.source.isMet(review.sourceBranch) else { continue }
-      guard !rule.title.isMet(review.title) else { continue }
-      try report(cfg.reportInvalidTitle(review: review))
+      guard rule.source.isMet(ctx.review.sourceBranch) else { continue }
+      guard !rule.title.isMet(ctx.review.title) else { continue }
+      try report(cfg.reportInvalidTitle(review: ctx.review))
       return false
     }
     return true
   }
   public func validateReviewStatus(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let pipeline = try gitlabCi.parent.pipeline
-      .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(execute)
-      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard pipeline.id == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
     var reasons: [Report.ReviewBlocked.Reason] = []
-    if review.draft { reasons.append(.draft) }
-    if review.workInProgress { reasons.append(.workInProgress) }
-    if !review.blockingDiscussionsResolved { reasons.append(.blockingDiscussions) }
+    if ctx.review.draft { reasons.append(.draft) }
+    if ctx.review.workInProgress { reasons.append(.workInProgress) }
+    if !ctx.review.blockingDiscussionsResolved { reasons.append(.blockingDiscussions) }
     guard !reasons.isEmpty else { return true }
     try report(cfg.reportReviewBlocked(
-      review: review,
-      users: [review.author.username],
+      review: ctx.review,
+      users: [ctx.review.author.username],
       reasons: reasons
     ))
     return false
   }
   public func acceptResolution(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let pipeline = try gitlabCi.parent.pipeline
-      .flatMap(gitlabCi.getPipeline(pipeline:))
-      .map(execute)
-      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard pipeline.id == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
-    guard gitlabCi.job.pipeline.ref == review.targetBranch else {
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard ctx.gitlab.job.pipeline.ref == ctx.review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
-      try gitlabCi.postParentMrPipelines
+      try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
       return false
     }
-    let head = try Git.Sha(value: review.pipeline.sha)
-    let target = try Git.Ref.make(remote: .init(name: review.targetBranch))
+    let head = try Git.Sha(value: ctx.review.pipeline.sha)
+    let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
     let resolution = try resolveFusion(.init(cfg: cfg)).resolution.get()
     let message = try generate(cfg.generateResolutionCommitMessage(
       resolution: resolution,
-      review: review
+      review: ctx.review
     ))
     let targetSha = try Id(target)
       .map(cfg.git.getSha(ref:))
@@ -127,24 +91,24 @@ public final class Blender {
       ) {
         logMessage(.init(message: "Review was updated"))
         try Execute.checkStatus(reply: execute(cfg.git.push(
-          url: gitlabCi.pushUrl.get(),
-          branch: .init(name: review.sourceBranch),
+          url: ctx.gitlab.pushUrl.get(),
+          branch: .init(name: ctx.review.sourceBranch),
           sha: sha,
           force: true
         )))
       } else {
         logMessage(.init(message: "Automatic merge failed"))
         try report(cfg.reportReviewMergeConflicts(
-          review: review,
-          users: [review.author.username]
+          review: ctx.review,
+          users: [ctx.review.author.username]
         ))
       }
       return false
     }
     return try acceptMerge(
       cfg: cfg,
-      gitlabCi: gitlabCi,
-      review: review,
+      gitlabCi: ctx.gitlab,
+      review: ctx.review,
       message: message,
       sha: head,
       users: []
@@ -203,50 +167,41 @@ public final class Blender {
     return true
   }
   public func finishIntegration(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let pipeline = try gitlabCi.parent.pipeline
-      .flatMap(gitlabCi.getPipeline(pipeline:))
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
-    guard pipeline.id == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return true
-    }
-    let merge = try integration.makeMerge(supply: review.sourceBranch)
+    let merge = try integration.makeMerge(supply: ctx.review.sourceBranch)
     guard
-      case review.targetBranch = gitlabCi.job.pipeline.ref,
-      review.targetBranch == merge.target.name
+      case ctx.review.targetBranch = ctx.gitlab.job.pipeline.ref,
+      ctx.review.targetBranch == merge.target.name
     else { throw Thrown("Integration preconditions broken") }
     guard integration.rules.contains(where: { rule in
       rule.target.isMet(merge.target.name) && rule.source.isMet(merge.source.name)
     }) else {
       logMessage(.init(message: "Integration blocked by configuration"))
-      try gitlabCi
-        .putMrState(parameters: .init(stateEvent: "close"))
+      try ctx.gitlab
+        .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
-      try Id(cfg.git.push(url: gitlabCi.pushUrl.get(), delete: merge.supply))
+      try Id(cfg.git.push(url: ctx.gitlab.pushUrl.get(), delete: merge.supply))
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
       return true
     }
-    let head = try Git.Sha(value: pipeline.sha)
+    let head = try Git.Sha(value: ctx.job.pipeline.sha)
     guard case nil = try? execute(cfg.git.check(
       child: .make(sha: merge.fork),
       parent: .make(remote: merge.target)
     )) else {
-      guard pipeline.sha == merge.fork.value else {
+      guard ctx.job.pipeline.sha == merge.fork.value else {
         logMessage(.init(message: "Wrong integration state"))
         try Execute.checkStatus(reply: execute(cfg.git.push(
-          url: gitlabCi.pushUrl.get(),
+          url: ctx.gitlab.pushUrl.get(),
           branch: merge.supply,
           sha: merge.fork,
           force: true
@@ -255,20 +210,20 @@ public final class Blender {
       }
       return try acceptMerge(
         cfg: cfg,
-        gitlabCi: gitlabCi,
-        review: review,
+        gitlabCi: ctx.gitlab,
+        review: ctx.review,
         message: nil,
         sha: head,
-        users: resolveParticipants(cfg: cfg, gitlabCi: gitlabCi, merge: merge)
+        users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
       )
     }
     guard checkNeeded(cfg: cfg, merge: merge) else {
-      try gitlabCi
-        .putMrState(parameters: .init(stateEvent: "close"))
+      try ctx.gitlab
+        .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
-      try Id(cfg.git.push(url: gitlabCi.pushUrl.get(), delete: merge.supply))
+      try Id(cfg.git.push(url: ctx.gitlab.pushUrl.get(), delete: merge.supply))
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
@@ -279,8 +234,8 @@ public final class Blender {
       .make(sha: head)
     ))) else {
       logMessage(.init(message: "Integration is in wrong state"))
-      try gitlabCi
-        .putMrState(parameters: .init(stateEvent: "close"))
+      try ctx.gitlab
+        .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
@@ -295,12 +250,12 @@ public final class Blender {
         sha: merge.fork
       ) ?? merge.fork
       try Execute.checkStatus(reply: execute(cfg.git.push(
-        url: gitlabCi.pushUrl.get(),
+        url: ctx.gitlab.pushUrl.get(),
         branch: merge.supply,
         sha: sha,
         force: false
       )))
-      try gitlabCi
+      try ctx.gitlab
         .postMergeRequests(parameters: .init(
           sourceBranch: merge.supply.name,
           targetBranch: merge.target.name,
@@ -311,7 +266,7 @@ public final class Blender {
         .get()
       return true
     }
-    guard pipeline.user.username == gitlabCi.botLogin else {
+    guard pipeline.user.username == ctx.gitlab.botLogin else {
       let message = try generate(cfg.generateIntegrationCommitMessage(
         integration: integration,
         merge: merge
@@ -327,14 +282,14 @@ public final class Blender {
         message: message,
         sha: head
       )
-      try gitlabCi
-        .putMrState(parameters: .init(stateEvent: "close"))
+      try ctx.gitlab
+        .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
       try Id
         .make(cfg.git.push(
-          url: gitlabCi.pushUrl.get(),
+          url: ctx.gitlab.pushUrl.get(),
           branch: merge.supply,
           sha: sha,
           force: true
@@ -342,7 +297,7 @@ public final class Blender {
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
-      try gitlabCi
+      try ctx.gitlab
         .postMergeRequests(parameters: .init(
           sourceBranch: merge.supply.name,
           targetBranch: merge.target.name,
@@ -378,7 +333,7 @@ public final class Blender {
       ) {
         try Id
           .make(cfg.git.push(
-            url: gitlabCi.pushUrl.get(),
+            url: ctx.gitlab.pushUrl.get(),
             branch: merge.supply,
             sha: sha,
             force: true
@@ -389,25 +344,24 @@ public final class Blender {
       } else {
         logMessage(.init(message: "Integration stopped due to conflicts"))
         try report(cfg.reportReviewMergeConflicts(
-          review: review,
-          users: resolveParticipants(cfg: cfg, gitlabCi: gitlabCi, merge: merge)
+          review: ctx.review,
+          users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
         ))
       }
       return false
     }
     return try acceptMerge(
       cfg: cfg,
-      gitlabCi: gitlabCi,
-      review: review,
+      gitlabCi: ctx.gitlab,
+      review: ctx.review,
       message: nil,
       sha: head,
-      users: resolveParticipants(cfg: cfg, gitlabCi: gitlabCi, merge: merge)
+      users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
     )
   }
-  public func renderIntegration(cfg: Configuration, template: String) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    let pipeline = try gitlabCi.parent.pipeline
-      .flatMap(gitlabCi.getPipeline(pipeline:))
+  public func renderIntegration(cfg: Configuration) throws -> Bool {
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
@@ -435,11 +389,7 @@ public final class Blender {
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    try printLine(generate(cfg.generateIntegration(
-      template: template,
-      targets: targets
-        .map(\.name)
-    )))
+    try printLine(generate(cfg.generateIntegration(targets: targets.map(\.name))))
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
@@ -496,34 +446,22 @@ public final class Blender {
     return true
   }
   public func updateReplication(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
     let replication = try resolveFusion(.init(cfg: cfg)).replication.get()
-    let pushUrl = try gitlabCi.pushUrl.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let pipeline = try gitlabCi.parent.pipeline
-      .flatMap(gitlabCi.getPipeline(pipeline:))
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    let pushUrl = try ctx.gitlab.pushUrl.get()
+    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
     guard
-      pipeline.id == review.pipeline.id,
-      review.state == "opened"
-    else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return true
-    }
-    guard
-      review.targetBranch == gitlabCi.job.pipeline.ref,
-      review.targetBranch == replication.target
+      ctx.review.targetBranch == ctx.gitlab.job.pipeline.ref,
+      ctx.review.targetBranch == replication.target
     else { throw Thrown("Replication preconditions broken") }
-    let merge = try replication.makeMerge(supply: review.sourceBranch)
+    let merge = try replication.makeMerge(supply: ctx.review.sourceBranch)
     guard replication.source.isMet(merge.source.name) else {
       logMessage(.init(message: "Replication blocked by configuration"))
-      try gitlabCi
-        .putMrState(parameters: .init(stateEvent: "close"))
+      try ctx.gitlab
+        .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
@@ -549,8 +487,8 @@ public final class Blender {
       )))
     else {
       logMessage(.init(message: "Replication is in wrong state"))
-      try gitlabCi
-        .putMrState(parameters: .init(stateEvent: "close"))
+      try ctx.gitlab
+        .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
@@ -586,7 +524,7 @@ public final class Blender {
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
-      try gitlabCi
+      try ctx.gitlab
         .postMergeRequests(parameters: .init(
           sourceBranch: merge.supply.name,
           targetBranch: merge.target.name,
@@ -597,7 +535,7 @@ public final class Blender {
         .get()
       return true
     }
-    guard pipeline.user.username == gitlabCi.botLogin else {
+    guard pipeline.user.username == ctx.gitlab.botLogin else {
       let message = try generate(cfg.generateReplicationCommitMessage(
         replication: replication,
         merge: merge
@@ -613,8 +551,8 @@ public final class Blender {
         message: message,
         sha: head
       )
-      try gitlabCi
-        .putMrState(parameters: .init(stateEvent: "close"))
+      try ctx.gitlab
+        .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
@@ -628,7 +566,7 @@ public final class Blender {
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
-      try gitlabCi
+      try ctx.gitlab
         .postMergeRequests(parameters: .init(
           sourceBranch: merge.supply.name,
           targetBranch: merge.target.name,
@@ -675,19 +613,19 @@ public final class Blender {
       } else {
         logMessage(.init(message: "Replications stopped due to conflicts"))
         try report(cfg.reportReviewMergeConflicts(
-          review: review,
-          users: resolveParticipants(cfg: cfg, gitlabCi: gitlabCi, merge: merge)
+          review: ctx.review,
+          users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
         ))
       }
       return true
     }
     guard try acceptMerge(
       cfg: cfg,
-      gitlabCi: gitlabCi,
-      review: review,
+      gitlabCi: ctx.gitlab,
+      review: ctx.review,
       message: nil,
       sha: head,
-      users: resolveParticipants(cfg: cfg, gitlabCi: gitlabCi, merge: merge)
+      users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
     ) else { return false }
     try Execute.checkStatus(reply: execute(cfg.git.fetch))
     guard let merge = try makeMerge(
@@ -812,13 +750,16 @@ public final class Blender {
     users: [String]
   ) throws -> Bool {
     let result = try gitlabCi
-      .putMrMerge(parameters: .init(
-        mergeCommitMessage: message,
-        squashCommitMessage: message,
-        squash: message != nil,
-        shouldRemoveSourceBranch: true,
-        sha: sha
-      ))
+      .putMrMerge(
+        parameters: .init(
+          mergeCommitMessage: message,
+          squashCommitMessage: message,
+          squash: message != nil,
+          shouldRemoveSourceBranch: true,
+          sha: sha
+        ),
+        review: review.iid
+      )
       .map(execute)
       .map(\.data)
       .get()
@@ -850,29 +791,5 @@ public final class Blender {
     )) else { return true }
     logMessage(.init(message: "\(merge.target.name) already contains \(merge.fork.value)"))
     return false
-  }
-  func resolveParticipants(
-    cfg: Configuration,
-    gitlabCi: GitlabCi,
-    merge: Fusion.Merge
-  ) throws -> [String] { try Id
-    .make(cfg.git.listCommits(
-      in: [.make(sha: merge.fork)],
-      notIn: [.make(remote: merge.target)],
-      noMerges: true,
-      firstParents: false
-    ))
-    .map(execute)
-    .map(Execute.parseLines(reply:))
-    .get()
-    .map(Git.Sha.init(value:))
-    .flatMap { sha in try gitlabCi
-      .listShaMergeRequests(sha: sha)
-      .map(execute)
-      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
-      .get()
-      .filter { $0.squashCommitSha == sha.value }
-      .map(\.author.username)
-    }
   }
 }

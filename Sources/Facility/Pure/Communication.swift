@@ -4,16 +4,16 @@ public enum Communication {
   case slackHookTextMessage(SlackHookTextMessage)
   public struct SlackHookTextMessage {
     public var url: String
-    public var messageTemplate: String
+    public var message: Configuration.Template
     public var userName: String?
     public var channel: String?
     public var emojiIcon: String?
     public init(
       url: String,
       yaml: Yaml.Controls.Communication.SlackHookTextMessage
-    ) {
+    ) throws {
       self.url = url
-      self.messageTemplate = yaml.messageTemplate
+      self.message = try .make(yaml: yaml.message)
       self.userName = yaml.userName
       self.channel = yaml.channel
       self.emojiIcon = yaml.emojiIcon

@@ -17,7 +17,7 @@ public struct Requisition {
   )}
   public struct Requisite {
     public var pkcs12: Git.File
-    public var password: Secret
+    public var password: Configuration.Secret
     public var provisions: [Git.Dir]
     public static func make(
       ref: Git.Ref,
@@ -27,7 +27,7 @@ public struct Requisition {
         ref: ref,
         path: .init(value: yaml.pkcs12)
       ),
-      password: .init(yaml: yaml.password),
+      password: .make(yaml: yaml.password),
       provisions: yaml.provisions.map { yaml in try .init(
         ref: ref,
         path: .init(value: yaml)

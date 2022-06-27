@@ -370,7 +370,7 @@ public extension Configuration {
 }
 extension Configuration.Controls {
   public func generateReport(
-    template: String,
+    template: Configuration.Template,
     reportable: Reportable
   ) -> Generate { .init(
     template: template,

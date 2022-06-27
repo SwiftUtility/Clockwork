@@ -11,17 +11,15 @@ public struct GitlabCi {
   public var jobToken: String
   public var botAuth: Lossy<String>
   public var pushUrl: Lossy<String>
-  public var parent: Parent
+  public var parent: Lossy<Parent>
   public var url: String { "\(api)/projects/\(project)" }
   public var info: Info { .init(
-    job: job,
     bot: botLogin,
     url: job.webUrl
       .components(separatedBy: "/-/")
       .first,
-    mr: job.review,
-    parentMr: try? parent.review.get(),
-    parentPipe: try? parent.pipeline.get()
+    job: job,
+    mr: try? job.review.get()
   )}
   public static func make(
     verbose: Bool,
@@ -33,17 +31,15 @@ public struct GitlabCi {
   ) -> Lossy<Self> {
     guard case "true" = env[Self.gitlabci]
     else { return .error(Thrown("Not in GitlabCI context")) }
-    let trigger = Trigger(
-      job: yaml.trigger.job,
-      name: yaml.trigger.name,
-      review: yaml.trigger.review,
-      profile: yaml.trigger.profile,
-      pipeline: yaml.trigger.pipeline
-    )
     return .init(try .init(
       verbose: verbose,
       botLogin: yaml.bot.login,
-      trigger: trigger,
+      trigger: .init(
+        job: yaml.trigger.job,
+        name: yaml.trigger.name,
+        profile: yaml.trigger.profile,
+        pipeline: yaml.trigger.pipeline
+      ),
       api: apiV4.get(env: env),
       project: projectId.get(env: env),
       config: config.get(env: env),
@@ -59,46 +55,39 @@ public struct GitlabCi {
           let path = try path.get(env: env)
           return "\(scheme)://\(yaml.bot.login):\(pushToken)@\(host):\(port)/\(path)"
         },
-      parent: .init(
-        name: Lossy(try trigger.name.get(env: env)),
-        review: Lossy(env[trigger.review])
-          .reduce(Thrown("Triggered not from review"), Optional.get(or:value:))
-          .map(UInt.init(_:))
-          .reduce(Thrown("Malformed \(trigger.review)"), Optional.get(or:value:)),
-        profile: Lossy(try .init(value: trigger.profile.get(env: env))),
-        pipeline: Lossy(try trigger.pipeline.get(env: env))
-          .map(UInt.init(_:))
-          .reduce(Thrown("Malformed \(trigger.pipeline)"), Optional.get(or:value:))
-      )
+      parent: Self.makeParent(env: env, yaml: yaml)
     ))
   }
   public static func makeApiToken(
     env: [String: String],
     yaml: Yaml.Controls.GitlabCi
-  ) -> Lossy<Secret> {
+  ) -> Lossy<Configuration.Secret> {
     guard case "true" = env[Self.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
     return Lossy.value(yaml.bot.apiToken)
       .reduce(Thrown("apiToken not configured"), Optional.get(or:value:))
-      .map(Secret.init(yaml:))
+      .map(Configuration.Secret.make(yaml:))
   }
   public static func makePushToken(
     env: [String: String],
     yaml: Yaml.Controls.GitlabCi
-  ) -> Lossy<Secret> {
+  ) -> Lossy<Configuration.Secret> {
     guard case "true" = env[Self.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
     return Lossy.value(yaml.bot.pushToken)
       .reduce(Thrown("pushToken not configured"), Optional.get(or:value:))
-      .map(Secret.init(yaml:))
+      .map(Configuration.Secret.make(yaml:))
   }
   public static func makeParent(
     env: [String: String],
     yaml: Yaml.Controls.GitlabCi
-  ) -> Lossy<UInt> {
-    guard case "true" = env[Self.protected]
+  ) -> Lossy<Parent> {
+    guard case "true" = env[GitlabCi.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
-    return .init(try yaml.trigger.job.get(env: env).getUInt())
+    return .init(try .init(
+      job: yaml.trigger.job.get(env: env).getUInt(),
+      profile: .init(value: yaml.trigger.profile.get(env: env))
+    ))
   }
   static var gitlabci: String { "GITLAB_CI" }
   static var protected: String { "CI_COMMIT_REF_PROTECTED" }
@@ -113,23 +102,18 @@ public struct GitlabCi {
   public struct Trigger {
     public var job: String
     public var name: String
-    public var review: String
     public var profile: String
     public var pipeline: String
   }
   public struct Parent {
-    public var name: Lossy<String>
-    public var review: Lossy<UInt>
-    public var profile: Lossy<Files.Relative>
-    public var pipeline: Lossy<UInt>
+    public var job: UInt
+    public var profile: Files.Relative
   }
   public struct Info: Encodable {
-    public var job: Json.GitlabJob
     public var bot: String
     public var url: String?
+    public var job: Json.GitlabJob
     public var mr: UInt?
-    public var parentMr: UInt?
-    public var parentPipe: UInt?
   }
 }
 public extension GitlabCi {
@@ -141,6 +125,13 @@ public extension GitlabCi {
     url: "\(apiV4.get(env: env))/job",
     headers: ["Authorization: Bearer \(jobToken.get(env: env))"]
   ))}
+  func getJob(
+    id: UInt
+  ) -> Lossy<Execute> { .init(try .makeCurl(
+    verbose: verbose,
+    url: "\(url)/jobs/\(id)",
+    headers: [botAuth.get()]
+  ))}
   func getPipeline(
     pipeline: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
@@ -148,44 +139,53 @@ public extension GitlabCi {
     url: "\(url)/pipelines/\(pipeline)",
     headers: [botAuth.get()]
   ))}
-  var getParentMrState: Lossy<Execute> { .init(try .makeCurl(
+  func getMrState(
+    review: UInt
+  ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(parent.review.get())?include_rebase_in_progress=true",
+    url: "\(url)/merge_requests/\(review)?include_rebase_in_progress=true",
     headers: [botAuth.get()]
   ))}
-  var getParentMrAwarders: Lossy<Execute> { .init(try .makeCurl(
+  func getMrAwarders(
+    review: UInt
+  ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(parent.review.get())/award_emoji",
+    url: "\(url)/merge_requests/\(review)/award_emoji",
     headers: [botAuth.get()]
   ))}
-  var postParentMrPipelines: Lossy<Execute> { .init(try .makeCurl(
+  func postMrPipelines(
+    review: UInt
+  ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(parent.review.get())/pipelines",
+    url: "\(url)/merge_requests/\(review)/pipelines",
     method: "POST",
     headers: [botAuth.get()]
   ))}
-  func postParentMrAward(
+  func postMrAward(
+    review: UInt,
     award: String
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(parent.review.get())/award_emoji?name=\(award)",
+    url: "\(url)/merge_requests/\(review)/award_emoji?name=\(award)",
     method: "POST",
     headers: [botAuth.get()]
   ))}
   func putMrState(
-    parameters: PutMrState
+    parameters: PutMrState,
+    review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(parent.review.get())",
+    url: "\(url)/merge_requests/\(review)",
     method: "PUT",
     data: parameters.curl.get(),
     headers: [botAuth.get(), Json.contentType]
   ))}
   func putMrMerge(
-    parameters: PutMrMerge
+    parameters: PutMrMerge,
+    review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(parent.review.get())/merge",
+    url: "\(url)/merge_requests/\(review)/merge",
     method: "PUT",
     checkHttp: false,
     data: parameters.curl.get(),

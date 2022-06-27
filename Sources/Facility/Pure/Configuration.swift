@@ -29,6 +29,9 @@ public struct Configuration {
     public var fileTaboos: Git.File?
     public var obsolescence: Lossy<Criteria>
     public var templates: [String: String] = [:]
+    public var renderBuild: Lossy<Template>
+    public var renderVersions: Lossy<Template>
+    public var renderIntegration: Lossy<Template>
     public static func make(
       profile: Git.File,
       yaml: Yaml.Profile
@@ -47,7 +50,19 @@ public struct Configuration {
       obsolescence: yaml.obsolescence
         .map(Criteria.init(yaml:))
         .map(Lossy.value(_:))
-        .get(.error(Thrown("obsolescence not configured")))
+        .get(.error(Thrown("obsolescence not configured"))),
+      renderBuild: yaml.renderBuild
+        .map(Template.make(yaml:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("renderReviewBuild not configured"))),
+      renderVersions: yaml.renderVersions
+        .map(Template.make(yaml:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("renderVersions not configured"))),
+      renderIntegration: yaml.renderIntegration
+        .map(Template.make(yaml:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("renderIntegration not configured")))
     )}
     public var sanityFiles: [String] {
       [profile, codeOwnage, fileTaboos].compactMap(\.?.path.value)
@@ -85,6 +100,43 @@ public struct Configuration {
       forbiddenCommits: yaml.forbiddenCommits
         .map(Asset.make(yaml:))
     )}
+  }
+  public struct Asset {
+    public var file: Files.Relative
+    public var branch: Git.Branch
+    public var commitMessage: Template?
+    public static func make(
+      yaml: Yaml.Asset
+    ) throws -> Self { try .init(
+      file: .init(value: yaml.path),
+      branch: .init(name: yaml.branch),
+      commitMessage: yaml.commitMessage
+        .map(Template.make(yaml:))
+    )}
+  }
+  public enum Template {
+    case file(String)
+    case text(String)
+    public static func make(yaml: Yaml.Template) throws -> Self {
+      guard [yaml.text, yaml.file].compactMap({$0}).count < 2
+      else { throw Thrown("Multiple values in template") }
+      if let value = yaml.text { return .text(value) }
+      else if let value = yaml.file { return .file(value) }
+      else { throw Thrown("No value in template") }
+    }
+  }
+  public enum Secret {
+    case value(String)
+    case envVar(String)
+    case envFile(String)
+    public static func make(yaml: Yaml.Secret) throws -> Self {
+      guard [yaml.value, yaml.envVar, yaml.envFile].compactMap({$0}).count < 2
+      else { throw Thrown("Multiple values in secret") }
+      if let value = yaml.value { return .value(value) }
+      else if let envVar = yaml.envVar { return .envVar(envVar) }
+      else if let envFile = yaml.envFile { return .envFile(envFile) }
+      else { throw Thrown("No value in secret") }
+    }
   }
   public struct ResolveProfile: Query {
     public var git: Git

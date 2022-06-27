@@ -1,11 +1,11 @@
 import Foundation
 import Facility
 public struct Production {
-  public var builds: Asset
-  public var versions: Asset
-  public var createNextBuildTemplate: String
+  public var builds: Configuration.Asset
+  public var versions: Configuration.Asset
+  public var generateNextBuild: Configuration.Template
   public var products: [Product]
-  public var releaseNotesTemplate: String?
+  public var generateReleaseNotes: Configuration.Template?
   public var maxBuildsCount: Int?
   public func productMatching(ref: String, tag: Bool) throws -> Product? {
     var product: Product? = nil
@@ -30,7 +30,7 @@ public struct Production {
   ) throws -> Self { try .init(
     builds: .make(yaml: yaml.builds),
     versions: .make(yaml: yaml.versions),
-    createNextBuildTemplate: yaml.createNextBuildTemplate,
+    generateNextBuild: .make(yaml: yaml.generateNextBuild),
     products: yaml.products
       .map { name, yaml in try .init(
         name: name,
@@ -38,19 +38,20 @@ public struct Production {
           .union(Set(yaml.mainatiners.get([]))),
         deployTag: .init(
           nameMatch: .init(yaml: yaml.deployTag.nameMatch),
-          createTemplate: yaml.deployTag.createTemplate,
-          parseBuildTemplate: yaml.deployTag.parseBuildTemplate,
-          parseVersionTemplate: yaml.deployTag.parseVersionTemplate
+          generateName: .make(yaml: yaml.deployTag.generateName),
+          parseBuild: .make(yaml: yaml.deployTag.parseBuild),
+          parseVersion: .make(yaml: yaml.deployTag.parseVersion)
         ),
         releaseBranch: .init(
           nameMatch: .init(yaml: yaml.releaseBranch.nameMatch),
-          createTemplate: yaml.releaseBranch.createTemplate,
-          parseVersionTemplate: yaml.releaseBranch.parseVersionTemplate
+          generateName: .make(yaml: yaml.releaseBranch.generateName),
+          parseVersion: .make(yaml: yaml.releaseBranch.parseVersion)
         ),
-        createNextVersionTemplate: yaml.createNextVersionTemplate,
-        createHotfixVersionTemplate: yaml.createHotfixVersionTemplate
+        generateNextVersion: .make(yaml: yaml.generateNextVersion),
+        generateHotfixVersion: .make(yaml: yaml.generateHotfixVersion)
       )},
-    releaseNotesTemplate: yaml.releaseNotesTemplate,
+    generateReleaseNotes: yaml.generateReleaseNotes
+      .map(Configuration.Template.make(yaml:)),
     maxBuildsCount: yaml.maxBuildsCount
   )}
   public struct Product {
@@ -58,22 +59,22 @@ public struct Production {
     public var mainatiners: Set<String>
     public var deployTag: DeployTag
     public var releaseBranch: ReleaseBranch
-    public var createNextVersionTemplate: String
-    public var createHotfixVersionTemplate: String
+    public var generateNextVersion: Configuration.Template
+    public var generateHotfixVersion: Configuration.Template
     public func checkPermission(job: Json.GitlabJob) throws {
       guard mainatiners.contains(job.user.username)
       else { throw Thrown("Permission denied for \(job.user.username)") }
     }
     public struct DeployTag {
       public var nameMatch: Criteria
-      public var createTemplate: String
-      public var parseBuildTemplate: String
-      public var parseVersionTemplate: String
+      public var generateName: Configuration.Template
+      public var parseBuild: Configuration.Template
+      public var parseVersion: Configuration.Template
     }
     public struct ReleaseBranch {
       public var nameMatch: Criteria
-      public var createTemplate: String
-      public var parseVersionTemplate: String
+      public var generateName: Configuration.Template
+      public var parseVersion: Configuration.Template
     }
   }
   public struct Build: Encodable {

@@ -7,6 +7,9 @@ public enum Yaml {
     public var fileTaboos: String?
     public var obsolescence: Criteria?
     public var templates: String?
+    public var renderBuild: Template?
+    public var renderVersions: Template?
+    public var renderIntegration: Template?
     public struct FileTaboo: Decodable {
       public var rule: String
       public var file: Criteria?
@@ -28,27 +31,27 @@ public enum Yaml {
       public var mainatiners: [String]?
       public var builds: Asset
       public var versions: Asset
-      public var createNextBuildTemplate: String
+      public var generateNextBuild: Template
       public var products: [String: Product]
-      public var releaseNotesTemplate: String?
+      public var generateReleaseNotes: Template?
       public var maxBuildsCount: Int?
       public struct Product: Decodable {
         public var mainatiners: [String]?
         public var deployTag: DeployTag
         public var releaseBranch: ReleaseBranch
-        public var createNextVersionTemplate: String
-        public var createHotfixVersionTemplate: String
+        public var generateNextVersion: Template
+        public var generateHotfixVersion: Template
         public struct DeployTag: Decodable {
           public var nameMatch: Criteria
-          public var createTemplate: String
-          public var parseBuildTemplate: String
-          public var parseVersionTemplate: String
-          public var annotationTemplate: String
+          public var generateName: Template
+          public var parseBuild: Template
+          public var parseVersion: Template
+          public var generateAnnotation: Template
         }
         public struct ReleaseBranch: Decodable {
           public var nameMatch: Criteria
-          public var createTemplate: String
-          public var parseVersionTemplate: String
+          public var generateName: Template
+          public var parseVersion: Template
         }
       }
       public struct Build: Decodable {
@@ -69,7 +72,7 @@ public enum Yaml {
       public var replication: Replication?
       public var integration: Integration?
       public struct Resolution: Decodable {
-        public var messageTemplate: String
+        public var commitMessage: Template
         public var rules: [Rule]
         public struct Rule: Decodable {
           public var title: Criteria?
@@ -80,13 +83,13 @@ public enum Yaml {
         public var target: String
         public var prefix: String
         public var source: Criteria
-        public var messageTemplate: String
+        public var commitMessage: Template
       }
       public struct Integration: Decodable {
         public var mainatiners: [String]?
         public var rules: [Rule]
         public var prefix: String
-        public var messageTemplate: String
+        public var commitMessage: Template
         public struct Rule: Decodable {
           public var mainatiners: [String]?
           public var source: Criteria
@@ -105,7 +108,6 @@ public enum Yaml {
       public struct Trigger: Decodable {
         public var job: String
         public var name: String
-        public var review: String
         public var profile: String
         public var pipeline: String
       }
@@ -132,7 +134,7 @@ public enum Yaml {
       public var slackHookTextMessages: [SlackHookTextMessage]?
       public struct SlackHookTextMessage: Decodable {
         public var hook: String
-        public var messageTemplate: String
+        public var message: Template
         public var events: [String]
         public var userName: String?
         public var channel: String?
@@ -143,7 +145,7 @@ public enum Yaml {
   public struct Asset: Decodable {
     public var path: String
     public var branch: String
-    public var commitMessageTemplate: String
+    public var commitMessage: Template?
   }
   public struct File: Decodable {
     public var path: String
@@ -164,5 +166,9 @@ public enum Yaml {
       self.content = content
     }
     public typealias Reply = AnyCodable
+  }
+  public struct Template: Decodable {
+    public var file: String?
+    public var text: String?
   }
 }

@@ -17,10 +17,8 @@ public enum Json {
     public var pipeline: Pipeline
     public var tag: Bool
     public var webUrl: String
-    public var review: UInt? { try? pipeline.ref
-      .dropPrefix("refs/merge-requests/")
-      .dropSuffix("/head")
-      .getUInt()
+    public var review: Lossy<UInt> {
+      .init(try pipeline.ref.dropPrefix("refs/merge-requests/").dropSuffix("/head").getUInt())
     }
     public func matches(build: Production.Build) -> Bool {
       build.sha == pipeline.sha

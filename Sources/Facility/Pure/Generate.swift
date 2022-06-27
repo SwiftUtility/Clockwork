@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 public struct Generate: Query {
-  public var template: String
+  public var template: Configuration.Template
   public var templates: [String: String]
   public var context: Encodable
   public typealias Reply = String
@@ -100,22 +100,10 @@ public struct Generate: Query {
   }
 }
 public extension Configuration {
-  func generateCustom(
-    template: String,
-    yaml: AnyCodable?
-  ) -> Generate { .init(
-    template: template,
-    templates: profile.templates,
-    context: Generate.Custom(
-      ctx: controls.context,
-      yaml: yaml
-    )
-  )}
   func generateVersions(
-    template: String,
     versions: [String: String]
-  ) -> Generate { .init(
-    template: template,
+  ) throws -> Generate { try .init(
+    template: profile.renderVersions.get(),
     templates: profile.templates,
     context: Generate.Versions(
       ctx: controls.context,
@@ -123,11 +111,10 @@ public extension Configuration {
     )
   )}
   func generateBuild(
-    template: String,
     versions: [String: String],
     build: Production.Build
-  ) -> Generate { .init(
-    template: template,
+  ) throws -> Generate { try .init(
+    template: profile.renderBuild.get(),
     templates: profile.templates,
     context: Generate.Build(
       ctx: controls.context,
@@ -136,10 +123,9 @@ public extension Configuration {
     )
   )}
   func generateIntegration(
-    template: String,
     targets: [String]
-  ) -> Generate { .init(
-    template: template,
+  ) throws -> Generate { try .init(
+    template: profile.renderIntegration.get(),
     templates: profile.templates,
     context: Generate.Integration(
       ctx: controls.context,
@@ -150,7 +136,7 @@ public extension Configuration {
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
-    template: product.releaseBranch.parseVersionTemplate,
+    template: product.releaseBranch.parseVersion,
     templates: controls.templates,
     context: Generate.ReleaseVersion(
       ctx: controls.context,
@@ -163,7 +149,7 @@ public extension Configuration {
     version: String,
     build: String
   ) -> Generate { .init(
-    template: product.deployTag.createTemplate,
+    template: product.deployTag.generateName,
     templates: controls.templates,
     context: Generate.DeployName(
       ctx: controls.context,
@@ -178,7 +164,7 @@ public extension Configuration {
     version: String,
     build: String
   ) -> Generate { .init(
-    template: product.deployTag.createTemplate,
+    template: product.deployTag.generateName,
     templates: controls.templates,
     context: Generate.DeployAnnotation(
       ctx: controls.context,
@@ -192,7 +178,7 @@ public extension Configuration {
     product: Production.Product,
     version: String
   ) -> Generate { .init(
-    template: product.releaseBranch.createTemplate,
+    template: product.releaseBranch.generateName,
     templates: controls.templates,
     context: Generate.ReleaseName(
       ctx: controls.context,
@@ -204,7 +190,7 @@ public extension Configuration {
     product: Production.Product,
     version: String
   ) -> Generate { .init(
-    template: product.createNextVersionTemplate,
+    template: product.generateNextVersion,
     templates: controls.templates,
     context: Generate.NextVersion(
       ctx: controls.context,
@@ -216,7 +202,7 @@ public extension Configuration {
     production: Production,
     build: String
   ) -> Generate { .init(
-    template: production.createNextBuildTemplate,
+    template: production.generateNextBuild,
     templates: controls.templates,
     context: Generate.NextBuild(
       ctx: controls.context,
@@ -227,7 +213,7 @@ public extension Configuration {
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
-    template: product.deployTag.parseVersionTemplate,
+    template: product.deployTag.parseVersion,
     templates: controls.templates,
     context: Generate.DeployVersion(
       ctx: controls.context,
@@ -239,7 +225,7 @@ public extension Configuration {
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
-    template: product.deployTag.parseBuildTemplate,
+    template: product.deployTag.parseBuild,
     templates: controls.templates,
     context: Generate.DeployBuild(
       ctx: controls.context,
@@ -250,7 +236,7 @@ public extension Configuration {
     product: Production.Product,
     version: String
   ) -> Generate { .init(
-    template: product.createHotfixVersionTemplate,
+    template: product.generateHotfixVersion,
     templates: controls.templates,
     context: Generate.HotfixVersion(
       ctx: controls.context,
@@ -262,8 +248,9 @@ public extension Configuration {
     asset: Asset,
     product: Production.Product,
     version: String
-  ) -> Generate { .init(
-    template: asset.commitMessageTemplate,
+  ) throws -> Generate { try .init(
+    template: asset.commitMessage
+      .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
     context: Generate.VersionCommitMessage(
       ctx: controls.context,
@@ -274,8 +261,9 @@ public extension Configuration {
   func generateBuildCommitMessage(
     asset: Asset,
     build: String
-  ) -> Generate { .init(
-    template: asset.commitMessageTemplate,
+  ) throws -> Generate { try .init(
+    template: asset.commitMessage
+      .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
     context: Generate.BuildCommitMessage(
       ctx: controls.context,
@@ -286,8 +274,9 @@ public extension Configuration {
     asset: Asset,
     user: String,
     active: Bool
-  ) -> Generate { .init(
-    template: asset.commitMessageTemplate,
+  ) throws -> Generate { try .init(
+    template: asset.commitMessage
+      .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
     context: Generate.UserActivityCommitMessage(
       ctx: controls.context,
@@ -299,7 +288,7 @@ public extension Configuration {
     resolution: Fusion.Resolution,
     review: Json.GitlabReviewState
   ) -> Generate { .init(
-    template: resolution.messageTemplate,
+    template: resolution.commitMessage,
     templates: controls.templates,
     context: Generate.ResolutionCommitMessage(
       ctx: controls.context,
@@ -310,7 +299,7 @@ public extension Configuration {
     integration: Fusion.Integration,
     merge: Fusion.Merge
   ) -> Generate { .init(
-    template: integration.messageTemplate,
+    template: integration.commitMessage,
     templates: controls.templates,
     context: Generate.IntegrationCommitMessage(
       ctx: controls.context,
@@ -323,7 +312,7 @@ public extension Configuration {
     replication: Fusion.Replication,
     merge: Fusion.Merge
   ) -> Generate { .init(
-    template: replication.messageTemplate,
+    template: replication.commitMessage,
     templates: controls.templates,
     context: Generate.ReplicationCommitMessage(
       ctx: controls.context,

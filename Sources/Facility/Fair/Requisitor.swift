@@ -28,11 +28,11 @@ public final class Requisitor {
   }
   public func installProvisions(
     cfg: Configuration,
-    requisite: String
+    requisites: [String]
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
-    let requisites = requisite.isEmpty
-      .else([requisite])
+    let requisites = requisites.isEmpty
+      .else(requisites)
       .get(.init(requisition.requisites.keys))
     try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }
@@ -41,12 +41,12 @@ public final class Requisitor {
   public func installKeychain(
     cfg: Configuration,
     keychain: String,
-    requisite: String
+    requisites: [String]
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
     try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
-    try requisite.isEmpty
-      .else([requisite])
+    try requisites.isEmpty
+      .else(requisites)
       .get(.init(requisition.requisites.keys))
       .forEach { requisite in try importKeychain(
         cfg: cfg,
@@ -60,11 +60,11 @@ public final class Requisitor {
   public func installRequisite(
     cfg: Configuration,
     keychain: String,
-    requisite: String
+    requisites: [String]
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
-    let requisites = requisite.isEmpty
-      .else([requisite])
+    let requisites = requisites.isEmpty
+      .else(requisites)
       .get(.init(requisition.requisites.keys))
     try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }

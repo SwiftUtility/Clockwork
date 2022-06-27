@@ -11,6 +11,7 @@ public final class Decorator {
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
+  let restler: Restler
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -22,6 +23,7 @@ public final class Decorator {
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
+    restler: Restler,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
@@ -33,6 +35,7 @@ public final class Decorator {
     self.resolveFusion = resolveFusion
     self.report = report
     self.logMessage = logMessage
+    self.restler = restler
     self.jsonDecoder = jsonDecoder
   }
   public func updateUser(cfg: Configuration, active: Bool) throws -> Bool {
@@ -56,30 +59,21 @@ public final class Decorator {
     mode: AwardApproval.Mode,
     remind: Bool
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let pipeline = try gitlabCi.parent.pipeline
-      .flatMap(gitlabCi.getPipeline(pipeline:))
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
-    guard pipeline.id == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
-    guard gitlabCi.job.pipeline.ref == review.targetBranch else {
+    guard ctx.gitlab.job.pipeline.ref == ctx.review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
-      try gitlabCi.postParentMrPipelines
+      try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
       return false
     }
     let approval = try resolveAwardApproval(.init(cfg: cfg))
-    let sha = try Id(review.pipeline.sha)
+    let sha = try Id(ctx.review.pipeline.sha)
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
@@ -92,36 +86,36 @@ public final class Decorator {
         .map(resolveFusion)
         .flatMap(\.replication)
         .get()
-        .makeMerge(supply: review.sourceBranch)
+        .makeMerge(supply: ctx.review.sourceBranch)
     case .integration:
       merge = try Lossy(.init(cfg: cfg))
         .map(resolveFusion)
         .flatMap(\.integration)
         .get()
-        .makeMerge(supply: review.sourceBranch)
+        .makeMerge(supply: ctx.review.sourceBranch)
     }
     let participants: [String]
     let changedFiles: [String]
     if let merge = merge {
-      participants = try resolveParticipants(
+      participants = try restler.resolveParticipants(
         cfg: cfg,
-        gitlabCi: gitlabCi,
+        gitlabCi: ctx.gitlab,
         merge: merge
       )
       changedFiles = try resolveChanges(
         git: cfg.git,
-        gitlabCi: gitlabCi,
+        gitlabCi: ctx.gitlab,
         merge: try Lossy(.init(cfg: cfg))
           .map(resolveFusion)
           .flatMap(\.replication)
           .get()
-          .makeMerge(supply: review.sourceBranch),
-        review: review,
+          .makeMerge(supply: ctx.review.sourceBranch),
+        review: ctx.review,
         pipeline: pipeline
       )
     } else {
       participants = []
-      changedFiles = try Id(review.targetBranch)
+      changedFiles = try Id(ctx.review.targetBranch)
         .map(Git.Branch.init(name:))
         .map(Git.Ref.make(remote:))
         .reduce(sha, cfg.git.listChangedFiles(source:target:))
@@ -130,11 +124,11 @@ public final class Decorator {
         .get()
     }
     let users = try AwardApproval.Users(
-      bot: gitlabCi.botLogin,
-      author: review.author.username,
+      bot: ctx.gitlab.botLogin,
+      author: ctx.review.author.username,
       participants: participants,
       approval: approval,
-      awards: gitlabCi.getParentMrAwarders
+      awards: ctx.gitlab.getMrAwarders(review: ctx.review.iid)
         .map(execute)
         .reduce([Json.GitlabAward].self, jsonDecoder.decode(success:reply:))
         .get(),
@@ -142,62 +136,65 @@ public final class Decorator {
     )
     let profile = try resolveProfile(.init(git: cfg.git, file: .init(
       ref: sha,
-      path: gitlabCi.parent.profile.get()
+      path: ctx.profile
     )))
     let groups = try AwardApproval.Groups(
-      sourceBranch: review.sourceBranch,
-      targetBranch: review.targetBranch,
-      labels: review.labels,
+      sourceBranch: ctx.review.sourceBranch,
+      targetBranch: ctx.review.targetBranch,
+      labels: ctx.review.labels,
       users: users,
       approval: approval,
-      sanityFiles: profile.sanityFiles + [gitlabCi.config],
+      sanityFiles: profile.sanityFiles + [ctx.gitlab.config],
       fileApproval: resolveCodeOwnage(.init(cfg: cfg, profile: profile)),
       changedFiles: changedFiles
     )
     for award in groups.unhighlighted {
-      try gitlabCi
-        .postParentMrAward(award: award)
+      try ctx.gitlab
+        .postMrAward(review: ctx.review.iid, award: award)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
     }
     if !groups.unreported.isEmpty {
       try report(cfg.reportNewAwardApprovals(
-        review: review,
+        review: ctx.review,
         users: users.coauthors,
         groups: groups.unreported
       ))
       try groups.unreported.forEach { group in try report(cfg.reportNewAwardApproval(
-        review: review,
+        review: ctx.review,
         users: users.coauthors,
         group: group
       ))}
     }
     if groups.emergency, !groups.cheaters.isEmpty {
       try report(cfg.reportEmergencyAwardApproval(
-        review: review,
+        review: ctx.review,
         users: users.coauthors,
         cheaters: groups.cheaters
       ))
     }
     if !groups.neededLabels.isEmpty || !groups.extraLabels.isEmpty {
-      try gitlabCi
-        .putMrState(parameters: .init(
-          addLabels: groups.neededLabels.isEmpty.else(groups.neededLabels),
-          removeLabels: groups.extraLabels.isEmpty.else(groups.extraLabels)
-        ))
+      try ctx.gitlab
+        .putMrState(
+          parameters: .init(
+            addLabels: groups.neededLabels.isEmpty.else(groups.neededLabels),
+            removeLabels: groups.extraLabels.isEmpty.else(groups.extraLabels)
+          ),
+          review: ctx.review.iid
+        )
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
     }
     if remind, groups.unreported.isEmpty, !groups.unapproved.isEmpty {
       try report(cfg.reportWaitAwardApprovals(
-        review: review,
+        review: ctx.review,
         users: users.coauthors,
         groups: groups.unapproved
       ))
       try groups.unapproved.forEach { group in try report(cfg.reportWaitAwardApproval(
-        review: review,
+        review: ctx.review,
         users: users.coauthors,
         group: group
       ))}
@@ -209,13 +206,15 @@ public final class Decorator {
     guard groups.holders.isEmpty else {
       logMessage(.init(message: "On hold by: \(groups.holders.joined(separator: ", "))"))
       try report(cfg.reportAwardApprovalHolders(
-        review: review,
+        review: ctx.review,
         users: users.coauthors,
         holders: groups.holders
       ))
       return false
     }
-    if !remind { try report(cfg.reportAwardApprovalReady(review: review, users: users.coauthors)) }
+    if !remind {
+      try report(cfg.reportAwardApprovalReady(review: ctx.review, users: users.coauthors))
+    }
     return true
   }
   func resolveChanges(
@@ -264,29 +263,5 @@ public final class Decorator {
     try Execute.checkStatus(reply: execute(git.resetHard(ref: initial)))
     try Execute.checkStatus(reply: execute(git.clean))
     return result
-  }
-  func resolveParticipants(
-    cfg: Configuration,
-    gitlabCi: GitlabCi,
-    merge: Fusion.Merge
-  ) throws -> [String] { try Id
-    .make(cfg.git.listCommits(
-      in: [.make(sha: merge.fork)],
-      notIn: [.make(remote: merge.target)],
-      noMerges: true,
-      firstParents: false
-    ))
-    .map(execute)
-    .map(Execute.parseLines(reply:))
-    .get()
-    .map(Git.Sha.init(value:))
-    .flatMap { sha in try gitlabCi
-      .listShaMergeRequests(sha: sha)
-      .map(execute)
-      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
-      .get()
-      .filter { $0.squashCommitSha == sha.value }
-      .map(\.author.username)
-    }
   }
 }

@@ -4,14 +4,17 @@ import FacilityPure
 public final class Mediator {
   let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>
+  let restler: Restler
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     logMessage: @escaping Act.Reply<LogMessage>,
+    restler: Restler,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.logMessage = logMessage
+    self.restler = restler
     self.jsonDecoder = jsonDecoder
   }
   public func triggerPipeline(
@@ -30,7 +33,6 @@ public final class Mediator {
     }
     variables[gitlabCi.trigger.job] = "\(gitlabCi.job.id)"
     variables[gitlabCi.trigger.name] = gitlabCi.job.name
-    variables[gitlabCi.trigger.review] = gitlabCi.job.review.map(String.init(_:))
     variables[gitlabCi.trigger.profile] = cfg.profile.profile.path.value
     variables[gitlabCi.trigger.pipeline] = .init(gitlabCi.job.pipeline.id)
     try gitlabCi
@@ -43,16 +45,8 @@ public final class Mediator {
   public func createReviewPipeline(
     cfg: Configuration
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
-    try gitlabCi.postParentMrPipelines
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -62,22 +56,17 @@ public final class Mediator {
     cfg: Configuration,
     labels: [String]
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
-    let labels = Set(labels).subtracting(.init(review.labels))
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    let labels = Set(labels).subtracting(.init(ctx.review.labels))
     guard !labels.isEmpty else {
       logMessage(.init(message: "No new labels"))
       return false
     }
-    try gitlabCi
-      .putMrState(parameters: .init(addLabels: labels.joined(separator: ",")))
+    try ctx.gitlab
+      .putMrState(
+        parameters: .init(addLabels: labels.joined(separator: ",")),
+        review: ctx.review.iid
+      )
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -89,17 +78,9 @@ public final class Mediator {
     name: String,
     action: GitlabCi.JobAction
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    let review = try gitlabCi.getParentMrState
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    guard try gitlabCi.parent.pipeline.get() == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
-    let job = try gitlabCi
-      .getJobs(action: action, pipeline: review.pipeline.id)
+    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    let job = try ctx.gitlab
+      .getJobs(action: action, pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
       .get()
@@ -107,7 +88,7 @@ public final class Mediator {
       .sorted { $0.id < $1.id }
       .last
       .get { throw Thrown("Job \(name) not found") }
-    try gitlabCi
+    try ctx.gitlab
       .postJobsAction(job: job.id, action: action)
       .map(execute)
       .map(Execute.checkStatus(reply:))
