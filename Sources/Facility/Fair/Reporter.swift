@@ -50,12 +50,12 @@ public final class Reporter {
   public func report(query: Report) throws -> Report.Reply {
     let encoder = JSONEncoder()
     encoder.keyEncodingStrategy = .convertToSnakeCase
-    for value in query.cfg.controls.communication[query.reportable.event].get([]) {
+    for value in query.cfg.controls.communication[query.context.event].get([]) {
       switch value {
       case .slackHookTextMessage(let value):
         let message = try generate(query.cfg.controls.generateReport(
           template: value.message,
-          reportable: query.reportable
+          context: query.context
         ))
         guard !message.isEmpty else { continue }
         try Id(message)

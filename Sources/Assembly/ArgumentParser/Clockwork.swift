@@ -38,14 +38,13 @@ struct Clockwork: ParsableCommand {
       ImportRequisites.self,
       ReportExpiringRequisites.self,
       CreateDeployTag.self,
-      CreateCustomDeployTag.self,
       CreateReleaseBranch.self,
       CreateHotfixBranch.self,
-      ReserveBuildNumber.self,
-      RenderProtectedBuild.self,
-      RenderReviewBuild.self,
+      CreateAccessoryBranch.self,
+      ReserveParentReviewBuild.self,
+      ReserveProtectedBuild.self,
+      RenderBuild.self,
       RenderVersions.self,
-      ReportReleaseNotes.self,
       CreateReviewPipeline.self,
       PlayParentJob.self,
       CancelParentJob.self,
@@ -271,21 +270,6 @@ struct Clockwork: ParsableCommand {
       try Main.producer.createDeployTag(cfg: cfg)
     }
   }
-  struct CreateCustomDeployTag: ClockworkCommand {
-    static var abstract: String { "Create deploy tag with next build number on any protected ref" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Product to deploy")
-    var product: String
-    @Option(help: "Version to deploy")
-    var version: String
-    func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.createCustomDeployTag(
-        cfg: cfg,
-        product: product,
-        version: version
-      )
-    }
-  }
   struct CreateReleaseBranch: ClockworkCommand {
     static var abstract: String { "Cut release branch and bump current product version" }
     @OptionGroup var clockwork: Clockwork
@@ -305,49 +289,40 @@ struct Clockwork: ParsableCommand {
   struct CreateAccessoryBranch: ClockworkCommand {
     static var abstract: String { "Cut custom branch" }
     @OptionGroup var clockwork: Clockwork
+    @Option(help: "Accessory branch configuration family name")
+    var family: String
     @Argument(help: "Custom string to use for rendering branch name")
     var custom: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.createCustomBranch(cfg: cfg, custom: custom)
+      try Main.producer.createAccessoryBranch(cfg: cfg, family: family, custom: custom)
     }
   }
-  struct ReserveBuildNumber: ClockworkCommand {
+  struct ReserveParentReviewBuild: ClockworkCommand {
     static var abstract: String { "Reserves build number for parent review pipeline" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.reserveReviewBuild(cfg: cfg)
+      try Main.producer.reserveProtectedBuild(cfg: cfg)
     }
   }
-  struct RenderProtectedBuild: ClockworkCommand {
-    static var abstract: String { "Resolves or creates build and versions and renders to stdout" }
+  struct ReserveProtectedBuild: ClockworkCommand {
+    static var abstract: String { "Reserves build number for current protected branch pipeline" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.renderProtectedBuild(cfg: cfg)
+      try Main.producer.reserveProtectedBuild(cfg: cfg)
     }
   }
-  struct RenderReviewBuild: ClockworkCommand {
-    static var abstract: String { "Stdouts resolves reserved review build and versions" }
+  struct RenderBuild: ClockworkCommand {
+    static var abstract: String { "Renders reserved build and versions to stdout" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.renderReviewBuild(cfg: cfg)
+      try Main.producer.renderBuild(cfg: cfg)
     }
   }
   struct RenderVersions: ClockworkCommand {
-    static var abstract: String { "Resolves versions and renders to stdout" }
+    static var abstract: String { "Renders current next versions to stdout" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
       try Main.producer.renderVersions(cfg: cfg)
-    }
-  }
-  struct ReportReleaseNotes: ClockworkCommand {
-    static var abstract: String {
-      "Produce and report notes of commits between HEAD tag and provided tag"
-    }
-    @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Tag to diff with")
-    var tag: String
-    func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.reportReleaseNotes(cfg: cfg, tag: tag)
     }
   }
   struct CreateReviewPipeline: ClockworkCommand {

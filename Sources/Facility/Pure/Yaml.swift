@@ -9,7 +9,7 @@ public enum Yaml {
     public var templates: String?
     public var renderBuild: Template?
     public var renderVersions: Template?
-    public var renderIntegration: Template?
+    public var renderIntegrationTargets: Template?
     public struct FileTaboo: Decodable {
       public var rule: String
       public var file: Criteria?
@@ -33,39 +33,41 @@ public enum Yaml {
       public var versions: Asset
       public var generateNextBuild: Template
       public var products: [String: Product]
-      public var accessoryBranch: AccessoryBranch?
-      public var generateCustomBranchName: Template?
-      public var generateReleaseNotes: Template?
+      public var accessoryBranches: [String: AccessoryBranch]?
       public var maxBuildsCount: Int?
       public struct Product: Decodable {
         public var mainatiners: [String]?
         public var deployTag: DeployTag
         public var releaseBranch: ReleaseBranch
-        public var generateNextVersion: Template
-        public var generateHotfixVersion: Template
+        public var createNextVersion: Template
+        public var createHotfixVersion: Template
         public struct DeployTag: Decodable {
           public var nameMatch: Criteria
-          public var generateName: Template
+          public var createName: Template
           public var parseBuild: Template
           public var parseVersion: Template
-          public var generateAnnotation: Template
+          public var createAnnotation: Template
         }
         public struct ReleaseBranch: Decodable {
           public var nameMatch: Criteria
-          public var generateName: Template
+          public var createName: Template
           public var parseVersion: Template
         }
       }
       public struct AccessoryBranch: Decodable {
         public var mainatiners: [String]?
-        public var generateName: Template
+        public var nameMatch: Criteria
+        public var createName: Template
+        public var adjustProductVersion: Template
       }
       public struct Build: Decodable {
         public var build: String
         public var sha: String
-        public var ref: String
-        public var tag: Bool
+        public var branch: String?
         public var review: UInt?
+        public var target: String?
+        public var product: String?
+        public var version: String?
       }
     }
     public struct Requisition: Decodable {

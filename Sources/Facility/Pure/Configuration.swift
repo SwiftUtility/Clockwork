@@ -31,7 +31,7 @@ public struct Configuration {
     public var templates: [String: String] = [:]
     public var renderBuild: Lossy<Template>
     public var renderVersions: Lossy<Template>
-    public var renderIntegration: Lossy<Template>
+    public var renderIntegrationTargets: Lossy<Template>
     public static func make(
       profile: Git.File,
       yaml: Yaml.Profile
@@ -59,7 +59,7 @@ public struct Configuration {
         .map(Template.make(yaml:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("renderVersions not configured"))),
-      renderIntegration: yaml.renderIntegration
+      renderIntegrationTargets: yaml.renderIntegrationTargets
         .map(Template.make(yaml:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("renderIntegration not configured")))

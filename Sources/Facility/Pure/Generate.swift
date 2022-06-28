@@ -1,107 +1,142 @@
 import Foundation
 import Facility
+public protocol GenerationContext: Encodable {
+  var event: String { get }
+  var ctx: AnyCodable? { get }
+}
+public extension GenerationContext {
+  static var event: String { "\(Self.self)" }
+}
 public struct Generate: Query {
   public var allowEmpty: Bool
   public var template: Configuration.Template
   public var templates: [String: String]
-  public var context: Encodable
+  public var context: GenerationContext
   public typealias Reply = String
-  public struct Versions: Encodable {
+  public struct RenderVersions: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var versions: [String: String]
   }
-  public struct Build: Encodable {
+  public struct RenderBuild: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var versions: [String: String]
-    public var build: Production.Build
+    public var build: String
   }
-  public struct Integration: Encodable {
+  public struct RenderIntegrationTargets: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info
     public var targets: [String]
   }
-  public struct ReleaseVersion: Encodable {
+  public struct ParseReleaseVersion: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var product: String
     public var ref: String
   }
-  public struct ReleaseName: Encodable {
+  public struct ReleaseName: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
-  public struct AccessoryName: Encodable {
+  public struct AccessoryName: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
+    public var family: String
     public var custom: String
   }
-  public struct DeployName: Encodable {
+  public struct CreateDeployTagName: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct DeployAnnotation: Encodable {
+  public struct DeployAnnotation: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct NextVersion: Encodable {
+  public struct NextVersion: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
-  public struct NextBuild: Encodable {
+  public struct NextBuild: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var build: String
   }
-  public struct DeployVersion: Encodable {
+  public struct DeployVersion: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var product: String
     public var ref: String
   }
-  public struct DeployBuild: Encodable {
+  public struct DeployBuild: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var ref: String
   }
-  public struct HotfixVersion: Encodable {
+  public struct HotfixVersion: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var product: String
     public var version: String
   }
-  public struct VersionCommitMessage: Encodable {
+  public struct AdjustAccessoryVersion: GenerationContext {
+    public let event: String = Self.event
+    public var ctx: AnyCodable?
+    public var ref: String
+    public var family: String
+    public var product: String
+    public var version: String
+  }
+  public struct VersionCommitMessage: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info
     public var product: String
     public var version: String
   }
-  public struct BuildCommitMessage: Encodable {
+  public struct BuildCommitMessage: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info
     public var build: String
   }
-  public struct UserActivityCommitMessage: Encodable {
+  public struct UserActivityCommitMessage: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info
     public var user: String
     public var active: Bool
   }
-  public struct ResolutionCommitMessage: Encodable {
+  public struct ResolutionCommitMessage: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info
     public var review: Json.GitlabReviewState
   }
-  public struct IntegrationCommitMessage: Encodable {
+  public struct IntegrationCommitMessage: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info
     public var fork: String
     public var source: String
     public var target: String
   }
-  public struct ReplicationCommitMessage: Encodable {
+  public struct ReplicationCommitMessage: GenerationContext {
+    public let event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info
     public var fork: String
@@ -110,64 +145,64 @@ public struct Generate: Query {
   }
 }
 public extension Configuration {
-  func generateVersions(
+  func renderVersions(
     versions: [String: String]
   ) throws -> Generate { try .init(
     allowEmpty: false,
     template: profile.renderVersions.get(),
     templates: profile.templates,
-    context: Generate.Versions(
+    context: Generate.RenderVersions(
       ctx: controls.context,
       versions: versions
     )
   )}
-  func generateBuild(
+  func renderBuild(
     versions: [String: String],
-    build: Production.Build
+    build: String
   ) throws -> Generate { try .init(
     allowEmpty: false,
     template: profile.renderBuild.get(),
     templates: profile.templates,
-    context: Generate.Build(
+    context: Generate.RenderBuild(
       ctx: controls.context,
       versions: versions,
       build: build
     )
   )}
-  func generateIntegration(
+  func renderIntegrationTargets(
     targets: [String]
   ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: profile.renderIntegration.get(),
+    template: profile.renderIntegrationTargets.get(),
     templates: profile.templates,
-    context: Generate.Integration(
+    context: Generate.RenderIntegrationTargets(
       ctx: controls.context,
       info: controls.gitlabCi.get().info,
       targets: targets
     )
   )}
-  func generateReleaseVersion(
+  func parseReleaseVersion(
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
     template: product.releaseBranch.parseVersion,
     templates: controls.templates,
-    context: Generate.ReleaseVersion(
+    context: Generate.ParseReleaseVersion(
       ctx: controls.context,
       product: product.name,
       ref: ref
     )
   )}
-  func generateDeployName(
+  func createDeployTagName(
     product: Production.Product,
     version: String,
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deployTag.generateName,
+    template: product.deployTag.createName,
     templates: controls.templates,
-    context: Generate.DeployName(
+    context: Generate.CreateDeployTagName(
       ctx: controls.context,
       product: product.name,
       version: version,
@@ -180,7 +215,7 @@ public extension Configuration {
     build: String
   ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: product.deployTag.generateAnnotation,
+    template: product.deployTag.createAnnotation,
     templates: controls.templates,
     context: Generate.DeployAnnotation(
       ctx: controls.context,
@@ -195,7 +230,7 @@ public extension Configuration {
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.releaseBranch.generateName,
+    template: product.releaseBranch.createName,
     templates: controls.templates,
     context: Generate.ReleaseName(
       ctx: controls.context,
@@ -208,10 +243,11 @@ public extension Configuration {
     custom: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: accessoryBranch.generateName,
+    template: accessoryBranch.createName,
     templates: controls.templates,
     context: Generate.AccessoryName(
       ctx: controls.context,
+      family: accessoryBranch.family,
       custom: custom
     )
   )}
@@ -275,6 +311,23 @@ public extension Configuration {
     context: Generate.HotfixVersion(
       ctx: controls.context,
       product: product.name,
+      version: version
+    )
+  )}
+  func adjustAccessoryVersion(
+    accessory: Production.AccessoryBranch,
+    ref: String,
+    product: String,
+    version: String
+  ) -> Generate { .init(
+    allowEmpty: false,
+    template: accessory.adjustProductVersion,
+    templates: controls.templates,
+    context: Generate.AdjustAccessoryVersion(
+      ctx: controls.context,
+      ref: ref,
+      family: accessory.family,
+      product: product,
       version: version
     )
   )}

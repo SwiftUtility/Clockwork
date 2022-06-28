@@ -372,7 +372,7 @@ public final class Blender {
       .filter { $0.source.isMet(source.name) }
       .mapEmpty { throw Thrown("Integration for \(source.name) not configured") }
     var targets: [Git.Branch] = []
-    let lines = try Id(cfg.git.listLocalRefs)
+    let lines = try Id(cfg.git.listAllRefs)
       .map(execute)
       .map(Execute.parseLines(reply:))
       .get()
@@ -389,7 +389,7 @@ public final class Blender {
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    try printLine(generate(cfg.generateIntegration(targets: targets.map(\.name))))
+    try printLine(generate(cfg.renderIntegrationTargets(targets: targets.map(\.name))))
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {

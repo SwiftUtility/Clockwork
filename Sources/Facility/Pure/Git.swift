@@ -50,7 +50,7 @@ public struct Git {
       return .init(value: "refs/heads/\(branch.name)")
     }
   }
-  public struct Sha {
+  public struct Sha: Hashable {
     public let value: String
     public init(value: String) throws {
       guard value.count == 40, value.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
@@ -96,8 +96,8 @@ public extension Git {
     escalate: false
   )}
   var notCommited: Execute { proc(args: ["status", "--porcelain"]) }
-  var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"])}
-  var listLocalRefs: Execute { proc(args: ["diff", "show-ref", "--head"])}
+  var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"]) }
+  var listAllRefs: Execute { proc(args: ["show-ref", "--head"]) }
   func check(child: Ref, parent: Ref) -> Execute { proc(
     args: ["merge-base", "--is-ancestor", parent.value, child.value]
   )}
@@ -142,17 +142,8 @@ public extension Git {
   func getAuthorEmail(ref: Ref) -> Execute { proc(
     args: ["show", "-s", "--format=%aE", ref.value]
   )}
-  func getAuthorDate(ref: Ref) -> Execute { proc(
-    args: ["show", "-s", "--format=%ad", ref.value]
-  )}
-  func getCommiterName(ref: Ref) -> Execute { proc(
-    args: ["show", "-s", "--format=%cN", ref.value]
-  )}
-  func getCommiterEmail(ref: Ref) -> Execute { proc(
-    args: ["show", "-s", "--format=%cE", ref.value]
-  )}
-  func getCommiterDate(ref: Ref) -> Execute { proc(
-    args: ["show", "-s", "--format=%cd", ref.value]
+  func getAuthorTimestamp(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%at", ref.value]
   )}
   func getCommitMessage(ref: Ref) -> Execute { proc(
     args: ["show", "-s", "--format=%B", ref.value]

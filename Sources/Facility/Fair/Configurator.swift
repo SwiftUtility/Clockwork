@@ -258,7 +258,7 @@ public final class Configurator {
     let builds = query.builds + [query.build]
     let message = try generate(query.cfg.generateBuildCommitMessage(
       asset: query.production.builds,
-      build: query.build.value
+      build: query.build.build
     ))
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
       url: query.pushUrl,
@@ -270,6 +270,7 @@ public final class Configurator {
         yaml: query.production.maxBuildsCount
           .map(builds.suffix(_:))
           .get(builds)
+          .map(\.yaml)
           .flatMap(makeYaml(build:))
           .joined(),
         message: message
@@ -388,13 +389,12 @@ extension Configurator {
     }
     return result
   }
-  func makeYaml(build: Production.Build) -> [String] {
-    [
-      "- build: '\(build.value)'\n",
-      "  sha: '\(build.sha)'\n",
-      "  ref: '\(build.ref)'\n",
-      "  tag: \(build.tag)\n",
-    ]
+  func makeYaml(build: Yaml.Controls.Production.Build) -> [String] {
+    ["- build: '\(build.build)'\n", "  sha: '\(build.sha)'\n"]
+    + build.branch.map { "  branch: \($0)\n" }.array
     + build.review.map { "  review: \($0)\n" }.array
+    + build.target.map { "  target: \($0)\n" }.array
+    + build.product.map { "  product: \($0)\n" }.array
+    + build.version.map { "  version: \($0)\n" }.array
   }
 }

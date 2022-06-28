@@ -2,6 +2,10 @@ import XCTest
 @testable import InteractivityStencil
 @testable import Facility
 @testable import FacilityPure
+extension AnyCodable: GenerationContext {
+  public var event: String { "" }
+  public var ctx: AnyCodable? { self }
+}
 final class StencilTests: XCTestCase {
   func makeQuery(_ name: String) -> Generate { .init(
     allowEmpty: false,

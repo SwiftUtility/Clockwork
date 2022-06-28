@@ -5,7 +5,7 @@ public struct Production {
   public var versions: Configuration.Asset
   public var generateNextBuild: Configuration.Template
   public var products: [Product]
-  public var accessoryBranch: Lossy<AccessoryBranch>
+  public var accessoryBranches: [AccessoryBranch]
   public var generateReleaseNotes: Configuration.Template?
   public var maxBuildsCount: Int?
   public func productMatching(ref: String, tag: Bool) throws -> Product? {
@@ -39,30 +39,31 @@ public struct Production {
           .union(Set(yaml.mainatiners.get([]))),
         deployTag: .init(
           nameMatch: .init(yaml: yaml.deployTag.nameMatch),
-          generateName: .make(yaml: yaml.deployTag.generateName),
-          generateAnnotation: .make(yaml: yaml.deployTag.generateAnnotation),
+          createName: .make(yaml: yaml.deployTag.createName),
+          createAnnotation: .make(yaml: yaml.deployTag.createAnnotation),
           parseBuild: .make(yaml: yaml.deployTag.parseBuild),
           parseVersion: .make(yaml: yaml.deployTag.parseVersion)
         ),
         releaseBranch: .init(
           nameMatch: .init(yaml: yaml.releaseBranch.nameMatch),
-          generateName: .make(yaml: yaml.releaseBranch.generateName),
+          createName: .make(yaml: yaml.releaseBranch.createName),
           parseVersion: .make(yaml: yaml.releaseBranch.parseVersion)
         ),
-        generateNextVersion: .make(yaml: yaml.generateNextVersion),
-        generateHotfixVersion: .make(yaml: yaml.generateHotfixVersion)
+        generateNextVersion: .make(yaml: yaml.createNextVersion),
+        generateHotfixVersion: .make(yaml: yaml.createHotfixVersion)
       )},
-    accessoryBranch: yaml.accessoryBranch
-      .map { yaml in .init(try .init(
-        generateName: .make(yaml: yaml.generateName),
+    accessoryBranches: yaml.accessoryBranches
+      .get([:])
+      .map { family, yaml in try .init(
+        family: family,
         mainatiners: yaml.mainatiners
           .map(Set.init(_:))
           .get([])
-          .union(mainatiners)
-      ))}
-      .get(.error(Thrown("accessoryBranch not configured"))),
-    generateReleaseNotes: yaml.generateReleaseNotes
-      .map(Configuration.Template.make(yaml:)),
+          .union(mainatiners),
+        nameMatch: .init(yaml: yaml.nameMatch),
+        createName: .make(yaml: yaml.createName),
+        adjustProductVersion: .make(yaml: yaml.adjustProductVersion)
+      )},
     maxBuildsCount: yaml.maxBuildsCount
   )}
   public struct Product {
@@ -74,67 +75,106 @@ public struct Production {
     public var generateHotfixVersion: Configuration.Template
     public struct DeployTag {
       public var nameMatch: Criteria
-      public var generateName: Configuration.Template
-      public var generateAnnotation: Configuration.Template
+      public var createName: Configuration.Template
+      public var createAnnotation: Configuration.Template
       public var parseBuild: Configuration.Template
       public var parseVersion: Configuration.Template
     }
     public struct ReleaseBranch {
       public var nameMatch: Criteria
-      public var generateName: Configuration.Template
+      public var createName: Configuration.Template
       public var parseVersion: Configuration.Template
+    }
+    public func deploy(job: Json.GitlabJob, version: String, build: String) -> Build.Deploy {
+      .init(build: build, sha: job.pipeline.sha, product: name, version: version)
     }
   }
   public struct AccessoryBranch {
-    public var generateName: Configuration.Template
+    public var family: String
     public var mainatiners: Set<String>
+    public var nameMatch: Criteria
+    public var createName: Configuration.Template
+    public var adjustProductVersion: Configuration.Template
   }
-  public struct Build: Encodable {
-    public var value: String
-    public var sha: String
-    public var ref: String
-    public var tag: Bool
-    public var review: UInt?
-    public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self { .init(
-      value: yaml.build,
-      sha: yaml.sha,
-      ref: yaml.ref,
-      tag: yaml.tag,
-      review: yaml.review
-    )}
-    public static func make(
-      value: String,
-      sha: String,
-      targer: String,
-      review: UInt
-    ) -> Self { .init(
-      value: value,
-      sha: sha,
-      ref: targer,
-      tag: false,
-      review: review
-    )}
-    public static func make(
-      value: String,
-      sha: String,
-      tag: String
-    ) -> Self { .init(
-      value: value,
-      sha: sha,
-      ref: tag,
-      tag: true,
-      review: nil
-    )}
-    public static func make(
-      value: String,
-      sha: String,
-      branch: String
-    ) -> Self { .init(
-      value: value,
-      sha: sha,
-      ref: branch,
-      tag: false,
-      review: nil
-    )}
+  public enum Build {
+    case review(Review)
+    case branch(Branch)
+    case deploy(Deploy)
+    public var yaml: Yaml.Controls.Production.Build {
+      switch self {
+      case .review(let review): return .init(
+        build: review.build,
+        sha: review.sha,
+        review: review.review,
+        target: review.target
+      )
+      case .branch(let branch): return .init(
+        build: branch.build,
+        sha: branch.sha,
+        branch: branch.branch
+      )
+      case .deploy(let deploy): return .init(
+        build: deploy.build,
+        sha: deploy.sha,
+        product: deploy.product,
+        version: deploy.version
+      )}
+    }
+    public var build: String {
+      switch self {
+      case .review(let review): return review.build
+      case .branch(let branch): return branch.build
+      case .deploy(let deploy): return deploy.build
+      }
+    }
+    public var target: String? {
+      guard case .review(let review) = self else { return nil }
+      return review.target
+    }
+    public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self {
+      if let deploy = try? Deploy.make(yaml: yaml) { return .deploy(deploy) }
+      else if let branch = try? Branch.make(yaml: yaml) { return .branch(branch) }
+      else if let review = try? Review.make(yaml: yaml) { return .review(review) }
+      else { throw Thrown("Wrong build format") }
+    }
+    public struct Review: Encodable {
+      public var build: String
+      public var sha: String
+      public var review: UInt
+      public var target: String
+      public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self {
+        guard yaml.branch == nil, yaml.product == nil, yaml.version == nil else { throw Thrown() }
+        return try .init(
+          build: yaml.build,
+          sha: yaml.sha,
+          review: ?!yaml.review,
+          target: ?!yaml.target
+        )
+      }
+    }
+    public struct Branch: Encodable {
+      public var build: String
+      public var sha: String
+      public var branch: String
+      public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self {
+        guard yaml.review == nil, yaml.product == nil, yaml.version == nil else { throw Thrown() }
+        return try .init(build: yaml.build, sha: yaml.sha, branch: ?!yaml.branch)
+      }
+    }
+    public struct Deploy: Encodable {
+      public var build: String
+      public var sha: String
+      public var product: String
+      public var version: String
+      public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self {
+        guard yaml.review == nil, yaml.branch == nil else { throw Thrown() }
+        return try .init(
+          build: yaml.build,
+          sha: yaml.sha,
+          product: ?!yaml.product,
+          version: ?!yaml.version
+        )
+      }
+    }
   }
 }
