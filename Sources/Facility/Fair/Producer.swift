@@ -12,7 +12,7 @@ public final class Producer {
   let persistVersions: Try.Reply<Configuration.PersistVersions>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
-  let printLine: Act.Of<String>.Go
+  let writeStdout: Act.Of<String>.Go
   let restler: Restler
   let jsonDecoder: JSONDecoder
   public init(
@@ -26,7 +26,7 @@ public final class Producer {
     persistVersions: @escaping Try.Reply<Configuration.PersistVersions>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    printLine: @escaping Act.Of<String>.Go,
+    writeStdout: @escaping Act.Of<String>.Go,
     restler: Restler,
     jsonDecoder: JSONDecoder
   ) {
@@ -40,7 +40,7 @@ public final class Producer {
     self.persistVersions = persistVersions
     self.report = report
     self.logMessage = logMessage
-    self.printLine = printLine
+    self.writeStdout = writeStdout
     self.restler = restler
     self.jsonDecoder = jsonDecoder
   }
@@ -294,11 +294,11 @@ public final class Producer {
         ))
       }
     }
-    try printLine(generate(cfg.exportBuildContext(versions: versions, build: build)))
+    try writeStdout(generate(cfg.exportBuildContext(versions: versions, build: build)))
     return true
   }
   public func renderVersions(cfg: Configuration) throws -> Bool {
-    try printLine(generate(cfg.exportCurrentVersions(
+    try writeStdout(generate(cfg.exportCurrentVersions(
       versions: resolveProductionVersions(.init(
         cfg: cfg,
         production: resolveProduction(.init(cfg: cfg))

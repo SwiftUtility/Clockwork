@@ -4,7 +4,7 @@ import FacilityPure
 public final class Blender {
   let execute: Try.Reply<Execute>
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
-  let printLine: Act.Of<String>.Go
+  let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
@@ -13,7 +13,7 @@ public final class Blender {
   public init(
     execute: @escaping Try.Reply<Execute>,
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
-    printLine: @escaping Act.Of<String>.Go,
+    writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
@@ -22,7 +22,7 @@ public final class Blender {
   ) {
     self.execute = execute
     self.resolveFusion = resolveFusion
-    self.printLine = printLine
+    self.writeStdout = writeStdout
     self.generate = generate
     self.report = report
     self.logMessage = logMessage
@@ -385,7 +385,7 @@ public final class Blender {
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    try printLine(generate(cfg.exportIntegrationTargets(fork: fork, targets: targets.map(\.name))))
+    try writeStdout(generate(cfg.exportIntegrationTargets(fork: fork, targets: targets.map(\.name))))
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {

@@ -3,27 +3,27 @@ import Facility
 import FacilityPure
 public final class Reporter {
   let execute: Try.Reply<Execute>
-  let logLine: Act.Of<String>.Go
-  let printLine: Act.Of<String>.Go
+  let writeStderr: Act.Of<String>.Go
+  let writeStdout: Act.Of<String>.Go
   let getTime: Act.Do<Date>
-  let readInput: Try.Do<Execute.Reply>
+  let readStdin: Try.Do<Execute.Reply>
   let generate: Try.Reply<Generate>
   let jsonDecoder: JSONDecoder
   let formatter: DateFormatter
   public init(
     execute: @escaping Try.Reply<Execute>,
-    logLine: @escaping Act.Of<String>.Go,
-    printLine: @escaping Act.Of<String>.Go,
+    writeStderr: @escaping Act.Of<String>.Go,
+    writeStdout: @escaping Act.Of<String>.Go,
     getTime: @escaping Act.Do<Date>,
-    readInput: @escaping Try.Do<Execute.Reply>,
+    readStdin: @escaping Try.Do<Execute.Reply>,
     generate: @escaping Try.Reply<Generate>,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
-    self.logLine = logLine
-    self.printLine = printLine
+    self.writeStderr = writeStderr
+    self.writeStdout = writeStdout
     self.getTime = getTime
-    self.readInput = readInput
+    self.readStdin = readStdin
     self.generate = generate
     self.jsonDecoder = jsonDecoder
     self.formatter = .init()
@@ -41,7 +41,7 @@ public final class Reporter {
   }
   public func reportCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
     let stdin = try stdin
-      .then(readInput())
+      .then(readStdin())
       .map(Execute.parseLines(reply:))
       .get([])
     try report(query: cfg.reportCustom(event: event, stdin: stdin))
@@ -76,6 +76,6 @@ private extension Reporter {
   func log(message: String) { message
     .split(separator: "\n")
     .compactMap { line in line.isEmpty.else("[\(formatter.string(from: getTime()))]: \(line)") }
-    .forEach(logLine)
+    .forEach(writeStderr)
   }
 }

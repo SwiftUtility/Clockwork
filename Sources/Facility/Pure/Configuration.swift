@@ -122,7 +122,7 @@ public struct Configuration {
       else { throw Thrown("Multiple values in template") }
       if let value = yaml.name { return .name(value) }
       else if let value = yaml.value { return .value(value) }
-      else { throw Thrown("No value in template") }
+      else { throw Thrown("No values in template") }
     }
   }
   public enum Secret {
@@ -135,7 +135,7 @@ public struct Configuration {
       if let value = yaml.value { return .value(value) }
       else if let envVar = yaml.envVar { return .envVar(envVar) }
       else if let envFile = yaml.envFile { return .envFile(envFile) }
-      else { throw Thrown("No value in secret") }
+      else { throw Thrown("No values in secret") }
     }
   }
   public struct ResolveProfile: Query {

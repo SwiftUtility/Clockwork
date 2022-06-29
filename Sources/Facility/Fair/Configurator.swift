@@ -9,7 +9,7 @@ public final class Configurator {
   let generate: Try.Reply<Generate>
   let writeFile: Try.Reply<Files.WriteFile>
   let logMessage: Act.Reply<LogMessage>
-  let printLine: Act.Of<String>.Go
+  let writeStdout: Act.Of<String>.Go
   let dialect: AnyCodable.Dialect
   let jsonDecoder: JSONDecoder
   public init(
@@ -20,7 +20,7 @@ public final class Configurator {
     generate: @escaping Try.Reply<Generate>,
     writeFile: @escaping Try.Reply<Files.WriteFile>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    printLine: @escaping Act.Of<String>.Go,
+    writeStdout: @escaping Act.Of<String>.Go,
     dialect: AnyCodable.Dialect,
     jsonDecoder: JSONDecoder
   ) {
@@ -31,7 +31,7 @@ public final class Configurator {
     self.generate = generate
     self.writeFile = writeFile
     self.logMessage = logMessage
-    self.printLine = printLine
+    self.writeStdout = writeStdout
     self.dialect = dialect
     self.jsonDecoder = jsonDecoder
   }
