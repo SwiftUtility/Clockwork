@@ -190,29 +190,6 @@ public final class Blender {
       return true
     }
     let head = try Git.Sha(value: ctx.job.pipeline.sha)
-    guard case nil = try? execute(cfg.git.check(
-      child: .make(sha: merge.fork),
-      parent: .make(remote: merge.target)
-    )) else {
-      guard ctx.job.pipeline.sha == merge.fork.value else {
-        logMessage(.init(message: "Wrong integration state"))
-        try Execute.checkStatus(reply: execute(cfg.git.push(
-          url: ctx.gitlab.pushUrl.get(),
-          branch: merge.supply,
-          sha: merge.fork,
-          force: true
-        )))
-        return true
-      }
-      return try acceptMerge(
-        cfg: cfg,
-        gitlabCi: ctx.gitlab,
-        review: ctx.review,
-        message: nil,
-        sha: head,
-        users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
-      )
-    }
     guard checkNeeded(cfg: cfg, merge: merge) else {
       try ctx.gitlab
         .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
