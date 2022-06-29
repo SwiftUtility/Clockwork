@@ -385,7 +385,7 @@ public final class Blender {
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    try printLine(generate(cfg.exportIntegrationTargets(targets: targets.map(\.name))))
+    try printLine(generate(cfg.exportIntegrationTargets(fork: fork, targets: targets.map(\.name))))
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {

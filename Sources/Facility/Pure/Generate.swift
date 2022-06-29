@@ -39,6 +39,7 @@ public struct Generate: Query {
     public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
+    public var fork: String
     public var targets: [String]
   }
   public struct ParseReleaseBranchVersion: GenerationContext {
@@ -184,6 +185,7 @@ public extension Configuration {
     )
   )}
   func exportIntegrationTargets(
+    fork: Git.Sha,
     targets: [String]
   ) throws -> Generate { try .init(
     allowEmpty: false,
@@ -192,6 +194,7 @@ public extension Configuration {
     context: Generate.ExportIntegrationTargets(
       ctx: controls.context,
       info: try? controls.gitlabCi.get().info,
+      fork: fork.value,
       targets: targets
     )
   )}

@@ -30,11 +30,11 @@ struct Clockwork: ParsableCommand {
       TriggerPipeline.self,
       StartReplication.self,
       FinishReplication.self,
-      RenderIntegration.self,
+      ExportIntegrationTargets.self,
       StartIntegration.self,
       FinishIntegration.self,
       ImportProvisions.self,
-      ImportKeychain.self,
+      ImportPkcs12.self,
       ImportRequisites.self,
       ReportExpiringRequisites.self,
       CreateDeployTag.self,
@@ -43,8 +43,8 @@ struct Clockwork: ParsableCommand {
       CreateAccessoryBranch.self,
       ReserveParentReviewBuild.self,
       ReserveProtectedBuild.self,
-      RenderBuild.self,
-      RenderVersions.self,
+      ExportBuildContext.self,
+      ExportCurrentVersions.self,
       CreateReviewPipeline.self,
       PlayParentJob.self,
       CancelParentJob.self,
@@ -200,7 +200,7 @@ struct Clockwork: ParsableCommand {
       try Main.decorator.checkAwardApproval(cfg: cfg, mode: .integration, remind: remind)
     }
   }
-  struct RenderIntegration: ClockworkCommand {
+  struct ExportIntegrationTargets: ClockworkCommand {
     static var abstract: String { "Stdouts rendered job template for suitable branches" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
@@ -234,7 +234,7 @@ struct Clockwork: ParsableCommand {
       try Main.requisitor.installProvisions(cfg: cfg, requisites: requisites)
     }
   }
-  struct ImportKeychain: ClockworkCommand {
+  struct ImportPkcs12: ClockworkCommand {
     static var abstract: String { "Import p12 and setup xcode access" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Keychain name to import requisites into")
@@ -313,14 +313,14 @@ struct Clockwork: ParsableCommand {
       try Main.producer.reserveProtectedBuild(cfg: cfg)
     }
   }
-  struct RenderBuild: ClockworkCommand {
+  struct ExportBuildContext: ClockworkCommand {
     static var abstract: String { "Renders reserved build and versions to stdout" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
       try Main.producer.renderBuild(cfg: cfg)
     }
   }
-  struct RenderVersions: ClockworkCommand {
+  struct ExportCurrentVersions: ClockworkCommand {
     static var abstract: String { "Renders current next versions to stdout" }
     @OptionGroup var clockwork: Clockwork
     func run(cfg: Configuration) throws -> Bool {
