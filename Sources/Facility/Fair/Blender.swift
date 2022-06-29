@@ -66,7 +66,7 @@ public final class Blender {
     let head = try Git.Sha(value: ctx.review.pipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
     let resolution = try resolveFusion(.init(cfg: cfg)).resolution.get()
-    let message = try generate(cfg.generateResolutionCommitMessage(
+    let message = try generate(cfg.createResolutionCommitMessage(
       resolution: resolution,
       review: ctx.review
     ))
@@ -114,13 +114,13 @@ public final class Blender {
       users: []
     )
   }
-  public func startIntegration(cfg: Configuration, target: String) throws -> Bool {
+  public func startIntegration(cfg: Configuration, target: String, fork: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     let merge = try integration.makeMerge(
       target: target, source: gitlabCi.job.pipeline.ref,
-      sha: gitlabCi.job.pipeline.sha
+      fork: fork
     )
     guard integration.rules.contains(where: { rule in
       rule.mainatiners.contains(gitlabCi.job.user.username)
@@ -131,24 +131,20 @@ public final class Blender {
     guard case nil = try? execute(cfg.git.checkObjectType(
       ref: .make(remote: merge.supply)
     )) else { throw Thrown("Integration already in progress") }
-    let message = try generate(cfg.generateIntegrationCommitMessage(
+    let message = try generate(cfg.createIntegrationCommitMessage(
       integration: integration,
       merge: merge
     ))
-    let sha: Git.Sha
-    if case nil = try? execute(cfg.git.check(
-      child: .make(sha: merge.fork),
-      parent: .make(remote: merge.target)
-    )) {
-      sha = merge.fork
-    } else {
-      sha = try commitMerge(
-        cfg: cfg,
-        into: .make(remote: merge.target),
-        message: message,
-        sha: merge.fork
-      ) ?? merge.fork
-    }
+    guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+      child: .make(remote: merge.source),
+      parent: .make(sha: merge.fork)
+    ))) else { throw Thrown("\(merge.fork) is not in \(merge.source)") }
+    let sha = try commitMerge(
+      cfg: cfg,
+      into: .make(remote: merge.target),
+      message: message,
+      sha: merge.fork
+    ) ?? merge.fork
     try Execute.checkStatus(reply: execute(cfg.git.push(
       url: gitlabCi.pushUrl.get(),
       branch: merge.supply,
@@ -239,7 +235,7 @@ public final class Blender {
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
-      let message = try generate(cfg.generateIntegrationCommitMessage(
+      let message = try generate(cfg.createIntegrationCommitMessage(
         integration: integration,
         merge: merge
       ))
@@ -267,7 +263,7 @@ public final class Blender {
       return true
     }
     guard pipeline.user.username == ctx.gitlab.botLogin else {
-      let message = try generate(cfg.generateIntegrationCommitMessage(
+      let message = try generate(cfg.createIntegrationCommitMessage(
         integration: integration,
         merge: merge
       ))
@@ -321,7 +317,7 @@ public final class Blender {
       .map(Execute.parseText(reply:))
       .get()
     guard [target, merge.fork.value] == parents else {
-      let message = try generate(cfg.generateIntegrationCommitMessage(
+      let message = try generate(cfg.createIntegrationCommitMessage(
         integration: integration,
         merge: merge
       ))
@@ -389,7 +385,7 @@ public final class Blender {
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    try printLine(generate(cfg.renderIntegrationTargets(targets: targets.map(\.name))))
+    try printLine(generate(cfg.exportIntegrationTargets(targets: targets.map(\.name))))
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
@@ -414,7 +410,7 @@ public final class Blender {
       logMessage(.init(message: "Replication already in progress"))
       return true
     }
-    let message = try generate(cfg.generateReplicationCommitMessage(
+    let message = try generate(cfg.createReplicationCommitMessage(
       replication: replication,
       merge: merge
     ))
@@ -504,7 +500,7 @@ public final class Blender {
         logMessage(.init(message: "No commits to replicate"))
         return true
       }
-      let message = try generate(cfg.generateReplicationCommitMessage(
+      let message = try generate(cfg.createReplicationCommitMessage(
         replication: replication,
         merge: merge
       ))
@@ -536,7 +532,7 @@ public final class Blender {
       return true
     }
     guard pipeline.user.username == ctx.gitlab.botLogin else {
-      let message = try generate(cfg.generateReplicationCommitMessage(
+      let message = try generate(cfg.createReplicationCommitMessage(
         replication: replication,
         merge: merge
       ))
@@ -590,7 +586,7 @@ public final class Blender {
       .map(Execute.parseText(reply:))
       .get()
     guard [target, merge.fork.value] == parents else {
-      let message = try generate(cfg.generateReplicationCommitMessage(
+      let message = try generate(cfg.createReplicationCommitMessage(
         replication: replication,
         merge: merge
       ))
@@ -636,7 +632,7 @@ public final class Blender {
       logMessage(.init(message: "No commits to replicate"))
       return true
     }
-    let message = try generate(cfg.generateReplicationCommitMessage(
+    let message = try generate(cfg.createReplicationCommitMessage(
       replication: replication,
       merge: merge
     ))

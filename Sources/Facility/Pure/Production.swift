@@ -3,7 +3,7 @@ import Facility
 public struct Production {
   public var builds: Configuration.Asset
   public var versions: Configuration.Asset
-  public var generateNextBuild: Configuration.Template
+  public var bumpBuildNumber: Configuration.Template
   public var products: [Product]
   public var accessoryBranches: [AccessoryBranch]
   public var generateReleaseNotes: Configuration.Template?
@@ -31,7 +31,7 @@ public struct Production {
   ) throws -> Self { try .init(
     builds: .make(yaml: yaml.builds),
     versions: .make(yaml: yaml.versions),
-    generateNextBuild: .make(yaml: yaml.generateNextBuild),
+    bumpBuildNumber: .make(yaml: yaml.bumpBuildNumber),
     products: yaml.products
       .map { name, yaml in try .init(
         name: name,
@@ -49,8 +49,8 @@ public struct Production {
           createName: .make(yaml: yaml.releaseBranch.createName),
           parseVersion: .make(yaml: yaml.releaseBranch.parseVersion)
         ),
-        generateNextVersion: .make(yaml: yaml.createNextVersion),
-        generateHotfixVersion: .make(yaml: yaml.createHotfixVersion)
+        bumpCurrentVersion: .make(yaml: yaml.bumpCurrentVersion),
+        createHotfixVersion: .make(yaml: yaml.createHotfixVersion)
       )},
     accessoryBranches: yaml.accessoryBranches
       .get([:])
@@ -61,8 +61,7 @@ public struct Production {
           .get([])
           .union(mainatiners),
         nameMatch: .init(yaml: yaml.nameMatch),
-        createName: .make(yaml: yaml.createName),
-        adjustProductVersion: .make(yaml: yaml.adjustProductVersion)
+        adjustVersion: .make(yaml: yaml.adjustVersion)
       )},
     maxBuildsCount: yaml.maxBuildsCount
   )}
@@ -71,8 +70,8 @@ public struct Production {
     public var mainatiners: Set<String>
     public var deployTag: DeployTag
     public var releaseBranch: ReleaseBranch
-    public var generateNextVersion: Configuration.Template
-    public var generateHotfixVersion: Configuration.Template
+    public var bumpCurrentVersion: Configuration.Template
+    public var createHotfixVersion: Configuration.Template
     public struct DeployTag {
       public var nameMatch: Criteria
       public var createName: Configuration.Template
@@ -93,8 +92,7 @@ public struct Production {
     public var family: String
     public var mainatiners: Set<String>
     public var nameMatch: Criteria
-    public var createName: Configuration.Template
-    public var adjustProductVersion: Configuration.Template
+    public var adjustVersion: Configuration.Template
   }
   public enum Build {
     case review(Review)

@@ -59,7 +59,7 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
     @Flag(help: "Should read stdin")
     var stdin = false
-    @Argument(help: "Event name to send report for")
+    @Option(help: "Event name to send report for")
     var event: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.reporter.reportCustom(cfg: cfg, event: event, stdin: stdin)
@@ -82,7 +82,7 @@ struct Clockwork: ParsableCommand {
   struct CheckReviewConflictMarkers: ClockworkCommand {
     static var abstract: String { "Ensure no conflict markers" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "the branch to diff with")
+    @Option(help: "the branch to diff with")
     var target: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.validator.validateReviewConflictMarkers(cfg: cfg, target: target)
@@ -91,7 +91,7 @@ struct Clockwork: ParsableCommand {
   struct CheckReviewObsolete: ClockworkCommand {
     static var abstract: String { "Ensure source is in sync with target" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "the branch to check obsolence against")
+    @Option(help: "the branch to check obsolence against")
     var target: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.validator.validateReviewObsolete(cfg: cfg, target: target)
@@ -210,10 +210,12 @@ struct Clockwork: ParsableCommand {
   struct StartIntegration: ClockworkCommand {
     static var abstract: String { "Create integration review" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Integration target branch")
+    @Option(help: "Integrated commit sha")
+    var fork: String
+    @Option(help: "Integration target branch name")
     var target: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.blender.startIntegration(cfg: cfg, target: target)
+      try Main.blender.startIntegration(cfg: cfg, target: target, fork: fork)
     }
   }
   struct FinishIntegration: ClockworkCommand {
@@ -257,7 +259,7 @@ struct Clockwork: ParsableCommand {
   struct ReportExpiringRequisites: ClockworkCommand {
     static var abstract: String { "Report expiring provisions and certificates" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Days till expired threashold 0 (default) = already expired")
+    @Option(help: "Days till expired threashold 0 (default) = already expired")
     var days: UInt = 0
     func run(cfg: Configuration) throws -> Bool {
       try Main.requisitor.reportExpiringRequisites(cfg: cfg, days: days)
@@ -273,7 +275,7 @@ struct Clockwork: ParsableCommand {
   struct CreateReleaseBranch: ClockworkCommand {
     static var abstract: String { "Cut release branch and bump current product version" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Product name to make branch for")
+    @Option(help: "Product name to make branch for")
     var product: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.producer.createReleaseBranch(cfg: cfg, product: product)
@@ -289,12 +291,12 @@ struct Clockwork: ParsableCommand {
   struct CreateAccessoryBranch: ClockworkCommand {
     static var abstract: String { "Cut custom branch" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Accessory branch configuration family name")
+    @Option(help: "Accessory branch configuration family")
     var family: String
-    @Argument(help: "Custom string to use for rendering branch name")
-    var custom: String
+    @Option(help: "Name of branch to create")
+    var name: String
     func run(cfg: Configuration) throws -> Bool {
-      try Main.producer.createAccessoryBranch(cfg: cfg, family: family, custom: custom)
+      try Main.producer.createAccessoryBranch(cfg: cfg, family: family, name: name)
     }
   }
   struct ReserveParentReviewBuild: ClockworkCommand {
@@ -335,7 +337,7 @@ struct Clockwork: ParsableCommand {
   struct PlayParentJob: ClockworkCommand {
     static var abstract: String { "Plays parent pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Job name to paly")
+    @Option(help: "Job name to paly")
     var name: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.mediator.affectParentJob(configuration: cfg, name: name, action: .play)
@@ -344,7 +346,7 @@ struct Clockwork: ParsableCommand {
   struct CancelParentJob: ClockworkCommand {
     static var abstract: String { "Cancels parent pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Job name to cancel")
+    @Option(help: "Job name to cancel")
     var name: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.mediator.affectParentJob(configuration: cfg, name: name, action: .cancel)
@@ -353,7 +355,7 @@ struct Clockwork: ParsableCommand {
   struct RetryParentJob: ClockworkCommand {
     static var abstract: String { "Retries parent pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Job name to retry")
+    @Option(help: "Job name to retry")
     var name: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.mediator.affectParentJob(configuration: cfg, name: name, action: .retry)
@@ -362,7 +364,7 @@ struct Clockwork: ParsableCommand {
   struct PlayNeighborJob: ClockworkCommand {
     static var abstract: String { "Plays current pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Job name to paly")
+    @Option(help: "Job name to paly")
     var name: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.mediator.affectNeighborJob(configuration: cfg, name: name, action: .play)
@@ -371,7 +373,7 @@ struct Clockwork: ParsableCommand {
   struct CancelNeighborJob: ClockworkCommand {
     static var abstract: String { "Cancels current pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Job name to cancel")
+    @Option(help: "Job name to cancel")
     var name: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.mediator.affectNeighborJob(configuration: cfg, name: name, action: .cancel)
@@ -380,7 +382,7 @@ struct Clockwork: ParsableCommand {
   struct RetryNeighborJob: ClockworkCommand {
     static var abstract: String { "Retries current pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Job name to retry")
+    @Option(help: "Job name to retry")
     var name: String
     func run(cfg: Configuration) throws -> Bool {
       try Main.mediator.affectNeighborJob(configuration: cfg, name: name, action: .retry)

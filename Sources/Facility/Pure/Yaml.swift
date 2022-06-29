@@ -2,18 +2,22 @@ import Foundation
 import Facility
 public enum Yaml {
   public struct Profile: Decodable {
-    public var controls: File
+    public var controls: Controls
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var obsolescence: Criteria?
     public var templates: String?
-    public var renderBuild: Template?
-    public var renderVersions: Template?
-    public var renderIntegrationTargets: Template?
+    public var exportBuildContext: Template?
+    public var exportCurrentVersions: Template?
+    public var exportIntegrationTargets: Template?
     public struct FileTaboo: Decodable {
       public var rule: String
       public var file: Criteria?
       public var line: Criteria?
+    }
+    public struct Controls: Decodable {
+      public var path: String
+      public var branch: String
     }
   }
   public struct Controls: Decodable {
@@ -31,7 +35,7 @@ public enum Yaml {
       public var mainatiners: [String]?
       public var builds: Asset
       public var versions: Asset
-      public var generateNextBuild: Template
+      public var bumpBuildNumber: Template
       public var products: [String: Product]
       public var accessoryBranches: [String: AccessoryBranch]?
       public var maxBuildsCount: Int?
@@ -39,7 +43,7 @@ public enum Yaml {
         public var mainatiners: [String]?
         public var deployTag: DeployTag
         public var releaseBranch: ReleaseBranch
-        public var createNextVersion: Template
+        public var bumpCurrentVersion: Template
         public var createHotfixVersion: Template
         public struct DeployTag: Decodable {
           public var nameMatch: Criteria
@@ -57,8 +61,7 @@ public enum Yaml {
       public struct AccessoryBranch: Decodable {
         public var mainatiners: [String]?
         public var nameMatch: Criteria
-        public var createName: Template
-        public var adjustProductVersion: Template
+        public var adjustVersion: Template
       }
       public struct Build: Decodable {
         public var build: String
@@ -80,7 +83,7 @@ public enum Yaml {
       public var replication: Replication?
       public var integration: Integration?
       public struct Resolution: Decodable {
-        public var commitMessage: Template
+        public var createCommitMessage: Template
         public var rules: [Rule]
         public struct Rule: Decodable {
           public var title: Criteria?
@@ -91,13 +94,13 @@ public enum Yaml {
         public var target: String
         public var prefix: String
         public var source: Criteria
-        public var commitMessage: Template
+        public var createCommitMessage: Template
       }
       public struct Integration: Decodable {
         public var mainatiners: [String]?
         public var rules: [Rule]
         public var prefix: String
-        public var commitMessage: Template
+        public var createCommitMessage: Template
         public struct Rule: Decodable {
           public var mainatiners: [String]?
           public var source: Criteria
@@ -142,7 +145,7 @@ public enum Yaml {
       public var slackHookTextMessages: [SlackHookTextMessage]?
       public struct SlackHookTextMessage: Decodable {
         public var hook: String
-        public var message: Template
+        public var createMessageText: Template
         public var events: [String]
         public var userName: String?
         public var channel: String?
@@ -153,11 +156,7 @@ public enum Yaml {
   public struct Asset: Decodable {
     public var path: String
     public var branch: String
-    public var commitMessage: Template?
-  }
-  public struct File: Decodable {
-    public var path: String
-    public var branch: String
+    public var createCommitMessage: Template?
   }
   public struct Secret: Decodable {
     public var value: String?
@@ -168,15 +167,15 @@ public enum Yaml {
     var include: [String]?
     var exclude: [String]?
   }
+  public struct Template: Decodable {
+    public var name: String?
+    public var value: String?
+  }
   public struct Decode: Query {
     public var content: String
     public init(content: String) {
       self.content = content
     }
     public typealias Reply = AnyCodable
-  }
-  public struct Template: Decodable {
-    public var name: String?
-    public var value: String?
   }
 }

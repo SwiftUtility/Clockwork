@@ -53,10 +53,7 @@ public final class Reporter {
     for value in query.cfg.controls.communication[query.context.event].get([]) {
       switch value {
       case .slackHookTextMessage(let value):
-        let message = try generate(query.cfg.controls.generateReport(
-          template: value.message,
-          context: query.context
-        ))
+        let message = try generate(query.generate(template: value.createMessageText))
         guard !message.isEmpty else { continue }
         try Id(message)
         .map(value.makePayload(text:))

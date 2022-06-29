@@ -52,7 +52,7 @@ public final class Producer {
       .productMatching(ref: gitlabCi.job.pipeline.ref, tag: false)
       .get { throw Thrown("No product matches \(gitlabCi.job.pipeline.ref)") }
     try gitlabCi.job.checkPermission(users: product.mainatiners)
-    let version = try generate(cfg.parseReleaseVersion(
+    let version = try generate(cfg.parseReleaseBranchVersion(
       product: product,
       ref: gitlabCi.job.pipeline.ref
     ))
@@ -93,7 +93,7 @@ public final class Producer {
     heir = heir.get([]).subtracting(uniq.get([]))
     let deploy = try builds.last
       .map(\.build)
-      .reduce(production, cfg.generateNextBuild(production:build:))
+      .reduce(production, cfg.bumpBuildNumber(production:build:))
       .map(generate)
       .map { product.deploy(job: gitlabCi.job, version: version, build: $0) }
       .get { throw Thrown("Push first build number manually") }
@@ -102,7 +102,7 @@ public final class Producer {
       version: version,
       build: deploy.build
     ))
-    let annotation = try generate(cfg.generateDeployAnnotation(
+    let annotation = try generate(cfg.createDeployTagAnnotation(
       product: product,
       version: version,
       build: deploy.build
@@ -120,6 +120,7 @@ public final class Producer {
       .map(Execute.checkStatus(reply:))
       .get()
     try report(cfg.reportDeploy(
+      product: product,
       deploy: deploy,
       uniq: makeCommitReport(cfg: cfg, shas: uniq.get([])),
       heir: makeCommitReport(cfg: cfg, shas: heir.get([])),
@@ -140,7 +141,7 @@ public final class Producer {
       builds: builds,
       build: try builds.last
         .map(\.build)
-        .reduce(production, cfg.generateNextBuild(production:build:))
+        .reduce(production, cfg.bumpBuildNumber(production:build:))
         .map(generate)
         .map(ctx.review.makeBuild(build:))
         .get { throw Thrown("Push first build number manually") }
@@ -149,6 +150,8 @@ public final class Producer {
   }
   public func reserveProtectedBuild(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
+    guard case nil = try? gitlabCi.job.review.get()
+    else { throw Thrown("Protected branches merge requests not supported") }
     let production = try resolveProduction(.init(cfg: cfg))
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     guard !builds.contains(where: gitlabCi.job.matches(build:))
@@ -160,7 +163,7 @@ public final class Producer {
       builds: builds,
       build: try builds.last
         .map(\.build)
-        .reduce(production, cfg.generateNextBuild(production:build:))
+        .reduce(production, cfg.bumpBuildNumber(production:build:))
         .map(generate)
         .map(gitlabCi.job.makeBranchBuild(build:))
         .get { throw Thrown("Push first build number manually") }
@@ -175,7 +178,7 @@ public final class Producer {
     let versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     let version = try versions[product.name]
       .get { throw Thrown("No version for \(product.name)") }
-    let name = try generate(cfg.generateReleaseName(
+    let name = try generate(cfg.createReleaseBranchName(
       product: product,
       version: version
     ))
@@ -185,7 +188,7 @@ public final class Producer {
       .map(Execute.checkStatus(reply:))
       .get()
     try report(cfg.reportRelease(ref: name, product: product.name, version: version))
-    let next = try generate(cfg.generateNextVersion(
+    let next = try generate(cfg.bumpCurrentVersion(
       product: product,
       version: version
     ))
@@ -207,15 +210,15 @@ public final class Producer {
     let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
       .get { throw Thrown("No product match \(gitlabCi.job.pipeline.ref)") }
     try gitlabCi.job.checkPermission(users: product.mainatiners)
-    let version = try generate(cfg.generateDeployVersion(
+    let version = try generate(cfg.parseDeployTagVersion(
       product: product,
       ref: gitlabCi.job.pipeline.ref
     ))
-    let hotfix = try generate(cfg.generateHotfixVersion(
+    let hotfix = try generate(cfg.createHotfixVersion(
       product: product,
       version: version
     ))
-    let name = try generate(cfg.generateReleaseName(
+    let name = try generate(cfg.createReleaseBranchName(
       product: product,
       version: hotfix
     ))
@@ -227,45 +230,25 @@ public final class Producer {
     try report(cfg.reportHotfix(ref: name, product: product.name, version: version))
     return true
   }
-  public func createAccessoryBranch(cfg: Configuration, family: String, custom: String) throws -> Bool {
+  public func createAccessoryBranch(
+    cfg: Configuration,
+    family: String,
+    name: String
+  ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let accessoryBranch = try resolveProduction(.init(cfg: cfg))
       .accessoryBranches
       .first { $0.family == family }
       .get { throw Thrown("accessoryBranch \(family) not configured") }
     try gitlabCi.job.checkPermission(users: accessoryBranch.mainatiners)
-    let name = try generate(cfg.generateAccessoryName(
-      accessoryBranch: accessoryBranch,
-      custom: custom
-    ))
+    guard accessoryBranch.nameMatch.isMet(name)
+    else { throw Thrown("Name does not meat \(family) criteria") }
     try gitlabCi
       .postBranches(name: name, ref: gitlabCi.job.pipeline.sha)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportAccessory(ref: name))
-    return true
-  }
-  public func reportReleaseNotes(cfg: Configuration, tag: String) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
-    guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
-    try report(cfg.reportReleaseNotes(
-      commits: Id
-        .make(cfg.git.listCommits(
-          in: [.make(sha: .init(value: gitlabCi.job.pipeline.sha))],
-          notIn: [.make(tag: tag)],
-          noMerges: true,
-          firstParents: false
-        ))
-        .map(execute)
-        .map(Execute.parseLines(reply:))
-        .get()
-        .map(Git.Sha.init(value:))
-        .map(Git.Ref.make(sha:))
-        .map(cfg.git.getCommitMessage(ref:))
-        .map(execute)
-        .map(Execute.parseText(reply:))
-    ))
+    try report(cfg.reportAccessory(family: family, ref: name))
     return true
   }
   public func renderBuild(cfg: Configuration) throws -> Bool {
@@ -277,11 +260,11 @@ public final class Producer {
       let product = try production
         .productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
         .get { throw Thrown("No product for \(gitlabCi.job.pipeline.ref)") }
-      build = try generate(cfg.generateDeployBuild(
+      build = try generate(cfg.parseDeployTagBuild(
         product: product,
         ref: gitlabCi.job.pipeline.ref
       ))
-      versions[product.name] = try generate(cfg.parseReleaseVersion(
+      versions[product.name] = try generate(cfg.parseReleaseBranchVersion(
         product: product,
         ref: gitlabCi.job.pipeline.ref
       ))
@@ -296,8 +279,8 @@ public final class Producer {
         accessory.nameMatch.isMet(branch)
       }) {
         for (product, version) in versions {
-          versions[product] = try generate(cfg.adjustAccessoryVersion(
-            accessory: accessory,
+          versions[product] = try generate(cfg.adjustAccessoryBranchVersion(
+            accessoryBranch: accessory,
             ref: branch,
             product: product,
             version: version
@@ -305,17 +288,17 @@ public final class Producer {
         }
       }
       if let product = try production.productMatching(ref: branch, tag: false) {
-        versions[product.name] = try generate(cfg.parseReleaseVersion(
+        versions[product.name] = try generate(cfg.parseReleaseBranchVersion(
           product: product,
           ref: branch
         ))
       }
     }
-    try printLine(generate(cfg.renderBuild(versions: versions, build: build)))
+    try printLine(generate(cfg.exportBuildContext(versions: versions, build: build)))
     return true
   }
   public func renderVersions(cfg: Configuration) throws -> Bool {
-    try printLine(generate(cfg.renderVersions(
+    try printLine(generate(cfg.exportCurrentVersions(
       versions: resolveProductionVersions(.init(
         cfg: cfg,
         production: resolveProduction(.init(cfg: cfg))
@@ -323,7 +306,7 @@ public final class Producer {
     )))
     return true
   }
-  func makeCommitReport(cfg: Configuration, shas: Set<Git.Sha>) throws -> [Report.Deploy.Commit] {
+  func makeCommitReport(cfg: Configuration, shas: Set<Git.Sha>) throws -> [Report.DeployTagCreated.Commit] {
     var dates: [String: UInt] = [:]
     var messages: [String: String] = [:]
     for sha in shas {
@@ -338,7 +321,7 @@ public final class Producer {
         .get()
     }
     return messages
-      .map(Report.Deploy.Commit.make(sha:msg:))
+      .map(Report.DeployTagCreated.Commit.make(sha:msg:))
       .sorted { dates[$0.sha].get(0) < dates[$1.sha].get(0) }
       .reversed()
   }

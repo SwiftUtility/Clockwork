@@ -3,8 +3,9 @@ import XCTest
 @testable import Facility
 @testable import FacilityPure
 extension AnyCodable: GenerationContext {
-  public var event: String { "" }
+  public var event: String { get {""} set {} }
   public var ctx: AnyCodable? { self }
+  public var info: GitlabCi.Info? { nil }
 }
 final class StencilTests: XCTestCase {
   func makeQuery(_ name: String) -> Generate { .init(

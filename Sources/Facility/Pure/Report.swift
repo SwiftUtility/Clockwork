@@ -4,57 +4,64 @@ public struct Report: Query {
   public var cfg: Configuration
   public var context: GenerationContext
   public typealias Reply = Void
+  public func generate(template: Configuration.Template) -> Generate { .init(
+    allowEmpty: true,
+    template: template,
+    templates: cfg.controls.templates,
+    context: context.adjusted
+  )}
   public struct Custom: GenerationContext {
-    public let event: String
+    public var event: String = Self.event
+    public var subevent: String
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var stdin: [String]
   }
   public struct Unexpected: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var error: String
   }
   public struct UnownedCode: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var files: [String]
   }
   public struct FileTaboos: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var issues: [FileTaboo.Issue]
   }
   public struct ReviewObsolete: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var files: [String]?
   }
   public struct ForbiddenCommits: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var commits: [String]?
   }
   public struct ConflictMarkers: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var markers: [String]
   }
   public struct InvalidTitle: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
   }
   public struct ReviewBlocked: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -67,21 +74,21 @@ public struct Report: Query {
     }
   }
   public struct ReviewMergeConflicts: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
   }
   public struct ReviewMerged: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
   }
   public struct ReviewMergeError: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -89,7 +96,7 @@ public struct Report: Query {
     public var error: String
   }
   public struct EmergencyAwardApproval: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -97,30 +104,32 @@ public struct Report: Query {
     public var cheaters: Set<String>
   }
   public struct AwardApprovalReady: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
   }
   public struct NewAwardApproval: GenerationContext {
-    public let event: String
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
     public var group: AwardApproval.Group.Report
+    public var subevent: String { group.name }
   }
   public struct WaitAwardApproval: GenerationContext {
-    public let event: String
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
     public var group: AwardApproval.Group.Report
+    public var subevent: String { group.name }
   }
   public struct NewAwardApprovals: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -128,7 +137,7 @@ public struct Report: Query {
     public var groups: [AwardApproval.Group.Report]
   }
   public struct WaitAwardApprovals: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -136,64 +145,65 @@ public struct Report: Query {
     public var groups: [AwardApproval.Group.Report]
   }
   public struct AwardApprovalHolders: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: Set<String>
     public var holders: Set<String>
   }
-  public struct ReleaseNotes: GenerationContext {
-    public let event: String = Self.event
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var commits: [String]
-  }
-  public struct Release: GenerationContext {
-    public let event: String
+  public struct ReleaseBranchCreated: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var ref: String
     public var product: String
     public var version: String
+    public var subevent: String { product }
   }
-  public struct Hotfix: GenerationContext {
-    public let event: String
+  public struct HotfixBranchCreated: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var ref: String
     public var product: String
     public var version: String
+    public var subevent: String { product }
   }
-  public struct Deploy: GenerationContext {
-    public let event: String
+  public struct DeployTagCreated: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
+    public var product: String
     public var deploy: Production.Build.Deploy
     public var uniq: [Commit]?
     public var heir: [Commit]?
     public var lack: [Commit]?
+    public var subevent: String { product }
     public struct Commit: Encodable {
       public var sha: String
       public var msg: String
       public static func make(sha: String, msg: String) -> Self { .init(sha: sha, msg: msg) }
     }
   }
-  public struct Version: GenerationContext {
-    public let event: String
+  public struct VersionBumped: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var version: String
+    public var subevent: String { product }
   }
-  public struct Accessory: GenerationContext {
-    public let event: String = Self.event
+  public struct AccessoryBranchCreated: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
+    public var family: String
     public var ref: String
+    public var subevent: String { family }
   }
   public struct ExpiringRequisites: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var items: [Item]
@@ -214,7 +224,7 @@ public extension Configuration {
     event: String,
     stdin: [String]
   ) -> Report { .init(cfg: self, context: Report.Custom(
-    event: "\(Report.Custom.event)/\(event)",
+    subevent: event,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     stdin: stdin
@@ -338,7 +348,6 @@ public extension Configuration {
     users: Set<String>,
     group: AwardApproval.Group.Report
   ) -> Report { .init(cfg: self, context: Report.NewAwardApproval(
-    event: "\(Report.NewAwardApproval.self)/\(group.name)",
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -350,7 +359,6 @@ public extension Configuration {
     users: Set<String>,
     group: AwardApproval.Group.Report
   ) -> Report { .init(cfg: self, context: Report.WaitAwardApproval(
-    event: "\(Report.WaitAwardApproval.self)/\(group.name)",
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -390,19 +398,11 @@ public extension Configuration {
     users: users,
     holders: holders
   ))}
-  func reportReleaseNotes(
-    commits: [String]
-  ) -> Report { .init(cfg: self, context: Report.ReleaseNotes(
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
-    commits: commits
-  ))}
   func reportRelease(
     ref: String,
     product: String,
     version: String
-  ) -> Report { .init(cfg: self, context: Report.Release(
-    event: "\(Report.Release.event)/\(product)",
+  ) -> Report { .init(cfg: self, context: Report.ReleaseBranchCreated(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     ref: ref,
@@ -413,8 +413,7 @@ public extension Configuration {
     ref: String,
     product: String,
     version: String
-  ) -> Report { .init(cfg: self, context: Report.Hotfix(
-    event: "\(Report.Hotfix.event)/\(product)",
+  ) -> Report { .init(cfg: self, context: Report.HotfixBranchCreated(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     ref: ref,
@@ -422,14 +421,15 @@ public extension Configuration {
     version: version
   ))}
   func reportDeploy(
+    product: Production.Product,
     deploy: Production.Build.Deploy,
-    uniq: [Report.Deploy.Commit],
-    heir: [Report.Deploy.Commit],
-    lack: [Report.Deploy.Commit]
-  ) -> Report { .init(cfg: self, context: Report.Deploy(
-    event: "\(Report.Deploy.event)/\(deploy.product)",
+    uniq: [Report.DeployTagCreated.Commit],
+    heir: [Report.DeployTagCreated.Commit],
+    lack: [Report.DeployTagCreated.Commit]
+  ) -> Report { .init(cfg: self, context: Report.DeployTagCreated(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
+    product: product.name,
     deploy: deploy,
     uniq: uniq.isEmpty.else(uniq),
     heir: heir.isEmpty.else(heir),
@@ -438,18 +438,19 @@ public extension Configuration {
   func reportVersion(
     product: String,
     version: String
-  ) -> Report { .init(cfg: self, context: Report.Version(
-    event: "\(Report.Version.event)/\(product)",
+  ) -> Report { .init(cfg: self, context: Report.VersionBumped(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     product: product,
     version: version
   ))}
   func reportAccessory(
+    family: String,
     ref: String
-  ) -> Report { .init(cfg: self, context: Report.Accessory(
+  ) -> Report { .init(cfg: self, context: Report.AccessoryBranchCreated(
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
+    family: family,
     ref: ref
   ))}
   func reportExpiringRequisites(
@@ -459,15 +460,4 @@ public extension Configuration {
     info: try? controls.gitlabCi.get().info,
     items: items
   ))}
-}
-extension Configuration.Controls {
-  public func generateReport(
-    template: Configuration.Template,
-    context: GenerationContext
-  ) -> Generate { .init(
-    allowEmpty: true,
-    template: template,
-    templates: templates,
-    context: context
-  )}
 }

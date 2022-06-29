@@ -29,9 +29,9 @@ public struct Configuration {
     public var fileTaboos: Git.File?
     public var obsolescence: Lossy<Criteria>
     public var templates: [String: String] = [:]
-    public var renderBuild: Lossy<Template>
-    public var renderVersions: Lossy<Template>
-    public var renderIntegrationTargets: Lossy<Template>
+    public var exportBuildContext: Lossy<Template>
+    public var exportCurrentVersions: Lossy<Template>
+    public var exportIntegrationTargets: Lossy<Template>
     public static func make(
       profile: Git.File,
       yaml: Yaml.Profile
@@ -51,15 +51,15 @@ public struct Configuration {
         .map(Criteria.init(yaml:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("obsolescence not configured"))),
-      renderBuild: yaml.renderBuild
+      exportBuildContext: yaml.exportBuildContext
         .map(Template.make(yaml:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("renderReviewBuild not configured"))),
-      renderVersions: yaml.renderVersions
+      exportCurrentVersions: yaml.exportCurrentVersions
         .map(Template.make(yaml:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("renderVersions not configured"))),
-      renderIntegrationTargets: yaml.renderIntegrationTargets
+      exportIntegrationTargets: yaml.exportIntegrationTargets
         .map(Template.make(yaml:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("renderIntegration not configured")))
@@ -104,13 +104,13 @@ public struct Configuration {
   public struct Asset {
     public var file: Files.Relative
     public var branch: Git.Branch
-    public var commitMessage: Template?
+    public var createCommitMessage: Template?
     public static func make(
       yaml: Yaml.Asset
     ) throws -> Self { try .init(
       file: .init(value: yaml.path),
       branch: .init(name: yaml.branch),
-      commitMessage: yaml.commitMessage
+      createCommitMessage: yaml.createCommitMessage
         .map(Template.make(yaml:))
     )}
   }

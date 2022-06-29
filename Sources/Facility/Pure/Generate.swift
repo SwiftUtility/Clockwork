@@ -1,11 +1,20 @@
 import Foundation
 import Facility
 public protocol GenerationContext: Encodable {
-  var event: String { get }
+  var event: String { get set }
+  var subevent: String? { get }
   var ctx: AnyCodable? { get }
+  var info: GitlabCi.Info? { get }
 }
 public extension GenerationContext {
   static var event: String { "\(Self.self)" }
+  var subevent: String? { nil }
+  var adjusted: Self {
+    guard let subevent = subevent else { return self }
+    var result = self
+    result.event = "\(event)/\(subevent)"
+    return result
+  }
 }
 public struct Generate: Query {
   public var allowEmpty: Bool
@@ -13,183 +22,189 @@ public struct Generate: Query {
   public var templates: [String: String]
   public var context: GenerationContext
   public typealias Reply = String
-  public struct RenderVersions: GenerationContext {
-    public let event: String = Self.event
+  public struct ExportCurrentVersions: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var versions: [String: String]
   }
-  public struct RenderBuild: GenerationContext {
-    public let event: String = Self.event
+  public struct ExportBuildContext: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var versions: [String: String]
     public var build: String
   }
-  public struct RenderIntegrationTargets: GenerationContext {
-    public let event: String = Self.event
+  public struct ExportIntegrationTargets: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var info: GitlabCi.Info
+    public var info: GitlabCi.Info?
     public var targets: [String]
   }
-  public struct ParseReleaseVersion: GenerationContext {
-    public let event: String = Self.event
+  public struct ParseReleaseBranchVersion: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var product: String
     public var ref: String
   }
-  public struct ReleaseName: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateReleaseBranchName: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var product: String
     public var version: String
-  }
-  public struct AccessoryName: GenerationContext {
-    public let event: String = Self.event
-    public var ctx: AnyCodable?
-    public var family: String
-    public var custom: String
   }
   public struct CreateDeployTagName: GenerationContext {
-    public let event: String = Self.event
+    public var event: String = Self.event
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct DeployAnnotation: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateDeployTagAnnotation: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var info: GitlabCi.Info
+    public var info: GitlabCi.Info?
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct NextVersion: GenerationContext {
-    public let event: String = Self.event
+  public struct BumpCurrentVersion: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var product: String
     public var version: String
   }
-  public struct NextBuild: GenerationContext {
-    public let event: String = Self.event
+  public struct BumpBuildNumber: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var build: String
   }
-  public struct DeployVersion: GenerationContext {
-    public let event: String = Self.event
+  public struct ParseDeployTagVersion: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var product: String
     public var ref: String
   }
-  public struct DeployBuild: GenerationContext {
-    public let event: String = Self.event
+  public struct ParseDeployTagBuild: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var product: String
     public var ref: String
   }
-  public struct HotfixVersion: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateHotfixVersion: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var product: String
     public var version: String
   }
-  public struct AdjustAccessoryVersion: GenerationContext {
-    public let event: String = Self.event
+  public struct AdjustAccessoryBranchVersion: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var ref: String
+    public var info: GitlabCi.Info?
     public var family: String
     public var product: String
     public var version: String
   }
-  public struct VersionCommitMessage: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateVersionCommitMessage: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var info: GitlabCi.Info
+    public var info: GitlabCi.Info?
     public var product: String
     public var version: String
   }
-  public struct BuildCommitMessage: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateBuildCommitMessage: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var info: GitlabCi.Info
+    public var info: GitlabCi.Info?
     public var build: String
   }
-  public struct UserActivityCommitMessage: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateUserActivityCommitMessage: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var info: GitlabCi.Info
+    public var info: GitlabCi.Info?
     public var user: String
     public var active: Bool
   }
-  public struct ResolutionCommitMessage: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateResolutionCommitMessage: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var info: GitlabCi.Info
+    public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
   }
-  public struct IntegrationCommitMessage: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateIntegrationCommitMessage: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var info: GitlabCi.Info
+    public var info: GitlabCi.Info?
     public var fork: String
     public var source: String
     public var target: String
   }
-  public struct ReplicationCommitMessage: GenerationContext {
-    public let event: String = Self.event
+  public struct CreateReplicationCommitMessage: GenerationContext {
+    public var event: String = Self.event
     public var ctx: AnyCodable?
-    public var info: GitlabCi.Info
+    public var info: GitlabCi.Info?
     public var fork: String
     public var source: String
     public var target: String
   }
 }
 public extension Configuration {
-  func renderVersions(
+  func exportCurrentVersions(
     versions: [String: String]
   ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: profile.renderVersions.get(),
+    template: profile.exportCurrentVersions.get(),
     templates: profile.templates,
-    context: Generate.RenderVersions(
+    context: Generate.ExportCurrentVersions(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       versions: versions
     )
   )}
-  func renderBuild(
+  func exportBuildContext(
     versions: [String: String],
     build: String
   ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: profile.renderBuild.get(),
+    template: profile.exportBuildContext.get(),
     templates: profile.templates,
-    context: Generate.RenderBuild(
+    context: Generate.ExportBuildContext(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       versions: versions,
       build: build
     )
   )}
-  func renderIntegrationTargets(
+  func exportIntegrationTargets(
     targets: [String]
   ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: profile.renderIntegrationTargets.get(),
+    template: profile.exportIntegrationTargets.get(),
     templates: profile.templates,
-    context: Generate.RenderIntegrationTargets(
+    context: Generate.ExportIntegrationTargets(
       ctx: controls.context,
-      info: controls.gitlabCi.get().info,
+      info: try? controls.gitlabCi.get().info,
       targets: targets
     )
   )}
-  func parseReleaseVersion(
+  func parseReleaseBranchVersion(
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
     template: product.releaseBranch.parseVersion,
     templates: controls.templates,
-    context: Generate.ParseReleaseVersion(
+    context: Generate.ParseReleaseBranchVersion(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       product: product.name,
       ref: ref
     )
@@ -204,217 +219,212 @@ public extension Configuration {
     templates: controls.templates,
     context: Generate.CreateDeployTagName(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       product: product.name,
       version: version,
       build: build
     )
   )}
-  func generateDeployAnnotation(
+  func createDeployTagAnnotation(
     product: Production.Product,
     version: String,
     build: String
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
     template: product.deployTag.createAnnotation,
     templates: controls.templates,
-    context: Generate.DeployAnnotation(
+    context: Generate.CreateDeployTagAnnotation(
       ctx: controls.context,
-      info: controls.gitlabCi.get().info,
+      info: try? controls.gitlabCi.get().info,
       product: product.name,
       version: version,
       build: build
     )
   )}
-  func generateReleaseName(
+  func createReleaseBranchName(
     product: Production.Product,
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
     template: product.releaseBranch.createName,
     templates: controls.templates,
-    context: Generate.ReleaseName(
+    context: Generate.CreateReleaseBranchName(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       product: product.name,
       version: version
     )
   )}
-  func generateAccessoryName(
-    accessoryBranch: Production.AccessoryBranch,
-    custom: String
-  ) -> Generate { .init(
-    allowEmpty: false,
-    template: accessoryBranch.createName,
-    templates: controls.templates,
-    context: Generate.AccessoryName(
-      ctx: controls.context,
-      family: accessoryBranch.family,
-      custom: custom
-    )
-  )}
-  func generateNextVersion(
+  func bumpCurrentVersion(
     product: Production.Product,
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.generateNextVersion,
+    template: product.bumpCurrentVersion,
     templates: controls.templates,
-    context: Generate.NextVersion(
+    context: Generate.BumpCurrentVersion(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       product: product.name,
       version: version
     )
   )}
-  func generateNextBuild(
+  func bumpBuildNumber(
     production: Production,
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.generateNextBuild,
+    template: production.bumpBuildNumber,
     templates: controls.templates,
-    context: Generate.NextBuild(
+    context: Generate.BumpBuildNumber(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       build: build
     )
   )}
-  func generateDeployVersion(
+  func parseDeployTagVersion(
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
     template: product.deployTag.parseVersion,
     templates: controls.templates,
-    context: Generate.DeployVersion(
+    context: Generate.ParseDeployTagVersion(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       product: product.name,
       ref: ref
     )
   )}
-  func generateDeployBuild(
+  func parseDeployTagBuild(
     product: Production.Product,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
     template: product.deployTag.parseBuild,
     templates: controls.templates,
-    context: Generate.DeployBuild(
+    context: Generate.ParseDeployTagBuild(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
+      product: product.name,
       ref: ref
     )
   )}
-  func generateHotfixVersion(
+  func createHotfixVersion(
     product: Production.Product,
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.generateHotfixVersion,
+    template: product.createHotfixVersion,
     templates: controls.templates,
-    context: Generate.HotfixVersion(
+    context: Generate.CreateHotfixVersion(
       ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
       product: product.name,
       version: version
     )
   )}
-  func adjustAccessoryVersion(
-    accessory: Production.AccessoryBranch,
+  func adjustAccessoryBranchVersion(
+    accessoryBranch: Production.AccessoryBranch,
     ref: String,
     product: String,
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: accessory.adjustProductVersion,
+    template: accessoryBranch.adjustVersion,
     templates: controls.templates,
-    context: Generate.AdjustAccessoryVersion(
+    context: Generate.AdjustAccessoryBranchVersion(
       ctx: controls.context,
-      ref: ref,
-      family: accessory.family,
+      info: try? controls.gitlabCi.get().info,
+      family: accessoryBranch.family,
       product: product,
       version: version
     )
   )}
-  func generateVersionCommitMessage(
+  func createVersionCommitMessage(
     asset: Asset,
     product: Production.Product,
     version: String
   ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: asset.commitMessage
+    template: asset.createCommitMessage
       .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
-    context: Generate.VersionCommitMessage(
+    context: Generate.CreateVersionCommitMessage(
       ctx: controls.context,
-      info: controls.gitlabCi.get().info,
+      info: try? controls.gitlabCi.get().info,
       product: product.name,
       version: version
     )
   )}
-  func generateBuildCommitMessage(
+  func createBuildCommitMessage(
     asset: Asset,
     build: String
   ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: asset.commitMessage
+    template: asset.createCommitMessage
       .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
-    context: Generate.BuildCommitMessage(
+    context: Generate.CreateBuildCommitMessage(
       ctx: controls.context,
-      info: controls.gitlabCi.get().info,
+      info: try? controls.gitlabCi.get().info,
       build: build
     )
   )}
-  func generateUserActivityCommitMessage(
+  func createUserActivityCommitMessage(
     asset: Asset,
     user: String,
     active: Bool
   ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: asset.commitMessage
+    template: asset.createCommitMessage
       .get { throw Thrown("CommitMessage not configured") },
     templates: controls.templates,
-    context: Generate.UserActivityCommitMessage(
+    context: Generate.CreateUserActivityCommitMessage(
       ctx: controls.context,
-      info: controls.gitlabCi.get().info,
+      info: try? controls.gitlabCi.get().info,
       user: user,
       active: active
     )
   )}
-  func generateResolutionCommitMessage(
+  func createResolutionCommitMessage(
     resolution: Fusion.Resolution,
     review: Json.GitlabReviewState
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
-    template: resolution.commitMessage,
+    template: resolution.createCommitMessage,
     templates: controls.templates,
-    context: Generate.ResolutionCommitMessage(
+    context: Generate.CreateResolutionCommitMessage(
       ctx: controls.context,
-      info: controls.gitlabCi.get().info,
+      info: try? controls.gitlabCi.get().info,
       review: review
     )
   )}
-  func generateIntegrationCommitMessage(
+  func createIntegrationCommitMessage(
     integration: Fusion.Integration,
     merge: Fusion.Merge
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
-    template: integration.commitMessage,
+    template: integration.createCommitMessage,
     templates: controls.templates,
-    context: Generate.IntegrationCommitMessage(
+    context: Generate.CreateIntegrationCommitMessage(
       ctx: controls.context,
-      info: controls.gitlabCi.get().info,
+      info: try? controls.gitlabCi.get().info,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
     )
   )}
-  func generateReplicationCommitMessage(
+  func createReplicationCommitMessage(
     replication: Fusion.Replication,
     merge: Fusion.Merge
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
-    template: replication.commitMessage,
+    template: replication.createCommitMessage,
     templates: controls.templates,
-    context: Generate.ReplicationCommitMessage(
+    context: Generate.CreateReplicationCommitMessage(
       ctx: controls.context,
-      info: controls.gitlabCi.get().info,
+      info: try? controls.gitlabCi.get().info,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name

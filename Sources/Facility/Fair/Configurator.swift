@@ -231,7 +231,7 @@ public final class Configurator {
   ) throws -> Configuration.PersistVersions.Reply {
     var versions = query.versions
     versions[query.product.name] = query.version
-    let message = try generate(query.cfg.generateVersionCommitMessage(
+    let message = try generate(query.cfg.createVersionCommitMessage(
       asset: query.production.versions,
       product: query.product,
       version: query.version
@@ -256,7 +256,7 @@ public final class Configurator {
     query: Configuration.PersistBuilds
   ) throws -> Configuration.PersistBuilds.Reply {
     let builds = query.builds + [query.build]
-    let message = try generate(query.cfg.generateBuildCommitMessage(
+    let message = try generate(query.cfg.createBuildCommitMessage(
       asset: query.production.builds,
       build: query.build.build
     ))
@@ -283,7 +283,7 @@ public final class Configurator {
   ) throws -> Configuration.PersistUserActivity.Reply {
     var userActivity = query.userActivity
     userActivity[query.user] = query.active
-    let message = try generate(query.cfg.generateUserActivityCommitMessage(
+    let message = try generate(query.cfg.createUserActivityCommitMessage(
       asset: query.awardApproval.userActivity,
       user: query.user,
       active: query.active
