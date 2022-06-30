@@ -75,7 +75,7 @@ public struct Execute: Query {
       .drop(while: \.isEmpty)
       .reversed()
   }
-  public static func parseSuccess(reply: Reply) throws -> Bool {
+  public static func parseSuccess(reply: Reply) -> Bool {
     if case nil = try? reply.checkStatus() { return false } else { return true }
   }
   public static func checkStatus(reply: Reply) throws { try reply.checkStatus() }

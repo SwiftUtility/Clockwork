@@ -128,9 +128,9 @@ public final class Blender {
       && rule.source.isMet(merge.source.name)
     }) else { throw Thrown("Integration not allowed for \(gitlabCi.job.user.username)") }
     guard checkNeeded(cfg: cfg, merge: merge) else { return true }
-    guard case nil = try? execute(cfg.git.checkObjectType(
+    guard try !Execute.parseSuccess(reply: execute(cfg.git.checkObjectType(
       ref: .make(remote: merge.supply)
-    )) else { throw Thrown("Integration already in progress") }
+    ))) else { throw Thrown("Integration already in progress") }
     let message = try generate(cfg.createIntegrationCommitMessage(
       integration: integration,
       merge: merge
@@ -333,13 +333,14 @@ public final class Blender {
     )
   }
   public func renderIntegration(cfg: Configuration) throws -> Bool {
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
-    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
+    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let parent = try gitlabCi.parent.get()
+    let job = try gitlabCi.getJob(id: parent.job)
       .map(execute)
-      .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
-    let fork = try Git.Sha(value: pipeline.sha)
-    let source = try Git.Branch(name: pipeline.ref)
+    let fork = try Git.Sha(value: job.pipeline.sha)
+    let source = try Git.Branch(name: job.pipeline.ref)
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
     let rules = try integration.rules
       .filter { $0.source.isMet(source.name) }
@@ -355,10 +356,10 @@ public final class Blender {
       guard let target = try? pair[1].dropPrefix("refs/remotes/origin/") else { continue }
       guard rules.contains(where: { $0.target.isMet(target) }) else { continue }
       let sha = try Git.Sha.init(value: pair[0])
-      guard case nil = try? execute(cfg.git.check(
+      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(sha: sha),
         parent: .make(sha: fork)
-      )) else { continue }
+      ))) else { continue }
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
@@ -381,9 +382,9 @@ public final class Blender {
       logMessage(.init(message: "No commits to replicate"))
       return true
     }
-    guard case nil = try? execute(cfg.git.checkObjectType(
+    guard try !Execute.parseSuccess(reply: execute(cfg.git.checkObjectType(
       ref: .make(remote: merge.supply)
-    )) else {
+    ))) else {
       logMessage(.init(message: "Replication already in progress"))
       return true
     }
@@ -446,14 +447,14 @@ public final class Blender {
     }
     let head = try Git.Sha.init(value: pipeline.sha)
     guard
-      case nil = try? execute(cfg.git.check(
+      try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
-      )),
-      case _? = try? execute(cfg.git.check(
+      ))),
+      try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
-      )),
+      ))),
       case merge.fork.value = try Execute.parseText(reply: execute(cfg.git.mergeBase(
         .make(remote: merge.source),
         .make(sha: head)
@@ -758,10 +759,10 @@ public final class Blender {
     }
   }
   func checkNeeded(cfg: Configuration, merge: Fusion.Merge) -> Bool {
-    guard case _? = try? execute(cfg.git.check(
+    guard try Execute.parseSuccess(reply: execute(cfg.git.check(
       child: .make(remote: merge.target),
       parent: .make(sha: merge.fork)
-    )) else { return true }
+    ))) else { return true }
     logMessage(.init(message: "\(merge.target.name) already contains \(merge.fork.value)"))
     return false
   }
