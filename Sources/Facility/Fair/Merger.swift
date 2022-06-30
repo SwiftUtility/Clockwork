@@ -1,14 +1,14 @@
 import Foundation
 import Facility
 import FacilityPure
-public final class Blender {
+public final class Merger {
   let execute: Try.Reply<Execute>
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
-  let restler: Restler
+  let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -17,7 +17,7 @@ public final class Blender {
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    restler: Restler,
+    worker: Worker,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
@@ -26,11 +26,11 @@ public final class Blender {
     self.generate = generate
     self.report = report
     self.logMessage = logMessage
-    self.restler = restler
+    self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
   public func validateResolutionTitle(cfg: Configuration) throws -> Bool {
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
       guard rule.source.isMet(ctx.review.sourceBranch) else { continue }
       guard !rule.title.isMet(ctx.review.title) else { continue }
@@ -40,7 +40,7 @@ public final class Blender {
     return true
   }
   public func validateReviewStatus(cfg: Configuration) throws -> Bool {
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     var reasons: [Report.ReviewBlocked.Reason] = []
     if ctx.review.draft { reasons.append(.draft) }
     if ctx.review.workInProgress { reasons.append(.workInProgress) }
@@ -54,7 +54,7 @@ public final class Blender {
     return false
   }
   public func acceptResolution(cfg: Configuration) throws -> Bool {
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     guard ctx.gitlab.job.pipeline.ref == ctx.review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
       try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
@@ -127,7 +127,7 @@ public final class Blender {
       && rule.target.isMet(merge.target.name)
       && rule.source.isMet(merge.source.name)
     }) else { throw Thrown("Integration not allowed for \(gitlabCi.job.user.username)") }
-    guard checkNeeded(cfg: cfg, merge: merge) else { return true }
+    guard try checkNeeded(cfg: cfg, merge: merge) else { return true }
     guard try !Execute.parseSuccess(reply: execute(cfg.git.checkObjectType(
       ref: .make(remote: merge.supply)
     ))) else { throw Thrown("Integration already in progress") }
@@ -164,7 +164,7 @@ public final class Blender {
   }
   public func finishIntegration(cfg: Configuration) throws -> Bool {
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
@@ -190,7 +190,7 @@ public final class Blender {
       return true
     }
     let head = try Git.Sha(value: ctx.job.pipeline.sha)
-    guard checkNeeded(cfg: cfg, merge: merge) else {
+    guard try checkNeeded(cfg: cfg, merge: merge) else {
       try ctx.gitlab
         .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
         .map(execute)
@@ -318,7 +318,7 @@ public final class Blender {
         logMessage(.init(message: "Integration stopped due to conflicts"))
         try report(cfg.reportReviewMergeConflicts(
           review: ctx.review,
-          users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
+          users: worker.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
         ))
       }
       return false
@@ -329,7 +329,7 @@ public final class Blender {
       review: ctx.review,
       message: nil,
       sha: head,
-      users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
+      users: worker.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
     )
   }
   public func renderIntegration(cfg: Configuration) throws -> Bool {
@@ -421,7 +421,7 @@ public final class Blender {
   }
   public func updateReplication(cfg: Configuration) throws -> Bool {
     let replication = try resolveFusion(.init(cfg: cfg)).replication.get()
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     let pushUrl = try ctx.gitlab.pushUrl.get()
     let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
@@ -588,7 +588,7 @@ public final class Blender {
         logMessage(.init(message: "Replications stopped due to conflicts"))
         try report(cfg.reportReviewMergeConflicts(
           review: ctx.review,
-          users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
+          users: worker.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
         ))
       }
       return true
@@ -599,7 +599,7 @@ public final class Blender {
       review: ctx.review,
       message: nil,
       sha: head,
-      users: restler.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
+      users: worker.resolveParticipants(cfg: cfg, gitlabCi: ctx.gitlab, merge: merge)
     ) else { return false }
     try Execute.checkStatus(reply: execute(cfg.git.fetch))
     guard let merge = try makeMerge(
@@ -758,7 +758,7 @@ public final class Blender {
       throw MayDay("Unexpected merge response")
     }
   }
-  func checkNeeded(cfg: Configuration, merge: Fusion.Merge) -> Bool {
+  func checkNeeded(cfg: Configuration, merge: Fusion.Merge) throws -> Bool {
     guard try Execute.parseSuccess(reply: execute(cfg.git.check(
       child: .make(remote: merge.target),
       parent: .make(sha: merge.fork)

@@ -62,17 +62,17 @@ extension Clockwork.CheckForbiddenCommits: RunnableCommand {
 }
 extension Clockwork.CheckResolutionTitle: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.blender.validateResolutionTitle(cfg: cfg)
+    try Assembler.merger.validateResolutionTitle(cfg: cfg)
   }
 }
 extension Clockwork.CheckReviewStatus: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.blender.validateReviewStatus(cfg: cfg)
+    try Assembler.merger.validateReviewStatus(cfg: cfg)
   }
 }
 extension Clockwork.CheckResolutionAwardApproval: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.decorator.checkAwardApproval(cfg: cfg, mode: .resolution, remind: remind)
+    try Assembler.approver.checkAwardApproval(cfg: cfg, mode: .resolution, remind: remind)
   }
 }
 extension Clockwork.AddReviewLabels: RunnableCommand {
@@ -82,17 +82,17 @@ extension Clockwork.AddReviewLabels: RunnableCommand {
 }
 extension Clockwork.ActivateAwardApprover: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.decorator.updateUser(cfg: cfg, active: true)
+    try Assembler.approver.updateUser(cfg: cfg, active: true)
   }
 }
 extension Clockwork.DeactivateAwardApprover: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.decorator.updateUser(cfg: cfg, active: false)
+    try Assembler.approver.updateUser(cfg: cfg, active: false)
   }
 }
 extension Clockwork.FinishResolution: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.blender.acceptResolution(cfg: cfg)
+    try Assembler.merger.acceptResolution(cfg: cfg)
   }
 }
 extension Clockwork.TriggerPipeline: RunnableCommand {
@@ -102,37 +102,37 @@ extension Clockwork.TriggerPipeline: RunnableCommand {
 }
 extension Clockwork.CheckReplicationAwardApproval: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.decorator.checkAwardApproval(cfg: cfg, mode: .replication, remind: remind)
+    try Assembler.approver.checkAwardApproval(cfg: cfg, mode: .replication, remind: remind)
   }
 }
 extension Clockwork.StartReplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.blender.updateReplication(cfg: cfg)
+    try Assembler.merger.updateReplication(cfg: cfg)
   }
 }
 extension Clockwork.FinishReplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.blender.updateReplication(cfg: cfg)
+    try Assembler.merger.updateReplication(cfg: cfg)
   }
 }
 extension Clockwork.CheckIntegrationAwardApproval: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.decorator.checkAwardApproval(cfg: cfg, mode: .integration, remind: remind)
+    try Assembler.approver.checkAwardApproval(cfg: cfg, mode: .integration, remind: remind)
   }
 }
 extension Clockwork.ExportIntegrationTargets: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.blender.renderIntegration(cfg: cfg)
+    try Assembler.merger.renderIntegration(cfg: cfg)
   }
 }
 extension Clockwork.StartIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.blender.startIntegration(cfg: cfg, target: target, fork: fork)
+    try Assembler.merger.startIntegration(cfg: cfg, target: target, fork: fork)
   }
 }
 extension Clockwork.FinishIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.blender.finishIntegration(cfg: cfg)
+    try Assembler.merger.finishIntegration(cfg: cfg)
   }
 }
 extension Clockwork.ImportProvisions: RunnableCommand {

@@ -4,17 +4,17 @@ import FacilityPure
 public final class Mediator {
   let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>
-  let restler: Restler
+  let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    restler: Restler,
+    worker: Worker,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.logMessage = logMessage
-    self.restler = restler
+    self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
   public func triggerPipeline(
@@ -45,7 +45,7 @@ public final class Mediator {
   public func createReviewPipeline(
     cfg: Configuration
   ) throws -> Bool {
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
@@ -56,7 +56,7 @@ public final class Mediator {
     cfg: Configuration,
     labels: [String]
   ) throws -> Bool {
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     let labels = Set(labels).subtracting(.init(ctx.review.labels))
     guard !labels.isEmpty else {
       logMessage(.init(message: "No new labels"))
@@ -78,7 +78,7 @@ public final class Mediator {
     name: String,
     action: GitlabCi.JobAction
   ) throws -> Bool {
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     let job = try ctx.gitlab
       .getJobs(action: action, pipeline: ctx.review.pipeline.id)
       .map(execute)

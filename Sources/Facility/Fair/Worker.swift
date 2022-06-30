@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public final class Restler {
+public final class Worker {
   let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder

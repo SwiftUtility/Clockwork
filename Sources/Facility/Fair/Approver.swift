@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public final class Decorator {
+public final class Approver {
   let execute: Try.Reply<Execute>
   let resolveProfile: Try.Reply<Configuration.ResolveProfile>
   let resolveAwardApproval: Try.Reply<Configuration.ResolveAwardApproval>
@@ -11,7 +11,7 @@ public final class Decorator {
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
-  let restler: Restler
+  let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -23,7 +23,7 @@ public final class Decorator {
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    restler: Restler,
+    worker: Worker,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
@@ -35,7 +35,7 @@ public final class Decorator {
     self.resolveFusion = resolveFusion
     self.report = report
     self.logMessage = logMessage
-    self.restler = restler
+    self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
   public func updateUser(cfg: Configuration, active: Bool) throws -> Bool {
@@ -59,7 +59,7 @@ public final class Decorator {
     mode: AwardApproval.Mode,
     remind: Bool
   ) throws -> Bool {
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
@@ -97,7 +97,7 @@ public final class Decorator {
     let participants: [String]
     let changedFiles: [String]
     if let merge = merge {
-      participants = try restler.resolveParticipants(
+      participants = try worker.resolveParticipants(
         cfg: cfg,
         gitlabCi: ctx.gitlab,
         merge: merge

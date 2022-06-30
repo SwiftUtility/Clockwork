@@ -78,7 +78,7 @@ struct Clockwork: ParsableCommand {
     var target: String
   }
   struct CheckReviewObsolete: ClockworkCommand {
-    static var abstract: String { "Ensure source is in sync with target" }
+    static var abstract: String { "Ensure target has no essential changes" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "the branch to check obsolence against")
     var target: String
@@ -116,11 +116,11 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
   }
   struct FinishResolution: ClockworkCommand {
-    static var abstract: String { "Rebase and accept review" }
+    static var abstract: String { "Accept or update review" }
     @OptionGroup var clockwork: Clockwork
   }
   struct TriggerPipeline: ClockworkCommand {
-    static var abstract: String { "Trigger pipeline and pass context" }
+    static var abstract: String { "Trigger pipeline and pass predefined and custom context" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Ref to run pipeline on")
     var ref: String
@@ -148,11 +148,11 @@ struct Clockwork: ParsableCommand {
     var remind = false
   }
   struct ExportIntegrationTargets: ClockworkCommand {
-    static var abstract: String { "Stdouts rendered job template for suitable branches" }
+    static var abstract: String { "Stdouts rendered suitable integration branches context" }
     @OptionGroup var clockwork: Clockwork
   }
   struct StartIntegration: ClockworkCommand {
-    static var abstract: String { "Create integration review" }
+    static var abstract: String { "Create current branch integration review" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Integrated commit sha")
     var fork: String
@@ -166,23 +166,23 @@ struct Clockwork: ParsableCommand {
   struct ImportProvisions: ClockworkCommand {
     static var abstract: String { "Import provisions locally" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Requisites to install, all when empty")
+    @Argument(help: "Requisites to install, all when empty (default)")
     var requisites: [String] = []
   }
   struct ImportPkcs12: ClockworkCommand {
     static var abstract: String { "Import p12 and setup xcode access" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Keychain name to import requisites into")
+    @Option(help: "Keychain name to import p12 into")
     var keychain: String
-    @Argument(help: "Requisites to install, all when empty")
+    @Argument(help: "Requisites to install, all when empty (default)")
     var requisites: [String] = []
   }
   struct ImportRequisites: ClockworkCommand {
     static var abstract: String { "Import p12 and provisions" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Keychain name to import requisites into")
+    @Option(help: "Keychain name to import p12 into")
     var keychain: String
-    @Argument(help: "Requisite to install, all when empty")
+    @Argument(help: "Requisite to install, all when empty (default)")
     var requisites: [String] = []
   }
   struct ReportExpiringRequisites: ClockworkCommand {

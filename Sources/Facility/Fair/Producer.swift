@@ -13,7 +13,7 @@ public final class Producer {
   let report: Try.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
-  let restler: Restler
+  let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -27,7 +27,7 @@ public final class Producer {
     report: @escaping Try.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
-    restler: Restler,
+    worker: Worker,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
@@ -41,7 +41,7 @@ public final class Producer {
     self.report = report
     self.logMessage = logMessage
     self.writeStdout = writeStdout
-    self.restler = restler
+    self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
   public func createDeployTag(cfg: Configuration) throws -> Bool {
@@ -130,7 +130,7 @@ public final class Producer {
   }
   public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
     let production = try resolveProduction(.init(cfg: cfg))
-    guard let ctx = try restler.resolveParentReview(cfg: cfg) else { return false }
+    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     guard !builds.contains(where: ctx.job.matches(build:))
     else { throw Thrown("Build already exists") }

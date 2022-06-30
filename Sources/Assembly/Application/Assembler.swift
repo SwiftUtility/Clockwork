@@ -46,7 +46,7 @@ enum Assembler {
     getTime: Date.init,
     plistDecoder: .init()
   )
-  static let decorator = Decorator(
+  static let approver = Approver(
     execute: execute,
     resolveProfile: configurator.resolveProfile(query:),
     resolveAwardApproval: configurator.resolveAwardApproval(query:),
@@ -56,23 +56,23 @@ enum Assembler {
     resolveFusion: configurator.resolveFusion(query:),
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
-    restler: restler,
+    worker: worker,
     jsonDecoder: jsonDecoder
   )
-  static let blender = Blender(
+  static let merger = Merger(
     execute: execute,
     resolveFusion: configurator.resolveFusion(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
-    restler: restler,
+    worker: worker,
     jsonDecoder: jsonDecoder
   )
   static let mediator = Mediator(
     execute: execute,
     logMessage: reporter.logMessage(query:),
-    restler: restler,
+    worker: worker,
     jsonDecoder: jsonDecoder
   )
   static let producer = Producer(
@@ -87,10 +87,10 @@ enum Assembler {
     report: reporter.report(query:),
     logMessage: reporter.logMessage(query:),
     writeStdout: writeStdout,
-    restler: restler,
+    worker: worker,
     jsonDecoder: jsonDecoder
   )
-  static let restler = Restler(
+  static let worker = Worker(
     execute: execute,
     logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
