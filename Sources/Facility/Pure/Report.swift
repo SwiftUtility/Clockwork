@@ -13,48 +13,56 @@ public struct Report: Query {
   public struct Custom: GenerationContext {
     public var event: String = Self.event
     public var subevent: String
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var stdin: [String]
   }
   public struct Unexpected: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var error: String
   }
   public struct UnownedCode: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var files: [String]
   }
   public struct FileTaboos: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var issues: [FileTaboo.Issue]
   }
   public struct ReviewObsolete: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var files: [String]?
   }
   public struct ForbiddenCommits: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var commits: [String]?
   }
   public struct ConflictMarkers: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var markers: [String]
   }
   public struct InvalidTitle: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -62,6 +70,7 @@ public struct Report: Query {
   }
   public struct ReviewBlocked: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -75,6 +84,7 @@ public struct Report: Query {
   }
   public struct ReviewMergeConflicts: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -82,6 +92,7 @@ public struct Report: Query {
   }
   public struct ReviewMerged: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -89,6 +100,7 @@ public struct Report: Query {
   }
   public struct ReviewMergeError: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -97,6 +109,7 @@ public struct Report: Query {
   }
   public struct EmergencyAwardApproval: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -105,6 +118,7 @@ public struct Report: Query {
   }
   public struct AwardApprovalReady: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -112,6 +126,7 @@ public struct Report: Query {
   }
   public struct NewAwardApproval: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -121,6 +136,7 @@ public struct Report: Query {
   }
   public struct WaitAwardApproval: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -130,6 +146,7 @@ public struct Report: Query {
   }
   public struct NewAwardApprovals: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -138,6 +155,7 @@ public struct Report: Query {
   }
   public struct WaitAwardApprovals: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -146,6 +164,7 @@ public struct Report: Query {
   }
   public struct AwardApprovalHolders: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
@@ -154,6 +173,7 @@ public struct Report: Query {
   }
   public struct ReleaseBranchCreated: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var ref: String
@@ -163,6 +183,7 @@ public struct Report: Query {
   }
   public struct HotfixBranchCreated: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var ref: String
@@ -172,8 +193,10 @@ public struct Report: Query {
   }
   public struct DeployTagCreated: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
+    public var ref: String
     public var product: String
     public var deploy: Production.Build.Deploy
     public var uniq: [Commit]?
@@ -188,6 +211,7 @@ public struct Report: Query {
   }
   public struct VersionBumped: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
@@ -196,6 +220,7 @@ public struct Report: Query {
   }
   public struct AccessoryBranchCreated: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var family: String
@@ -204,6 +229,7 @@ public struct Report: Query {
   }
   public struct ExpiringRequisites: GenerationContext {
     public var event: String = Self.event
+    public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var items: [Item]
@@ -225,6 +251,7 @@ public extension Configuration {
     stdin: [String]
   ) -> Report { .init(cfg: self, context: Report.Custom(
     subevent: event,
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     stdin: stdin
@@ -232,6 +259,7 @@ public extension Configuration {
   func reportUnexpected(
     error: Error
   ) -> Report { .init(cfg: self, context: Report.Unexpected(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     error: verbose.then(String(reflecting: error)).get(String(describing: error))
@@ -239,6 +267,7 @@ public extension Configuration {
   func reportUnownedCode(
     files: [String]
   ) -> Report { .init(cfg: self, context: Report.UnownedCode(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     files: files
@@ -246,6 +275,7 @@ public extension Configuration {
   func reportFileTaboos(
     issues: [FileTaboo.Issue]
   ) -> Report { .init(cfg: self, context: Report.FileTaboos(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     issues: issues
@@ -253,6 +283,7 @@ public extension Configuration {
   func reportReviewObsolete(
     files: [String]
   ) -> Report { .init(cfg: self, context: Report.ReviewObsolete(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     files: files
@@ -260,6 +291,7 @@ public extension Configuration {
   func reportForbiddenCommits(
     commits: [String]
   ) -> Report { .init(cfg: self, context: Report.ForbiddenCommits(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     commits: commits
@@ -267,6 +299,7 @@ public extension Configuration {
   func reportConflictMarkers(
     markers: [String]
   ) -> Report { .init(cfg: self, context: Report.ConflictMarkers(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     markers: markers
@@ -274,6 +307,7 @@ public extension Configuration {
   func reportInvalidTitle(
     review: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, context: Report.InvalidTitle(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -284,6 +318,7 @@ public extension Configuration {
     users: [String],
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -295,6 +330,7 @@ public extension Configuration {
     review: Json.GitlabReviewState,
     users: [String]
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -305,6 +341,7 @@ public extension Configuration {
     review: Json.GitlabReviewState,
     users: [String]
   ) -> Report { .init(cfg: self, context: Report.ReviewMerged(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -316,6 +353,7 @@ public extension Configuration {
     users: [String],
     error: String
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeError(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -328,6 +366,7 @@ public extension Configuration {
     users: Set<String>,
     cheaters: Set<String>
   ) -> Report { .init(cfg: self, context: Report.EmergencyAwardApproval(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -338,6 +377,7 @@ public extension Configuration {
     review: Json.GitlabReviewState,
     users: Set<String>
   ) -> Report { .init(cfg: self, context: Report.AwardApprovalReady(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -348,6 +388,7 @@ public extension Configuration {
     users: Set<String>,
     group: AwardApproval.Group.Report
   ) -> Report { .init(cfg: self, context: Report.NewAwardApproval(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -359,6 +400,7 @@ public extension Configuration {
     users: Set<String>,
     group: AwardApproval.Group.Report
   ) -> Report { .init(cfg: self, context: Report.WaitAwardApproval(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -370,6 +412,7 @@ public extension Configuration {
     users: Set<String>,
     groups: [AwardApproval.Group.Report]
   ) -> Report { .init(cfg: self, context: Report.NewAwardApprovals(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -381,6 +424,7 @@ public extension Configuration {
     users: Set<String>,
     groups: [AwardApproval.Group.Report]
   ) -> Report { .init(cfg: self, context: Report.WaitAwardApprovals(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -392,6 +436,7 @@ public extension Configuration {
     users: Set<String>,
     holders: Set<String>
   ) -> Report { .init(cfg: self, context: Report.AwardApprovalHolders(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     review: review,
@@ -403,6 +448,7 @@ public extension Configuration {
     product: String,
     version: String
   ) -> Report { .init(cfg: self, context: Report.ReleaseBranchCreated(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     ref: ref,
@@ -414,6 +460,7 @@ public extension Configuration {
     product: String,
     version: String
   ) -> Report { .init(cfg: self, context: Report.HotfixBranchCreated(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     ref: ref,
@@ -421,14 +468,17 @@ public extension Configuration {
     version: version
   ))}
   func reportDeploy(
+    ref: String,
     product: Production.Product,
     deploy: Production.Build.Deploy,
     uniq: [Report.DeployTagCreated.Commit],
     heir: [Report.DeployTagCreated.Commit],
     lack: [Report.DeployTagCreated.Commit]
   ) -> Report { .init(cfg: self, context: Report.DeployTagCreated(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
+    ref: ref,
     product: product.name,
     deploy: deploy,
     uniq: uniq.isEmpty.else(uniq),
@@ -439,6 +489,7 @@ public extension Configuration {
     product: String,
     version: String
   ) -> Report { .init(cfg: self, context: Report.VersionBumped(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     product: product,
@@ -448,6 +499,7 @@ public extension Configuration {
     family: String,
     ref: String
   ) -> Report { .init(cfg: self, context: Report.AccessoryBranchCreated(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     family: family,
@@ -456,6 +508,7 @@ public extension Configuration {
   func reportExpiringRequisites(
     items: [Report.ExpiringRequisites.Item]
   ) -> Report { .init(cfg: self, context: Report.ExpiringRequisites(
+    env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
     items: items

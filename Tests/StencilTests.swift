@@ -24,7 +24,7 @@ final class StencilTests: XCTestCase {
         {% endfilter %}
         """#,
       "testIncrement": #"""
-        {{ env.version | filter:"incremented" }}
+        {{ env.version | incremented }}
         """#,
       "testScanInplace": #"{% scan ".*(\d+)\.(\d+)\.(\d+).*" %}asd 1.2.3{%patch%}{{_.1}}.{{_.2 | filter:"incremented"}}.{{_.3}}{%endscan%}"#,
       "testScan": #"""

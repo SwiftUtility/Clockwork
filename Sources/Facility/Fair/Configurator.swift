@@ -391,10 +391,10 @@ extension Configurator {
   }
   func makeYaml(build: Yaml.Controls.Production.Build) -> [String] {
     ["- build: '\(build.build)'\n", "  sha: '\(build.sha)'\n"]
-    + build.branch.map { "  branch: \($0)\n" }.array
+    + build.branch.map { "  branch: '\($0)'\n" }.array
     + build.review.map { "  review: \($0)\n" }.array
-    + build.target.map { "  target: \($0)\n" }.array
-    + build.product.map { "  product: \($0)\n" }.array
-    + build.version.map { "  version: \($0)\n" }.array
+    + build.target.map { "  target: '\($0)'\n" }.array
+    + build.product.map { "  product: '\($0)'\n" }.array
+    + build.version.map { "  version: '\($0)'\n" }.array
   }
 }

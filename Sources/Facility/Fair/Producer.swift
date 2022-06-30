@@ -120,6 +120,7 @@ public final class Producer {
       .map(Execute.checkStatus(reply:))
       .get()
     try report(cfg.reportDeploy(
+      ref: tag,
       product: product,
       deploy: deploy,
       uniq: makeCommitReport(cfg: cfg, shas: uniq.get([])),

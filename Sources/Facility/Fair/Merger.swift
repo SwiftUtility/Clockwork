@@ -363,7 +363,12 @@ public final class Merger {
       try targets.append(.init(name: target))
     }
     guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    try writeStdout(generate(cfg.exportIntegrationTargets(fork: fork, targets: targets.map(\.name))))
+    try writeStdout(generate(cfg.exportIntegrationTargets(
+      integration: integration,
+      fork: fork,
+      source: source.name,
+      targets: targets.map(\.name)
+    )))
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {

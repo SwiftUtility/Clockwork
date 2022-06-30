@@ -16,6 +16,8 @@ public struct StencilParser {
     ext.registerFilter("regexp", filter: Filters.regexp(value:arguments:))
     ext.registerFilter("incremented", filter: Filters.incremented(value:))
     ext.registerFilter("emptyLines", filter: Filters.emptyLines(value:))
+    ext.registerFilter("escapeSlack", filter: Filters.escapeSlack(value:))
+    ext.registerFilter("escapeUrl", filter: Filters.escapeUrl(value:))
     ext.registerTag("scan", parser: ScanNode.parse(parser:token:))
     ext.registerTag("line", parser: LineNode.parse(parser:token:))
     var result: String

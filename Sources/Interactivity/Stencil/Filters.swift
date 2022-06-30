@@ -45,4 +45,18 @@ enum Filters {
       .filter { !$0.isEmpty }
       .joined(separator: "\n")
   }
+  static func escapeSlack(value: Any?) throws -> Any? {
+    let value = try (value as? String)
+      .get { throw TemplateSyntaxError("'escapeSlack' filter expects string value") }
+    return value
+      .replacingOccurrences(of: "&", with: "&amp;")
+      .replacingOccurrences(of: "<", with: "&lt;")
+      .replacingOccurrences(of: ">", with: "&gt;")
+  }
+  static func escapeUrl(value: Any?) throws -> Any? {
+    let value = try (value as? String)
+      .get { throw TemplateSyntaxError("'escapeUrl' filter expects string value") }
+    return value
+      .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+  }
 }

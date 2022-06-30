@@ -11,7 +11,7 @@ public struct Fusion {
     resolution: yaml.resolution
       .map(Resolution.make(yaml:))
       .map(Lossy.value(_:))
-      .get(Lossy.error(Thrown("review not configured"))),
+      .get(Lossy.error(Thrown("resolution not configured"))),
     replication: yaml.replication
       .map(Replication.make(yaml:))
       .map(Lossy.value(_:))
@@ -83,6 +83,7 @@ public struct Fusion {
     public var rules: [Rule]
     public var prefix: String
     public var createCommitMessage: Configuration.Template
+    public var exportTargets: Configuration.Template
     public static func make(
       mainatiners: Set<String>,
       yaml: Yaml.Controls.Fusion.Integration
@@ -95,7 +96,8 @@ public struct Fusion {
           target: .init(yaml: yaml.target)
         )},
       prefix: yaml.prefix,
-      createCommitMessage: .make(yaml: yaml.createCommitMessage)
+      createCommitMessage: .make(yaml: yaml.createCommitMessage),
+      exportTargets: .make(yaml: yaml.exportTargets)
     )}
     public func makeMerge(supply: String) throws -> Merge {
       let components = supply.components(separatedBy: "/-/")

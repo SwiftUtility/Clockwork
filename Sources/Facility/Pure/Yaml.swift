@@ -9,7 +9,6 @@ public enum Yaml {
     public var templates: String?
     public var exportBuildContext: Template?
     public var exportCurrentVersions: Template?
-    public var exportIntegrationTargets: Template?
     public struct FileTaboo: Decodable {
       public var rule: String
       public var file: Criteria?
@@ -101,6 +100,7 @@ public enum Yaml {
         public var rules: [Rule]
         public var prefix: String
         public var createCommitMessage: Template
+        public var exportTargets: Template
         public struct Rule: Decodable {
           public var mainatiners: [String]?
           public var source: Criteria
