@@ -252,7 +252,10 @@ public extension GitlabCi {
   func postBranches(
     name: String,
     ref: String
-  ) -> Lossy<Execute> { .init(try .makeCurl(
+  ) -> Lossy<Execute> {
+    guard let name = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+    else { return .error(MayDay("addingPercentEncoding failed")) }
+    return .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/repository/branches?branch=\(name)&ref=\(ref)",
     method: "POST",
