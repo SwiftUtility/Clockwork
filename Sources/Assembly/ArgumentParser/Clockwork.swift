@@ -87,7 +87,7 @@ struct Clockwork: ParsableCommand {
     static var abstract: String { "Ensure contains no forbidden commits" }
     @OptionGroup var clockwork: Clockwork
   }
-  struct CheckResolutionTitle: ClockworkCommand {
+  struct CheckResolutionRules: ClockworkCommand {
     static var abstract: String { "Ensure title matches defined rules" }
     @OptionGroup var clockwork: Clockwork
   }

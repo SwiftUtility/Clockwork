@@ -60,9 +60,9 @@ extension Clockwork.CheckForbiddenCommits: RunnableCommand {
     try Assembler.validator.validateForbiddenCommits(cfg: cfg)
   }
 }
-extension Clockwork.CheckResolutionTitle: RunnableCommand {
+extension Clockwork.CheckResolutionRules: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.validateResolutionTitle(cfg: cfg)
+    try Assembler.merger.validateResolutionRules(cfg: cfg)
   }
 }
 extension Clockwork.CheckReviewStatus: RunnableCommand {
