@@ -195,7 +195,7 @@ public extension GitlabCi {
     ref: String,
     cfg: Configuration,
     variables: [String: String]
-  ) -> Lossy<Execute> { .init(.makeCurl(
+  ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/trigger/pipeline",
     method: "POST",
@@ -229,7 +229,13 @@ public extension GitlabCi {
     page: Int = 0
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/pipelines/\(pipeline)/jobs?\(action.jobsQuery(page: page))",
+    url: "\(url)/pipelines/\(pipeline)/jobs",
+    query: [
+      "include_retried": ["true"],
+      "page": ["\(page)"],
+      "per_page": ["100"],
+      "scope": action.scope,
+    ],
     headers: [botAuth.get()]
   ))}
   func postJobsAction(
@@ -242,10 +248,13 @@ public extension GitlabCi {
     headers: [botAuth.get()]
   ))}
   func postTags(
-    parameters: PostTags
+    name: String,
+    ref: String,
+    message: String
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/repository/tags?\(parameters.query())",
+    url: "\(url)/repository/tags",
+    query: ["tag_name": [name], "ref": [ref], "message": [message]],
     method: "POST",
     headers: [botAuth.get()]
   ))}
@@ -257,7 +266,8 @@ public extension GitlabCi {
     else { return .error(MayDay("addingPercentEncoding failed")) }
     return .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/repository/branches?branch=\(name)&ref=\(ref)",
+    url: "\(url)/repository/branches",
+    query: ["branch": [name], "ref": [ref]],
     method: "POST",
     headers: [botAuth.get()]
   ))}
@@ -322,31 +332,12 @@ public extension GitlabCi {
     case play = "play"
     case cancel = "cancel"
     case retry = "retry"
-    func jobsQuery(page: Int) -> String {
-      var result: [String] = ["include_retried=true", "page=\(page)", "per_page=100"]
+    var scope: [String] {
       switch self {
-      case .play: result += ["scope=manual"]
-      case .cancel: result += ["scope[]=pending", "scope[]=running", "scope[]=created"]
-      case .retry: result += ["scope[]=failed", "scope[]=canceled", "scope[]=success"]
+      case .play: return ["manual"]
+      case .cancel: return ["pending", "running", "created"]
+      case .retry: return ["failed", "canceled", "success"]
       }
-      return result.joined(separator: "&")
-    }
-  }
-  struct PostTags {
-    public var name: String
-    public var ref: String
-    public var message: String
-    public init(name: String, ref: String, message: String) {
-      self.name = name
-      self.ref = ref
-      self.message = message
-    }
-    func query() throws -> String {
-      let message = try message
-        .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-        .get { throw Thrown("Invalid tag annotation message") }
-      return ["tag_name=\(name)", "ref=\(ref)", "message=\(message)"]
-        .joined(separator: "&")
     }
   }
 }

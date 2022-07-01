@@ -54,6 +54,7 @@ public final class Reporter {
       switch value {
       case .slackHookTextMessage(let value):
         let message = try generate(query.generate(template: value.createMessageText))
+          .debug()
         guard !message.isEmpty else { continue }
         try Id(message)
         .map(value.makePayload(text:))

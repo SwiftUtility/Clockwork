@@ -115,7 +115,7 @@ public final class Producer {
       build: .deploy(deploy)
     ))
     try gitlabCi
-      .postTags(parameters: .init(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation))
+      .postTags(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
