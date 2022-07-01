@@ -19,7 +19,7 @@ struct Clockwork: ParsableCommand {
       CheckReviewConflictMarkers.self,
       CheckReviewObsolete.self,
       CheckForbiddenCommits.self,
-      CheckResolutionTitle.self,
+      CheckResolutionRules.self,
       CheckReviewStatus.self,
       CheckResolutionAwardApproval.self,
       CheckReplicationAwardApproval.self,
