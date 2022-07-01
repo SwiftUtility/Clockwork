@@ -5,12 +5,13 @@ public struct Production {
   public var versions: Configuration.Asset
   public var bumpBuildNumber: Configuration.Template
   public var products: [Product]
-  public var accessoryBranches: [AccessoryBranch]
-  public var generateReleaseNotes: Configuration.Template?
+  public var deployTag: DeployTag
+  public var releaseBranch: ReleaseBranch
+  public var accessoryBranch: AccessoryBranch?
   public var maxBuildsCount: Int?
   public func productMatching(ref: String, tag: Bool) throws -> Product? {
     var product: Product? = nil
-    let keyPath = tag.then(\Product.deployTag.nameMatch).get(\Product.releaseBranch.nameMatch)
+    let keyPath = tag.then(\Product.deployTagNameMatch).get(\Product.releaseBranchNameMatch)
     for value in products {
       guard value[keyPath: keyPath].isMet(ref) else { continue }
       if let product = product {
@@ -37,30 +38,29 @@ public struct Production {
         name: name,
         mainatiners: mainatiners
           .union(Set(yaml.mainatiners.get([]))),
-        deployTag: .init(
-          nameMatch: .init(yaml: yaml.deployTag.nameMatch),
-          createName: .make(yaml: yaml.deployTag.createName),
-          createAnnotation: .make(yaml: yaml.deployTag.createAnnotation),
-          parseBuild: .make(yaml: yaml.deployTag.parseBuild),
-          parseVersion: .make(yaml: yaml.deployTag.parseVersion)
-        ),
-        releaseBranch: .init(
-          nameMatch: .init(yaml: yaml.releaseBranch.nameMatch),
-          createName: .make(yaml: yaml.releaseBranch.createName),
-          parseVersion: .make(yaml: yaml.releaseBranch.parseVersion)
-        ),
+        deployTagNameMatch: .init(yaml: yaml.deployTagNameMatch),
+        releaseBranchNameMatch: .init(yaml: yaml.releaseBranchNameMatch),
         bumpCurrentVersion: .make(yaml: yaml.bumpCurrentVersion),
         createHotfixVersion: .make(yaml: yaml.createHotfixVersion)
       )},
-    accessoryBranches: yaml.accessoryBranches
-      .get([:])
-      .map { family, yaml in try .init(
-        family: family,
+    deployTag: .init(
+      createName: .make(yaml: yaml.deployTag.createName),
+      createAnnotation: .make(yaml: yaml.deployTag.createAnnotation),
+      parseBuild: .make(yaml: yaml.deployTag.parseBuild),
+      parseVersion: .make(yaml: yaml.deployTag.parseVersion)
+    ),
+    releaseBranch: .init(
+      createName: .make(yaml: yaml.releaseBranch.createName),
+      parseVersion: .make(yaml: yaml.releaseBranch.parseVersion)
+    ),
+    accessoryBranch: yaml.accessoryBranch
+      .map { yaml in try .init(
         mainatiners: yaml.mainatiners
           .map(Set.init(_:))
           .get([])
           .union(mainatiners),
         nameMatch: .init(yaml: yaml.nameMatch),
+        createName: .make(yaml: yaml.createName),
         adjustVersion: .make(yaml: yaml.adjustVersion)
       )},
     maxBuildsCount: yaml.maxBuildsCount
@@ -68,30 +68,28 @@ public struct Production {
   public struct Product {
     public var name: String
     public var mainatiners: Set<String>
-    public var deployTag: DeployTag
-    public var releaseBranch: ReleaseBranch
+    public var deployTagNameMatch: Criteria
+    public var releaseBranchNameMatch: Criteria
     public var bumpCurrentVersion: Configuration.Template
     public var createHotfixVersion: Configuration.Template
-    public struct DeployTag {
-      public var nameMatch: Criteria
-      public var createName: Configuration.Template
-      public var createAnnotation: Configuration.Template
-      public var parseBuild: Configuration.Template
-      public var parseVersion: Configuration.Template
-    }
-    public struct ReleaseBranch {
-      public var nameMatch: Criteria
-      public var createName: Configuration.Template
-      public var parseVersion: Configuration.Template
-    }
     public func deploy(job: Json.GitlabJob, version: String, build: String) -> Build.Deploy {
       .init(build: build, sha: job.pipeline.sha, product: name, version: version)
     }
   }
+  public struct DeployTag {
+    public var createName: Configuration.Template
+    public var createAnnotation: Configuration.Template
+    public var parseBuild: Configuration.Template
+    public var parseVersion: Configuration.Template
+  }
+  public struct ReleaseBranch {
+    public var createName: Configuration.Template
+    public var parseVersion: Configuration.Template
+  }
   public struct AccessoryBranch {
-    public var family: String
     public var mainatiners: Set<String>
     public var nameMatch: Criteria
+    public var createName: Configuration.Template
     public var adjustVersion: Configuration.Template
   }
   public enum Build {

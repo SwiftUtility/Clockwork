@@ -208,10 +208,8 @@ struct Clockwork: ParsableCommand {
   struct CreateAccessoryBranch: ClockworkCommand {
     static var abstract: String { "Cut custom branch" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Accessory branch configuration family")
-    var family: String
-    @Option(help: "Name of branch to create")
-    var name: String
+    @Option(help: "Name suffix of branch")
+    var suffix: String
   }
   struct ReserveParentReviewBuild: ClockworkCommand {
     static var abstract: String { "Reserves build number for parent review pipeline" }

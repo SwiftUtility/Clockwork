@@ -49,7 +49,6 @@ public struct Generate: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var product: String
     public var ref: String
   }
   public struct CreateReleaseBranchName: GenerationContext {
@@ -98,7 +97,6 @@ public struct Generate: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var product: String
     public var ref: String
   }
   public struct ParseDeployTagBuild: GenerationContext {
@@ -106,7 +104,6 @@ public struct Generate: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var product: String
     public var ref: String
   }
   public struct CreateHotfixVersion: GenerationContext {
@@ -117,12 +114,18 @@ public struct Generate: Query {
     public var product: String
     public var version: String
   }
+  public struct CreateAccessoryBranchName: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var suffix: String
+  }
   public struct AdjustAccessoryBranchVersion: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var family: String
     public var product: String
     public var version: String
   }
@@ -223,27 +226,27 @@ public extension Configuration {
     )
   )}
   func parseReleaseBranchVersion(
-    product: Production.Product,
+    production: Production,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.releaseBranch.parseVersion,
+    template: production.releaseBranch.parseVersion,
     templates: controls.templates,
     context: Generate.ParseReleaseBranchVersion(
       env: env,
       ctx: controls.context,
       info: try? controls.gitlabCi.get().info,
-      product: product.name,
       ref: ref
     )
   )}
   func createDeployTagName(
+    production: Production,
     product: Production.Product,
     version: String,
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deployTag.createName,
+    template: production.deployTag.createName,
     templates: controls.templates,
     context: Generate.CreateDeployTagName(
       env: env,
@@ -255,12 +258,13 @@ public extension Configuration {
     )
   )}
   func createDeployTagAnnotation(
+    production: Production,
     product: Production.Product,
     version: String,
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deployTag.createAnnotation,
+    template: production.deployTag.createAnnotation,
     templates: controls.templates,
     context: Generate.CreateDeployTagAnnotation(
       env: env,
@@ -272,11 +276,12 @@ public extension Configuration {
     )
   )}
   func createReleaseBranchName(
+    production: Production,
     product: Production.Product,
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.releaseBranch.createName,
+    template: production.releaseBranch.createName,
     templates: controls.templates,
     context: Generate.CreateReleaseBranchName(
       env: env,
@@ -316,32 +321,30 @@ public extension Configuration {
     )
   )}
   func parseDeployTagVersion(
-    product: Production.Product,
+    production: Production,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deployTag.parseVersion,
+    template: production.deployTag.parseVersion,
     templates: controls.templates,
     context: Generate.ParseDeployTagVersion(
       env: env,
       ctx: controls.context,
       info: try? controls.gitlabCi.get().info,
-      product: product.name,
       ref: ref
     )
   )}
   func parseDeployTagBuild(
-    product: Production.Product,
+    production: Production,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deployTag.parseBuild,
+    template: production.deployTag.parseBuild,
     templates: controls.templates,
     context: Generate.ParseDeployTagBuild(
       env: env,
       ctx: controls.context,
       info: try? controls.gitlabCi.get().info,
-      product: product.name,
       ref: ref
     )
   )}
@@ -360,6 +363,20 @@ public extension Configuration {
       version: version
     )
   )}
+  func createAccessoryBranchName(
+    accessoryBranch: Production.AccessoryBranch,
+    suffix: String
+  ) -> Generate { .init(
+    allowEmpty: false,
+    template: accessoryBranch.createName,
+    templates: controls.templates,
+    context: Generate.CreateAccessoryBranchName(
+      env: env,
+      ctx: controls.context,
+      info: try? controls.gitlabCi.get().info,
+      suffix: suffix
+    )
+  )}
   func adjustAccessoryBranchVersion(
     accessoryBranch: Production.AccessoryBranch,
     ref: String,
@@ -373,7 +390,6 @@ public extension Configuration {
       env: env,
       ctx: controls.context,
       info: try? controls.gitlabCi.get().info,
-      family: accessoryBranch.family,
       product: product,
       version: version
     )

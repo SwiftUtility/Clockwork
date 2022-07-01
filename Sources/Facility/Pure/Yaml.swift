@@ -35,31 +35,32 @@ public enum Yaml {
       public var builds: Asset
       public var versions: Asset
       public var bumpBuildNumber: Template
+      public var deployTag: DeployTag
+      public var releaseBranch: ReleaseBranch
       public var products: [String: Product]
-      public var accessoryBranches: [String: AccessoryBranch]?
+      public var accessoryBranch: AccessoryBranch?
       public var maxBuildsCount: Int?
       public struct Product: Decodable {
         public var mainatiners: [String]?
-        public var deployTag: DeployTag
-        public var releaseBranch: ReleaseBranch
         public var bumpCurrentVersion: Template
         public var createHotfixVersion: Template
-        public struct DeployTag: Decodable {
-          public var nameMatch: Criteria
-          public var createName: Template
-          public var parseBuild: Template
-          public var parseVersion: Template
-          public var createAnnotation: Template
-        }
-        public struct ReleaseBranch: Decodable {
-          public var nameMatch: Criteria
-          public var createName: Template
-          public var parseVersion: Template
-        }
+        public var deployTagNameMatch: Criteria
+        public var releaseBranchNameMatch: Criteria
+      }
+      public struct DeployTag: Decodable {
+        public var createName: Template
+        public var parseBuild: Template
+        public var parseVersion: Template
+        public var createAnnotation: Template
+      }
+      public struct ReleaseBranch: Decodable {
+        public var createName: Template
+        public var parseVersion: Template
       }
       public struct AccessoryBranch: Decodable {
         public var mainatiners: [String]?
         public var nameMatch: Criteria
+        public var createName: Template
         public var adjustVersion: Template
       }
       public struct Build: Decodable {

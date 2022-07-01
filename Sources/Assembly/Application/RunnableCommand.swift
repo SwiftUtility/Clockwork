@@ -172,7 +172,7 @@ extension Clockwork.CreateHotfixBranch: RunnableCommand {
 }
 extension Clockwork.CreateAccessoryBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.createAccessoryBranch(cfg: cfg, family: family, name: name)
+    try Assembler.producer.createAccessoryBranch(cfg: cfg, suffix: suffix)
   }
 }
 extension Clockwork.ReserveParentReviewBuild: RunnableCommand {

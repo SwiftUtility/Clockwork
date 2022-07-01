@@ -223,9 +223,7 @@ public struct Report: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var family: String
     public var ref: String
-    public var subevent: String { family }
   }
   public struct ExpiringRequisites: GenerationContext {
     public var event: String = Self.event
@@ -496,13 +494,11 @@ public extension Configuration {
     version: version
   ))}
   func reportAccessoryBranchCreated(
-    family: String,
     ref: String
   ) -> Report { .init(cfg: self, context: Report.AccessoryBranchCreated(
     env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
-    family: family,
     ref: ref
   ))}
   func reportExpiringRequisites(
