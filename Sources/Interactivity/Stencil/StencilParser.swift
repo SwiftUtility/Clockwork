@@ -8,6 +8,10 @@ public struct StencilParser {
     self.notation = notation
   }
   public func generate(query: Generate) throws -> Generate.Reply {
+    switch query.template {
+    case .name(let name): name.debug()
+    case .value(let value): value.debug()
+    }
     let context = try notation
       .write(query.context)
       .anyObject
