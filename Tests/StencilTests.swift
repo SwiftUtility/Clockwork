@@ -3,7 +3,7 @@ import XCTest
 @testable import Facility
 @testable import FacilityPure
 extension AnyCodable: GenerationContext {
-  public var event: String { get {""} set {} }
+  public var event: String { get {""} }
   public var ctx: AnyCodable? { self }
   public var info: GitlabCi.Info? { nil }
 }

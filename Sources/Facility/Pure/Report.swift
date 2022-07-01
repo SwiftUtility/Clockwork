@@ -8,7 +8,7 @@ public struct Report: Query {
     allowEmpty: true,
     template: template,
     templates: cfg.controls.templates,
-    context: context.adjusted
+    context: context
   )}
   public struct Custom: GenerationContext {
     public var event: String = Self.event
@@ -16,7 +16,7 @@ public struct Report: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var stdin: [String]
+    public var stdin: [String]?
   }
   public struct Unexpected: GenerationContext {
     public var event: String = Self.event
@@ -254,7 +254,7 @@ public extension Configuration {
     env: env,
     ctx: controls.context,
     info: try? controls.gitlabCi.get().info,
-    stdin: stdin
+    stdin: stdin.isEmpty.else(stdin)
   ))}
   func reportUnexpected(
     error: Error
@@ -443,7 +443,7 @@ public extension Configuration {
     users: users,
     holders: holders
   ))}
-  func reportRelease(
+  func reportReleaseBranchCreated(
     ref: String,
     product: String,
     version: String
@@ -455,7 +455,7 @@ public extension Configuration {
     product: product,
     version: version
   ))}
-  func reportHotfix(
+  func reportHotfixBranchCreated(
     ref: String,
     product: String,
     version: String
@@ -467,7 +467,7 @@ public extension Configuration {
     product: product,
     version: version
   ))}
-  func reportDeploy(
+  func reportDeployTagCreated(
     ref: String,
     product: Production.Product,
     deploy: Production.Build.Deploy,
@@ -485,7 +485,7 @@ public extension Configuration {
     heir: heir.isEmpty.else(heir),
     lack: lack.isEmpty.else(lack)
   ))}
-  func reportVersion(
+  func reportVersionBumped(
     product: String,
     version: String
   ) -> Report { .init(cfg: self, context: Report.VersionBumped(
@@ -495,7 +495,7 @@ public extension Configuration {
     product: product,
     version: version
   ))}
-  func reportAccessory(
+  func reportAccessoryBranchCreated(
     family: String,
     ref: String
   ) -> Report { .init(cfg: self, context: Report.AccessoryBranchCreated(

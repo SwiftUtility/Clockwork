@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 public protocol GenerationContext: Encodable {
-  var event: String { get set }
+  var event: String { get }
   var subevent: String? { get }
   var ctx: AnyCodable? { get }
   var info: GitlabCi.Info? { get }
@@ -9,12 +9,7 @@ public protocol GenerationContext: Encodable {
 public extension GenerationContext {
   static var event: String { "\(Self.self)" }
   var subevent: String? { nil }
-  var adjusted: Self {
-    guard let subevent = subevent else { return self }
-    var result = self
-    result.event = "\(event)/\(subevent)"
-    return result
-  }
+  var identity: String { subevent.map { "\(Self.self)/\($0)" }.get("\(Self.self)") }
 }
 public struct Generate: Query {
   public var allowEmpty: Bool

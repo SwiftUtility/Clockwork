@@ -119,7 +119,7 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportDeploy(
+    try report(cfg.reportDeployTagCreated(
       ref: tag,
       product: product,
       deploy: deploy,
@@ -188,7 +188,7 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportRelease(ref: name, product: product.name, version: version))
+    try report(cfg.reportReleaseBranchCreated(ref: name, product: product.name, version: version))
     let next = try generate(cfg.bumpCurrentVersion(
       product: product,
       version: version
@@ -201,7 +201,7 @@ public final class Producer {
       product: product,
       version: next
     ))
-    try report(cfg.reportVersion(product: product.name, version: next))
+    try report(cfg.reportVersionBumped(product: product.name, version: next))
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
@@ -228,7 +228,7 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportHotfix(ref: name, product: product.name, version: version))
+    try report(cfg.reportHotfixBranchCreated(ref: name, product: product.name, version: version))
     return true
   }
   public func createAccessoryBranch(
@@ -249,7 +249,7 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportAccessory(family: family, ref: name))
+    try report(cfg.reportAccessoryBranchCreated(family: family, ref: name))
     return true
   }
   public func renderBuild(cfg: Configuration) throws -> Bool {
