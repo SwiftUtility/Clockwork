@@ -35,11 +35,11 @@ enum Filters {
     try 1 + value
       .map { "\($0)" }
       .flatMap(Int.init(_:))
-      .get { throw TemplateSyntaxError("'incremented' filter expects Int value") }
+      .get { throw TemplateSyntaxError("incremented: not Int: \(value ?? "")") }
   }
   static func emptyLines(value: Any?) throws -> Any? {
     let value = try (value as? String)
-      .get { throw TemplateSyntaxError("'emptyLines' filter expects string value") }
+      .get { throw TemplateSyntaxError("emptyLines: not String \(value ?? "")") }
     return value
       .components(separatedBy: .newlines)
       .filter { !$0.isEmpty }
@@ -47,7 +47,7 @@ enum Filters {
   }
   static func escapeSlack(value: Any?) throws -> Any? {
     let value = try (value as? String)
-      .get { throw TemplateSyntaxError("'escapeSlack' filter expects string value") }
+      .get { throw TemplateSyntaxError("escapeSlack not String \(value ?? "")") }
     return value
       .replacingOccurrences(of: "&", with: "&amp;")
       .replacingOccurrences(of: "<", with: "&lt;")
@@ -55,7 +55,7 @@ enum Filters {
   }
   static func escapeUrl(value: Any?) throws -> Any? {
     let value = try (value as? String)
-      .get { throw TemplateSyntaxError("'escapeUrl' filter expects string value") }
+      .get { throw TemplateSyntaxError("escapeUrl: not String \(value ?? "")") }
     return value
       .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
   }
