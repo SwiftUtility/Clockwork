@@ -32,10 +32,12 @@ enum Filters {
     return value
   }
   static func incremented(value: Any?) throws -> Any? {
-    try 1 + value
-      .map { "\($0)" }
-      .flatMap(Int.init(_:))
-      .get { throw TemplateSyntaxError("incremented: not Int: \(value ?? "")") }
+    if let value = value as? Int {
+      return value + 1
+    } else if let value = value as? String {
+      if let value = Int(value) { return value + 1 }
+    }
+    throw TemplateSyntaxError("incremented: not Int: \(value ?? "")")
   }
   static func emptyLines(value: Any?) throws -> Any? {
     let value = try (value as? String)
