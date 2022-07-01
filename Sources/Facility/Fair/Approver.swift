@@ -9,7 +9,7 @@ public final class Approver {
   let resolveCodeOwnage: Try.Reply<Configuration.ResolveCodeOwnage>
   let persistUserActivity: Try.Reply<Configuration.PersistUserActivity>
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
-  let report: Try.Reply<Report>
+  let report: Act.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let worker: Worker
   let jsonDecoder: JSONDecoder
@@ -21,7 +21,7 @@ public final class Approver {
     resolveCodeOwnage: @escaping Try.Reply<Configuration.ResolveCodeOwnage>,
     persistUserActivity: @escaping Try.Reply<Configuration.PersistUserActivity>,
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
-    report: @escaping Try.Reply<Report>,
+    report: @escaping Act.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     worker: Worker,
     jsonDecoder: JSONDecoder
@@ -156,19 +156,19 @@ public final class Approver {
         .get()
     }
     if !groups.unreported.isEmpty {
-      try report(cfg.reportNewAwardApprovals(
+      report(cfg.reportNewAwardApprovals(
         review: ctx.review,
         users: users.coauthors,
         groups: groups.unreported
       ))
-      try groups.unreported.forEach { group in try report(cfg.reportNewAwardApproval(
+      groups.unreported.forEach { group in report(cfg.reportNewAwardApproval(
         review: ctx.review,
         users: users.coauthors,
         group: group
       ))}
     }
     if groups.emergency, !groups.cheaters.isEmpty {
-      try report(cfg.reportEmergencyAwardApproval(
+      report(cfg.reportEmergencyAwardApproval(
         review: ctx.review,
         users: users.coauthors,
         cheaters: groups.cheaters
@@ -188,12 +188,12 @@ public final class Approver {
         .get()
     }
     if remind, groups.unreported.isEmpty, !groups.unapproved.isEmpty {
-      try report(cfg.reportWaitAwardApprovals(
+      report(cfg.reportWaitAwardApprovals(
         review: ctx.review,
         users: users.coauthors,
         groups: groups.unapproved
       ))
-      try groups.unapproved.forEach { group in try report(cfg.reportWaitAwardApproval(
+      groups.unapproved.forEach { group in report(cfg.reportWaitAwardApproval(
         review: ctx.review,
         users: users.coauthors,
         group: group
@@ -205,7 +205,7 @@ public final class Approver {
     }
     guard groups.holders.isEmpty else {
       logMessage(.init(message: "On hold by: \(groups.holders.joined(separator: ", "))"))
-      try report(cfg.reportAwardApprovalHolders(
+      report(cfg.reportAwardApprovalHolders(
         review: ctx.review,
         users: users.coauthors,
         holders: groups.holders
@@ -213,7 +213,7 @@ public final class Approver {
       return false
     }
     if !remind {
-      try report(cfg.reportAwardApprovalReady(review: ctx.review, users: users.coauthors))
+      report(cfg.reportAwardApprovalReady(review: ctx.review, users: users.coauthors))
     }
     return true
   }

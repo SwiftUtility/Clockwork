@@ -33,10 +33,7 @@ public final class Reporter {
     if !success { throw Thrown("Execution considered unsuccessful") }
   }
   public func report(cfg: Configuration, error: Error) throws -> Bool {
-    try? Id(error)
-      .map(cfg.reportUnexpected(error:))
-      .map(report(query:))
-      .get()
+    report(query: cfg.reportUnexpected(error: error))
     throw error
   }
   public func reportCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
@@ -44,25 +41,30 @@ public final class Reporter {
       .then(readStdin())
       .map(Execute.parseLines(reply:))
       .get([])
-    try report(query: cfg.reportCustom(event: event, stdin: stdin))
+    report(query: cfg.reportCustom(event: event, stdin: stdin))
     return true
   }
-  public func report(query: Report) throws -> Report.Reply {
+  public func report(query: Report) -> Report.Reply {
     let encoder = JSONEncoder()
     encoder.keyEncodingStrategy = .convertToSnakeCase
     for value in query.cfg.controls.communication[query.context.identity].get([]) {
       switch value {
       case .slackHookTextMessage(let value):
-        let message = try generate(query.generate(template: value.createMessageText))
+        guard let message = try? generate(query.generate(template: value.createMessageText))
+        else { continue }
         guard !message.isEmpty else { continue }
-        try Id(message)
-        .map(value.makePayload(text:))
-        .map(encoder.encode(_:))
-        .map(String.make(utf8:))
-        .reduce(value.url, query.cfg.curlSlackHook(url:payload:))
-        .map(execute)
-        .map(Execute.checkStatus(reply:))
-        .get()
+        do { try Id(message)
+          .map(value.makePayload(text:))
+          .map(encoder.encode(_:))
+          .map(String.make(utf8:))
+          .reduce(value.url, query.cfg.curlSlackHook(url:payload:))
+          .map(execute)
+          .map(Execute.checkStatus(reply:))
+          .get()
+        } catch {
+          log(message: "Delivery error: \(error)")
+          log(message: message)
+        }
       }
     }
   }

@@ -10,7 +10,7 @@ public final class Producer {
   let resolveProductionBuilds: Try.Reply<Configuration.ResolveProductionBuilds>
   let persistBuilds: Try.Reply<Configuration.PersistBuilds>
   let persistVersions: Try.Reply<Configuration.PersistVersions>
-  let report: Try.Reply<Report>
+  let report: Act.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
   let worker: Worker
@@ -24,7 +24,7 @@ public final class Producer {
     resolveProductionBuilds: @escaping Try.Reply<Configuration.ResolveProductionBuilds>,
     persistBuilds: @escaping Try.Reply<Configuration.PersistBuilds>,
     persistVersions: @escaping Try.Reply<Configuration.PersistVersions>,
-    report: @escaping Try.Reply<Report>,
+    report: @escaping Act.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
     worker: Worker,
@@ -188,7 +188,7 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportReleaseBranchCreated(ref: name, product: product.name, version: version))
+    report(cfg.reportReleaseBranchCreated(ref: name, product: product.name, version: version))
     let next = try generate(cfg.bumpCurrentVersion(
       product: product,
       version: version
@@ -201,7 +201,7 @@ public final class Producer {
       product: product,
       version: next
     ))
-    try report(cfg.reportVersionBumped(product: product.name, version: next))
+    report(cfg.reportVersionBumped(product: product.name, version: next))
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
@@ -228,7 +228,7 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportHotfixBranchCreated(ref: name, product: product.name, version: version))
+    report(cfg.reportHotfixBranchCreated(ref: name, product: product.name, version: version))
     return true
   }
   public func createAccessoryBranch(
@@ -249,7 +249,7 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportAccessoryBranchCreated(family: family, ref: name))
+    report(cfg.reportAccessoryBranchCreated(family: family, ref: name))
     return true
   }
   public func renderBuild(cfg: Configuration) throws -> Bool {

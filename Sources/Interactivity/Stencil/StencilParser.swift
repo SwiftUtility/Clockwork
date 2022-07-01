@@ -3,6 +3,7 @@ import Stencil
 import Facility
 import FacilityPure
 public struct StencilParser {
+  
   let notation: AnyCodable.Notation
   public init(notation: AnyCodable.Notation) {
     self.notation = notation
@@ -37,6 +38,7 @@ public struct StencilParser {
       .renderTemplate(string: value, context: context)
     }
     result = result.trimmingCharacters(in: .newlines)
+    result.debug()
     guard query.allowEmpty || !result.isEmpty
     else { throw Thrown("Empty rendering result") }
     return result

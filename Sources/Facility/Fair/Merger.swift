@@ -6,7 +6,7 @@ public final class Merger {
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
-  let report: Try.Reply<Report>
+  let report: Act.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let worker: Worker
   let jsonDecoder: JSONDecoder
@@ -15,7 +15,7 @@ public final class Merger {
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
-    report: @escaping Try.Reply<Report>,
+    report: @escaping Act.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     worker: Worker,
     jsonDecoder: JSONDecoder
@@ -35,7 +35,7 @@ public final class Merger {
     for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
       guard rule.source.isMet(ctx.review.sourceBranch) else { continue }
       guard rule.title.isMet(ctx.review.title) else {
-        try report(cfg.reportInvalidTitle(review: ctx.review))
+        report(cfg.reportInvalidTitle(review: ctx.review))
         return false
       }
       checked = true
@@ -50,7 +50,7 @@ public final class Merger {
     if ctx.review.workInProgress { reasons.append(.workInProgress) }
     if !ctx.review.blockingDiscussionsResolved { reasons.append(.blockingDiscussions) }
     guard !reasons.isEmpty else { return true }
-    try report(cfg.reportReviewBlocked(
+    report(cfg.reportReviewBlocked(
       review: ctx.review,
       users: [ctx.review.author.username],
       reasons: reasons
@@ -102,7 +102,7 @@ public final class Merger {
         )))
       } else {
         logMessage(.init(message: "Automatic merge failed"))
-        try report(cfg.reportReviewMergeConflicts(
+        report(cfg.reportReviewMergeConflicts(
           review: ctx.review,
           users: [ctx.review.author.username]
         ))
@@ -750,14 +750,14 @@ public final class Merger {
       .get { .value(.null) }
     if case "merged"? = result.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
-      try report(cfg.reportReviewMerged(
+      report(cfg.reportReviewMerged(
         review: review,
         users: users
       ))
       return true
     } else if let message = result.map?["message"]?.value?.string {
       logMessage(.init(message: message))
-      try report(cfg.reportReviewMergeError(
+      report(cfg.reportReviewMergeError(
         review: review,
         users: users,
         error: message

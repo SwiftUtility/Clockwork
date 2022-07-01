@@ -7,7 +7,7 @@ public final class Validator {
   let resolveFileTaboos: Try.Reply<Configuration.ResolveFileTaboos>
   let resolveForbiddenCommits: Try.Reply<Configuration.ResolveForbiddenCommits>
   let listFileLines: Try.Reply<Files.ListFileLines>
-  let report: Try.Reply<Report>
+  let report: Act.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
@@ -16,7 +16,7 @@ public final class Validator {
     resolveFileTaboos: @escaping Try.Reply<Configuration.ResolveFileTaboos>,
     resolveForbiddenCommits: @escaping Try.Reply<Configuration.ResolveForbiddenCommits>,
     listFileLines: @escaping Try.Reply<Files.ListFileLines>,
-    report: @escaping Try.Reply<Report>,
+    report: @escaping Act.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
@@ -46,7 +46,7 @@ public final class Validator {
       .map { $0 + ": unowned" }
       .map(LogMessage.init(message:))
       .forEach(logMessage)
-    try report(cfg.reportUnownedCode(files: files))
+    report(cfg.reportUnownedCode(files: files))
     return false
   }
   public func validateFileTaboos(cfg: Configuration) throws -> Bool {
@@ -89,7 +89,7 @@ public final class Validator {
         }
     }}
     guard !issues.isEmpty else { return true }
-    try report(cfg.reportFileTaboos(issues: issues))
+    report(cfg.reportFileTaboos(issues: issues))
     return false
   }
   public func validateReviewObsolete(cfg: Configuration, target: String) throws -> Bool {
@@ -103,7 +103,7 @@ public final class Validator {
       .get()
       .filter(obsolescence.isMet(_:))
     guard !files.isEmpty else { return true }
-    try report(cfg.reportReviewObsolete(files: files))
+    report(cfg.reportReviewObsolete(files: files))
     return false
   }
   public func validateForbiddenCommits(cfg: Configuration) throws -> Bool {
@@ -116,7 +116,7 @@ public final class Validator {
       .then(sha.value)
     }
     guard !commits.isEmpty else { return true }
-    try report(cfg.reportForbiddenCommits(commits: commits))
+    report(cfg.reportForbiddenCommits(commits: commits))
     return false
   }
   public func validateReviewConflictMarkers(cfg: Configuration, target: String) throws -> Bool {
@@ -147,7 +147,7 @@ public final class Validator {
     markers
       .map(LogMessage.init(message:))
       .forEach(logMessage)
-    try report(cfg.reportConflictMarkers(markers: markers))
+    report(cfg.reportConflictMarkers(markers: markers))
     return false
   }
 }
