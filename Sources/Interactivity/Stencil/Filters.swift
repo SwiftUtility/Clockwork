@@ -55,10 +55,10 @@ enum Filters {
       .replacingOccurrences(of: "<", with: "&lt;")
       .replacingOccurrences(of: ">", with: "&gt;")
   }
-  static func escapeUrl(value: Any?) throws -> Any? {
+  static func escapeUrlQueryAllowed(value: Any?) throws -> Any? {
     let value = try (value as? String)
-      .get { throw TemplateSyntaxError("escapeUrl: not String \(value ?? "")") }
+      .get { throw TemplateSyntaxError("escapeUrlQueryAllowed: not String \(value ?? "")") }
     return value
-      .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+      .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
   }
 }
