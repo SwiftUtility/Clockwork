@@ -143,7 +143,8 @@ public extension GitlabCi {
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(review)?include_rebase_in_progress=true",
+    url: "\(url)/merge_requests/\(review)",
+    form: ["include_rebase_in_progress=true"],
     headers: [botAuth.get()]
   ))}
   func getMrAwarders(
@@ -166,8 +167,9 @@ public extension GitlabCi {
     award: String
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(review)/award_emoji?name=\(award)",
+    url: "\(url)/merge_requests/\(review)/award_emoji",
     method: "POST",
+    form: ["name=\(award)"],
     headers: [botAuth.get()]
   ))}
   func putMrState(
@@ -230,12 +232,11 @@ public extension GitlabCi {
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/pipelines/\(pipeline)/jobs",
-    query: [
-      "include_retried": ["true"],
-      "page": ["\(page)"],
-      "per_page": ["100"],
-      "scope": action.scope,
-    ],
+    form: [
+      "include_retried=true",
+      "page=\(page)",
+      "per_page=\(100)",
+    ] + action.scope.map { "scope[]=\($0)" },
     headers: [botAuth.get()]
   ))}
   func postJobsAction(
@@ -254,8 +255,12 @@ public extension GitlabCi {
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/repository/tags",
-    query: ["tag_name": [name], "ref": [ref], "message": [message]],
     method: "POST",
+    form: [
+      "tag_name=\(name)",
+      "ref=\(ref)",
+      "message=\(message)",
+    ],
     headers: [botAuth.get()]
   ))}
   func postBranches(
@@ -267,8 +272,11 @@ public extension GitlabCi {
     return .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/repository/branches",
-    query: ["branch": [name], "ref": [ref]],
     method: "POST",
+    form: [
+      "branch=\(name)",
+      "ref=\(ref)",
+    ],
     headers: [botAuth.get()]
   ))}
   struct PutMrState: Encodable {

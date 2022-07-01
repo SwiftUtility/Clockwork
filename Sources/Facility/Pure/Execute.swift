@@ -6,7 +6,6 @@ public struct Execute: Query {
   public static func makeCurl(
     verbose: Bool,
     url: String,
-    query: [String: [String]] = [:],
     method: String = "GET",
     checkHttp: Bool = true,
     retry: UInt = 0,
@@ -15,19 +14,7 @@ public struct Execute: Query {
     form: [String] = [],
     headers: [String] = []
   ) throws -> Self {
-    var params = ""
-    for (key, values) in query {
-      let values = try values
-        .map { value in try value
-          .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-          .get { throw Thrown("bad query value: \(value)") }
-        }
-      guard !values.isEmpty else { continue }
-      params += params.isEmpty.then("?").get("&")
-      if values.count > 1 { params += values.map { "\(key)[]=\($0)" }.joined(separator: "&") }
-      else { params += "\(key)=\(values[0])" }
-    }
-    var arguments = ["curl", "--url", url + params]
+    var arguments = ["curl", "--url", url]
     arguments += checkHttp.then(["--fail"]).get([])
     arguments += (retry > 0).then(["--retry", "\(retry)"]).get([])
     arguments += (method == "GET").else(["--request", method]).get([])
