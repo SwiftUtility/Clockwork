@@ -31,12 +31,17 @@ public final class Merger {
   }
   public func validateResolutionTitle(cfg: Configuration) throws -> Bool {
     guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    var checked = false
     for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
       guard rule.source.isMet(ctx.review.sourceBranch) else { continue }
-      guard !rule.title.isMet(ctx.review.title) else { continue }
+      guard !rule.title.isMet(ctx.review.title) else {
+        checked = true
+        continue
+      }
       try report(cfg.reportInvalidTitle(review: ctx.review))
       return false
     }
+    guard checked  else { throw Thrown("No rules for \(ctx.review.sourceBranch)") }
     return true
   }
   public func validateReviewStatus(cfg: Configuration) throws -> Bool {

@@ -53,11 +53,11 @@ public struct Configuration {
       exportBuildContext: yaml.exportBuildContext
         .map(Template.make(yaml:))
         .map(Lossy.value(_:))
-        .get(.error(Thrown("renderReviewBuild not configured"))),
+        .get(.error(Thrown("exportBuildContext not configured"))),
       exportCurrentVersions: yaml.exportCurrentVersions
         .map(Template.make(yaml:))
         .map(Lossy.value(_:))
-        .get(.error(Thrown("renderVersions not configured")))
+        .get(.error(Thrown("exportCurrentVersions not configured")))
     )}
     public var sanityFiles: [String] {
       [profile, codeOwnage, fileTaboos].compactMap(\.?.path.value)
