@@ -107,7 +107,7 @@ extension Clockwork.CheckReplicationAwardApproval: RunnableCommand {
 }
 extension Clockwork.StartReplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.updateReplication(cfg: cfg)
+    try Assembler.merger.startReplication(cfg: cfg)
   }
 }
 extension Clockwork.FinishReplication: RunnableCommand {
