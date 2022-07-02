@@ -221,7 +221,7 @@ public extension GitlabCi {
     sha: Git.Sha
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/repository/commits/\(sha)/merge_requests",
+    url: "\(url)/repository/commits/\(sha.value)/merge_requests",
     headers: [botAuth.get()]
   ))}
   func getJobs(
