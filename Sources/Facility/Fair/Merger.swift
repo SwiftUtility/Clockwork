@@ -639,6 +639,15 @@ public final class Merger {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
+    try ctx.gitlab
+      .postMergeRequests(parameters: .init(
+        sourceBranch: merge.supply.name,
+        targetBranch: merge.target.name,
+        title: message
+      ))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
     return true
   }
   func makeMerge(
