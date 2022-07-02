@@ -143,8 +143,7 @@ public extension GitlabCi {
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/merge_requests/\(review)",
-    form: ["include_rebase_in_progress=true"],
+    url: "\(url)/merge_requests/\(review)?include_rebase_in_progress=true",
     headers: [botAuth.get()]
   ))}
   func getMrAwarders(
