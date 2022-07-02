@@ -233,7 +233,7 @@ public final class Approver {
       .map(Git.Sha.init(value:)).debug()
       .map(Git.Ref.make(sha:))
       .get()
-    let sha = try Git.Ref.make(sha: .init(value: pipeline.sha.debug())).debug()
+    let sha = try Git.Ref.make(sha: .init(value: pipeline.sha.debug()))
     try Id
       .make(git.mergeBase(.make(remote: merge.target), sha))
       .map(execute)
