@@ -202,7 +202,7 @@ struct Clockwork: ParsableCommand {
     var product: String
   }
   struct CreateHotfixBranch: ClockworkCommand {
-    static var abstract: String { "Cut release branch from deploy tag" }
+    static var abstract: String { "Cut hotfix branch from deploy tag" }
     @OptionGroup var clockwork: Clockwork
   }
   struct CreateAccessoryBranch: ClockworkCommand {

@@ -40,6 +40,9 @@ public struct Production {
           .union(Set(yaml.mainatiners.get([]))),
         deployTagNameMatch: .init(yaml: yaml.deployTagNameMatch),
         releaseBranchNameMatch: .init(yaml: yaml.releaseBranchNameMatch),
+        releaseNoteMatch: yaml.releaseNoteMatch
+          .map(Criteria.init(yaml:))
+          .get(.init()),
         bumpCurrentVersion: .make(yaml: yaml.bumpCurrentVersion),
         createHotfixVersion: .make(yaml: yaml.createHotfixVersion)
       )},
@@ -70,6 +73,7 @@ public struct Production {
     public var mainatiners: Set<String>
     public var deployTagNameMatch: Criteria
     public var releaseBranchNameMatch: Criteria
+    public var releaseNoteMatch: Criteria
     public var bumpCurrentVersion: Configuration.Template
     public var createHotfixVersion: Configuration.Template
     public func deploy(job: Json.GitlabJob, version: String, build: String) -> Build.Deploy {

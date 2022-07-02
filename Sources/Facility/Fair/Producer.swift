@@ -127,9 +127,9 @@ public final class Producer {
       ref: name,
       product: product,
       deploy: deploy,
-      uniq: makeCommitReport(cfg: cfg, shas: uniq.get([])),
-      heir: makeCommitReport(cfg: cfg, shas: heir.get([])),
-      lack: makeCommitReport(cfg: cfg, shas: lack)
+      uniq: makeCommitReport(cfg: cfg, product: product, shas: uniq.get([])),
+      heir: makeCommitReport(cfg: cfg, product: product, shas: heir.get([])),
+      lack: makeCommitReport(cfg: cfg, product: product, shas: lack)
     ))
     return true
   }
@@ -317,14 +317,20 @@ public final class Producer {
     )))
     return true
   }
-  func makeCommitReport(cfg: Configuration, shas: Set<Git.Sha>) throws -> [Report.DeployTagCreated.Commit] {
+  func makeCommitReport(
+    cfg: Configuration,
+    product: Production.Product,
+    shas: Set<Git.Sha>
+  ) throws -> [Report.DeployTagCreated.Commit] {
     var dates: [String: UInt] = [:]
     var messages: [String: String] = [:]
     for sha in shas {
-      messages[sha.value] = try Id(cfg.git.getCommitMessage(ref: .make(sha: sha)))
+      let message = try Id(cfg.git.getCommitMessage(ref: .make(sha: sha)))
         .map(execute)
         .map(Execute.parseText(reply:))
         .get()
+      guard product.releaseNoteMatch.isMet(message) else { continue }
+      messages[sha.value] = message
       dates[sha.value] = try Id(cfg.git.getAuthorTimestamp(ref: .make(sha: sha)))
         .map(execute)
         .map(Execute.parseText(reply:))

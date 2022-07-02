@@ -46,6 +46,7 @@ public enum Yaml {
         public var createHotfixVersion: Template
         public var deployTagNameMatch: Criteria
         public var releaseBranchNameMatch: Criteria
+        public var releaseNoteMatch: Criteria?
       }
       public struct DeployTag: Decodable {
         public var createName: Template
