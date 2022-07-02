@@ -9,6 +9,7 @@ public struct AwardApproval {
   public var sourceBranch: [String: Criteria]
   public var targetBranch: [String: Criteria]
   public var personal: [String: Set<String>]
+  public var statusLabel: String
   public static func make(yaml: Yaml.Controls.AwardApproval) throws -> Self { try Self.init(
     userActivity: .make(yaml: yaml.userActivity),
     holdAward: yaml.holdAward,
@@ -25,7 +26,8 @@ public struct AwardApproval {
       .mapValues(Criteria.init(yaml:)),
     personal: yaml.personal
       .get([:])
-      .mapValues(Set.init(_:))
+      .mapValues(Set.init(_:)),
+    statusLabel: yaml.statusLabel
   )}
   public func get(group: String) throws -> Group {
     try allGroups[group].get { throw Thrown("Group \(group) not configured") }
@@ -144,11 +146,14 @@ public struct AwardApproval {
           .get([])
           .intersection(users.holdables)
       }
+      let isApproved = holders.isEmpty && (emergency || unapproved.isEmpty)
       self.neededLabels = involved
+        .union(isApproved.then(approval.statusLabel).array)
         .subtracting(labels)
         .joined(separator: ",")
       self.extraLabels = Set(approval.allGroups.keys)
         .subtracting(involved)
+        .union(isApproved.else(approval.statusLabel).array)
         .intersection(labels)
         .joined(separator: ",")
     }

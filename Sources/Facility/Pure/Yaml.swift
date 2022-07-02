@@ -130,6 +130,7 @@ public enum Yaml {
       public var holdAward: String
       public var sanity: String
       public var groups: [String: Group]
+      public var statusLabel: String
       public var emergency: String?
       public var sourceBranch: [String: Criteria]?
       public var targetBranch: [String: Criteria]?
