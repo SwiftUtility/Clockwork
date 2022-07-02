@@ -228,16 +228,18 @@ public extension GitlabCi {
     action: JobAction,
     pipeline: UInt,
     page: Int = 0
-  ) -> Lossy<Execute> { .init(try .makeCurl(
-    verbose: verbose,
-    url: "\(url)/pipelines/\(pipeline)/jobs",
-    form: [
+  ) -> Lossy<Execute> {
+    let query = [
       "include_retried=true",
       "page=\(page)",
       "per_page=\(100)",
-    ] + action.scope.map { "scope[]=\($0)" },
-    headers: [botAuth.get()]
-  ))}
+    ] + action.scope.map { "scope[]=\($0)" }
+    return .init(try .makeCurl(
+      verbose: verbose,
+      url: "\(url)/pipelines/\(pipeline)/jobs?\(query.joined(separator: "&"))",
+      headers: [botAuth.get()]
+    ))
+  }
   func postJobsAction(
     job: UInt,
     action: JobAction
