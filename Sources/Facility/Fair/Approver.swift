@@ -187,7 +187,7 @@ public final class Approver {
         .map(Execute.checkStatus(reply:))
         .get()
     }
-    if remind, groups.unreported.isEmpty, !groups.unapproved.isEmpty {
+    if remind, !groups.emergency, groups.unreported.isEmpty, !groups.unapproved.isEmpty {
       report(cfg.reportWaitAwardApprovals(
         review: ctx.review,
         users: users.coauthors,
@@ -212,7 +212,7 @@ public final class Approver {
       ))
       return false
     }
-    if !remind {
+    if groups.reportSuccess {
       report(cfg.reportAwardApprovalReady(review: ctx.review, users: users.coauthors))
     }
     return true

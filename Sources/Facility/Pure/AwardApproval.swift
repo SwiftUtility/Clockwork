@@ -78,6 +78,7 @@ public struct AwardApproval {
     public var unapproved: [Group.Report] = []
     public var neededLabels: String
     public var extraLabels: String
+    public var reportSuccess: Bool
     public var holders: Set<String>
     public init(
       sourceBranch: String,
@@ -94,6 +95,7 @@ public struct AwardApproval {
       try sanityFiles
         .filter { !sanity.isMet($0) }
         .forEach { throw Thrown("\($0) not in \(approval.sanityGroup)") }
+      let reported = Set(labels)
       var involved: Set<String> = []
       for (group, authors) in approval.personal
       where !involved.contains(group) && authors.contains(users.author)
@@ -107,7 +109,6 @@ public struct AwardApproval {
       for (group, criteria) in fileApproval
       where !involved.contains(group) && changedFiles.contains(where: criteria.isMet(_:))
       { involved.insert(group) }
-      let reported: Set = .init(labels)
       if !users.awarders[approval.holdAward].get([]).contains(users.bot)
       { unhighlighted.insert(approval.holdAward) }
       for group in try involved.map(approval.get(group:)) {
@@ -149,13 +150,14 @@ public struct AwardApproval {
       let isApproved = holders.isEmpty && (emergency || unapproved.isEmpty)
       self.neededLabels = involved
         .union(isApproved.then(approval.statusLabel).array)
-        .subtracting(labels)
+        .subtracting(reported)
         .joined(separator: ",")
       self.extraLabels = Set(approval.allGroups.keys)
         .subtracting(involved)
         .union(isApproved.else(approval.statusLabel).array)
-        .intersection(labels)
+        .intersection(reported)
         .joined(separator: ",")
+      self.reportSuccess = isApproved && !reported.contains(approval.statusLabel)
     }
   }
   public struct Group {
