@@ -73,8 +73,8 @@ public final class Approver {
       return false
     }
     let approval = try resolveAwardApproval(.init(cfg: cfg))
-    let sha = try Id(ctx.review.pipeline.sha)
-      .map(Git.Sha.init(value:))
+    let sha = try Id(ctx.review.pipeline.sha).debug()
+      .map(Git.Sha.init(value:)).debug()
       .map(Git.Ref.make(sha:))
       .get()
     let merge: Fusion.Merge?
@@ -229,16 +229,16 @@ public final class Approver {
     let initial = try Id(.head)
       .map(git.getSha(ref:))
       .map(execute)
-      .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
+      .map(Execute.parseText(reply:)).debug()
+      .map(Git.Sha.init(value:)).debug()
       .map(Git.Ref.make(sha:))
       .get()
-    let sha = try Git.Ref.make(sha: .init(value: pipeline.sha))
+    let sha = try Git.Ref.make(sha: .init(value: pipeline.sha.debug())).debug()
     try Id
       .make(git.mergeBase(.make(remote: merge.target), sha))
       .map(execute)
-      .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
+      .map(Execute.parseText(reply:)).debug()
+      .map(Git.Sha.init(value:)).debug()
       .map(Git.Ref.make(sha:))
       .map(git.detach(ref:))
       .map(execute)
