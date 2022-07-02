@@ -43,7 +43,7 @@ public enum Json {
     }
   }
   public struct GitlabCommitMergeRequest: Codable {
-    public var squashCommitSha: String
+    public var squashCommitSha: String?
     public var author: GitlabUser
   }
   public struct GitlabReviewState: Codable {
