@@ -77,40 +77,31 @@ public final class Approver {
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    1.debug()
     let merge: Fusion.Merge?
-    1.debug()
     switch mode {
     case .resolution:
       merge = nil
-      1.debug()
     case .replication:
-      1.debug()
       merge = try Lossy(.init(cfg: cfg))
         .map(resolveFusion)
         .flatMap(\.replication)
         .get()
         .makeMerge(supply: ctx.review.sourceBranch)
-      1.debug()
     case .integration:
-      1.debug()
       merge = try Lossy(.init(cfg: cfg))
         .map(resolveFusion)
         .flatMap(\.integration)
         .get()
         .makeMerge(supply: ctx.review.sourceBranch)
-      1.debug()
     }
     let participants: [String]
     let changedFiles: [String]
     if let merge = merge {
-      1.debug()
       participants = try worker.resolveParticipants(
         cfg: cfg,
         gitlabCi: ctx.gitlab,
         merge: merge
       )
-      1.debug()
       changedFiles = try resolveChanges(
         git: cfg.git,
         gitlabCi: ctx.gitlab,
@@ -122,20 +113,16 @@ public final class Approver {
         review: ctx.review,
         pipeline: pipeline
       )
-      1.debug()
     } else {
-      1.debug()
       participants = []
       changedFiles = try Id(ctx.review.targetBranch)
-        .map(Git.Branch.init(name:)).debug()
+        .map(Git.Branch.init(name:))
         .map(Git.Ref.make(remote:))
         .reduce(sha, cfg.git.listChangedFiles(source:target:))
         .map(execute)
-        .map(Execute.parseLines(reply:)).debug()
+        .map(Execute.parseLines(reply:))
         .get()
-      1.debug()
     }
-    1.debug()
     let users = try AwardApproval.Users(
       bot: ctx.gitlab.botLogin,
       author: ctx.review.author.username,
@@ -147,12 +134,10 @@ public final class Approver {
         .get(),
       userActivity: resolveUserActivity(.init(cfg: cfg, awardApproval: approval))
     )
-    1.debug()
     let profile = try resolveProfile(.init(git: cfg.git, file: .init(
       ref: sha,
       path: ctx.profile
     )))
-    1.debug()
     let groups = try AwardApproval.Groups(
       sourceBranch: ctx.review.sourceBranch,
       targetBranch: ctx.review.targetBranch,
@@ -163,7 +148,6 @@ public final class Approver {
       fileApproval: resolveCodeOwnage(.init(cfg: cfg, profile: profile)),
       changedFiles: changedFiles
     )
-    1.debug()
     for award in groups.unhighlighted {
       try ctx.gitlab
         .postMrAward(review: ctx.review.iid, award: award)
@@ -172,7 +156,6 @@ public final class Approver {
         .get()
     }
     if !groups.unreported.isEmpty {
-      1.debug()
       report(cfg.reportNewAwardApprovals(
         review: ctx.review,
         users: users.coauthors,
@@ -185,7 +168,6 @@ public final class Approver {
       ))}
     }
     if groups.emergency, !groups.cheaters.isEmpty {
-      1.debug()
       report(cfg.reportEmergencyAwardApproval(
         review: ctx.review,
         users: users.coauthors,
@@ -193,7 +175,6 @@ public final class Approver {
       ))
     }
     if !groups.neededLabels.isEmpty || !groups.extraLabels.isEmpty {
-      1.debug()
       try ctx.gitlab
         .putMrState(
           parameters: .init(
@@ -207,7 +188,6 @@ public final class Approver {
         .get()
     }
     if remind, !groups.emergency, groups.unreported.isEmpty, !groups.unapproved.isEmpty {
-      1.debug()
       report(cfg.reportWaitAwardApprovals(
         review: ctx.review,
         users: users.coauthors,
@@ -220,12 +200,10 @@ public final class Approver {
       ))}
     }
     guard groups.emergency || groups.unapproved.isEmpty else {
-      1.debug()
       groups.unapproved.forEach { logMessage(.init(message: "\($0.name) unapproved")) }
       return false
     }
     guard groups.holders.isEmpty else {
-      1.debug()
       logMessage(.init(message: "On hold by: \(groups.holders.joined(separator: ", "))"))
       report(cfg.reportAwardApprovalHolders(
         review: ctx.review,
@@ -235,7 +213,6 @@ public final class Approver {
       return false
     }
     if groups.reportSuccess {
-      1.debug()
       report(cfg.reportAwardApprovalReady(review: ctx.review, users: users.coauthors))
     }
     return true
@@ -252,16 +229,16 @@ public final class Approver {
     let initial = try Id(.head)
       .map(git.getSha(ref:))
       .map(execute)
-      .map(Execute.parseText(reply:)).debug()
-      .map(Git.Sha.init(value:)).debug()
+      .map(Execute.parseText(reply:))
+      .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    let sha = try Git.Ref.make(sha: .init(value: pipeline.sha.debug()))
+    let sha = try Git.Ref.make(sha: .init(value: pipeline.sha))
     try Id
       .make(git.mergeBase(.make(remote: merge.target), sha))
       .map(execute)
-      .map(Execute.parseText(reply:)).debug()
-      .map(Git.Sha.init(value:)).debug()
+      .map(Execute.parseText(reply:))
+      .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .map(git.detach(ref:))
       .map(execute)

@@ -62,9 +62,9 @@ public struct Fusion {
         components[1] == target
       else { throw Thrown("Wrong replication branch format: \(supply)") }
       return try .init(
-        fork: .init(value: components[2]),
+        fork: .init(value: components[3]),
         prefix: prefix,
-        source: .init(name: components[1]),
+        source: .init(name: components[2]),
         target: .init(name: target),
         supply: .init(name: supply),
         commitMessage: createCommitMessage
