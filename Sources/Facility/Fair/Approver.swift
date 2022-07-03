@@ -105,11 +105,7 @@ public final class Approver {
       changedFiles = try resolveChanges(
         git: cfg.git,
         gitlabCi: ctx.gitlab,
-        merge: try Lossy(.init(cfg: cfg))
-          .map(resolveFusion)
-          .flatMap(\.replication)
-          .get()
-          .makeMerge(supply: ctx.review.sourceBranch),
+        merge: merge,
         review: ctx.review,
         pipeline: pipeline
       )
