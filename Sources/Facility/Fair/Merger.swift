@@ -312,7 +312,7 @@ public final class Merger {
           .make(cfg.git.push(
             url: ctx.gitlab.pushUrl.get(),
             branch: merge.supply,
-            sha: sha,
+            sha: squashSupply(cfg: cfg, merge: merge, message: message, sha: sha),
             force: true
           ))
           .map(execute)
