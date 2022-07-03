@@ -577,9 +577,9 @@ public final class Merger {
         replication: replication,
         merge: merge
       ))
-      if let sha = try squashSupply(
+      if let sha = try commitMerge(
         cfg: cfg,
-        merge: merge,
+        into: .make(remote: merge.target),
         message: message,
         sha: head
       ) {
@@ -587,7 +587,7 @@ public final class Merger {
           .make(cfg.git.push(
             url: pushUrl,
             branch: merge.supply,
-            sha: sha,
+            sha: squashSupply(cfg: cfg, merge: merge, message: message, sha: sha),
             force: true
           ))
           .map(execute)
