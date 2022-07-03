@@ -157,7 +157,9 @@ public struct AwardApproval {
         .union(isApproved.else(approval.statusLabel).array)
         .intersection(reported)
         .joined(separator: ",")
-      self.reportSuccess = isApproved && !reported.contains(approval.statusLabel)
+      self.reportSuccess = isApproved
+      && !reported.contains(approval.statusLabel)
+      && !involved.isEmpty
     }
   }
   public struct Group {
