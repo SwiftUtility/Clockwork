@@ -577,9 +577,9 @@ public final class Merger {
         replication: replication,
         merge: merge
       ))
-      if let sha = try commitMerge(
+      if let sha = try squashSupply(
         cfg: cfg,
-        into: .make(remote: merge.target),
+        merge: merge,
         message: message,
         sha: head
       ) {
