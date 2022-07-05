@@ -138,7 +138,10 @@ public final class Producer {
     guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     guard !builds.contains(where: ctx.job.matches(build:))
-    else { throw Thrown("Build already exists") }
+    else {
+      logMessage(.init(message: "Build already exists"))
+      return true
+    }
     try persistBuilds(.init(
       cfg: cfg,
       pushUrl: ctx.gitlab.pushUrl.get(),
@@ -159,8 +162,10 @@ public final class Producer {
     else { throw Thrown("Protected branches merge requests not supported") }
     let production = try resolveProduction(.init(cfg: cfg))
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-    guard !builds.contains(where: gitlabCi.job.matches(build:))
-    else { throw Thrown("Build already exists") }
+    guard !builds.contains(where: gitlabCi.job.matches(build:)) else {
+      logMessage(.init(message: "Build already exists"))
+      return true
+    }
     try persistBuilds(.init(
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),

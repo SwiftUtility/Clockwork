@@ -40,7 +40,10 @@ public final class Merger {
       }
       checked = true
     }
-    guard checked else { throw Thrown("No rules for \(ctx.review.sourceBranch)") }
+    guard checked else {
+      report(cfg.reportInvalidBranch(review: ctx.review))
+      return false
+    }
     return true
   }
   public func validateReviewStatus(cfg: Configuration) throws -> Bool {
