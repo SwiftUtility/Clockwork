@@ -287,10 +287,13 @@ public final class Producer {
         ref: gitlabCi.job.pipeline.ref
       ))
     } else {
-      let resolved = try resolveProductionBuilds(.init(cfg: cfg, production: production))
+      guard let resolved = try resolveProductionBuilds(.init(cfg: cfg, production: production))
        .reversed()
        .first(where: gitlabCi.job.matches(build:))
-       .get { throw Thrown("No build number reserved") }
+      else {
+        logMessage(.init(message: "No build number reserved"))
+        return false
+      }
       build = resolved.build
       let branch = resolved.target.get(gitlabCi.job.pipeline.ref)
       if let accessory = production.accessoryBranch {
