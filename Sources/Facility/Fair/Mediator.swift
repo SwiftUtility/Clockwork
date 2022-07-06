@@ -77,20 +77,15 @@ public final class Mediator {
   }
   public func affectParentJob(
     configuration cfg: Configuration,
-    name: String,
     action: GitlabCi.JobAction
   ) throws -> Bool {
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    let job = try ctx.gitlab
-      .getJobs(action: action, pipeline: ctx.review.pipeline.id)
+    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let parent = try gitlabCi.parent.get()
+    let job = try gitlabCi.getJob(id: parent.job)
       .map(execute)
-      .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
-      .filter { $0.name == name }
-      .sorted { $0.id < $1.id }
-      .last
-      .get { throw Thrown("Job \(name) not found") }
-    try ctx.gitlab
+    try gitlabCi
       .postJobsAction(job: job.id, action: action)
       .map(execute)
       .map(Execute.checkStatus(reply:))

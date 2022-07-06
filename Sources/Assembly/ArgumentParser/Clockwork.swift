@@ -234,20 +234,14 @@ struct Clockwork: ParsableCommand {
   struct PlayParentJob: ClockworkCommand {
     static var abstract: String { "Plays parent pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Job name to paly")
-    var name: String
   }
   struct CancelParentJob: ClockworkCommand {
     static var abstract: String { "Cancels parent pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Job name to cancel")
-    var name: String
   }
   struct RetryParentJob: ClockworkCommand {
     static var abstract: String { "Retries parent pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Job name to retry")
-    var name: String
   }
   struct PlayNeighborJob: ClockworkCommand {
     static var abstract: String { "Plays current pipeline's job with matching name" }

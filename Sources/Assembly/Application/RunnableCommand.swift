@@ -202,17 +202,17 @@ extension Clockwork.CreateReviewPipeline: RunnableCommand {
 }
 extension Clockwork.PlayParentJob: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectParentJob(configuration: cfg, name: name, action: .play)
+    try Assembler.mediator.affectParentJob(configuration: cfg, action: .play)
   }
 }
 extension Clockwork.CancelParentJob: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectParentJob(configuration: cfg, name: name, action: .cancel)
+    try Assembler.mediator.affectParentJob(configuration: cfg, action: .cancel)
   }
 }
 extension Clockwork.RetryParentJob: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectParentJob(configuration: cfg, name: name, action: .retry)
+    try Assembler.mediator.affectParentJob(configuration: cfg, action: .retry)
   }
 }
 extension Clockwork.PlayNeighborJob: RunnableCommand {
