@@ -140,7 +140,7 @@ public final class Producer {
     guard !builds.contains(where: ctx.matches(build:))
     else {
       logMessage(.init(message: "Build already exists"))
-      return false
+      return true
     }
     try persistBuilds(.init(
       cfg: cfg,
