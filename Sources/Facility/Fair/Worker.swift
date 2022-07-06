@@ -14,7 +14,7 @@ public final class Worker {
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
-  func resolveParentReview(cfg: Configuration) throws -> ParentReview? {
+  func resolveParentReview(cfg: Configuration) throws -> ParentReview {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let parent = try gitlabCi.parent.get()
     let job = try gitlabCi.getJob(id: parent.job)
@@ -26,10 +26,6 @@ public final class Worker {
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
-    guard job.pipeline.id == review.pipeline.id, review.state == "opened" else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return nil
-    }
     return .init(
       gitlab: gitlabCi,
       job: job,
@@ -60,6 +56,13 @@ public final class Worker {
       .filter { $0.squashCommitSha == sha.value }
       .map(\.author.username)
     }
+  }
+  func isLastPipe(ctx: ParentReview) -> Bool {
+    guard ctx.job.pipeline.id == ctx.review.pipeline.id, ctx.review.state == "opened" else {
+      logMessage(.init(message: "Pipeline outdated"))
+      return false
+    }
+    return true
   }
   struct ParentReview {
     let gitlab: GitlabCi

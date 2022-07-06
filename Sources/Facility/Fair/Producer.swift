@@ -135,7 +135,7 @@ public final class Producer {
   }
   public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
     let production = try resolveProduction(.init(cfg: cfg))
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
     guard !builds.contains(where: ctx.job.matches(build:))
     else {

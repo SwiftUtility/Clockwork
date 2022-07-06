@@ -45,7 +45,8 @@ public final class Mediator {
   public func createReviewPipeline(
     cfg: Configuration
   ) throws -> Bool {
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
     try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
@@ -56,7 +57,8 @@ public final class Mediator {
     cfg: Configuration,
     labels: [String]
   ) throws -> Bool {
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
     let labels = Set(labels).subtracting(.init(ctx.review.labels))
     guard !labels.isEmpty else {
       logMessage(.init(message: "No new labels"))
@@ -78,7 +80,7 @@ public final class Mediator {
     name: String,
     action: GitlabCi.JobAction
   ) throws -> Bool {
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
     let job = try ctx.gitlab
       .getJobs(action: action, pipeline: ctx.review.pipeline.id)
       .map(execute)

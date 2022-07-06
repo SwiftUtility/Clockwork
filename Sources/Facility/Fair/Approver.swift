@@ -59,7 +59,8 @@ public final class Approver {
     mode: AwardApproval.Mode,
     remind: Bool
   ) throws -> Bool {
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
     let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))

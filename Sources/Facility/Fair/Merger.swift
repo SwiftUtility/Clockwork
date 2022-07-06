@@ -30,7 +30,8 @@ public final class Merger {
     self.jsonDecoder = jsonDecoder
   }
   public func validateResolutionRules(cfg: Configuration) throws -> Bool {
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
     var checked = false
     for rule in try resolveFusion(.init(cfg: cfg)).resolution.get().rules {
       guard rule.source.isMet(ctx.review.sourceBranch) else { continue }
@@ -47,7 +48,8 @@ public final class Merger {
     return true
   }
   public func validateReviewStatus(cfg: Configuration) throws -> Bool {
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
     var reasons: [Report.ReviewBlocked.Reason] = []
     if ctx.review.draft { reasons.append(.draft) }
     if ctx.review.workInProgress { reasons.append(.workInProgress) }
@@ -61,7 +63,8 @@ public final class Merger {
     return false
   }
   public func acceptResolution(cfg: Configuration) throws -> Bool {
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
     guard ctx.gitlab.job.pipeline.ref == ctx.review.targetBranch else {
       logMessage(.init(message: "Target branch changed"))
       try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
@@ -171,7 +174,8 @@ public final class Merger {
   }
   public func finishIntegration(cfg: Configuration) throws -> Bool {
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
     let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
@@ -433,7 +437,8 @@ public final class Merger {
   }
   public func updateReplication(cfg: Configuration) throws -> Bool {
     let replication = try resolveFusion(.init(cfg: cfg)).replication.get()
-    guard let ctx = try worker.resolveParentReview(cfg: cfg) else { return false }
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
     let pushUrl = try ctx.gitlab.pushUrl.get()
     let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
       .map(execute)
