@@ -69,5 +69,9 @@ public final class Worker {
     let job: Json.GitlabJob
     let profile: Files.Relative
     let review: Json.GitlabReviewState
+    public func matches(build: Production.Build) -> Bool {
+      guard case .review(let value) = build else { return false }
+      return value.sha == job.pipeline.sha && value.review == review.iid
+    }
   }
 }

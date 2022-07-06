@@ -21,6 +21,11 @@ public struct GitlabCi {
     job: job,
     mr: try? job.review.get()
   )}
+  public func matches(build: Production.Build) -> Bool {
+    guard !job.tag else { return false }
+    guard case .branch(let value) = build else { return false }
+    return value.sha == job.pipeline.sha && value.branch == job.pipeline.ref
+  }
   public static func make(
     verbose: Bool,
     env: [String: String],
