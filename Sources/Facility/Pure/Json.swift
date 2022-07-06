@@ -20,6 +20,16 @@ public enum Json {
     public var review: Lossy<UInt> {
       .init(try pipeline.ref.dropPrefix("refs/merge-requests/").dropSuffix("/head").getUInt())
     }
+    public func matches(build: Production.Build) -> Bool {
+      guard !tag else { return false }
+      if let review = try? review.get() {
+        guard case .review(let value) = build else { return false }
+        return value.sha == pipeline.sha && value.review == review
+      } else {
+        guard case .branch(let value) = build else { return false }
+        return value.sha == pipeline.sha && value.branch == pipeline.ref
+      }
+    }
     public func makeBranchBuild(build: String) throws -> Production.Build {
       guard !tag else { throw Thrown("Tag builds not supported") }
       return .branch(.init(build: build, sha: pipeline.sha, branch: pipeline.ref))
