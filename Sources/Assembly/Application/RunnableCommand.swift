@@ -177,7 +177,7 @@ extension Clockwork.CreateAccessoryBranch: RunnableCommand {
 }
 extension Clockwork.ReserveParentReviewBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reserveProtectedBuild(cfg: cfg)
+    try Assembler.producer.reserveReviewBuild(cfg: cfg)
   }
 }
 extension Clockwork.ReserveProtectedBuild: RunnableCommand {
