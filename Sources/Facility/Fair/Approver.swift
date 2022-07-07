@@ -41,14 +41,13 @@ public final class Approver {
   public func updateUser(cfg: Configuration, active: Bool) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let awardApproval = try resolveAwardApproval(.init(cfg: cfg))
+    let userActivity = try resolveUserActivity(.init(cfg: cfg, awardApproval: awardApproval))
+    if case active = userActivity[gitlabCi.job.user.username] { return true }
     try persistUserActivity(.init(
       cfg: cfg,
       pushUrl: gitlabCi.pushUrl.get(),
       awardApproval: awardApproval,
-      userActivity: resolveUserActivity(.init(
-        cfg: cfg,
-        awardApproval: awardApproval
-      )),
+      userActivity: userActivity,
       user: gitlabCi.job.user.username,
       active: active
     ))
