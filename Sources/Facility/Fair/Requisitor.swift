@@ -34,6 +34,7 @@ public final class Requisitor {
     let requisites = requisites.isEmpty
       .else(requisites)
       .get(.init(requisition.requisites.keys))
+    try prepareProvisions(cfg: cfg)
     try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }
     return true
@@ -66,6 +67,7 @@ public final class Requisitor {
     let requisites = requisites.isEmpty
       .else(requisites)
       .get(.init(requisition.requisites.keys))
+    try prepareProvisions(cfg: cfg)
     try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }
     try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
@@ -230,6 +232,22 @@ public final class Requisitor {
       .forEach { result.insert(.init(ref: dir.ref, path: $0)) }
     }
     return result
+  }
+  func prepareProvisions(cfg: Configuration) throws {
+    let provisions = Id("~/Library/MobileDevice/Provisioning Profiles")
+      .map(Files.ResolveAbsolute.make(path:))
+      .map(resolveAbsolute)
+    systemDelete
+    try provisions
+      .map(cfg.systemDelete(file:))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    try provisions
+      .map(cfg.createDir(path:))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
   }
   func install(cfg: Configuration, requisition: Requisition, provision: Git.File) throws {
     let temp = try Id(cfg.systemTempFile)

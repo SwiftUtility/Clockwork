@@ -84,11 +84,14 @@ public extension Configuration {
   var systemTempFile: Execute { .init(tasks: [
     .init(verbose: verbose, arguments: ["mktemp"])
   ])}
+  func createDir(path: Files.Absolute) -> Execute { .init(tasks: [
+    .init(verbose: verbose, arguments: ["mkdir", "-p", path.value])
+  ])}
   func systemMove(file: Files.Absolute, location: Files.Absolute) -> Execute { .init(tasks: [
     .init(verbose: verbose, arguments: ["mv", "-f", file.value, location.value])
   ])}
   func systemDelete(file: Files.Absolute) -> Execute { .init(tasks: [
-    .init(escalate: false, verbose: verbose, arguments: ["rm", "-f", file.value])
+    .init(escalate: false, verbose: verbose, arguments: ["rm", "-rf", file.value])
   ])}
   func systemWrite(file: Files.Absolute, execute: Execute) -> Execute { .init(
     input: execute.input,
