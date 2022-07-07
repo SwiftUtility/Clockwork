@@ -40,7 +40,8 @@ public extension Requisition {
     args: ["security", "cms", "-D", "-i", file.value]
   )}
   func delete(keychain: String) -> Execute { proc(
-    args: ["security", "delete-keychain", keychain]
+    args: ["security", "delete-keychain", keychain],
+    escalate: false
   )}
   func create(keychain: String) -> Execute { proc(
     args: ["security", "create-keychain", "-p", "", keychain]
@@ -88,8 +89,9 @@ public extension Requisition {
 extension Requisition {
   func proc(
     args: [String],
-    input: Data? = nil
+    input: Data? = nil,
+    escalate: Bool = true
   ) -> Execute {
-    .init(input: input, tasks: [.init(verbose: verbose, arguments: args)])
+    .init(input: input, tasks: [.init(escalate: escalate, verbose: verbose, arguments: args)])
   }
 }
