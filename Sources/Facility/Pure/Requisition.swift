@@ -36,7 +36,9 @@ public struct Requisition {
   }
 }
 public extension Requisition {
-  func decode(file: Files.Absolute) -> Execute { proc(args: ["cms", "-D", "-i", file.value]) }
+  func decode(file: Files.Absolute) -> Execute { proc(
+    args: ["security", "cms", "-D", "-i", file.value]
+  )}
   func delete(keychain: String) -> Execute { proc(
     args: ["security", "delete-keychain", keychain]
   )}
