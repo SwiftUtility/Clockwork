@@ -234,10 +234,9 @@ public final class Requisitor {
     return result
   }
   func prepareProvisions(cfg: Configuration) throws {
-    let provisions = Id("~/Library/MobileDevice/Provisioning Profiles")
+    let provisions = try Id("~/Library/MobileDevice/Provisioning Profiles")
       .map(Files.ResolveAbsolute.make(path:))
       .map(resolveAbsolute)
-    systemDelete
     try provisions
       .map(cfg.systemDelete(file:))
       .map(execute)
