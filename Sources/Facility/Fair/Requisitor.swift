@@ -152,6 +152,7 @@ public final class Requisitor {
           .first
           .get { throw MayDay("openssl output") }
           .trimmingCharacters(in: .newlines)
+          .trimmingCharacters(in: .whitespaces)
           .dropPrefix("= ")
           .replacingOccurrences(of: "\\U", with: "\\u")
         let name = NSMutableString(string: escaped)
