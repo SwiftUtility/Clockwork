@@ -64,7 +64,7 @@ public extension Requisition {
     pass: String
   ) -> Execute { proc(
     args: ["security", "import", file.value, "-k", keychain, "-P", pass]
-    + ["-t" ,"priv", "-T", "/usr/bin/codesign", "-f", "pkcs12"]
+    + ["-T", "/usr/bin/codesign", "-f", "pkcs12"]
   )}
   func allowXcode(keychain: String) -> Execute { proc(
     args: ["set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", "", keychain]
