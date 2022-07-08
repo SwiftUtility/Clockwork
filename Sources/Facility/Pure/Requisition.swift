@@ -67,7 +67,9 @@ public extension Requisition {
     + ["-T", "/usr/bin/codesign", "-f", "pkcs12"]
   )}
   func allowXcode(keychain: String) -> Execute { proc(
-    args: ["set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", "", keychain]
+    args: ["security", "set-key-partition-list"]
+    + ["-S", "apple-tool:,apple:,codesign:"]
+    + ["-s", "-k", "", keychain]
   )}
   func parsePkcs12Certs(
     password: String,
