@@ -37,6 +37,7 @@ struct Clockwork: ParsableCommand {
       ImportProvisions.self,
       ImportPkcs12.self,
       ImportRequisites.self,
+      EraseRequisites.self,
       ReportExpiringRequisites.self,
       CreateDeployTag.self,
       CreateReleaseBranch.self,
@@ -172,18 +173,18 @@ struct Clockwork: ParsableCommand {
   struct ImportPkcs12: ClockworkCommand {
     static var abstract: String { "Import p12 and setup xcode access" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Keychain name to import p12 into")
-    var keychain: String
     @Argument(help: "Requisites to install, all when empty (default)")
     var requisites: [String] = []
   }
   struct ImportRequisites: ClockworkCommand {
     static var abstract: String { "Import p12 and provisions" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Keychain name to import p12 into")
-    var keychain: String
     @Argument(help: "Requisite to install, all when empty (default)")
     var requisites: [String] = []
+  }
+  struct EraseRequisites: ClockworkCommand {
+    static var abstract: String { "Delete keychain and provisions" }
+    @OptionGroup var clockwork: Clockwork
   }
   struct ReportExpiringRequisites: ClockworkCommand {
     static var abstract: String { "Report expiring provisions and certificates" }

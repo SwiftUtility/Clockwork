@@ -2,6 +2,7 @@ import Foundation
 import Facility
 public struct Requisition {
   public var verbose: Bool
+  public var keychain: Keychain
   public var requisites: [String: Requisite]
   public func requisite(name: String) throws -> Requisite {
     try requisites[name].get { throw Thrown("No \(name) in requisition") }
@@ -9,19 +10,24 @@ public struct Requisition {
   public static func make(
     verbose: Bool,
     ref: Git.Ref,
-    yaml: [String: Yaml.Controls.Requisition]
+    yaml: Yaml.Controls.Requisition
   ) throws -> Self { try .init(
     verbose: verbose,
-    requisites: yaml
+    keychain: .init(name: yaml.keychain.name, password: .make(yaml: yaml.keychain.password)),
+    requisites: yaml.requisites
       .mapValues { try .make(ref: ref, yaml: $0) }
   )}
+  public struct Keychain {
+    public var name: String
+    public var password: Configuration.Secret
+  }
   public struct Requisite {
     public var pkcs12: Git.File
     public var password: Configuration.Secret
     public var provisions: [Git.Dir]
     public static func make(
       ref: Git.Ref,
-      yaml: Yaml.Controls.Requisition
+      yaml: Yaml.Controls.Requisition.Requisite
     ) throws -> Self { try .init(
       pkcs12: .init(
         ref: ref,
@@ -39,37 +45,36 @@ public extension Requisition {
   func decode(file: Files.Absolute) -> Execute { proc(
     args: ["security", "cms", "-D", "-i", file.value]
   )}
-  func delete(keychain: String) -> Execute { proc(
-    args: ["security", "delete-keychain", keychain],
+  var deleteKeychain: Execute { proc(
+    args: ["security", "delete-keychain", keychain.name],
     escalate: false
   )}
-  func create(keychain: String) -> Execute { proc(
-    args: ["security", "create-keychain", "-p", "", keychain]
+  func createKeychain(password: String) -> Execute { proc(
+    args: ["security", "create-keychain", "-p", password, keychain.name]
   )}
-  func unlock(keychain: String) -> Execute { proc(
-    args: ["security", "unlock-keychain", "-p", "", keychain]
+  func unlockKeychain(password: String) -> Execute { proc(
+    args: ["security", "unlock-keychain", "-p", password, keychain.name]
   )}
-  func disableAutolock(keychain: String) -> Execute { proc(
-    args: ["security", "set-keychain-settings", keychain]
+  var disableKeychainAutolock: Execute { proc(
+    args: ["security", "set-keychain-settings", keychain.name]
   )}
   var listVisibleKeychains: Execute { proc(
     args: ["security", "list-keychains", "-d", "user"]
   )}
-  func resetVisibleKeychains(keychains: [String]) -> Execute { proc(
+  func resetVisible(keychains: [String]) -> Execute { proc(
     args: ["security", "list-keychains", "-d", "user", "-s"] + keychains
   )}
   func importPkcs12(
-    keychain: String,
     file: Files.Absolute,
-    pass: String
+    password: String
   ) -> Execute { proc(
-    args: ["security", "import", file.value, "-k", keychain, "-P", pass]
+    args: ["security", "import", file.value, "-k", keychain.name, "-P", password]
     + ["-T", "/usr/bin/codesign", "-f", "pkcs12"]
   )}
-  func allowXcode(keychain: String) -> Execute { proc(
+  var allowXcodeAccessKeychain: Execute { proc(
     args: ["security", "set-key-partition-list"]
     + ["-S", "apple-tool:,apple:,codesign:"]
-    + ["-s", "-k", "", keychain]
+    + ["-s", "-k", "", keychain.name]
   )}
   func parsePkcs12Certs(
     password: String,

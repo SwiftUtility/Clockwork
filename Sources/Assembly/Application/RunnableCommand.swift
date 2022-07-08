@@ -142,12 +142,17 @@ extension Clockwork.ImportProvisions: RunnableCommand {
 }
 extension Clockwork.ImportPkcs12: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.installKeychain(cfg: cfg, keychain: keychain, requisites: requisites)
+    try Assembler.requisitor.installKeychain(cfg: cfg, requisites: requisites)
   }
 }
 extension Clockwork.ImportRequisites: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.installRequisite(cfg: cfg, keychain: keychain, requisites: requisites)
+    try Assembler.requisitor.installRequisite(cfg: cfg, requisites: requisites)
+  }
+}
+extension Clockwork.EraseRequisites: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.clearRequisites(cfg: cfg)
   }
 }
 extension Clockwork.ReportExpiringRequisites: RunnableCommand {

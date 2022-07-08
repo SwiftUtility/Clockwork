@@ -41,43 +41,47 @@ public final class Requisitor {
   }
   public func installKeychain(
     cfg: Configuration,
-    keychain: String,
     requisites: [String]
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
-    try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
+    let password = try resolveSecret(.init(cfg: cfg, secret: requisition.keychain.password))
+    try cleanKeychain(cfg: cfg, requisition: requisition, password: password)
     try requisites.isEmpty
       .else(requisites)
       .get(.init(requisition.requisites.keys))
       .forEach { requisite in try importKeychain(
         cfg: cfg,
         requisition: requisition,
-        requisite: requisition.requisite(name: requisite),
-        keychain: keychain
+        requisite: requisition.requisite(name: requisite)
       )}
-    try Execute.checkStatus(reply: execute(requisition.allowXcode(keychain: keychain)))
+    try Execute.checkStatus(reply: execute(requisition.allowXcodeAccessKeychain))
     return true
   }
   public func installRequisite(
     cfg: Configuration,
-    keychain: String,
     requisites: [String]
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
+    let password = try resolveSecret(.init(cfg: cfg, secret: requisition.keychain.password))
     let requisites = requisites.isEmpty
       .else(requisites)
       .get(.init(requisition.requisites.keys))
     try prepareProvisions(cfg: cfg)
     try getProvisions(git: cfg.git, requisition: requisition, requisites: requisites)
       .forEach { try install(cfg: cfg, requisition: requisition, provision: $0) }
-    try cleanKeychain(cfg: cfg, requisition: requisition, keychain: keychain)
+    try cleanKeychain(cfg: cfg, requisition: requisition, password: password)
     try requisites.forEach { requisite in try importKeychain(
       cfg: cfg,
       requisition: requisition,
-      requisite: requisition.requisite(name: requisite),
-      keychain: keychain
+      requisite: requisition.requisite(name: requisite)
     )}
-    try Execute.checkStatus(reply: execute(requisition.allowXcode(keychain: keychain)))
+    try Execute.checkStatus(reply: execute(requisition.allowXcodeAccessKeychain))
+    return true
+  }
+  public func clearRequisites(cfg: Configuration) throws -> Bool {
+    let requisition = try resolveRequisition(.init(cfg: cfg))
+    try prepareProvisions(cfg: cfg)
+    try Execute.checkStatus(reply: execute(requisition.deleteKeychain))
     return true
   }
   public func reportExpiringRequisites(
@@ -174,18 +178,18 @@ public final class Requisitor {
   func cleanKeychain(
     cfg: Configuration,
     requisition: Requisition,
-    keychain: String
+    password: String
   ) throws {
-    try Execute.checkStatus(reply: execute(requisition.delete(keychain: keychain)))
-    try Execute.checkStatus(reply: execute(requisition.create(keychain: keychain)))
-    try Execute.checkStatus(reply: execute(requisition.unlock(keychain: keychain)))
-    try Execute.checkStatus(reply: execute(requisition.disableAutolock(keychain: keychain)))
+    try Execute.checkStatus(reply: execute(requisition.deleteKeychain))
+    try Execute.checkStatus(reply: execute(requisition.createKeychain(password: password)))
+    try Execute.checkStatus(reply: execute(requisition.unlockKeychain(password: password)))
+    try Execute.checkStatus(reply: execute(requisition.disableKeychainAutolock))
     let keychains = try Id(requisition.listVisibleKeychains)
       .map(execute)
       .map(Execute.parseLines(reply:))
       .get()
       .map { $0.trimmingCharacters(in: .whitespaces.union(["\""])) }
-    try Id(requisition.resetVisibleKeychains(keychains: keychains + [keychain]))
+    try Id(requisition.resetVisible(keychains: keychains + [requisition.keychain.name]))
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -193,8 +197,7 @@ public final class Requisitor {
   func importKeychain(
     cfg: Configuration,
     requisition: Requisition,
-    requisite: Requisition.Requisite,
-    keychain: String
+    requisite: Requisition.Requisite
   ) throws {
     let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
     let temp = try Id(cfg.systemTempFile)
@@ -209,7 +212,7 @@ public final class Requisitor {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try Id(requisition.importPkcs12(keychain: keychain, file: temp, pass: password))
+    try Id(requisition.importPkcs12(file: temp, password: password))
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
