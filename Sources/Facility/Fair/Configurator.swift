@@ -54,7 +54,7 @@ public final class Configurator {
       .map(execute)
       .map(Execute.parseText(reply:))
       .map(Files.Absolute.init(value:))
-      .reduce(verbose, Git.init(verbose:root:))
+      .map { try Git.init(verbose: verbose, env: env, root: $0) }
       .get()
     git.lfs = try Id(git.updateLfs)
       .map(execute)
@@ -135,6 +135,7 @@ public final class Configurator {
       .reduce(Yaml.Controls.Requisition.self, dialect.read(_:from:))
       .map { yaml in try Requisition.make(
         verbose: query.cfg.verbose,
+        env: query.cfg.env,
         ref: query.cfg.profile.controls.ref,
         yaml: yaml
       )}

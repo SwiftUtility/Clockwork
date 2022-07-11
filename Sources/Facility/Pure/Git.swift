@@ -2,11 +2,13 @@ import Foundation
 import Facility
 public struct Git {
   public var root: Files.Absolute
-  public var verbose: Bool
   public var lfs: Bool = false
-  public init(verbose: Bool, root: Files.Absolute) throws {
+  public var verbose: Bool
+  public var env: [String: String]
+  public init(verbose: Bool, env: [String: String], root: Files.Absolute) throws {
     self.root = root
     self.verbose = verbose
+    self.env = env
   }
   public struct File: Hashable {
     public var ref: Ref
@@ -211,6 +213,7 @@ public extension Git {
     verbose: Bool,
     path: Files.Absolute
   ) -> Execute { .init(tasks: [.init(
+    environment: [:],
     verbose: verbose,
     arguments: ["git", "-C", path.value, "rev-parse", "--show-toplevel"]
   )])}
@@ -239,7 +242,8 @@ extension Git {
     escalate: Bool = true
   ) -> Execute { .init(tasks: [.init(
     escalate: escalate,
-    environment: env,
+    environment: self.env
+      .merging(env, uniquingKeysWith: { $1 }),
     verbose: verbose,
     arguments: ["git", "-C", root.value]
     + ["-c", "core.quotepath=false", "-c", "core.precomposeunicode=true"]
