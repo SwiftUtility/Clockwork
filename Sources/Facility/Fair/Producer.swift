@@ -282,7 +282,7 @@ public final class Producer {
         production: production,
         ref: gitlabCi.job.pipeline.ref
       ))
-      versions[product.name] = try generate(cfg.parseReleaseBranchVersion(
+      versions[product.name] = try generate(cfg.parseDeployTagVersion(
         production: production,
         ref: gitlabCi.job.pipeline.ref
       ))
