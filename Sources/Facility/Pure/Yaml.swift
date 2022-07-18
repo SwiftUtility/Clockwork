@@ -123,6 +123,7 @@ public enum Yaml {
       public var trigger: Trigger
       public struct Bot: Decodable {
         public var login: String
+        public var triggerToken: Secret?
         public var apiToken: Secret?
         public var pushToken: Secret?
       }

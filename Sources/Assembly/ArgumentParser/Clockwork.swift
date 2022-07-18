@@ -4,7 +4,7 @@ import Facility
 import FacilityPure
 import InteractivityCommon
 struct Clockwork: ParsableCommand {
-  static var version: String { "0.1.3" }
+  static var version: String { "0.1.4" }
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
   @Flag(help: "Should log subprocesses")
