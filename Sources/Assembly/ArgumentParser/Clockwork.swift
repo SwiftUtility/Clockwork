@@ -123,8 +123,6 @@ struct Clockwork: ParsableCommand {
   struct TriggerPipeline: ClockworkCommand {
     static var abstract: String { "Trigger pipeline and pass predefined and custom context" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Ref to run pipeline on")
-    var ref: String
     @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
     var context: [String] = []
   }
@@ -159,6 +157,8 @@ struct Clockwork: ParsableCommand {
     var fork: String
     @Option(help: "Integration target branch name")
     var target: String
+    @Option(help: "Integration source branch name")
+    var source: String
   }
   struct FinishIntegration: ClockworkCommand {
     static var abstract: String { "Accept or update integration review" }

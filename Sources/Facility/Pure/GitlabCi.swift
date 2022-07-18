@@ -9,7 +9,6 @@ public struct GitlabCi {
   public var config: String
   public var job: Json.GitlabJob
   public var jobToken: String
-  public var triggerToken: Lossy<String>
   public var botAuth: Lossy<String>
   public var pushUrl: Lossy<String>
   public var parent: Lossy<Parent>
@@ -32,7 +31,6 @@ public struct GitlabCi {
     env: [String: String],
     yaml: Yaml.Controls.GitlabCi,
     job: Lossy<Json.GitlabJob>,
-    triggerToken: Lossy<String>,
     apiToken: Lossy<String>,
     pushToken: Lossy<String>
   ) -> Lossy<Self> {
@@ -45,14 +43,13 @@ public struct GitlabCi {
         job: yaml.trigger.job,
         name: yaml.trigger.name,
         profile: yaml.trigger.profile,
-        pipeline: yaml.trigger.pipeline
+        target: yaml.trigger.target
       ),
       api: apiV4.get(env: env),
       project: projectId.get(env: env),
       config: config.get(env: env),
       job: job.get(),
       jobToken: jobToken.get(env: env),
-      triggerToken: triggerToken,
       botAuth: apiToken
         .map { "Authorization: Bearer " + $0 },
       pushUrl: pushToken
@@ -65,14 +62,6 @@ public struct GitlabCi {
         },
       parent: Self.makeParent(env: env, yaml: yaml)
     ))
-  }
-  public static func makeTriggerToken(
-    env: [String: String],
-    yaml: Yaml.Controls.GitlabCi
-  ) -> Lossy<Configuration.Secret> {
-    return Lossy.value(yaml.bot.triggerToken)
-      .reduce(Thrown("triggerToken not configured"), Optional.get(or:value:))
-      .map(Configuration.Secret.make(yaml:))
   }
   public static func makeApiToken(
     env: [String: String],
@@ -119,7 +108,7 @@ public struct GitlabCi {
     public var job: String
     public var name: String
     public var profile: String
-    public var pipeline: String
+    public var target: String
   }
   public struct Parent {
     public var job: UInt
@@ -209,7 +198,6 @@ public extension GitlabCi {
     headers: [botAuth.get(), Json.contentType]
   ))}
   func postTriggerPipeline(
-    ref: String,
     cfg: Configuration,
     variables: [String: String]
   ) -> Lossy<Execute> { .init(try .makeCurl(
@@ -217,8 +205,8 @@ public extension GitlabCi {
     url: "\(url)/trigger/pipeline",
     method: "POST",
     form: [
-      "token=\(triggerToken.get())",
-      "ref=\(ref)",
+      "token=\(jobToken)",
+      "ref=\(trigger.target)",
     ] + variables.compactMap { pair in pair.value
       .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
       .map { "variables[\(pair.key)]=\($0)" }

@@ -19,7 +19,6 @@ public final class Mediator {
   }
   public func triggerPipeline(
     cfg: Configuration,
-    ref: String,
     context: [String]
   ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
@@ -34,9 +33,8 @@ public final class Mediator {
     variables[gitlabCi.trigger.job] = "\(gitlabCi.job.id)"
     variables[gitlabCi.trigger.name] = gitlabCi.job.name
     variables[gitlabCi.trigger.profile] = cfg.profile.profile.path.value
-    variables[gitlabCi.trigger.pipeline] = .init(gitlabCi.job.pipeline.id)
     try gitlabCi
-      .postTriggerPipeline(ref: ref, cfg: cfg, variables: variables)
+      .postTriggerPipeline(cfg: cfg, variables: variables)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()

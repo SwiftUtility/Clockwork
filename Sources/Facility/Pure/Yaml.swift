@@ -123,7 +123,6 @@ public enum Yaml {
       public var trigger: Trigger
       public struct Bot: Decodable {
         public var login: String
-        public var triggerToken: Secret?
         public var apiToken: Secret?
         public var pushToken: Secret?
       }
@@ -131,7 +130,7 @@ public enum Yaml {
         public var job: String
         public var name: String
         public var profile: String
-        public var pipeline: String
+        public var target: String
       }
     }
     public struct AwardApproval: Decodable {
