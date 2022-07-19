@@ -97,7 +97,7 @@ extension Clockwork.FinishResolution: RunnableCommand {
 }
 extension Clockwork.TriggerPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.triggerPipeline(cfg: cfg, context: context)
+    try Assembler.mediator.triggerPipeline(cfg: cfg, ref: ref, context: context)
   }
 }
 extension Clockwork.CheckReplicationAwardApproval: RunnableCommand {

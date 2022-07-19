@@ -43,7 +43,7 @@ public struct GitlabCi {
         job: yaml.trigger.job,
         name: yaml.trigger.name,
         profile: yaml.trigger.profile,
-        target: yaml.trigger.target
+        pipeline: yaml.trigger.pipeline
       ),
       api: apiV4.get(env: env),
       project: projectId.get(env: env),
@@ -108,7 +108,7 @@ public struct GitlabCi {
     public var job: String
     public var name: String
     public var profile: String
-    public var target: String
+    public var pipeline: String
   }
   public struct Parent {
     public var job: UInt
@@ -204,10 +204,7 @@ public extension GitlabCi {
     verbose: verbose,
     url: "\(url)/trigger/pipeline",
     method: "POST",
-    form: [
-      "token=\(jobToken)",
-      "ref=\(trigger.target)",
-    ] + variables.compactMap { pair in pair.value
+    form: variables.compactMap { pair in pair.value
       .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
       .map { "variables[\(pair.key)]=\($0)" }
     }
