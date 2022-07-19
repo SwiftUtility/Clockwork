@@ -97,7 +97,7 @@ extension Clockwork.FinishResolution: RunnableCommand {
 }
 extension Clockwork.TriggerPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.triggerPipeline(cfg: cfg, ref: ref, context: context)
+    try Assembler.mediator.triggerPipeline(cfg: cfg, context: context)
   }
 }
 extension Clockwork.CheckReplicationAwardApproval: RunnableCommand {
@@ -127,7 +127,7 @@ extension Clockwork.ExportIntegrationTargets: RunnableCommand {
 }
 extension Clockwork.StartIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.startIntegration(cfg: cfg, target: target, fork: fork)
+    try Assembler.merger.startIntegration(cfg: cfg, source: source, target: target, fork: fork)
   }
 }
 extension Clockwork.FinishIntegration: RunnableCommand {

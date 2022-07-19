@@ -102,9 +102,6 @@ public final class Configurator {
         job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
           .map(execute)
           .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
-        triggerToken: GitlabCi
-          .makeTriggerToken(env: env, yaml: yaml)
-          .reduce(env, parse(env:secret:)),
         apiToken: GitlabCi
           .makeApiToken(env: env, yaml: yaml)
           .reduce(env, parse(env:secret:)),

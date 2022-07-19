@@ -65,14 +65,6 @@ public final class Merger {
   public func acceptResolution(cfg: Configuration) throws -> Bool {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
-    guard ctx.gitlab.job.pipeline.ref == ctx.review.targetBranch else {
-      logMessage(.init(message: "Target branch changed"))
-      try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
-        .map(execute)
-        .map(Execute.checkStatus(reply:))
-        .get()
-      return false
-    }
     let head = try Git.Sha(value: ctx.review.pipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
     let resolution = try resolveFusion(.init(cfg: cfg)).resolution.get()
@@ -124,14 +116,16 @@ public final class Merger {
       users: []
     )
   }
-  public func startIntegration(cfg: Configuration, target: String, fork: String) throws -> Bool {
+  public func startIntegration(
+    cfg: Configuration,
+    source: String,
+    target: String,
+    fork: String
+  ) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
-    let merge = try integration.makeMerge(
-      target: target, source: gitlabCi.job.pipeline.ref,
-      fork: fork
-    )
+    let merge = try integration.makeMerge(target: target, source: source, fork: fork)
     guard integration.rules.contains(where: { rule in
       rule.mainatiners.contains(gitlabCi.job.user.username)
       && rule.target.isMet(merge.target.name)
@@ -181,10 +175,8 @@ public final class Merger {
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
     let merge = try integration.makeMerge(supply: ctx.review.sourceBranch)
-    guard
-      case ctx.review.targetBranch = ctx.gitlab.job.pipeline.ref,
-      ctx.review.targetBranch == merge.target.name
-    else { throw Thrown("Integration preconditions broken") }
+    guard ctx.review.targetBranch == merge.target.name
+    else { throw Thrown("Integration target mismatch") }
     guard integration.rules.contains(where: { rule in
       rule.target.isMet(merge.target.name) && rule.source.isMet(merge.source.name)
     }) else {
@@ -444,10 +436,8 @@ public final class Merger {
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
-    guard
-      ctx.review.targetBranch == ctx.gitlab.job.pipeline.ref,
-      ctx.review.targetBranch == replication.target
-    else { throw Thrown("Replication preconditions broken") }
+    guard ctx.review.targetBranch == replication.target
+    else { throw Thrown("Wrong target branch") }
     let merge = try replication.makeMerge(supply: ctx.review.sourceBranch)
     guard replication.source.isMet(merge.source.name) else {
       logMessage(.init(message: "Replication blocked by configuration"))

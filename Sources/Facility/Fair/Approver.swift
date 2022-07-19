@@ -64,14 +64,6 @@ public final class Approver {
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
-    guard ctx.gitlab.job.pipeline.ref == ctx.review.targetBranch else {
-      logMessage(.init(message: "Target branch changed"))
-      try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
-        .map(execute)
-        .map(Execute.checkStatus(reply:))
-        .get()
-      return false
-    }
     let approval = try resolveAwardApproval(.init(cfg: cfg))
     let sha = try Id(ctx.review.pipeline.sha)
       .map(Git.Sha.init(value:))
