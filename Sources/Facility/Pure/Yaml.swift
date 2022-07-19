@@ -130,7 +130,7 @@ public enum Yaml {
         public var job: String
         public var name: String
         public var profile: String
-        public var target: String
+        public var pipeline: String
       }
     }
     public struct AwardApproval: Decodable {
