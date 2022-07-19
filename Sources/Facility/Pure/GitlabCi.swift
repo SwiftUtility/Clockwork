@@ -199,12 +199,16 @@ public extension GitlabCi {
   ))}
   func postTriggerPipeline(
     cfg: Configuration,
+    ref: String,
     variables: [String: String]
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/trigger/pipeline",
     method: "POST",
-    form: variables.compactMap { pair in pair.value
+    form: [
+      "token=\(jobToken)",
+      "ref=\(ref)",
+    ] + variables.compactMap { pair in pair.value
       .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
       .map { "variables[\(pair.key)]=\($0)" }
     }

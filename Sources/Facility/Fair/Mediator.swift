@@ -35,10 +35,8 @@ public final class Mediator {
     variables[gitlabCi.trigger.name] = gitlabCi.job.name
     variables[gitlabCi.trigger.profile] = cfg.profile.profile.path.value
     variables[gitlabCi.trigger.pipeline] = "\(gitlabCi.job.pipeline.id)"
-    variables["ref"] = ref
-    variables["token"] = gitlabCi.jobToken
     try gitlabCi
-      .postTriggerPipeline(cfg: cfg, variables: variables)
+      .postTriggerPipeline(cfg: cfg, ref: ref, variables: variables)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
