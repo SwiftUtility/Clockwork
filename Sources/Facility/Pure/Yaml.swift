@@ -6,6 +6,7 @@ public enum Yaml {
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var obsolescence: Criteria?
+    public var cocoapods: String?
     public var templates: String?
     public var exportBuildContext: Template?
     public var exportCurrentVersions: Template?
@@ -17,6 +18,14 @@ public enum Yaml {
     public struct Controls: Decodable {
       public var path: String
       public var branch: String
+    }
+    public struct Cocoapods: Decodable {
+      public var specs: [Spec]?
+      public struct Spec: Decodable {
+        public var name: String
+        public var url: String
+        public var sha: String
+      }
     }
   }
   public struct Controls: Decodable {

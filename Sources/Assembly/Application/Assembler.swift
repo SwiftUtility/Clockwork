@@ -43,6 +43,9 @@ enum Assembler {
     resolveAbsolute: Finder.resolveAbsolute(query:),
     resolveRequisition: configurator.resolveRequisition(query:),
     resolveSecret: configurator.resolveSecret(query:),
+    resolveCocoapods: configurator.resolveCocoapods(query:),
+    persistCocoapods: configurator.persistCocoapods(query:),
+    listFileSystem: Finder.listFileSystem(query:),
     getTime: Date.init,
     plistDecoder: .init()
   )

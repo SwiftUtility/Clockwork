@@ -27,6 +27,7 @@ public struct Configuration {
     public var controls: Git.File
     public var codeOwnage: Git.File?
     public var fileTaboos: Git.File?
+    public var cocoapods: Git.File?
     public var obsolescence: Lossy<Criteria>
     public var templates: [String: String] = [:]
     public var exportBuildContext: Lossy<Template>
@@ -44,6 +45,9 @@ public struct Configuration {
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:)),
       fileTaboos: yaml.fileTaboos
+        .map(Files.Relative.init(value:))
+        .reduce(profile.ref, Git.File.init(ref:path:)),
+      cocoapods: yaml.cocoapods
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:)),
       obsolescence: yaml.obsolescence
@@ -168,6 +172,24 @@ public struct Configuration {
       self.profile = profile
     }
     public typealias Reply = [FileTaboo]
+  }
+  public struct ResolveCocoapods: Query {
+    public var cfg: Configuration
+    public var profile: Configuration.Profile
+    public init(cfg: Configuration, profile: Configuration.Profile) {
+      self.cfg = cfg
+      self.profile = profile
+    }
+    public typealias Reply = Cocoapods
+  }
+  public struct PersistCocoapods: Query {
+    public var cfg: Configuration
+    public var cocoapods: Cocoapods
+    public init(cfg: Configuration, cocoapods: Cocoapods) {
+      self.cfg = cfg
+      self.cocoapods = cocoapods
+    }
+    public typealias Reply = Void
   }
   public struct ResolveAwardApproval: Query {
     public var cfg: Configuration

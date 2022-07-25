@@ -4,7 +4,7 @@ import Facility
 import FacilityPure
 import InteractivityCommon
 struct Clockwork: ParsableCommand {
-  static var version: String { "0.2.1" }
+  static var version: String { "0.2.2" }
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
   @Flag(help: "Should log subprocesses")
@@ -54,6 +54,8 @@ struct Clockwork: ParsableCommand {
       PlayNeighborJob.self,
       CancelNeighborJob.self,
       RetryNeighborJob.self,
+      ResetPodSpecs.self,
+      UpdatePodSpecs.self,
     ]
   )
   struct ReportCustom: ClockworkCommand {
@@ -263,6 +265,14 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Job name to retry")
     var name: String
+  }
+  struct ResetPodSpecs: ClockworkCommand {
+    static var abstract: String { "Resets cocoapods specs to configured commits" }
+    @OptionGroup var clockwork: Clockwork
+  }
+  struct UpdatePodSpecs: ClockworkCommand {
+    static var abstract: String { "Resets cocoapods specs to configured commits" }
+    @OptionGroup var clockwork: Clockwork
   }
 }
 protocol ClockworkCommand: ParsableCommand {

@@ -7,6 +7,9 @@ public final class Requisitor {
   let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>
   let resolveRequisition: Try.Reply<Configuration.ResolveRequisition>
   let resolveSecret: Try.Reply<Configuration.ResolveSecret>
+  let resolveCocoapods: Try.Reply<Configuration.ResolveCocoapods>
+  let persistCocoapods: Try.Reply<Configuration.PersistCocoapods>
+  let listFileSystem: Try.Reply<Files.ListFileSystem>
   let getTime: Act.Do<Date>
   let plistDecoder: PropertyListDecoder
   public init(
@@ -15,6 +18,9 @@ public final class Requisitor {
     resolveAbsolute: @escaping Try.Reply<Files.ResolveAbsolute>,
     resolveRequisition: @escaping Try.Reply<Configuration.ResolveRequisition>,
     resolveSecret: @escaping Try.Reply<Configuration.ResolveSecret>,
+    resolveCocoapods: @escaping Try.Reply<Configuration.ResolveCocoapods>,
+    persistCocoapods: @escaping Try.Reply<Configuration.PersistCocoapods>,
+    listFileSystem: @escaping Try.Reply<Files.ListFileSystem>,
     getTime: @escaping Act.Do<Date>,
     plistDecoder: PropertyListDecoder
   ) {
@@ -23,6 +29,9 @@ public final class Requisitor {
     self.resolveAbsolute = resolveAbsolute
     self.resolveRequisition = resolveRequisition
     self.resolveSecret = resolveSecret
+    self.resolveCocoapods = resolveCocoapods
+    self.persistCocoapods = persistCocoapods
+    self.listFileSystem = listFileSystem
     self.getTime = getTime
     self.plistDecoder = plistDecoder
   }
@@ -102,7 +111,7 @@ public final class Requisitor {
         .map(Execute.parseText(reply:))
         .map(Files.Absolute.init(value:))
         .get()
-      defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(file: temp))) }
+      defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(path: temp))) }
       try Id(file)
         .map(cfg.git.cat(file:))
         .reduce(temp, cfg.systemWrite(file:execute:))
@@ -175,6 +184,87 @@ public final class Requisitor {
     report(cfg.reportExpiringRequisites(items: items))
     return true
   }
+  public func restoreCocoapodsSpecs(
+    cfg: Configuration
+  ) throws -> Bool {
+    let cocoapods = try resolveCocoapods(.init(cfg: cfg, profile: cfg.profile))
+    let specs = try resolveAbsolute(.make(path: "~/.cocoapods/repos"))
+    try deleteWrongSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
+    try installSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
+    try resetSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
+    return true
+  }
+  public func updateCocoapodsSpecs(
+    cfg: Configuration
+  ) throws -> Bool {
+    var cocoapods = try resolveCocoapods(.init(cfg: cfg, profile: cfg.profile))
+    let specs = try resolveAbsolute(.make(path: "~/.cocoapods/repos"))
+    try deleteWrongSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
+    try installSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
+    cocoapods = try updateSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
+    try persistCocoapods(.init(cfg: cfg, cocoapods: cocoapods))
+    return true
+  }
+  func deleteWrongSpecs(
+    cfg: Configuration,
+    cocoapods: Cocoapods,
+    specs: Files.Absolute
+  ) throws {
+    for name in try listFileSystem(.init(include: .directories, path: specs)) {
+      let path = try resolveAbsolute(specs.makeResolve(path: name))
+      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      guard let url = try? Execute.parseText(reply: execute(git.getOriginUrl)) else { continue }
+      for spec in cocoapods.specs {
+        guard spec.url == url else { continue }
+        if spec.name != name {
+          try Execute.checkStatus(reply: execute(cfg.systemDelete(path: path)))
+        }
+      }
+    }
+  }
+  func installSpecs(
+    cfg: Configuration,
+    cocoapods: Cocoapods,
+    specs: Files.Absolute
+  ) throws {
+    for spec in cocoapods.specs {
+      let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
+      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      guard case nil = try? Execute.parseText(reply: execute(git.getSha(ref: .head)))
+      else { continue }
+      try Execute.checkStatus(reply: execute(cfg.podAddSpec(name: spec.name, url: spec.url)))
+    }
+  }
+  func resetSpecs(
+    cfg: Configuration,
+    cocoapods: Cocoapods,
+    specs: Files.Absolute
+  ) throws {
+    for spec in cocoapods.specs {
+      let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
+      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      let sha = try Git.Sha(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+      guard sha != spec.sha else { continue }
+      try Execute.checkStatus(reply: execute(cfg.podUpdateSpec(name: spec.name)))
+      try Execute.checkStatus(reply: execute(git.resetHard(ref: .make(sha: spec.sha))))
+      try Execute.checkStatus(reply: execute(git.clean))
+    }
+  }
+  func updateSpecs(
+    cfg: Configuration,
+    cocoapods: Cocoapods,
+    specs: Files.Absolute
+  ) throws -> Cocoapods {
+    var result = Cocoapods.empty
+    for var spec in cocoapods.specs {
+      try Execute.checkStatus(reply: execute(cfg.podUpdateSpec(name: spec.name)))
+      let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
+      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      spec.sha = try .init(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+      result.specs.append(spec)
+    }
+    return result
+  }
   func cleanKeychain(
     cfg: Configuration,
     requisition: Requisition,
@@ -205,7 +295,7 @@ public final class Requisitor {
       .map(Execute.parseText(reply:))
       .map(Files.Absolute.init(value:))
       .get()
-    defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(file: temp))) }
+    defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(path: temp))) }
     try Id(requisite.pkcs12)
       .map(cfg.git.cat(file:))
       .reduce(temp, cfg.write(file:execute:))
@@ -241,7 +331,7 @@ public final class Requisitor {
       .map(Files.ResolveAbsolute.make(path:))
       .map(resolveAbsolute)
     try provisions
-      .map(cfg.systemDelete(file:))
+      .map(cfg.systemDelete(path:))
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -257,7 +347,7 @@ public final class Requisitor {
       .map(Execute.parseText(reply:))
       .map(Files.Absolute.init(value:))
       .get()
-    defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(file: temp))) }
+    defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(path: temp))) }
     try Id(provision)
       .map(cfg.git.cat(file:))
       .reduce(temp, cfg.systemWrite(file:execute:))

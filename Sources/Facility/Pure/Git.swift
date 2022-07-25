@@ -173,6 +173,7 @@ public extension Git {
   }
   var userName: Execute { proc(args: ["config", "user.name"]) }
   func getSha(ref: Ref) -> Execute { proc(args: ["rev-parse", ref.value]) }
+  var getOriginUrl: Execute { proc(args: ["config", "--get", "remote.origin.url"]) }
   func create(branch: Branch, at sha: Sha) -> Execute { proc(
     args: ["checkout", "-B", branch.name, sha.value]
   )}

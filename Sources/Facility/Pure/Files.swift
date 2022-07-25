@@ -62,11 +62,11 @@ public enum Files {
   public struct ListFileSystem: Query {
     public var path: Absolute
     public var include: Include
-    public init(path: Absolute, include: Include) {
+    public init(include: Include, path: Absolute) {
       self.path = path
       self.include = include
     }
-    public typealias Reply = AnyIterator<String>
+    public typealias Reply = [String]
     public enum Include: Equatable {
       case files
       case directories

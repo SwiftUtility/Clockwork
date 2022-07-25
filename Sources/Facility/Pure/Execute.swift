@@ -95,8 +95,8 @@ public extension Configuration {
   func systemMove(file: Files.Absolute, location: Files.Absolute) -> Execute { .init(tasks: [
     .init(environment: env, verbose: verbose, arguments: ["mv", "-f", file.value, location.value])
   ])}
-  func systemDelete(file: Files.Absolute) -> Execute { .init(tasks: [
-    .init(escalate: false, environment: env, verbose: verbose, arguments: ["rm", "-rf", file.value])
+  func systemDelete(path: Files.Absolute) -> Execute { .init(tasks: [
+    .init(escalate: false, environment: env, verbose: verbose, arguments: ["rm", "-rf", path.value])
   ])}
   func systemWrite(file: Files.Absolute, execute: Execute) -> Execute { .init(
     input: execute.input,
@@ -114,6 +114,18 @@ public extension Configuration {
     execute.tasks.append(.init(environment: env, verbose: verbose, arguments: ["tee", file.value]))
     return execute
   }
+  func podAddSpec(name: String, url: String) -> Execute { .init(tasks: [
+    .init(
+      environment: env,
+      verbose: verbose,
+      arguments: ["bundle", "exec", "pod", "repo", "add", name, url])
+  ])}
+  func podUpdateSpec(name: String) -> Execute { .init(tasks: [
+    .init(
+      environment: env,
+      verbose: verbose,
+      arguments: ["bundle", "exec", "pod", "repo", "update", name])
+  ])}
 }
 public extension JSONDecoder {
   func decode<T: Decodable>(success: T.Type, reply: Execute.Reply) throws -> T {
