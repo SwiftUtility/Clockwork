@@ -204,6 +204,25 @@ public final class Configurator {
     .get { throw Thrown("fileTaboos not configured") }
     .map(FileTaboo.init(yaml:))
   }
+  public func resolveCocoapods(
+    query: Configuration.ResolveCocoapods
+  ) throws -> Configuration.ResolveCocoapods.Reply { try query.profile.cocoapods
+    .reduce(query.cfg.git, parse(git:yaml:))
+    .reduce(Yaml.Profile.Cocoapods.self, dialect.read(_:from:))
+    .map(Cocoapods.make(yaml:))
+    .get { throw Thrown("cocoapods not configured") }
+  }
+  public func persistCocoapods(
+    query: Configuration.PersistCocoapods
+  ) throws -> Configuration.PersistCocoapods.Reply {
+    try writeFile(.init(
+      file: query.cfg.profile.cocoapods
+        .map { "\(query.cfg.git.root.value)/\($0.path.value)" }
+        .map(Files.Absolute.init(value:))
+        .get { throw Thrown("cocoapods not configured") },
+      data: .init(query.cocoapods.yaml.utf8)
+    ))
+  }
   public func resolveAwardApproval(
     query: Configuration.ResolveAwardApproval
   ) throws -> Configuration.ResolveAwardApproval.Reply { try query.cfg.controls.awardApproval

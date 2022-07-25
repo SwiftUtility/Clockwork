@@ -5,39 +5,13 @@ import Facility
 import FacilityPure
 import InteractivityCommon
 public final class Finder {
-  let root: PathKit.Path
-  let fileManager: FileManager
-  public init(root: String, fileManager: FileManager = .default) {
-    self.root = Path(root).absolute()
-    self.fileManager = fileManager
-  }
-  public func createFile(query: Files.CreateFile) throws -> Files.CreateFile.Reply {
-    var path = Path(query.file.value)
-    if path.isRelative { path = root + path }
-    try path.parent().absolute().mkpath()
-    path = path.absolute()
-    try fileManager
-      .createFile(atPath: path.string, contents: query.data)
-      .else { throw Thrown("Write error \(path.string)") }
-  }
-  public func delete(path: String) throws {
-    var path = Path(path)
-    if path.isRelative { path = root + path }
-    path = path.absolute()
-    if path.exists { try path.delete() }
-  }
-  public func listFileSystem(query: Files.ListFileSystem) throws -> Files.ListFileSystem.Reply {
-    var path = Path(query.path.value)
-    if path.isRelative { path = root + path }
+  public static func listFileSystem(query: Files.ListFileSystem) throws -> Files.ListFileSystem.Reply {
+    let path = Path(query.path.value)
     try ensure(isDirectory: path)
-    let children = try path.children().compactMap { child in
+    return try path.children().compactMap { child in
       (query.include.files && child.isFile).then(child.lastComponent) ??
       (query.include.directories && child.isDirectory).then(child.lastComponent)
     }
-    return AnyIterator(children.makeIterator())
-  }
-  func ensure(isDirectory path: PathKit.Path) throws {
-    try path.isDirectory.else { throw Thrown("Not a directory \(path.absolute().string)") }
   }
   public static func resolveAbsolute(query: Files.ResolveAbsolute) throws -> Files.ResolveAbsolute.Reply {
     var path = Path(query.path)
@@ -50,5 +24,8 @@ public final class Finder {
   }
   public static func readFile(query: Files.ReadFile) throws -> Files.ReadFile.Reply {
     try .init(contentsOf: .init(fileURLWithPath: query.file.value))
+  }
+  static func ensure(isDirectory path: PathKit.Path) throws {
+    try path.isDirectory.else { throw Thrown("Not a directory \(path.absolute().string)") }
   }
 }

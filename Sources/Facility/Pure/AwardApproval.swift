@@ -254,7 +254,7 @@ public struct AwardApproval {
           required: required.isEmpty
             .else(required)
             .map(Array.init(_:)),
-          optional: (optionals == 0)
+          optional: optional.isEmpty
             .else(optional)
             .map(Array.init(_:)),
           optionals: optionals

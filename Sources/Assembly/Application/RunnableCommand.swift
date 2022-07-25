@@ -235,3 +235,13 @@ extension Clockwork.RetryNeighborJob: RunnableCommand {
     try Assembler.mediator.affectNeighborJob(configuration: cfg, name: name, action: .retry)
   }
 }
+extension Clockwork.ResetPodSpecs: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.restoreCocoapodsSpecs(cfg: cfg)
+  }
+}
+extension Clockwork.UpdatePodSpecs: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
+  }
+}
