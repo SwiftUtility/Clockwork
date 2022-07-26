@@ -165,7 +165,9 @@ public extension Git {
     args: ["push", url, ":\(Ref.make(local: branch))"]
   )}
   var updateLfs: Execute { proc(args: ["lfs", "update"]) }
-  var fetch: Execute { proc(args: ["fetch", "origin", "--prune", "--prune-tags", "--tags"]) }
+  var fetch: Execute { proc(
+    args: ["fetch", "origin", "--prune", "--prune-tags", "--tags", "--force"]
+  )}
   func cat(file: File) throws -> Execute {
     var result = proc(args: ["show", "\(file.ref.value):\(file.path.value)"])
     result.tasks += lfs.then(proc(args: ["lfs", "smudge"])).map(\.tasks).get([])
