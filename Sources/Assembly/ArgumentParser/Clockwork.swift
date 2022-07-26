@@ -4,7 +4,7 @@ import Facility
 import FacilityPure
 import InteractivityCommon
 struct Clockwork: ParsableCommand {
-  static var version: String { "0.2.2" }
+  static var version: String { "0.2.3" }
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
   @Flag(help: "Should log subprocesses")
@@ -271,7 +271,7 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
   }
   struct UpdatePodSpecs: ClockworkCommand {
-    static var abstract: String { "Resets cocoapods specs to configured commits" }
+    static var abstract: String { "Updates cocoapods specs and configured commist" }
     @OptionGroup var clockwork: Clockwork
   }
 }
