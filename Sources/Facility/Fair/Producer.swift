@@ -151,7 +151,7 @@ public final class Producer {
         .map(\.build)
         .reduce(production, cfg.bumpBuildNumber(production:build:))
         .map(generate)
-        .map(ctx.review.makeBuild(build:))
+        .map(ctx.makeBuild(build:))
         .get { throw Thrown("Push first build number manually") }
     ))
     return true

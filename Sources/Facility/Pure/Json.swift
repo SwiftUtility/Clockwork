@@ -70,9 +70,6 @@ public enum Json {
       public var sha: String
       public var status: String
     }
-    public func makeBuild(build: String) throws -> Production.Build {
-      return .review(.init(build: build, sha: pipeline.sha, review: iid, target: targetBranch))
-    }
   }
   public struct GitlabAward: Codable {
     public var id: Int
