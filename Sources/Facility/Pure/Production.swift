@@ -151,6 +151,17 @@ public struct Production {
           target: ?!yaml.target
         )
       }
+      public static func make(
+        build: String,
+        sha: String,
+        review: UInt,
+        target: String
+      ) -> Self { .init(
+        build: build,
+        sha: sha,
+        review: review,
+        target: target
+      )}
     }
     public struct Branch: Encodable {
       public var build: String

@@ -73,5 +73,11 @@ public final class Worker {
       guard case .review(let value) = build else { return false }
       return value.sha == job.pipeline.sha && value.review == review.iid
     }
+    public func makeBuild(build: String) -> Production.Build { .review(.make(
+      build: build,
+      sha: job.pipeline.sha,
+      review: review.iid,
+      target: review.targetBranch
+    ))}
   }
 }
