@@ -212,10 +212,10 @@ public extension Configuration {
     fork: Git.Sha,
     source: String,
     targets: [String]
-  ) -> Generate { .init(
+  ) throws -> Generate { try .init(
     allowEmpty: false,
-    template: integration.exportTargets,
-    templates: controls.templates,
+    template: profile.exportIntegrationTargets.get(),
+    templates: profile.templates,
     context: Generate.ExportIntegrationTargets(
       env: env,
       ctx: controls.context,

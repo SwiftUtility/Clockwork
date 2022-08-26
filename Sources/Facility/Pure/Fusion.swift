@@ -83,7 +83,6 @@ public struct Fusion {
     public var rules: [Rule]
     public var prefix: String
     public var createCommitMessage: Configuration.Template
-    public var exportTargets: Configuration.Template
     public static func make(
       mainatiners: Set<String>,
       yaml: Yaml.Controls.Fusion.Integration
@@ -96,8 +95,7 @@ public struct Fusion {
           target: .init(yaml: yaml.target)
         )},
       prefix: yaml.prefix,
-      createCommitMessage: .make(yaml: yaml.createCommitMessage),
-      exportTargets: .make(yaml: yaml.exportTargets)
+      createCommitMessage: .make(yaml: yaml.createCommitMessage)
     )}
     public func makeMerge(supply: String) throws -> Merge {
       let components = supply.components(separatedBy: "/-/")

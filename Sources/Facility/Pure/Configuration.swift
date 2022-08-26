@@ -32,6 +32,7 @@ public struct Configuration {
     public var templates: [String: String] = [:]
     public var exportBuildContext: Lossy<Template>
     public var exportCurrentVersions: Lossy<Template>
+    public var exportIntegrationTargets: Lossy<Template>
     public static func make(
       profile: Git.File,
       yaml: Yaml.Profile
@@ -61,7 +62,11 @@ public struct Configuration {
       exportCurrentVersions: yaml.exportCurrentVersions
         .map(Template.make(yaml:))
         .map(Lossy.value(_:))
-        .get(.error(Thrown("exportCurrentVersions not configured")))
+        .get(.error(Thrown("exportCurrentVersions not configured"))),
+      exportIntegrationTargets: yaml.exportIntegrationTargets
+        .map(Template.make(yaml:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("exportIntegrationTargets not configured")))
     )}
     public var sanityFiles: [String] {
       [profile, codeOwnage, fileTaboos].compactMap(\.?.path.value)
