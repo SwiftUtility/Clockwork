@@ -5,7 +5,6 @@ public struct Fusion {
   public var replication: Lossy<Replication>
   public var integration: Lossy<Integration>
   public static func make(
-    mainatiners: Set<String>,
     yaml: Yaml.Controls.Fusion
   ) throws -> Self { try .init(
     resolution: yaml.resolution
@@ -17,7 +16,7 @@ public struct Fusion {
       .map(Lossy.value(_:))
       .get(Lossy.error(Thrown("replication not configured"))),
     integration: yaml.integration
-      .reduce(mainatiners, Integration.make(mainatiners:yaml:))
+      .map(Integration.make(yaml:))
       .map(Lossy.value(_:))
       .get(Lossy.error(Thrown("integration not configured")))
   )}
@@ -84,13 +83,11 @@ public struct Fusion {
     public var prefix: String
     public var createCommitMessage: Configuration.Template
     public static func make(
-      mainatiners: Set<String>,
       yaml: Yaml.Controls.Fusion.Integration
     ) throws -> Self { try .init(
       rules: yaml.rules
         .map { yaml in try .init(
-          mainatiners: mainatiners
-            .union(Set(yaml.mainatiners.get([]))),
+          mainatiners: Set(yaml.mainatiners.get([])),
           source: .init(yaml: yaml.source),
           target: .init(yaml: yaml.target)
         )},

@@ -27,7 +27,6 @@ public struct Production {
     .get { throw Thrown("No product \(name)") }
   }
   public static func make(
-    mainatiners: Set<String>,
     yaml: Yaml.Controls.Production
   ) throws -> Self { try .init(
     builds: .make(yaml: yaml.builds),
@@ -36,8 +35,7 @@ public struct Production {
     products: yaml.products
       .map { name, yaml in try .init(
         name: name,
-        mainatiners: mainatiners
-          .union(Set(yaml.mainatiners.get([]))),
+        mainatiners: Set(yaml.mainatiners.get([])),
         deployTagNameMatch: .init(yaml: yaml.deployTagNameMatch),
         releaseBranchNameMatch: .init(yaml: yaml.releaseBranchNameMatch),
         releaseNoteMatch: yaml.releaseNoteMatch
@@ -58,10 +56,7 @@ public struct Production {
     ),
     accessoryBranch: yaml.accessoryBranch
       .map { yaml in try .init(
-        mainatiners: yaml.mainatiners
-          .map(Set.init(_:))
-          .get([])
-          .union(mainatiners),
+        mainatiners: Set(yaml.mainatiners.get([])),
         nameMatch: .init(yaml: yaml.nameMatch),
         createName: .make(yaml: yaml.createName),
         adjustVersion: .make(yaml: yaml.adjustVersion)

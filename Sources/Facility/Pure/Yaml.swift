@@ -30,7 +30,6 @@ public enum Yaml {
     }
   }
   public struct Controls: Decodable {
-    public var mainatiners: [String]?
     public var gitlabCi: GitlabCi?
     public var communication: String
     public var awardApproval: String?

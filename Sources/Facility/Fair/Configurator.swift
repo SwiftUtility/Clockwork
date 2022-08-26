@@ -148,7 +148,7 @@ public final class Configurator {
   ) throws -> Configuration.ResolveFusion.Reply { try query.cfg.controls.fusion
       .reduce(query.cfg.git, parse(git:yaml:))
       .reduce(Yaml.Controls.Fusion.self, dialect.read(_:from:))
-      .reduce(query.cfg.controls.mainatiners, Fusion.make(mainatiners:yaml:))
+      .map(Fusion.make(yaml:))
       .get { throw Thrown("fusion not configured") }
   }
   public func resolveProduction(
@@ -156,7 +156,7 @@ public final class Configurator {
   ) throws -> Configuration.ResolveProduction.Reply { try query.cfg.controls.production
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce(Yaml.Controls.Production.self, dialect.read(_:from:))
-    .reduce(query.cfg.controls.mainatiners, Production.make(mainatiners:yaml:))
+    .map(Production.make(yaml:))
     .get { throw Thrown("production not configured") }
   }
   public func resolveProductionBuilds(

@@ -73,7 +73,6 @@ public struct Configuration {
     }
   }
   public struct Controls {
-    public var mainatiners: Set<String>
     public var awardApproval: Git.File?
     public var production: Git.File?
     public var requisition: Git.File?
@@ -88,7 +87,6 @@ public struct Configuration {
       env: [String: String],
       yaml: Yaml.Controls
     ) throws -> Self { try .init(
-      mainatiners: .init(yaml.mainatiners.get([])),
       awardApproval: yaml.awardApproval
         .map(Files.Relative.init(value:))
         .reduce(ref, Git.File.init(ref:path:)),
