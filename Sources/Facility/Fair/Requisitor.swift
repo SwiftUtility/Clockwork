@@ -210,7 +210,8 @@ public final class Requisitor {
     cocoapods: Cocoapods,
     specs: Files.Absolute
   ) throws {
-    for name in try listFileSystem(.init(include: .directories, path: specs)) {
+    guard let names = try? listFileSystem(.init(include: .directories, path: specs)) else { return }
+    for name in names {
       let path = try resolveAbsolute(specs.makeResolve(path: name))
       let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
       guard let url = try? Execute.parseText(reply: execute(git.getOriginUrl)) else { continue }
