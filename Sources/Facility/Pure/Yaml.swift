@@ -3,6 +3,7 @@ import Facility
 public enum Yaml {
   public struct Profile: Decodable {
     public var controls: Controls
+    public var parent: Parent
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var obsolescence: Criteria?
@@ -27,6 +28,12 @@ public enum Yaml {
         public var url: String
         public var sha: String
       }
+    }
+    public struct Parent: Decodable {
+      public var job: String
+      public var name: String
+      public var profile: String
+      public var pipeline: String
     }
   }
   public struct Controls: Decodable {
@@ -128,17 +135,10 @@ public enum Yaml {
     }
     public struct GitlabCi: Decodable {
       public var bot: Bot
-      public var trigger: Trigger
       public struct Bot: Decodable {
         public var login: String
         public var apiToken: Secret?
         public var pushToken: Secret?
-      }
-      public struct Trigger: Decodable {
-        public var job: String
-        public var name: String
-        public var profile: String
-        public var pipeline: String
       }
     }
     public struct AwardApproval: Decodable {

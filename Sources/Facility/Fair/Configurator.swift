@@ -98,6 +98,7 @@ public final class Configurator {
       controls.gitlabCi = GitlabCi.make(
         verbose: verbose,
         env: env,
+        parent: profile.parent,
         yaml: yaml,
         job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
           .map(execute)

@@ -25,6 +25,7 @@ public struct Configuration {
   public struct Profile {
     public var profile: Git.File
     public var controls: Git.File
+    public var parent: Parent
     public var codeOwnage: Git.File?
     public var fileTaboos: Git.File?
     public var cocoapods: Git.File?
@@ -41,6 +42,12 @@ public struct Configuration {
       controls: .init(
         ref: .make(remote: .init(name: yaml.controls.branch)),
         path: .init(value: yaml.controls.path)
+      ),
+      parent: .init(
+        job: yaml.parent.job,
+        name: yaml.parent.name,
+        profile: yaml.parent.profile,
+        pipeline: yaml.parent.pipeline
       ),
       codeOwnage: yaml.codeOwnage
         .map(Files.Relative.init(value:))
@@ -71,6 +78,12 @@ public struct Configuration {
     public var sanityFiles: [String] {
       [profile, codeOwnage, fileTaboos].compactMap(\.?.path.value)
     }
+  }
+  public struct Parent {
+    public var job: String
+    public var name: String
+    public var profile: String
+    public var pipeline: String
   }
   public struct Controls {
     public var awardApproval: Git.File?

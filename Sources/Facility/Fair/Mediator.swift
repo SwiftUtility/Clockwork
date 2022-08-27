@@ -31,10 +31,10 @@ public final class Mediator {
       let value = variable[index..<variable.endIndex].dropFirst()
       variables[.init(key)] = .init(value)
     }
-    variables[gitlabCi.trigger.job] = "\(gitlabCi.job.id)"
-    variables[gitlabCi.trigger.name] = gitlabCi.job.name
-    variables[gitlabCi.trigger.profile] = cfg.profile.profile.path.value
-    variables[gitlabCi.trigger.pipeline] = "\(gitlabCi.job.pipeline.id)"
+    variables[cfg.profile.parent.job] = "\(gitlabCi.job.id)"
+    variables[cfg.profile.parent.name] = gitlabCi.job.name
+    variables[cfg.profile.parent.profile] = cfg.profile.profile.path.value
+    variables[cfg.profile.parent.pipeline] = "\(gitlabCi.job.pipeline.id)"
     try gitlabCi
       .postTriggerPipeline(cfg: cfg, ref: ref, variables: variables)
       .map(execute)
