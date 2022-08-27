@@ -38,7 +38,7 @@ public final class Approver {
     self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
-  public func updateUser(cfg: Configuration, active: Bool) throws -> Bool {
+  public func updateUser(cfg: Configuration, active: Bool, login: String) throws -> Bool {
     let gitlabCi = try cfg.controls.gitlabCi.get()
     let awardApproval = try resolveAwardApproval(.init(cfg: cfg))
     let userActivity = try resolveUserActivity(.init(cfg: cfg, awardApproval: awardApproval))
@@ -48,7 +48,7 @@ public final class Approver {
       pushUrl: gitlabCi.pushUrl.get(),
       awardApproval: awardApproval,
       userActivity: userActivity,
-      user: gitlabCi.job.user.username,
+      user: login.isEmpty.then(gitlabCi.job.user.username).get(login),
       active: active
     ))
     return true

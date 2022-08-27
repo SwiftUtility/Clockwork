@@ -113,10 +113,14 @@ struct Clockwork: ParsableCommand {
   struct ActivateAwardApprover: ClockworkCommand {
     static var abstract: String { "Set user status to active" }
     @OptionGroup var clockwork: Clockwork
+    @Option(help: "User login to be activated")
+    var login: String = ""
   }
   struct DeactivateAwardApprover: ClockworkCommand {
     static var abstract: String { "Set user status to inactive" }
     @OptionGroup var clockwork: Clockwork
+    @Option(help: "User login to be deactivated")
+    var login: String = ""
   }
   struct FinishResolution: ClockworkCommand {
     static var abstract: String { "Accept or update review" }

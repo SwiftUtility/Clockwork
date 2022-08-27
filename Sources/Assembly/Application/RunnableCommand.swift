@@ -82,12 +82,12 @@ extension Clockwork.AddReviewLabels: RunnableCommand {
 }
 extension Clockwork.ActivateAwardApprover: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.approver.updateUser(cfg: cfg, active: true)
+    try Assembler.approver.updateUser(cfg: cfg, active: true, login: login)
   }
 }
 extension Clockwork.DeactivateAwardApprover: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.approver.updateUser(cfg: cfg, active: false)
+    try Assembler.approver.updateUser(cfg: cfg, active: false, login: login)
   }
 }
 extension Clockwork.FinishResolution: RunnableCommand {
