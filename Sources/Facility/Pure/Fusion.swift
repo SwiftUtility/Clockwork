@@ -5,7 +5,7 @@ public struct Fusion {
   public var replication: Lossy<Replication>
   public var integration: Lossy<Integration>
   public static func make(
-    yaml: Yaml.Controls.Fusion
+    yaml: Yaml.Fusion
   ) throws -> Self { try .init(
     resolution: yaml.resolution
       .map(Resolution.make(yaml:))
@@ -24,7 +24,7 @@ public struct Fusion {
     public var createCommitMessage: Configuration.Template
     public var rules: [Rule]
     public static func make(
-      yaml: Yaml.Controls.Fusion.Resolution
+      yaml: Yaml.Fusion.Resolution
     ) throws -> Self { try .init(
       createCommitMessage: .make(yaml: yaml.createCommitMessage),
       rules: yaml.rules
@@ -46,7 +46,7 @@ public struct Fusion {
     public var source: Criteria
     public var createCommitMessage: Configuration.Template
     public static func make(
-      yaml: Yaml.Controls.Fusion.Replication
+      yaml: Yaml.Fusion.Replication
     ) throws -> Self { try .init(
       target: yaml.target,
       prefix: yaml.prefix,
@@ -82,17 +82,18 @@ public struct Fusion {
     public var rules: [Rule]
     public var prefix: String
     public var createCommitMessage: Configuration.Template
+    public var exportAvailableTargets: Configuration.Template
     public static func make(
-      yaml: Yaml.Controls.Fusion.Integration
+      yaml: Yaml.Fusion.Integration
     ) throws -> Self { try .init(
       rules: yaml.rules
         .map { yaml in try .init(
-          mainatiners: Set(yaml.mainatiners.get([])),
           source: .init(yaml: yaml.source),
           target: .init(yaml: yaml.target)
         )},
       prefix: yaml.prefix,
-      createCommitMessage: .make(yaml: yaml.createCommitMessage)
+      createCommitMessage: .make(yaml: yaml.createCommitMessage),
+      exportAvailableTargets: .make(yaml: yaml.exportAvailableTargets)
     )}
     public func makeMerge(supply: String) throws -> Merge {
       let components = supply.components(separatedBy: "/-/")
@@ -117,7 +118,6 @@ public struct Fusion {
       commitMessage: createCommitMessage
     )}
     public struct Rule {
-      public var mainatiners: Set<String>
       public var source: Criteria
       public var target: Criteria
     }

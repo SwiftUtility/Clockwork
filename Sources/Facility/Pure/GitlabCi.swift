@@ -28,17 +28,17 @@ public struct GitlabCi {
   public static func make(
     verbose: Bool,
     env: [String: String],
-    parent: Configuration.Parent,
-    yaml: Yaml.Controls.GitlabCi,
+    trigger: Configuration.Trigger,
+    yaml: Yaml.GitlabCi,
     job: Lossy<Json.GitlabJob>,
     apiToken: Lossy<String>,
     pushToken: Lossy<String>
-  ) -> Lossy<Self> {
+  ) throws -> Self {
     guard case "true" = env[Self.gitlabci]
-    else { return .error(Thrown("Not in GitlabCI context")) }
-    return .init(try .init(
+    else { throw Thrown("Not in GitlabCI context") }
+    return try .init(
       verbose: verbose,
-      botLogin: yaml.bot.login,
+      botLogin: yaml.botLogin,
       api: apiV4.get(env: env),
       project: projectId.get(env: env),
       config: config.get(env: env),
@@ -52,40 +52,40 @@ public struct GitlabCi {
           let host = try host.get(env: env)
           let port = try port.get(env: env)
           let path = try path.get(env: env)
-          return "\(scheme)://\(yaml.bot.login):\(pushToken)@\(host):\(port)/\(path)"
+          return "\(scheme)://\(yaml.botLogin):\(pushToken)@\(host):\(port)/\(path)"
         },
-      parent: Self.makeParent(env: env, parent: parent)
-    ))
+      parent: Self.makeParent(env: env, trigger: trigger)
+    )
   }
   public static func makeApiToken(
     env: [String: String],
-    yaml: Yaml.Controls.GitlabCi
+    yaml: Yaml.GitlabCi
   ) -> Lossy<Configuration.Secret> {
     guard case "true" = env[Self.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
-    return Lossy.value(yaml.bot.apiToken)
+    return Lossy.value(yaml.apiToken)
       .reduce(Thrown("apiToken not configured"), Optional.get(or:value:))
       .map(Configuration.Secret.make(yaml:))
   }
   public static func makePushToken(
     env: [String: String],
-    yaml: Yaml.Controls.GitlabCi
+    yaml: Yaml.GitlabCi
   ) -> Lossy<Configuration.Secret> {
     guard case "true" = env[Self.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
-    return Lossy.value(yaml.bot.pushToken)
+    return Lossy.value(yaml.pushToken)
       .reduce(Thrown("pushToken not configured"), Optional.get(or:value:))
       .map(Configuration.Secret.make(yaml:))
   }
   public static func makeParent(
     env: [String: String],
-    parent: Configuration.Parent
+    trigger: Configuration.Trigger
   ) -> Lossy<Parent> {
     guard case "true" = env[GitlabCi.protected]
     else { return .error(Thrown("Not in protected pipeline")) }
     return .init(try .init(
-      job: parent.job.get(env: env).getUInt(),
-      profile: .init(value: parent.profile.get(env: env))
+      job: trigger.job.get(env: env).getUInt(),
+      profile: .init(value: trigger.profile.get(env: env))
     ))
   }
   static var gitlabci: String { "GITLAB_CI" }

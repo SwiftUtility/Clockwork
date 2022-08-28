@@ -122,14 +122,12 @@ public final class Merger {
     target: String,
     fork: String
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     let merge = try integration.makeMerge(target: target, source: source, fork: fork)
     guard integration.rules.contains(where: { rule in
-      rule.mainatiners.contains(gitlabCi.job.user.username)
-      && rule.target.isMet(merge.target.name)
-      && rule.source.isMet(merge.source.name)
+      rule.target.isMet(merge.target.name) && rule.source.isMet(merge.source.name)
     }) else { throw Thrown("Integration not allowed for \(gitlabCi.job.user.username)") }
     guard try checkNeeded(cfg: cfg, merge: merge) else { return true }
     guard try !Execute.parseSuccess(reply: execute(cfg.git.checkObjectType(
@@ -336,7 +334,7 @@ public final class Merger {
     )
   }
   public func renderIntegration(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let parent = try gitlabCi.parent.get()
     let job = try gitlabCi.getJob(id: parent.job)
       .map(execute)
@@ -375,7 +373,7 @@ public final class Merger {
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let replication = try resolveFusion(.init(cfg: cfg)).replication.get()
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     guard replication.source.isMet(gitlabCi.job.pipeline.ref) else {

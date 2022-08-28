@@ -45,13 +45,12 @@ public final class Producer {
     self.jsonDecoder = jsonDecoder
   }
   public func createDeployTag(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     let product = try production
       .productMatching(ref: gitlabCi.job.pipeline.ref, tag: false)
       .get { throw Thrown("No product matches \(gitlabCi.job.pipeline.ref)") }
-    try gitlabCi.job.checkPermission(users: product.mainatiners)
     let version = try generate(cfg.parseReleaseBranchVersion(
       production: production,
       ref: gitlabCi.job.pipeline.ref
@@ -157,7 +156,7 @@ public final class Producer {
     return true
   }
   public func reserveProtectedBuild(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     guard case nil = try? gitlabCi.job.review.get()
     else { throw Thrown("Protected branches merge requests not supported") }
     let production = try resolveProduction(.init(cfg: cfg))
@@ -181,10 +180,9 @@ public final class Producer {
     return true
   }
   public func createReleaseBranch(cfg: Configuration, product: String) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let product = try production.productMatching(name: product)
-    try gitlabCi.job.checkPermission(users: product.mainatiners)
     let versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     let version = try versions[product.name]
       .get { throw Thrown("No version for \(product.name)") }
@@ -217,12 +215,11 @@ public final class Producer {
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
       .get { throw Thrown("No product match \(gitlabCi.job.pipeline.ref)") }
-    try gitlabCi.job.checkPermission(users: product.mainatiners)
     let version = try generate(cfg.parseDeployTagVersion(
       production: production,
       ref: gitlabCi.job.pipeline.ref
@@ -250,11 +247,10 @@ public final class Producer {
     cfg: Configuration,
     suffix: String
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let accessoryBranch = try resolveProduction(.init(cfg: cfg))
       .accessoryBranch
       .get { throw Thrown("accessoryBranch not configured") }
-    try gitlabCi.job.checkPermission(users: accessoryBranch.mainatiners)
     let name = try generate(cfg.createAccessoryBranchName(
       accessoryBranch: accessoryBranch,
       suffix: suffix
@@ -270,7 +266,7 @@ public final class Producer {
     return true
   }
   public func renderBuild(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let build: String
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
@@ -313,11 +309,17 @@ public final class Producer {
         ))
       }
     }
-    try writeStdout(generate(cfg.exportBuildContext(versions: versions, build: build)))
+    try writeStdout(generate(cfg.exportBuildContext(
+      production: production,
+      versions: versions,
+      build: build
+    )))
     return true
   }
   public func renderVersions(cfg: Configuration) throws -> Bool {
+    let production = try resolveProduction(.init(cfg: cfg))
     try writeStdout(generate(cfg.exportCurrentVersions(
+      production: production,
       versions: resolveProductionVersions(.init(
         cfg: cfg,
         production: resolveProduction(.init(cfg: cfg))

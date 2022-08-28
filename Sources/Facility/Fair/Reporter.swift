@@ -47,29 +47,26 @@ public final class Reporter {
   public func report(query: Report) -> Report.Reply {
     let encoder = JSONEncoder()
     encoder.keyEncodingStrategy = .convertToSnakeCase
-    for value in query.cfg.controls.communication[query.context.identity].get([]) {
-      switch value {
-      case .slackHookTextMessage(let value):
-        let message: String
-        do {
-          message = try generate(query.generate(template: value.createMessageText))
-        } catch {
-          log(message: "Generate report error: \(error)")
-          message = ""
-        }
-        guard !message.isEmpty else { continue }
-        do { try Id(message)
-          .map(value.makePayload(text:))
-          .map(encoder.encode(_:))
-          .map(String.make(utf8:))
-          .reduce(value.url, query.cfg.curlSlackHook(url:payload:))
-          .map(execute)
-          .map(Execute.checkStatus(reply:))
-          .get()
-        } catch {
-          log(message: "Delivery error: \(error)")
-          log(message: message)
-        }
+    for value in query.cfg.communication.slackHookTextMessages[query.context.identity].get([]) {
+      let message: String
+      do {
+        message = try generate(query.generate(template: value.createMessageText))
+      } catch {
+        log(message: "Generate report error: \(error)")
+        message = ""
+      }
+      guard !message.isEmpty else { continue }
+      do { try Id(message)
+        .map(value.makePayload(text:))
+        .map(encoder.encode(_:))
+        .map(String.make(utf8:))
+        .reduce(value.url, query.cfg.curlSlackHook(url:payload:))
+        .map(execute)
+        .map(Execute.checkStatus(reply:))
+        .get()
+      } catch {
+        log(message: "Delivery error: \(error)")
+        log(message: message)
       }
     }
   }

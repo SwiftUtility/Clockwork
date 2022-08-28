@@ -4,6 +4,8 @@ public struct Production {
   public var builds: Configuration.Asset
   public var versions: Configuration.Asset
   public var bumpBuildNumber: Configuration.Template
+  public var exportBuild: Configuration.Template
+  public var exportVersions: Configuration.Template
   public var products: [Product]
   public var deployTag: DeployTag
   public var releaseBranch: ReleaseBranch
@@ -27,15 +29,16 @@ public struct Production {
     .get { throw Thrown("No product \(name)") }
   }
   public static func make(
-    yaml: Yaml.Controls.Production
+    yaml: Yaml.Production
   ) throws -> Self { try .init(
     builds: .make(yaml: yaml.builds),
     versions: .make(yaml: yaml.versions),
     bumpBuildNumber: .make(yaml: yaml.bumpBuildNumber),
+    exportBuild: .make(yaml: yaml.exportBuild),
+    exportVersions: .make(yaml: yaml.exportVersions),
     products: yaml.products
       .map { name, yaml in try .init(
         name: name,
-        mainatiners: Set(yaml.mainatiners.get([])),
         deployTagNameMatch: .init(yaml: yaml.deployTagNameMatch),
         releaseBranchNameMatch: .init(yaml: yaml.releaseBranchNameMatch),
         releaseNoteMatch: yaml.releaseNoteMatch
@@ -56,7 +59,6 @@ public struct Production {
     ),
     accessoryBranch: yaml.accessoryBranch
       .map { yaml in try .init(
-        mainatiners: Set(yaml.mainatiners.get([])),
         nameMatch: .init(yaml: yaml.nameMatch),
         createName: .make(yaml: yaml.createName),
         adjustVersion: .make(yaml: yaml.adjustVersion)
@@ -65,7 +67,6 @@ public struct Production {
   )}
   public struct Product {
     public var name: String
-    public var mainatiners: Set<String>
     public var deployTagNameMatch: Criteria
     public var releaseBranchNameMatch: Criteria
     public var releaseNoteMatch: Criteria
@@ -86,7 +87,6 @@ public struct Production {
     public var parseVersion: Configuration.Template
   }
   public struct AccessoryBranch {
-    public var mainatiners: Set<String>
     public var nameMatch: Criteria
     public var createName: Configuration.Template
     public var adjustVersion: Configuration.Template
@@ -95,7 +95,7 @@ public struct Production {
     case review(Review)
     case branch(Branch)
     case deploy(Deploy)
-    public var yaml: Yaml.Controls.Production.Build {
+    public var yaml: Yaml.Production.Build {
       switch self {
       case .review(let review): return .init(
         build: review.build,
@@ -126,7 +126,7 @@ public struct Production {
       guard case .review(let review) = self else { return nil }
       return review.target
     }
-    public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self {
+    public static func make(yaml: Yaml.Production.Build) throws -> Self {
       if let deploy = try? Deploy.make(yaml: yaml) { return .deploy(deploy) }
       else if let branch = try? Branch.make(yaml: yaml) { return .branch(branch) }
       else if let review = try? Review.make(yaml: yaml) { return .review(review) }
@@ -137,7 +137,7 @@ public struct Production {
       public var sha: String
       public var review: UInt
       public var target: String
-      public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self {
+      public static func make(yaml: Yaml.Production.Build) throws -> Self {
         guard yaml.branch == nil, yaml.product == nil, yaml.version == nil else { throw Thrown() }
         return try .init(
           build: yaml.build,
@@ -162,7 +162,7 @@ public struct Production {
       public var build: String
       public var sha: String
       public var branch: String
-      public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self {
+      public static func make(yaml: Yaml.Production.Build) throws -> Self {
         guard yaml.review == nil, yaml.product == nil, yaml.version == nil else { throw Thrown() }
         return try .init(build: yaml.build, sha: yaml.sha, branch: ?!yaml.branch)
       }
@@ -172,7 +172,7 @@ public struct Production {
       public var sha: String
       public var product: String
       public var version: String
-      public static func make(yaml: Yaml.Controls.Production.Build) throws -> Self {
+      public static func make(yaml: Yaml.Production.Build) throws -> Self {
         guard yaml.review == nil, yaml.branch == nil else { throw Thrown() }
         return try .init(
           build: yaml.build,

@@ -19,8 +19,12 @@ public struct Git {
     }
     public static func make(asset: Configuration.Asset) -> Self { .init(
       ref: .make(remote: asset.branch),
-      path: asset.file)
-    }
+      path: asset.file
+    )}
+    public static func make(preset: Yaml.Preset) throws -> Self { try .init(
+      ref: .make(remote: .init(name: preset.branch)),
+      path: .init(value: preset.path)
+    )}
   }
   public struct Dir: Hashable {
     public var ref: Ref

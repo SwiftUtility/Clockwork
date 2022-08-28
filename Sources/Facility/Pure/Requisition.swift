@@ -11,15 +11,17 @@ public struct Requisition {
   public static func make(
     verbose: Bool,
     env: [String: String],
-    ref: Git.Ref,
-    yaml: Yaml.Controls.Requisition
-  ) throws -> Self { try .init(
-    verbose: verbose,
-    env: env,
-    keychain: .init(name: yaml.keychain.name, password: .make(yaml: yaml.keychain.password)),
-    requisites: yaml.requisites
-      .mapValues { try .make(ref: ref, yaml: $0) }
-  )}
+    yaml: Yaml.Requisition
+  ) throws -> Self {
+    let ref = try Git.Ref.make(remote: .init(name: yaml.branch))
+    return try .init(
+      verbose: verbose,
+      env: env,
+      keychain: .init(name: yaml.keychain.name, password: .make(yaml: yaml.keychain.password)),
+      requisites: yaml.requisites
+        .mapValues { try .make(ref: ref, yaml: $0) }
+    )
+  }
   public struct Keychain {
     public var name: String
     public var password: Configuration.Secret
@@ -30,7 +32,7 @@ public struct Requisition {
     public var provisions: [Git.Dir]
     public static func make(
       ref: Git.Ref,
-      yaml: Yaml.Controls.Requisition.Requisite
+      yaml: Yaml.Requisition.Requisite
     ) throws -> Self { try .init(
       pkcs12: .init(
         ref: ref,

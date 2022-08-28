@@ -5,116 +5,122 @@ public struct Configuration {
   public var git: Git
   public var env: [String: String]
   public var profile: Profile
-  public var controls: Controls
+  public var templates: [String: String] = [:]
+  public var context: AnyCodable?
+  public var communication: Communication = .init()
+  public var gitlabCi: Lossy<GitlabCi> = .error(Thrown("gitlabCi not configured"))
   public init(
     verbose: Bool,
     git: Git,
     env: [String : String],
-    profile: Profile,
-    controls: Controls
+    profile: Profile
   ) {
     self.verbose = verbose
     self.git = git
     self.env = env
     self.profile = profile
-    self.controls = controls
   }
   public func get(env key: String) throws -> String {
     try env[key].get { throw Thrown("No \(key) in environment") }
   }
   public struct Profile {
     public var profile: Git.File
-    public var controls: Git.File
-    public var parent: Parent
-    public var codeOwnage: Git.File?
-    public var fileTaboos: Git.File?
-    public var cocoapods: Git.File?
+    public var gitlabCi: Git.File
+    public var communication: Git.File
+    public var awardApproval: Lossy<Git.File>
+    public var context: Git.File?
+    public var codeOwnage: Lossy<Git.File>
+    public var fileTaboos: Lossy<Git.File>
+    public var cocoapods: Lossy<Git.File>
+    public var templates: Git.Dir?
+    public var production: Lossy<Git.File>
+    public var requisition: Lossy<Git.File>
+    public var fusion: Lossy<Git.File>
+    public var forbiddenCommits: Lossy<Asset>
+    public var userActivity: Lossy<Asset>
+    public var trigger: Trigger
     public var obsolescence: Lossy<Criteria>
-    public var templates: [String: String] = [:]
-    public var exportBuildContext: Lossy<Template>
-    public var exportCurrentVersions: Lossy<Template>
-    public var exportIntegrationTargets: Lossy<Template>
     public static func make(
       profile: Git.File,
       yaml: Yaml.Profile
     ) throws -> Self { try .init(
       profile: profile,
-      controls: .init(
-        ref: .make(remote: .init(name: yaml.controls.branch)),
-        path: .init(value: yaml.controls.path)
-      ),
-      parent: .init(
-        job: yaml.parent.job,
-        name: yaml.parent.name,
-        profile: yaml.parent.profile,
-        pipeline: yaml.parent.pipeline
-      ),
+      gitlabCi: .make(preset: yaml.gitlabCi),
+      communication: .make(preset: yaml.communication),
+      awardApproval: yaml.awardApproval
+        .map(Git.File.make(preset:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("awardApproval not configured"))),
+      context: yaml.context
+        .map(Git.File.make(preset:)),
       codeOwnage: yaml.codeOwnage
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:)),
+        .reduce(profile.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("codeOwnage not configured"))),
       fileTaboos: yaml.fileTaboos
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:)),
+        .reduce(profile.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("fileTaboos not configured"))),
       cocoapods: yaml.cocoapods
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:)),
+        .reduce(profile.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("cocoapods not configured"))),
+      templates: yaml.templates
+        .map(Files.Relative.init(value:))
+        .reduce(profile.ref, Git.Dir.init(ref:path:)),
+      production: yaml.production
+        .map(Files.Relative.init(value:))
+        .reduce(profile.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("production not configured"))),
+      requisition: yaml.requisition
+        .map(Files.Relative.init(value:))
+        .reduce(profile.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("requisition not configured"))),
+      fusion: yaml.fusion
+        .map(Files.Relative.init(value:))
+        .reduce(profile.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("fusion not configured"))),
+      forbiddenCommits: yaml.forbiddenCommits
+        .map(Asset.make(yaml:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("forbiddenCommits not configured"))),
+      userActivity: yaml.userActivity
+        .map(Asset.make(yaml:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("userActivity not configured"))),
+      trigger: .init(
+        job: yaml.trigger.job,
+        name: yaml.trigger.name,
+        profile: yaml.trigger.profile,
+        pipeline: yaml.trigger.pipeline
+      ),
       obsolescence: yaml.obsolescence
         .map(Criteria.init(yaml:))
         .map(Lossy.value(_:))
-        .get(.error(Thrown("obsolescence not configured"))),
-      exportBuildContext: yaml.exportBuildContext
-        .map(Template.make(yaml:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("exportBuildContext not configured"))),
-      exportCurrentVersions: yaml.exportCurrentVersions
-        .map(Template.make(yaml:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("exportCurrentVersions not configured"))),
-      exportIntegrationTargets: yaml.exportIntegrationTargets
-        .map(Template.make(yaml:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("exportIntegrationTargets not configured")))
+        .get(.error(Thrown("obsolescence not configured")))
     )}
     public var sanityFiles: [String] {
-      [profile, codeOwnage, fileTaboos].compactMap(\.?.path.value)
+      [
+        profile,
+        try? codeOwnage.get(),
+        try? fileTaboos.get(),
+        try? production.get(),
+        try? requisition.get(),
+        try? fusion.get(),
+      ].compactMap(\.?.path.value)
     }
   }
-  public struct Parent {
+  public struct Trigger {
     public var job: String
     public var name: String
     public var profile: String
     public var pipeline: String
-  }
-  public struct Controls {
-    public var awardApproval: Git.File?
-    public var production: Git.File?
-    public var requisition: Git.File?
-    public var fusion: Git.File?
-    public var forbiddenCommits: Asset?
-    public var templates: [String: String] = [:]
-    public var context: AnyCodable?
-    public var communication: [String: [Communication]] = [:]
-    public var gitlabCi: Lossy<GitlabCi> = .error(Thrown("gitlabCi not configured"))
-    public static func make(
-      ref: Git.Ref,
-      env: [String: String],
-      yaml: Yaml.Controls
-    ) throws -> Self { try .init(
-      awardApproval: yaml.awardApproval
-        .map(Files.Relative.init(value:))
-        .reduce(ref, Git.File.init(ref:path:)),
-      production: yaml.production
-        .map(Files.Relative.init(value:))
-        .reduce(ref, Git.File.init(ref:path:)),
-      requisition: yaml.requisition
-        .map(Files.Relative.init(value:))
-        .reduce(ref, Git.File.init(ref:path:)),
-      fusion: yaml.fusion
-        .map(Files.Relative.init(value:))
-        .reduce(ref, Git.File.init(ref:path:)),
-      forbiddenCommits: yaml.forbiddenCommits
-        .map(Asset.make(yaml:))
-    )}
   }
   public struct Asset {
     public var file: Files.Relative

@@ -15,7 +15,7 @@ public final class Worker {
     self.jsonDecoder = jsonDecoder
   }
   func resolveParentReview(cfg: Configuration) throws -> ParentReview {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let parent = try gitlabCi.parent.get()
     let job = try gitlabCi.getJob(id: parent.job)
       .map(execute)

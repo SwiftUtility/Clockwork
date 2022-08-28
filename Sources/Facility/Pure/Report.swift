@@ -7,7 +7,7 @@ public struct Report: Query {
   public func generate(template: Configuration.Template) -> Generate { .init(
     allowEmpty: true,
     template: template,
-    templates: cfg.controls.templates,
+    templates: cfg.communication.templates,
     context: context
   )}
   public struct Custom: GenerationContext {
@@ -258,64 +258,64 @@ public extension Configuration {
   ) -> Report { .init(cfg: self, context: Report.Custom(
     subevent: event,
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     stdin: stdin.isEmpty.else(stdin)
   ))}
   func reportUnexpected(
     error: Error
   ) -> Report { .init(cfg: self, context: Report.Unexpected(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     error: verbose.then(String(reflecting: error)).get(String(describing: error))
   ))}
   func reportUnownedCode(
     files: [String]
   ) -> Report { .init(cfg: self, context: Report.UnownedCode(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     files: files
   ))}
   func reportFileTaboos(
     issues: [FileTaboo.Issue]
   ) -> Report { .init(cfg: self, context: Report.FileTaboos(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     issues: issues
   ))}
   func reportReviewObsolete(
     files: [String]
   ) -> Report { .init(cfg: self, context: Report.ReviewObsolete(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     files: files
   ))}
   func reportForbiddenCommits(
     commits: [String]
   ) -> Report { .init(cfg: self, context: Report.ForbiddenCommits(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     commits: commits
   ))}
   func reportConflictMarkers(
     markers: [String]
   ) -> Report { .init(cfg: self, context: Report.ConflictMarkers(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     markers: markers
   ))}
   func reportInvalidTitle(
     review: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, context: Report.InvalidTitle(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: [review.author.username]
   ))}
@@ -323,8 +323,8 @@ public extension Configuration {
     review: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, context: Report.InvalidTitle(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: [review.author.username]
   ))}
@@ -334,8 +334,8 @@ public extension Configuration {
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: .init(users)
       .union([review.author.username]),
@@ -346,8 +346,8 @@ public extension Configuration {
     users: [String]
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: .init(users)
       .union([review.author.username])
@@ -357,8 +357,8 @@ public extension Configuration {
     users: [String]
   ) -> Report { .init(cfg: self, context: Report.ReviewMerged(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: .init(users)
       .union([review.author.username])
@@ -369,8 +369,8 @@ public extension Configuration {
     error: String
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeError(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: .init(users)
       .union([review.author.username]),
@@ -382,8 +382,8 @@ public extension Configuration {
     cheaters: Set<String>
   ) -> Report { .init(cfg: self, context: Report.EmergencyAwardApproval(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: users,
     cheaters: cheaters
@@ -393,8 +393,8 @@ public extension Configuration {
     users: Set<String>
   ) -> Report { .init(cfg: self, context: Report.AwardApprovalReady(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: users
   ))}
@@ -404,8 +404,8 @@ public extension Configuration {
     group: AwardApproval.Group.Report
   ) -> Report { .init(cfg: self, context: Report.NewAwardApproval(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: users,
     group: group
@@ -416,8 +416,8 @@ public extension Configuration {
     group: AwardApproval.Group.Report
   ) -> Report { .init(cfg: self, context: Report.WaitAwardApproval(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: users,
     group: group
@@ -428,8 +428,8 @@ public extension Configuration {
     groups: [AwardApproval.Group.Report]
   ) -> Report { .init(cfg: self, context: Report.NewAwardApprovals(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: users,
     groups: groups
@@ -440,8 +440,8 @@ public extension Configuration {
     groups: [AwardApproval.Group.Report]
   ) -> Report { .init(cfg: self, context: Report.WaitAwardApprovals(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: users,
     groups: groups
@@ -452,8 +452,8 @@ public extension Configuration {
     holders: Set<String>
   ) -> Report { .init(cfg: self, context: Report.AwardApprovalHolders(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     review: review,
     users: users,
     holders: holders
@@ -464,8 +464,8 @@ public extension Configuration {
     version: String
   ) -> Report { .init(cfg: self, context: Report.ReleaseBranchCreated(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     ref: ref,
     product: product,
     version: version
@@ -476,8 +476,8 @@ public extension Configuration {
     version: String
   ) -> Report { .init(cfg: self, context: Report.HotfixBranchCreated(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     ref: ref,
     product: product,
     version: version
@@ -491,8 +491,8 @@ public extension Configuration {
     lack: [Report.DeployTagCreated.Commit]
   ) -> Report { .init(cfg: self, context: Report.DeployTagCreated(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     ref: ref,
     product: product.name,
     deploy: deploy,
@@ -505,8 +505,8 @@ public extension Configuration {
     version: String
   ) -> Report { .init(cfg: self, context: Report.VersionBumped(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     product: product,
     version: version
   ))}
@@ -514,16 +514,16 @@ public extension Configuration {
     ref: String
   ) -> Report { .init(cfg: self, context: Report.AccessoryBranchCreated(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     ref: ref
   ))}
   func reportExpiringRequisites(
     items: [Report.ExpiringRequisites.Item]
   ) -> Report { .init(cfg: self, context: Report.ExpiringRequisites(
     env: env,
-    ctx: controls.context,
-    info: try? controls.gitlabCi.get().info,
+    ctx: context,
+    info: try? gitlabCi.get().info,
     items: items
   ))}
 }

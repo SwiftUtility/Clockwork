@@ -34,10 +34,6 @@ public enum Json {
       guard !tag else { throw Thrown("Tag builds not supported") }
       return .branch(.init(build: build, sha: pipeline.sha, branch: pipeline.ref))
     }
-    public func checkPermission(users: Set<String>) throws {
-      guard users.contains(user.username)
-      else { throw Thrown("Permission denied for \(user.name) (\(user.username))") }
-    }
     public struct Pipeline: Codable {
       public var id: UInt
       public var ref: String
