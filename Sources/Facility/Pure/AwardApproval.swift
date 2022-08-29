@@ -1,7 +1,6 @@
 import Foundation
 import Facility
 public struct AwardApproval {
-  public var userActivity: Configuration.Asset
   public var holdAward: String
   public var sanityGroup: String
   public var allGroups: [String: Group]
@@ -10,8 +9,7 @@ public struct AwardApproval {
   public var targetBranch: [String: Criteria]
   public var personal: [String: Set<String>]
   public var statusLabel: String
-  public static func make(yaml: Yaml.Controls.AwardApproval) throws -> Self { try Self.init(
-    userActivity: .make(yaml: yaml.userActivity),
+  public static func make(yaml: Yaml.AwardApproval) throws -> Self { try Self.init(
     holdAward: yaml.holdAward,
     sanityGroup: yaml.sanity,
     allGroups: yaml.groups
@@ -171,7 +169,7 @@ public struct AwardApproval {
     public var reserved: Set<String>
     public static func make(
       name: String,
-      yaml: Yaml.Controls.AwardApproval.Group
+      yaml: Yaml.AwardApproval.Group
     ) throws -> Self { try .init(
       name: name,
       award: yaml.award,

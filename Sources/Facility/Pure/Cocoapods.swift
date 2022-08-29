@@ -5,7 +5,7 @@ public struct Cocoapods {
   public static var empty: Self { .init(
     specs: []
   )}
-  public static func make(yaml: Yaml.Profile.Cocoapods) throws -> Self { try .init(
+  public static func make(yaml: Yaml.Cocoapods) throws -> Self { try .init(
     specs: yaml.specs
       .get([])
       .map(Spec.make(yaml:))
@@ -24,7 +24,7 @@ public struct Cocoapods {
     public var name: String
     public var url: String
     public var sha: Git.Sha
-    public static func make(yaml: Yaml.Profile.Cocoapods.Spec) throws -> Self { try .init(
+    public static func make(yaml: Yaml.Cocoapods.Spec) throws -> Self { try .init(
       name: yaml.name,
       url: yaml.url,
       sha: .init(value: yaml.sha)

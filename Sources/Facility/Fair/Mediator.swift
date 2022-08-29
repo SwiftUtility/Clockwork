@@ -22,7 +22,7 @@ public final class Mediator {
     ref: String,
     context: [String]
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     var variables: [String: String] = [:]
     for variable in context {
       let index = try variable.firstIndex(of: "=")
@@ -31,10 +31,10 @@ public final class Mediator {
       let value = variable[index..<variable.endIndex].dropFirst()
       variables[.init(key)] = .init(value)
     }
-    variables[gitlabCi.trigger.job] = "\(gitlabCi.job.id)"
-    variables[gitlabCi.trigger.name] = gitlabCi.job.name
-    variables[gitlabCi.trigger.profile] = cfg.profile.profile.path.value
-    variables[gitlabCi.trigger.pipeline] = "\(gitlabCi.job.pipeline.id)"
+    variables[cfg.profile.trigger.job] = "\(gitlabCi.job.id)"
+    variables[cfg.profile.trigger.name] = gitlabCi.job.name
+    variables[cfg.profile.trigger.profile] = cfg.profile.profile.path.value
+    variables[cfg.profile.trigger.pipeline] = "\(gitlabCi.job.pipeline.id)"
     try gitlabCi
       .postTriggerPipeline(cfg: cfg, ref: ref, variables: variables)
       .map(execute)
@@ -79,7 +79,7 @@ public final class Mediator {
     configuration cfg: Configuration,
     action: GitlabCi.JobAction
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let parent = try gitlabCi.parent.get()
     let job = try gitlabCi.getJob(id: parent.job)
       .map(execute)
@@ -97,7 +97,7 @@ public final class Mediator {
     name: String,
     action: GitlabCi.JobAction
   ) throws -> Bool {
-    let gitlabCi = try cfg.controls.gitlabCi.get()
+    let gitlabCi = try cfg.gitlabCi.get()
     let job = try gitlabCi
       .getJobs(action: action, pipeline: gitlabCi.job.pipeline.id)
       .map(execute)

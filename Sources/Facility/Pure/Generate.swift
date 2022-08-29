@@ -180,29 +180,31 @@ public struct Generate: Query {
 }
 public extension Configuration {
   func exportCurrentVersions(
+    production: Production,
     versions: [String: String]
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
-    template: profile.exportCurrentVersions.get(),
-    templates: profile.templates,
+    template: production.exportVersions,
+    templates: templates,
     context: Generate.ExportCurrentVersions(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       versions: versions
     )
   )}
   func exportBuildContext(
+    production: Production,
     versions: [String: String],
     build: String
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
-    template: profile.exportBuildContext.get(),
-    templates: profile.templates,
+    template: production.exportBuild,
+    templates: templates,
     context: Generate.ExportBuildContext(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       versions: versions,
       build: build
     )
@@ -214,12 +216,12 @@ public extension Configuration {
     targets: [String]
   ) -> Generate { .init(
     allowEmpty: false,
-    template: integration.exportTargets,
-    templates: controls.templates,
+    template: integration.exportAvailableTargets,
+    templates: templates,
     context: Generate.ExportIntegrationTargets(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       fork: fork.value,
       source: source,
       targets: targets
@@ -231,11 +233,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.releaseBranch.parseVersion,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.ParseReleaseBranchVersion(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       ref: ref
     )
   )}
@@ -247,11 +249,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.deployTag.createName,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateDeployTagName(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       product: product.name,
       version: version,
       build: build
@@ -265,11 +267,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.deployTag.createAnnotation,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateDeployTagAnnotation(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       product: product.name,
       version: version,
       build: build
@@ -282,11 +284,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.releaseBranch.createName,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateReleaseBranchName(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       product: product.name,
       version: version
     )
@@ -297,11 +299,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: product.bumpCurrentVersion,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.BumpCurrentVersion(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       product: product.name,
       version: version
     )
@@ -312,11 +314,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.bumpBuildNumber,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.BumpBuildNumber(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       build: build
     )
   )}
@@ -326,11 +328,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.deployTag.parseVersion,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.ParseDeployTagVersion(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       ref: ref
     )
   )}
@@ -340,11 +342,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.deployTag.parseBuild,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.ParseDeployTagBuild(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       ref: ref
     )
   )}
@@ -354,11 +356,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: product.createHotfixVersion,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateHotfixVersion(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       product: product.name,
       version: version
     )
@@ -369,11 +371,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: accessoryBranch.createName,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateAccessoryBranchName(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       suffix: suffix
     )
   )}
@@ -385,11 +387,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: accessoryBranch.adjustVersion,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.AdjustAccessoryBranchVersion(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       product: product,
       version: version
     )
@@ -402,11 +404,11 @@ public extension Configuration {
     allowEmpty: false,
     template: asset.createCommitMessage
       .get { throw Thrown("CommitMessage not configured") },
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateVersionCommitMessage(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       product: product.name,
       version: version
     )
@@ -418,11 +420,11 @@ public extension Configuration {
     allowEmpty: false,
     template: asset.createCommitMessage
       .get { throw Thrown("CommitMessage not configured") },
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateBuildCommitMessage(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       build: build
     )
   )}
@@ -434,11 +436,11 @@ public extension Configuration {
     allowEmpty: false,
     template: asset.createCommitMessage
       .get { throw Thrown("CommitMessage not configured") },
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateUserActivityCommitMessage(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       user: user,
       active: active
     )
@@ -449,11 +451,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: resolution.createCommitMessage,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateResolutionCommitMessage(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       review: review
     )
   )}
@@ -463,11 +465,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: integration.createCommitMessage,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateIntegrationCommitMessage(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
@@ -479,11 +481,11 @@ public extension Configuration {
   ) -> Generate { .init(
     allowEmpty: false,
     template: replication.createCommitMessage,
-    templates: controls.templates,
+    templates: templates,
     context: Generate.CreateReplicationCommitMessage(
       env: env,
-      ctx: controls.context,
-      info: try? controls.gitlabCi.get().info,
+      ctx: context,
+      info: try? gitlabCi.get().info,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name

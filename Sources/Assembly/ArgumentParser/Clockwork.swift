@@ -4,7 +4,7 @@ import Facility
 import FacilityPure
 import InteractivityCommon
 struct Clockwork: ParsableCommand {
-  static var version: String { "0.2.4" }
+  static var version: String { "0.3.0" }
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
   @Flag(help: "Should log subprocesses")
@@ -113,10 +113,14 @@ struct Clockwork: ParsableCommand {
   struct ActivateAwardApprover: ClockworkCommand {
     static var abstract: String { "Set user status to active" }
     @OptionGroup var clockwork: Clockwork
+    @Option(help: "User login to be activated")
+    var login: String = ""
   }
   struct DeactivateAwardApprover: ClockworkCommand {
     static var abstract: String { "Set user status to inactive" }
     @OptionGroup var clockwork: Clockwork
+    @Option(help: "User login to be deactivated")
+    var login: String = ""
   }
   struct FinishResolution: ClockworkCommand {
     static var abstract: String { "Accept or update review" }

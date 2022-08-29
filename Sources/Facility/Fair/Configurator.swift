@@ -68,103 +68,89 @@ public final class Configurator {
       ref: .head,
       path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
     )))
-    let yaml = try Id(profile.controls)
+    var cfg = Configuration(verbose: verbose, git: git, env: env, profile: profile)
+    cfg.context = try profile.context
       .reduce(git, parse(git:yaml:))
-      .reduce(Yaml.Controls.self, dialect.read(_:from:))
-      .get()
-    var controls = try Configuration.Controls.make(
-      ref: profile.controls.ref,
-      env: env,
-      yaml: yaml
-    )
-    try Id(profile.controls.ref)
-      .map(git.getSha(ref:))
-      .map(execute)
-      .map(Execute.parseText(reply:))
-      .map { "Controls: " + $0 }
-      .map(LogMessage.init(message:))
-      .map(logMessage)
-      .get()
-    controls.context = try yaml.context
-      .map(Files.Relative.init(value:))
-      .reduce(profile.controls.ref, Git.File.init(ref:path:))
-      .reduce(git, parse(git:yaml:))
-    controls.templates = try yaml.templates
-      .map(Files.Relative.init(value:))
-      .reduce(profile.controls.ref, Git.Dir.init(ref:path:))
+    cfg.templates = try profile.templates
       .reduce(git, parse(git:templates:))
       .get([:])
-    if let yaml = yaml.gitlabCi {
-      controls.gitlabCi = GitlabCi.make(
-        verbose: verbose,
-        env: env,
-        yaml: yaml,
-        job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
-          .map(execute)
-          .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
-        apiToken: GitlabCi
-          .makeApiToken(env: env, yaml: yaml)
-          .reduce(env, parse(env:secret:)),
-        pushToken: GitlabCi
-          .makePushToken(env: env, yaml: yaml)
-          .reduce(env, parse(env:secret:))
-      )
-    }
-    let communication = try Id(yaml.communication)
-      .map(Files.Relative.init(value:))
-      .reduce(profile.controls.ref, Git.File.init(ref:path:))
+    let gitlab = try Id(profile.gitlabCi)
       .reduce(git, parse(git:yaml:))
-      .reduce(Yaml.Controls.Communication.self, dialect.read(_:from:))
+      .reduce(Yaml.GitlabCi.self, dialect.read(_:from:))
       .get()
+    cfg.gitlabCi = .init(try .make(
+      verbose: verbose,
+      env: env,
+      trigger: profile.trigger,
+      yaml: gitlab,
+      job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
+        .map(execute)
+        .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
+      apiToken: GitlabCi
+        .makeApiToken(env: env, yaml: gitlab)
+        .reduce(env, parse(env:secret:)),
+      pushToken: GitlabCi
+        .makePushToken(env: env, yaml: gitlab)
+        .reduce(env, parse(env:secret:))
+    ))
+    let communication = try Id(profile.communication)
+      .reduce(git, parse(git:yaml:))
+      .reduce(Yaml.Communication.self, dialect.read(_:from:))
+      .get()
+    cfg.communication.templates = try communication.templates
+      .map(Files.Relative.init(value:))
+      .reduce(profile.communication.ref, Git.Dir.init(ref:path:))
+      .reduce(git, parse(git:templates:))
+      .get([:])
     let hooks = try communication.slackHooks
       .mapValues { try parse(env: env, secret: .make(yaml: $0)) }
     for yaml in communication.slackHookTextMessages.get([]) {
-      let communication = try [Communication.slackHookTextMessage(.init(
+      let communication = try [Communication.SlackHookTextMessage(
         url: hooks[yaml.hook]
           .get { throw Thrown("No \(yaml.hook) in slackHooks") },
         yaml: yaml
-      ))]
+      )]
       for event in yaml.events {
-        controls.communication[event] = controls.communication[event].get([]) + communication
+        let present = cfg.communication.slackHookTextMessages[event].get([])
+        cfg.communication.slackHookTextMessages[event] = present + communication
       }
     }
-    return .init(verbose: verbose, git: git, env: env, profile: profile, controls: controls)
+    return cfg
   }
   public func resolveRequisition(
     query: Configuration.ResolveRequisition
-  ) throws -> Configuration.ResolveRequisition.Reply { try query.cfg.controls.requisition
-      .reduce(query.cfg.git, parse(git:yaml:))
-      .reduce(Yaml.Controls.Requisition.self, dialect.read(_:from:))
-      .map { yaml in try Requisition.make(
-        verbose: query.cfg.verbose,
-        env: query.cfg.env,
-        ref: query.cfg.profile.controls.ref,
-        yaml: yaml
-      )}
-      .get { throw Thrown("requisition not configured") }
+  ) throws -> Configuration.ResolveRequisition.Reply { try query.cfg.profile.requisition
+    .reduce(query.cfg.git, parse(git:yaml:))
+    .reduce(Yaml.Requisition.self, dialect.read(_:from:))
+    .map { yaml in try Requisition.make(
+      verbose: query.cfg.verbose,
+      env: query.cfg.env,
+      yaml: yaml
+    )}
+    .get()
   }
   public func resolveFusion(
     query: Configuration.ResolveFusion
-  ) throws -> Configuration.ResolveFusion.Reply { try query.cfg.controls.fusion
-      .reduce(query.cfg.git, parse(git:yaml:))
-      .reduce(Yaml.Controls.Fusion.self, dialect.read(_:from:))
-      .reduce(query.cfg.controls.mainatiners, Fusion.make(mainatiners:yaml:))
-      .get { throw Thrown("fusion not configured") }
+  ) throws -> Configuration.ResolveFusion.Reply { try query.cfg.profile.fusion
+    .reduce(query.cfg.git, parse(git:yaml:))
+    .reduce(Yaml.Fusion.self, dialect.read(_:from:))
+    .map(Fusion.make(yaml:))
+    .get()
   }
   public func resolveProduction(
     query: Configuration.ResolveProduction
-  ) throws -> Configuration.ResolveProduction.Reply { try query.cfg.controls.production
+  ) throws -> Configuration.ResolveProduction.Reply { try query.cfg.profile.production
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.Controls.Production.self, dialect.read(_:from:))
-    .reduce(query.cfg.controls.mainatiners, Production.make(mainatiners:yaml:))
-    .get { throw Thrown("production not configured") }
+    .reduce(Yaml.Production.self, dialect.read(_:from:))
+    .map(Production.make(yaml:))
+    .get()
   }
   public func resolveProductionBuilds(
     query: Configuration.ResolveProductionBuilds
   ) throws -> Configuration.ResolveProductionBuilds.Reply { try Id(query.production.builds)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([Yaml.Controls.Production.Build].self, dialect.read(_:from:))
+    .reduce([Yaml.Production.Build].self, dialect.read(_:from:))
     .get()
     .map(Production.Build.make(yaml:))
   }
@@ -178,39 +164,35 @@ public final class Configurator {
   }
   public func resolveProfile(
     query: Configuration.ResolveProfile
-  ) throws -> Configuration.ResolveProfile.Reply {
-    let yaml = try dialect.read(Yaml.Profile.self, from: parse(git: query.git, yaml: query.file))
-    var result = try Configuration.Profile.make(profile: query.file, yaml: yaml)
-    result.templates = try yaml.templates
-      .map(Files.Relative.init(value:))
-      .reduce(query.file.ref, Git.Dir.init(ref:path:))
-      .reduce(query.git, parse(git:templates:))
-      .get([:])
-    return result
+  ) throws -> Configuration.ResolveProfile.Reply { try Id(query.file)
+    .reduce(query.git, parse(git:yaml:))
+    .reduce(Yaml.Profile.self, dialect.read(_:from:))
+    .reduce(query.file, Configuration.Profile.make(profile:yaml:))
+    .get()
   }
   public func resolveCodeOwnage(
     query: Configuration.ResolveCodeOwnage
   ) throws -> Configuration.ResolveCodeOwnage.Reply { try query.profile.codeOwnage
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Yaml.Criteria].self, dialect.read(_:from:))
-    .get { throw Thrown("codeOwnage not configured") }
+    .get()
     .mapValues(Criteria.init(yaml:))
   }
   public func resolveFileTaboos(
     query: Configuration.ResolveFileTaboos
   ) throws -> Configuration.ResolveFileTaboos.Reply { try query.profile.fileTaboos
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([Yaml.Profile.FileTaboo].self, dialect.read(_:from:))
-    .get { throw Thrown("fileTaboos not configured") }
+    .reduce([Yaml.FileTaboo].self, dialect.read(_:from:))
+    .get()
     .map(FileTaboo.init(yaml:))
   }
   public func resolveCocoapods(
     query: Configuration.ResolveCocoapods
   ) throws -> Configuration.ResolveCocoapods.Reply { try query.profile.cocoapods
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.Profile.Cocoapods.self, dialect.read(_:from:))
+    .reduce(Yaml.Cocoapods.self, dialect.read(_:from:))
     .map(Cocoapods.make(yaml:))
-    .get { throw Thrown("cocoapods not configured") }
+    .get()
   }
   public func persistCocoapods(
     query: Configuration.PersistCocoapods
@@ -219,21 +201,21 @@ public final class Configurator {
       file: query.cfg.profile.cocoapods
         .map { "\(query.cfg.git.root.value)/\($0.path.value)" }
         .map(Files.Absolute.init(value:))
-        .get { throw Thrown("cocoapods not configured") },
+        .get(),
       data: .init(query.cocoapods.yaml.utf8)
     ))
   }
   public func resolveAwardApproval(
     query: Configuration.ResolveAwardApproval
-  ) throws -> Configuration.ResolveAwardApproval.Reply { try query.cfg.controls.awardApproval
+  ) throws -> Configuration.ResolveAwardApproval.Reply { try query.cfg.profile.awardApproval
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.Controls.AwardApproval.self, dialect.read(_:from:))
+    .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
     .map(AwardApproval.make(yaml:))
-    .get { throw Thrown("AwardApproval not configured") }
+    .get()
   }
   public func resolveUserActivity(
     query: Configuration.ResolveUserActivity
-  ) throws -> Configuration.ResolveUserActivity.Reply { try Id(query.awardApproval.userActivity)
+  ) throws -> Configuration.ResolveUserActivity.Reply { try query.cfg.profile.userActivity
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Bool].self, dialect.read(_:from:))
@@ -241,11 +223,11 @@ public final class Configurator {
   }
   public func resolveForbiddenCommits(
     query: Configuration.ResolveForbiddenCommits
-  ) throws -> Configuration.ResolveForbiddenCommits.Reply { try query.cfg.controls.forbiddenCommits
+  ) throws -> Configuration.ResolveForbiddenCommits.Reply { try query.cfg.profile.forbiddenCommits
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String].self, dialect.read(_:from:))
-    .get { throw Thrown("ForbiddenCommits not configured") }
+    .get()
     .map(Git.Sha.init(value:))
   }
   public func persistVersions(
@@ -305,18 +287,19 @@ public final class Configurator {
   ) throws -> Configuration.PersistUserActivity.Reply {
     var userActivity = query.userActivity
     userActivity[query.user] = query.active
+    let asset = try query.cfg.profile.userActivity.get()
     let message = try generate(query.cfg.createUserActivityCommitMessage(
-      asset: query.awardApproval.userActivity,
+      asset: asset,
       user: query.user,
       active: query.active
     ))
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
       url: query.pushUrl,
-      branch: query.awardApproval.userActivity.branch,
+      branch: asset.branch,
       sha: persist(
         git: query.cfg.git,
-        file: query.awardApproval.userActivity.file,
-        branch: query.awardApproval.userActivity.branch,
+        file: asset.file,
+        branch: asset.branch,
         yaml: userActivity
           .map { "'\($0.key)': \($0.value)\n" }
           .sorted()
@@ -411,7 +394,7 @@ extension Configurator {
     }
     return result
   }
-  func makeYaml(build: Yaml.Controls.Production.Build) -> [String] {
+  func makeYaml(build: Yaml.Production.Build) -> [String] {
     ["- build: '\(build.build)'\n", "  sha: '\(build.sha)'\n"]
     + build.branch.map { "  branch: '\($0)'\n" }.array
     + build.review.map { "  review: \($0)\n" }.array

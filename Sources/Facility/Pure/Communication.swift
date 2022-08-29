@@ -1,7 +1,9 @@
 import Foundation
 import Facility
-public enum Communication {
-  case slackHookTextMessage(SlackHookTextMessage)
+public struct Communication {
+  public var templates: [String: String] = [:]
+  public var slackHookTextMessages: [String: [SlackHookTextMessage]] = [:]
+  public init() {}
   public struct SlackHookTextMessage {
     public var url: String
     public var createMessageText: Configuration.Template
@@ -10,7 +12,7 @@ public enum Communication {
     public var emojiIcon: String?
     public init(
       url: String,
-      yaml: Yaml.Controls.Communication.SlackHookTextMessage
+      yaml: Yaml.Communication.SlackHookTextMessage
     ) throws {
       self.url = url
       self.createMessageText = try .make(yaml: yaml.createMessageText)
