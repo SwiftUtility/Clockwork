@@ -240,7 +240,7 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    report(cfg.reportHotfixBranchCreated(ref: name, product: product.name, version: version))
+    report(cfg.reportHotfixBranchCreated(ref: name, product: product.name, version: hotfix))
     return true
   }
   public func createAccessoryBranch(
