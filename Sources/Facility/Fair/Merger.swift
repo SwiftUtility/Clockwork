@@ -29,7 +29,7 @@ public final class Merger {
     self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
-  public func updateFusion(cfg: Configuration) throws -> Bool {
+  public func updateReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
@@ -62,7 +62,7 @@ public final class Merger {
     }
     return false
   }
-  public func acceptFusion(cfg: Configuration) throws -> Bool {
+  public func acceptReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }

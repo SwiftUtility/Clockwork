@@ -14,26 +14,24 @@ struct Clockwork: ParsableCommand {
     version: Self.version,
     subcommands: [
       ReportCustom.self,
+      ReportReviewCustom.self,
       CheckUnownedCode.self,
       CheckFileTaboos.self,
       CheckReviewConflictMarkers.self,
       CheckReviewObsolete.self,
       CheckForbiddenCommits.self,
-      CheckResolutionRules.self,
-      CheckReviewStatus.self,
       CheckResolutionAwardApproval.self,
       CheckReplicationAwardApproval.self,
       CheckIntegrationAwardApproval.self,
-      AddReviewLabels.self,
       ActivateAwardApprover.self,
       DeactivateAwardApprover.self,
-      FinishResolution.self,
+      AddReviewLabels.self,
       TriggerPipeline.self,
       StartReplication.self,
-      FinishReplication.self,
       ExportIntegrationTargets.self,
       StartIntegration.self,
-      FinishIntegration.self,
+      UpdateReview.self,
+      AcceptReview.self,
       ImportProvisions.self,
       ImportPkcs12.self,
       ImportRequisites.self,
@@ -66,6 +64,14 @@ struct Clockwork: ParsableCommand {
     @Option(help: "Event name to send report for")
     var event: String
   }
+  struct ReportReviewCustom: ClockworkCommand {
+    static var abstract: String { "Sends preconfigured parent review report" }
+    @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should read stdin")
+    var stdin = false
+    @Option(help: "Event name to send report for")
+    var event: String
+  }
   struct CheckUnownedCode: ClockworkCommand {
     static var abstract: String { "Ensure no unowned files" }
     @OptionGroup var clockwork: Clockwork
@@ -88,14 +94,6 @@ struct Clockwork: ParsableCommand {
   }
   struct CheckForbiddenCommits: ClockworkCommand {
     static var abstract: String { "Ensure contains no forbidden commits" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct CheckResolutionRules: ClockworkCommand {
-    static var abstract: String { "Ensure title matches defined rules" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct CheckReviewStatus: ClockworkCommand {
-    static var abstract: String { "Ensure review is ready to automatic merge" }
     @OptionGroup var clockwork: Clockwork
   }
   struct CheckResolutionAwardApproval: ClockworkCommand {
@@ -122,7 +120,7 @@ struct Clockwork: ParsableCommand {
     @Option(help: "User login to be deactivated")
     var login: String = ""
   }
-  struct FinishResolution: ClockworkCommand {
+  struct AcceptReview: ClockworkCommand {
     static var abstract: String { "Accept or update review" }
     @OptionGroup var clockwork: Clockwork
   }
@@ -144,7 +142,7 @@ struct Clockwork: ParsableCommand {
     static var abstract: String { "Create replication review" }
     @OptionGroup var clockwork: Clockwork
   }
-  struct FinishReplication: ClockworkCommand {
+  struct UpdateReview: ClockworkCommand {
     static var abstract: String { "Update or accept replication review" }
     @OptionGroup var clockwork: Clockwork
   }
@@ -167,10 +165,6 @@ struct Clockwork: ParsableCommand {
     var target: String
     @Option(help: "Integration source branch name")
     var source: String
-  }
-  struct FinishIntegration: ClockworkCommand {
-    static var abstract: String { "Accept or update integration review" }
-    @OptionGroup var clockwork: Clockwork
   }
   struct ImportProvisions: ClockworkCommand {
     static var abstract: String { "Import provisions locally" }

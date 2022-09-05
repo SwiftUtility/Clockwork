@@ -35,6 +35,11 @@ extension Clockwork.ReportCustom: RunnableCommand {
     try Assembler.reporter.reportCustom(cfg: cfg, event: event, stdin: stdin)
   }
 }
+extension Clockwork.ReportReviewCustom: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reporter.reportReviewCustom(cfg: cfg, event: event, stdin: stdin)
+  }
+}
 extension Clockwork.CheckUnownedCode: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.validator.validateUnownedCode(cfg: cfg)
@@ -60,16 +65,6 @@ extension Clockwork.CheckForbiddenCommits: RunnableCommand {
     try Assembler.validator.validateForbiddenCommits(cfg: cfg)
   }
 }
-extension Clockwork.CheckResolutionRules: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.validateResolutionRules(cfg: cfg)
-  }
-}
-extension Clockwork.CheckReviewStatus: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.validateReviewStatus(cfg: cfg)
-  }
-}
 extension Clockwork.CheckResolutionAwardApproval: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.approver.checkAwardApproval(cfg: cfg, mode: .resolution, remind: remind)
@@ -90,9 +85,9 @@ extension Clockwork.DeactivateAwardApprover: RunnableCommand {
     try Assembler.approver.updateUser(cfg: cfg, active: false, login: login)
   }
 }
-extension Clockwork.FinishResolution: RunnableCommand {
+extension Clockwork.AcceptReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.acceptResolution(cfg: cfg)
+    try Assembler.merger.acceptReview(cfg: cfg)
   }
 }
 extension Clockwork.TriggerPipeline: RunnableCommand {
@@ -110,9 +105,9 @@ extension Clockwork.StartReplication: RunnableCommand {
     try Assembler.merger.startReplication(cfg: cfg)
   }
 }
-extension Clockwork.FinishReplication: RunnableCommand {
+extension Clockwork.UpdateReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.updateReplication(cfg: cfg)
+    try Assembler.merger.updateReview(cfg: cfg)
   }
 }
 extension Clockwork.CheckIntegrationAwardApproval: RunnableCommand {
@@ -128,11 +123,6 @@ extension Clockwork.ExportIntegrationTargets: RunnableCommand {
 extension Clockwork.StartIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.merger.startIntegration(cfg: cfg, source: source, target: target, fork: fork)
-  }
-}
-extension Clockwork.FinishIntegration: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.finishIntegration(cfg: cfg)
   }
 }
 extension Clockwork.ImportProvisions: RunnableCommand {

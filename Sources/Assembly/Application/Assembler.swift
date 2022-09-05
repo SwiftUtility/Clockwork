@@ -5,13 +5,17 @@ import InteractivityYams
 import InteractivityStencil
 import InteractivityPathKit
 enum Assembler {
+  static let logger = Logger(
+    writeStderr: writeStderr,
+    getTime: Date.init
+  )
   static let reporter = Reporter(
     execute: execute,
-    writeStderr: writeStderr,
     writeStdout: writeStdout,
-    getTime: Date.init,
     readStdin: readStdin,
     generate: stencilParser.generate(query:),
+    logMessage: logger.logMessage(query:),
+    worker: worker,
     jsonDecoder: jsonDecoder
   )
   static let configurator = Configurator(
@@ -21,7 +25,7 @@ enum Assembler {
     readFile: Finder.readFile(query:),
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
-    logMessage: reporter.logMessage(query:),
+    logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
     dialect: .json,
     jsonDecoder: jsonDecoder
@@ -34,7 +38,7 @@ enum Assembler {
     resolveForbiddenCommits: configurator.resolveForbiddenCommits(query:),
     listFileLines: FileLiner.listFileLines(query:),
     report: reporter.report(query:),
-    logMessage: reporter.logMessage(query:),
+    logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let requisitor = Requisitor(
@@ -58,7 +62,7 @@ enum Assembler {
     persistUserActivity: configurator.persistUserActivity(query:),
     resolveFusion: configurator.resolveFusion(query:),
     report: reporter.report(query:),
-    logMessage: reporter.logMessage(query:),
+    logMessage: logger.logMessage(query:),
     worker: worker,
     jsonDecoder: jsonDecoder
   )
@@ -68,13 +72,13 @@ enum Assembler {
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
-    logMessage: reporter.logMessage(query:),
+    logMessage: logger.logMessage(query:),
     worker: worker,
     jsonDecoder: jsonDecoder
   )
   static let mediator = Mediator(
     execute: execute,
-    logMessage: reporter.logMessage(query:),
+    logMessage: logger.logMessage(query:),
     worker: worker,
     jsonDecoder: jsonDecoder
   )
@@ -88,14 +92,14 @@ enum Assembler {
     persistBuilds: configurator.persistBuilds(query:),
     persistVersions: configurator.persistVersions(query:),
     report: reporter.report(query:),
-    logMessage: reporter.logMessage(query:),
+    logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
     worker: worker,
     jsonDecoder: jsonDecoder
   )
   static let worker = Worker(
     execute: execute,
-    logMessage: reporter.logMessage(query:),
+    logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let stencilParser = StencilParser(notation: .json)
