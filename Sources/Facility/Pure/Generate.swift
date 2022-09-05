@@ -152,7 +152,7 @@ public struct Generate: Query {
     public var user: String
     public var active: Bool
   }
-  public struct CreateResolutionCommitMessage: GenerationContext {
+  public struct CreatePropositionCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -174,6 +174,14 @@ public struct Generate: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var fork: String
+    public var source: String
+    public var target: String
+  }
+  public struct CreateFusionMergeCommitMessage: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
     public var source: String
     public var target: String
   }
@@ -445,14 +453,14 @@ public extension Configuration {
       active: active
     )
   )}
-  func createResolutionCommitMessage(
-    resolution: Fusion.Resolution,
+  func createPropositionCommitMessage(
+    proposition: Fusion.Proposition,
     review: Json.GitlabReviewState
   ) -> Generate { .init(
     allowEmpty: false,
-    template: resolution.createCommitMessage,
+    template: proposition.createCommitMessage,
     templates: templates,
-    context: Generate.CreateResolutionCommitMessage(
+    context: Generate.CreatePropositionCommitMessage(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
@@ -489,6 +497,21 @@ public extension Configuration {
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
+    )
+  )}
+  func createFusionMergeCommitMessage(
+    fusion: Fusion,
+    review: Json.GitlabReviewState
+  ) -> Generate { .init(
+    allowEmpty: false,
+    template: fusion.createMergeCommitMessage,
+    templates: templates,
+    context: Generate.CreateFusionMergeCommitMessage(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      source: review.sourceBranch,
+      target: review.targetBranch
     )
   )}
 }

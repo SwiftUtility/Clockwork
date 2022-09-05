@@ -95,14 +95,16 @@ public enum Yaml {
     }
   }
   public struct Fusion: Decodable {
-    public var resolution: Resolution?
-    public var replication: Replication?
-    public var integration: Integration?
-    public struct Resolution: Decodable {
+    public var createMergeCommitMessage: Template
+    public var proposition: Proposition
+    public var replication: Replication
+    public var integration: Integration
+    public var targets: Criteria
+    public struct Proposition: Decodable {
       public var createCommitMessage: Template
       public var rules: [Rule]
       public struct Rule: Decodable {
-        public var title: Criteria?
+        public var title: Criteria
         public var source: Criteria
       }
     }

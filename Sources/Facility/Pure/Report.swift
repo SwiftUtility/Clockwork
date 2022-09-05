@@ -60,14 +60,6 @@ public struct Report: Query {
     public var info: GitlabCi.Info?
     public var markers: [String]
   }
-  public struct InvalidTitle: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-  }
   public struct InvalidBranch: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
@@ -88,6 +80,11 @@ public struct Report: Query {
       case draft
       case workInProgress
       case blockingDiscussions
+      case squashStatus
+      case badTarget
+      case badTitle
+      case configuration
+      case forkPoint
     }
   }
   public struct ReviewMergeConflicts: GenerationContext {
@@ -309,24 +306,6 @@ public extension Configuration {
     ctx: context,
     info: try? gitlabCi.get().info,
     markers: markers
-  ))}
-  func reportInvalidTitle(
-    review: Json.GitlabReviewState
-  ) -> Report { .init(cfg: self, context: Report.InvalidTitle(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: [review.author.username]
-  ))}
-  func reportInvalidBranch(
-    review: Json.GitlabReviewState
-  ) -> Report { .init(cfg: self, context: Report.InvalidTitle(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: [review.author.username]
   ))}
   func reportReviewBlocked(
     review: Json.GitlabReviewState,

@@ -53,6 +53,7 @@ public enum Json {
     public var draft: Bool
     public var workInProgress: Bool
     public var mergeStatus: String
+    public var squash: Bool
     public var mergeError: String?
     public var pipeline: Pipeline
     public var rebaseInProgress: Bool?

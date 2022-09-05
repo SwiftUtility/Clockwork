@@ -36,6 +36,31 @@ public final class Worker {
   func resolveParticipants(
     cfg: Configuration,
     gitlabCi: GitlabCi,
+    source: Git.Ref,
+    target: Git.Ref
+  ) throws -> [String] { try Id
+    .make(cfg.git.listCommits(
+      in: [source],
+      notIn: [target],
+      noMerges: true,
+      firstParents: false
+    ))
+    .map(execute)
+    .map(Execute.parseLines(reply:))
+    .get()
+    .map(Git.Sha.init(value:))
+    .flatMap { sha in try gitlabCi
+      .listShaMergeRequests(sha: sha)
+      .map(execute)
+      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
+      .get()
+      .filter { $0.squashCommitSha == sha.value }
+      .map(\.author.username)
+    }
+  }
+  func resolveParticipants(
+    cfg: Configuration,
+    gitlabCi: GitlabCi,
     merge: Fusion.Merge
   ) throws -> [String] { try Id
     .make(cfg.git.listCommits(
@@ -58,8 +83,16 @@ public final class Worker {
     }
   }
   func isLastPipe(ctx: ParentReview) -> Bool {
-    guard ctx.job.pipeline.id == ctx.review.pipeline.id, ctx.review.state == "opened" else {
+    guard ctx.job.pipeline.id == ctx.review.pipeline.id else {
       logMessage(.init(message: "Pipeline outdated"))
+      return false
+    }
+    guard ctx.review.state == "opened" else {
+      logMessage(.init(message: "Review closed"))
+      return false
+    }
+    guard ctx.job.pipeline.sha == ctx.review.pipeline.sha else {
+      logMessage(.init(message: "Review commit mismatch"))
       return false
     }
     return true

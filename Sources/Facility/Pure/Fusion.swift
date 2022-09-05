@@ -1,40 +1,75 @@
 import Foundation
 import Facility
 public struct Fusion {
-  public var resolution: Lossy<Resolution>
-  public var replication: Lossy<Replication>
-  public var integration: Lossy<Integration>
+  public var createMergeCommitMessage: Configuration.Template
+  public var targets: Criteria
+  public var proposition: Proposition
+  public var replication: Replication
+  public var integration: Integration
+  func createCommitMessage(kind: Kind) -> Configuration.Template {
+    switch kind {
+    case .proposition: return proposition.createCommitMessage
+    case .replication: return replication.createCommitMessage
+    case .integration: return integration.createCommitMessage
+    }
+  }
+  public func makeKind(supply: String) throws -> Kind {
+    guard replication.prefix != integration.prefix else {
+      throw Thrown("Prefix for replication and integration must be different")
+    }
+    guard let merge = try Merge.make(supply: supply) else {
+      let rules = proposition.rules.filter { $0.source.isMet(supply) }
+      guard rules.count < 2 else { throw Thrown("\(supply) matches multiple proposition rules") }
+      return .proposition(rules.first)
+    }
+    if merge.prefix == replication.prefix { return .replication(merge) }
+    if merge.prefix == integration.prefix { return .integration(merge) }
+    throw Thrown("\(supply) prefix not configured")
+  }
   public static func make(
     yaml: Yaml.Fusion
   ) throws -> Self { try .init(
-    resolution: yaml.resolution
-      .map(Resolution.make(yaml:))
-      .map(Lossy.value(_:))
-      .get(Lossy.error(Thrown("resolution not configured"))),
-    replication: yaml.replication
-      .map(Replication.make(yaml:))
-      .map(Lossy.value(_:))
-      .get(Lossy.error(Thrown("replication not configured"))),
-    integration: yaml.integration
-      .map(Integration.make(yaml:))
-      .map(Lossy.value(_:))
-      .get(Lossy.error(Thrown("integration not configured")))
-  )}
-  public struct Resolution {
-    public var createCommitMessage: Configuration.Template
-    public var rules: [Rule]
-    public static func make(
-      yaml: Yaml.Fusion.Resolution
-    ) throws -> Self { try .init(
-      createCommitMessage: .make(yaml: yaml.createCommitMessage),
-      rules: yaml.rules
+    createMergeCommitMessage: .make(yaml: yaml.createMergeCommitMessage),
+    targets: .init(yaml: yaml.targets),
+    proposition: .init(
+      createCommitMessage: .make(yaml: yaml.proposition.createCommitMessage),
+      rules: yaml.proposition.rules
         .map { yaml in try .init(
-          title: yaml.title
-            .map(Criteria.init(yaml:))
-            .get(.init()),
+          title: .init(yaml: yaml.title),
           source: .init(yaml: yaml.source)
         )}
-    )}
+    ),
+    replication: .init(
+      target: yaml.replication.target,
+      prefix: yaml.replication.prefix,
+      source: .init(yaml: yaml.replication.source),
+      createCommitMessage: .make(yaml: yaml.replication.createCommitMessage)
+    ),
+    integration: .init(
+      rules: yaml.integration.rules
+        .map { yaml in try .init(
+          source: .init(yaml: yaml.source),
+          target: .init(yaml: yaml.target)
+        )},
+      prefix: yaml.integration.prefix,
+      createCommitMessage: .make(yaml: yaml.integration.createCommitMessage),
+      exportAvailableTargets: .make(yaml: yaml.integration.exportAvailableTargets)
+    )
+  )}
+  public enum Kind {
+    case proposition(Proposition.Rule?)
+    case replication(Merge)
+    case integration(Merge)
+    public var merge: Merge? {
+      switch self {
+      case .proposition: return nil
+      case .replication(let merge), .integration(let merge): return merge
+      }
+    }
+  }
+  public struct Proposition {
+    public var createCommitMessage: Configuration.Template
+    public var rules: [Rule]
     public struct Rule {
       public var title: Criteria
       public var source: Criteria
@@ -45,37 +80,11 @@ public struct Fusion {
     public var prefix: String
     public var source: Criteria
     public var createCommitMessage: Configuration.Template
-    public static func make(
-      yaml: Yaml.Fusion.Replication
-    ) throws -> Self { try .init(
-      target: yaml.target,
-      prefix: yaml.prefix,
-      source: .init(yaml: yaml.source),
-      createCommitMessage: .make(yaml: yaml.createCommitMessage)
-    )}
-    public func makeMerge(supply: String) throws -> Merge {
-      let components = supply.components(separatedBy: "/-/")
-      guard
-        components.count == 4,
-        components[0] == prefix,
-        components[1] == target
-      else { throw Thrown("Wrong replication branch format: \(supply)") }
-      return try .init(
-        fork: .init(value: components[3]),
-        prefix: prefix,
-        source: .init(name: components[2]),
-        target: .init(name: target),
-        supply: .init(name: supply),
-        commitMessage: createCommitMessage
-      )
-    }
-    public func makeMerge(source: String, sha: String) throws -> Merge { try .init(
-      fork: .init(value: sha),
+    public func makeMerge(source: String, fork: String) throws -> Merge { try .make(
+      fork: .init(value: fork),
       prefix: prefix,
       source: .init(name: source),
-      target: .init(name: target),
-      supply: .init(name: "\(prefix)/-/\(target)/-/\(source)/-/\(sha)"),
-      commitMessage: createCommitMessage
+      target: .init(name: target)
     )}
   }
   public struct Integration {
@@ -83,39 +92,11 @@ public struct Fusion {
     public var prefix: String
     public var createCommitMessage: Configuration.Template
     public var exportAvailableTargets: Configuration.Template
-    public static func make(
-      yaml: Yaml.Fusion.Integration
-    ) throws -> Self { try .init(
-      rules: yaml.rules
-        .map { yaml in try .init(
-          source: .init(yaml: yaml.source),
-          target: .init(yaml: yaml.target)
-        )},
-      prefix: yaml.prefix,
-      createCommitMessage: .make(yaml: yaml.createCommitMessage),
-      exportAvailableTargets: .make(yaml: yaml.exportAvailableTargets)
-    )}
-    public func makeMerge(supply: String) throws -> Merge {
-      let components = supply.components(separatedBy: "/-/")
-      guard components.count == 4, components[0] == prefix else {
-        throw Thrown("Wrong integration branch format: \(supply)")
-      }
-      return try .init(
-        fork: .init(value: components[3]),
-        prefix: prefix,
-        source: .init(name: components[2]),
-        target: .init(name: components[1]),
-        supply: .init(name: supply),
-        commitMessage: createCommitMessage
-      )
-    }
-    public func makeMerge(target: String, source: String, fork: String) throws -> Merge { try .init(
+    public func makeMerge(target: String, source: String, fork: String) throws -> Merge { try .make(
       fork: .init(value: fork),
       prefix: prefix,
       source: .init(name: source),
-      target: .init(name: target),
-      supply: .init(name: "\(prefix)/-/\(target)/-/\(source)/-/\(fork)"),
-      commitMessage: createCommitMessage
+      target: .init(name: target)
     )}
     public struct Rule {
       public var source: Criteria
@@ -123,11 +104,39 @@ public struct Fusion {
     }
   }
   public struct Merge {
-    public var fork: Git.Sha
-    public var prefix: String
-    public var source: Git.Branch
-    public var target: Git.Branch
-    public var supply: Git.Branch
-    public var commitMessage: Configuration.Template
+    public let fork: Git.Sha
+    public let prefix: String
+    public let source: Git.Branch
+    public let target: Git.Branch
+    public let supply: Git.Branch
+    public func changing(fork: String) throws -> Self { try .make(
+      fork: .init(value: fork),
+      prefix: prefix,
+      source: source,
+      target: target
+    )}
+    public static func make(
+      fork: Git.Sha,
+      prefix: String,
+      source: Git.Branch,
+      target: Git.Branch
+    ) throws -> Self { try .init(
+      fork: fork,
+      prefix: prefix,
+      source: source,
+      target: target,
+      supply: .init(name: "\(prefix)/-/\(target)/-/\(source)/-/\(fork)")
+    )}
+    public static func make(supply: String) throws -> Self? {
+      let components = supply.components(separatedBy: "/-/")
+      guard components.count == 4 else { return nil }
+      return try .init(
+        fork: .init(value: components[3]),
+        prefix: components[0],
+        source: .init(name: components[2]),
+        target: .init(name: components[1]),
+        supply: .init(name: supply)
+      )
+    }
   }
 }
