@@ -446,6 +446,12 @@ public final class Merger {
     merge: Fusion.Merge,
     title: String
   ) throws {
+    guard try !Execute.parseSuccess(reply: execute(cfg.git.checkObjectType(
+      ref: .make(remote: merge.supply)
+    ))) else {
+      logMessage(.init(message: "Fusion already in progress"))
+      return
+    }
     try Id
       .make(cfg.git.push(
         url: gitlab.pushUrl.get(),
