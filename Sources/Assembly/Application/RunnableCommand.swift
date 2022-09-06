@@ -75,6 +75,11 @@ extension Clockwork.AddReviewLabels: RunnableCommand {
     try Assembler.mediator.addReviewLabels(cfg: cfg, labels: labels)
   }
 }
+extension Clockwork.RemoveReviewLabels: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.removeReviewLabels(cfg: cfg, labels: labels)
+  }
+}
 extension Clockwork.ActivateAwardApprover: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.approver.updateUser(cfg: cfg, active: true, login: login)
@@ -233,5 +238,15 @@ extension Clockwork.ResetPodSpecs: RunnableCommand {
 extension Clockwork.UpdatePodSpecs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
+  }
+}
+extension Clockwork.EnqueueReview: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.porter.enqueueReview(cfg: cfg)
+  }
+}
+extension Clockwork.DequeueReview: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.porter.dequeueReview(cfg: cfg)
   }
 }

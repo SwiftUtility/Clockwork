@@ -38,6 +38,7 @@ public struct Configuration {
     public var fusion: Lossy<Git.File>
     public var forbiddenCommits: Lossy<Asset>
     public var userActivity: Lossy<Asset>
+    public var reviewQueue: Lossy<Asset>
     public var trigger: Trigger
     public var obsolescence: Lossy<Criteria>
     public static func make(
@@ -94,6 +95,10 @@ public struct Configuration {
         .map(Asset.make(yaml:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("userActivity not configured"))),
+      reviewQueue: yaml.reviewQueue
+        .map(Asset.make(yaml:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("reviewQueue not configured"))),
       trigger: .init(
         job: yaml.trigger.job,
         name: yaml.trigger.name,
@@ -125,14 +130,13 @@ public struct Configuration {
   public struct Asset {
     public var file: Files.Relative
     public var branch: Git.Branch
-    public var createCommitMessage: Template?
+    public var createCommitMessage: Template
     public static func make(
       yaml: Yaml.Asset
     ) throws -> Self { try .init(
       file: .init(value: yaml.path),
       branch: .init(name: yaml.branch),
-      createCommitMessage: yaml.createCommitMessage
-        .map(Template.make(yaml:))
+      createCommitMessage: .make(yaml: yaml.createCommitMessage)
     )}
   }
   public enum Template {

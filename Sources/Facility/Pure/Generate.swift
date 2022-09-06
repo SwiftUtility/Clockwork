@@ -152,6 +152,14 @@ public struct Generate: Query {
     public var user: String
     public var active: Bool
   }
+  public struct CreateReviewQueueCommitMessage: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState
+    public var queued: Bool
+  }
   public struct CreatePropositionCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
@@ -408,10 +416,9 @@ public extension Configuration {
     asset: Asset,
     product: Production.Product,
     version: String
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
-    template: asset.createCommitMessage
-      .get { throw Thrown("CommitMessage not configured") },
+    template: asset.createCommitMessage,
     templates: templates,
     context: Generate.CreateVersionCommitMessage(
       env: env,
@@ -424,10 +431,9 @@ public extension Configuration {
   func createBuildCommitMessage(
     asset: Asset,
     build: String
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
-    template: asset.createCommitMessage
-      .get { throw Thrown("CommitMessage not configured") },
+    template: asset.createCommitMessage,
     templates: templates,
     context: Generate.CreateBuildCommitMessage(
       env: env,
@@ -440,10 +446,9 @@ public extension Configuration {
     asset: Asset,
     user: String,
     active: Bool
-  ) throws -> Generate { try .init(
+  ) -> Generate { .init(
     allowEmpty: false,
-    template: asset.createCommitMessage
-      .get { throw Thrown("CommitMessage not configured") },
+    template: asset.createCommitMessage,
     templates: templates,
     context: Generate.CreateUserActivityCommitMessage(
       env: env,
@@ -451,6 +456,22 @@ public extension Configuration {
       info: try? gitlabCi.get().info,
       user: user,
       active: active
+    )
+  )}
+  func createReviewQueueCommitMessage(
+    asset: Asset,
+    review: Json.GitlabReviewState,
+    queued: Bool
+  ) -> Generate { .init(
+    allowEmpty: false,
+    template: asset.createCommitMessage,
+    templates: templates,
+    context: Generate.CreateReviewQueueCommitMessage(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      review: review,
+      queued: queued
     )
   )}
   func createPropositionCommitMessage(

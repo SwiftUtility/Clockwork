@@ -26,6 +26,7 @@ struct Clockwork: ParsableCommand {
       ActivateAwardApprover.self,
       DeactivateAwardApprover.self,
       AddReviewLabels.self,
+      RemoveReviewLabels.self,
       TriggerPipeline.self,
       StartReplication.self,
       ExportIntegrationTargets.self,
@@ -54,6 +55,8 @@ struct Clockwork: ParsableCommand {
       RetryNeighborJob.self,
       ResetPodSpecs.self,
       UpdatePodSpecs.self,
+      EnqueueReview.self,
+      DequeueReview.self,
     ]
   )
   struct ReportCustom: ClockworkCommand {
@@ -65,7 +68,7 @@ struct Clockwork: ParsableCommand {
     var event: String
   }
   struct ReportReviewCustom: ClockworkCommand {
-    static var abstract: String { "Sends preconfigured parent review report" }
+    static var abstract: String { "Send preconfigured parent review report" }
     @OptionGroup var clockwork: Clockwork
     @Flag(help: "Should read stdin")
     var stdin = false
@@ -87,7 +90,7 @@ struct Clockwork: ParsableCommand {
     var target: String
   }
   struct CheckReviewObsolete: ClockworkCommand {
-    static var abstract: String { "Ensure target has no essential changes" }
+    static var abstract: String { "Ensure review target has no essential changes" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "the branch to check obsolence against")
     var target: String
@@ -103,9 +106,15 @@ struct Clockwork: ParsableCommand {
     var remind = false
   }
   struct AddReviewLabels: ClockworkCommand {
-    static var abstract: String { "Add labels to triggerer review" }
+    static var abstract: String { "Add parent review labels" }
     @OptionGroup var clockwork: Clockwork
-    @Argument(help: "Labels to be added to triggerer review")
+    @Argument(help: "Labels to be added to parent review")
+    var labels: [String]
+  }
+  struct RemoveReviewLabels: ClockworkCommand {
+    static var abstract: String { "Remove parent review labels" }
+    @OptionGroup var clockwork: Clockwork
+    @Argument(help: "Labels to be added to parent review")
     var labels: [String]
   }
   struct ActivateAwardApprover: ClockworkCommand {
@@ -121,11 +130,11 @@ struct Clockwork: ParsableCommand {
     var login: String = ""
   }
   struct AcceptReview: ClockworkCommand {
-    static var abstract: String { "Accept or update review" }
+    static var abstract: String { "Accept review" }
     @OptionGroup var clockwork: Clockwork
   }
   struct TriggerPipeline: ClockworkCommand {
-    static var abstract: String { "Trigger pipeline and pass predefined and custom context" }
+    static var abstract: String { "Trigger pipeline configured and custom context" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Ref to run pipeline on")
     var ref: String
@@ -153,7 +162,7 @@ struct Clockwork: ParsableCommand {
     var remind = false
   }
   struct ExportIntegrationTargets: ClockworkCommand {
-    static var abstract: String { "Stdouts rendered suitable integration branches context" }
+    static var abstract: String { "Render integration suitable branches to stdout" }
     @OptionGroup var clockwork: Clockwork
   }
   struct StartIntegration: ClockworkCommand {
@@ -209,67 +218,75 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
   }
   struct CreateAccessoryBranch: ClockworkCommand {
-    static var abstract: String { "Cut custom branch" }
+    static var abstract: String { "Cut custom branch from protected ref" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Name suffix of branch")
     var suffix: String
   }
   struct ReserveParentReviewBuild: ClockworkCommand {
-    static var abstract: String { "Reserves build number for parent review pipeline" }
+    static var abstract: String { "Reserve build number for parent review pipeline" }
     @OptionGroup var clockwork: Clockwork
   }
   struct ReserveProtectedBuild: ClockworkCommand {
-    static var abstract: String { "Reserves build number for current protected branch pipeline" }
+    static var abstract: String { "Reserve build number for current protected branch pipeline" }
     @OptionGroup var clockwork: Clockwork
   }
   struct ExportBuildContext: ClockworkCommand {
-    static var abstract: String { "Renders reserved build and versions to stdout" }
+    static var abstract: String { "Render reserved build and versions to stdout" }
     @OptionGroup var clockwork: Clockwork
   }
   struct ExportCurrentVersions: ClockworkCommand {
-    static var abstract: String { "Renders current next versions to stdout" }
+    static var abstract: String { "Render current next versions to stdout" }
     @OptionGroup var clockwork: Clockwork
   }
   struct CreateReviewPipeline: ClockworkCommand {
-    static var abstract: String { "Creates new pipeline for parent review" }
+    static var abstract: String { "Create new pipeline for parent review" }
     @OptionGroup var clockwork: Clockwork
   }
   struct PlayParentJob: ClockworkCommand {
-    static var abstract: String { "Plays parent pipeline's job with matching name" }
+    static var abstract: String { "Play parent pipeline's job" }
     @OptionGroup var clockwork: Clockwork
   }
   struct CancelParentJob: ClockworkCommand {
-    static var abstract: String { "Cancels parent pipeline's job with matching name" }
+    static var abstract: String { "Cancel parent pipeline's job" }
     @OptionGroup var clockwork: Clockwork
   }
   struct RetryParentJob: ClockworkCommand {
-    static var abstract: String { "Retries parent pipeline's job with matching name" }
+    static var abstract: String { "Retry parent pipeline's job" }
     @OptionGroup var clockwork: Clockwork
   }
   struct PlayNeighborJob: ClockworkCommand {
-    static var abstract: String { "Plays current pipeline's job with matching name" }
+    static var abstract: String { "Play current pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Job name to paly")
     var name: String
   }
   struct CancelNeighborJob: ClockworkCommand {
-    static var abstract: String { "Cancels current pipeline's job with matching name" }
+    static var abstract: String { "Cancel current pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Job name to cancel")
     var name: String
   }
   struct RetryNeighborJob: ClockworkCommand {
-    static var abstract: String { "Retries current pipeline's job with matching name" }
+    static var abstract: String { "Retry current pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
     @Option(help: "Job name to retry")
     var name: String
   }
   struct ResetPodSpecs: ClockworkCommand {
-    static var abstract: String { "Resets cocoapods specs to configured commits" }
+    static var abstract: String { "Reset cocoapods specs to configured commits" }
     @OptionGroup var clockwork: Clockwork
   }
   struct UpdatePodSpecs: ClockworkCommand {
-    static var abstract: String { "Updates cocoapods specs and configured commist" }
+    static var abstract: String { "Update cocoapods specs and configured commist" }
+    @OptionGroup var clockwork: Clockwork
+  }
+  struct EnqueueReview: ClockworkCommand {
+    static var abstract: String { "Enqueue parent review and trigger others" }
+    @OptionGroup var clockwork: Clockwork
+  }
+  struct DequeueReview: ClockworkCommand {
+    static var abstract: String { "Dequeue parent review and trigger others" }
     @OptionGroup var clockwork: Clockwork
   }
 }

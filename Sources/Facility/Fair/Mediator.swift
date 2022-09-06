@@ -75,6 +75,28 @@ public final class Mediator {
     logMessage(.init(message: "Labels added"))
     return true
   }
+  public func removeReviewLabels(
+    cfg: Configuration,
+    labels: [String]
+  ) throws -> Bool {
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
+    let labels = Set(labels).intersection(.init(ctx.review.labels))
+    guard !labels.isEmpty else {
+      logMessage(.init(message: "Labels not present"))
+      return false
+    }
+    try ctx.gitlab
+      .putMrState(
+        parameters: .init(removeLabels: labels.joined(separator: ",")),
+        review: ctx.review.iid
+      )
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    logMessage(.init(message: "Labels removed"))
+    return true
+  }
   public func affectParentJob(
     configuration cfg: Configuration,
     action: GitlabCi.JobAction

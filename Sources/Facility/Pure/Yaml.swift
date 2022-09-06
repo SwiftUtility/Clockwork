@@ -17,6 +17,7 @@ public enum Yaml {
     public var fusion: String?
     public var forbiddenCommits: Asset?
     public var userActivity: Asset?
+    public var reviewQueue: Asset?
   }
   public struct Trigger: Decodable {
     public var job: String
@@ -163,7 +164,7 @@ public enum Yaml {
   public struct Asset: Decodable {
     public var path: String
     public var branch: String
-    public var createCommitMessage: Template?
+    public var createCommitMessage: Template
   }
   public struct Preset: Decodable {
     public var path: String

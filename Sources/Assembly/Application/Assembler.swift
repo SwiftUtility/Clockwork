@@ -97,6 +97,13 @@ enum Assembler {
     worker: worker,
     jsonDecoder: jsonDecoder
   )
+  static let porter = Porter(
+    execute: execute,
+    resolveReviewQueue: configurator.resolveReviewQueue(query:),
+    persistReviewQueue: configurator.persistReviewQueue(query:),
+    logMessage: logger.logMessage(query:),
+    worker: worker
+  )
   static let worker = Worker(
     execute: execute,
     logMessage: logger.logMessage(query:),

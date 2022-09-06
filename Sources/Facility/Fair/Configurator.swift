@@ -230,6 +230,15 @@ public final class Configurator {
     .get()
     .map(Git.Sha.init(value:))
   }
+  public func resolveReviewQueue(
+    query: ReviewQueue.Resolve
+  ) throws -> ReviewQueue.Resolve.Reply { try query.cfg.profile.reviewQueue
+    .map(Git.File.make(asset:))
+    .reduce(query.cfg.git, parse(git:yaml:))
+    .reduce([String: [UInt]].self, dialect.read(_:from:))
+    .map(ReviewQueue.make(queue:))
+    .get()
+  }
   public func persistVersions(
     query: Configuration.PersistVersions
   ) throws -> Configuration.PersistVersions.Reply {
@@ -304,6 +313,28 @@ public final class Configurator {
           .map { "'\($0.key)': \($0.value)\n" }
           .sorted()
           .joined(),
+        message: message
+      ),
+      force: false
+    )))
+  }
+  public func persistReviewQueue(
+    query: ReviewQueue.Persist
+  ) throws -> ReviewQueue.Persist.Reply {
+    let asset = try query.cfg.profile.reviewQueue.get()
+    let message = try generate(query.cfg.createReviewQueueCommitMessage(
+      asset: asset,
+      review: query.review,
+      queued: query.queued
+    ))
+    try Execute.checkStatus(reply: execute(query.cfg.git.push(
+      url: query.pushUrl,
+      branch: asset.branch,
+      sha: persist(
+        git: query.cfg.git,
+        file: asset.file,
+        branch: asset.branch,
+        yaml: query.reviewQueue.yaml,
         message: message
       ),
       force: false
