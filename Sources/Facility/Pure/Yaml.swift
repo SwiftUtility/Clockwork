@@ -2,28 +2,36 @@ import Foundation
 import Facility
 public enum Yaml {
   public struct Profile: Decodable {
-    public var trigger: Trigger
-    public var communication: Preset
-    public var gitlabCi: Preset
-    public var awardApproval: Preset?
-    public var context: Preset?
+    public var gitlabCi: GitlabCi
+    public var slackToken: Secret
+    public var signals: String?
     public var codeOwnage: String?
     public var fileTaboos: String?
-    public var obsolescence: Criteria?
     public var cocoapods: String?
     public var templates: String?
     public var production: String?
     public var requisition: String?
-    public var fusion: String?
+    public var review: String?
+    public var context: Preset?
     public var forbiddenCommits: Asset?
-    public var userActivity: Asset?
-    public var reviewQueue: Asset?
   }
-  public struct Trigger: Decodable {
-    public var job: String
-    public var name: String
-    public var profile: String
-    public var pipeline: String
+  public struct GitlabCi: Decodable {
+    public var botLogin: Secret
+    public var apiToken: Secret?
+    public var pushToken: Secret?
+    public var triggerJobId: String
+    public var triggerJobName: String
+    public var triggerProfile: String
+    public var triggerPipeline: String
+  }
+  public struct Communication: Decodable {
+    public var method: String
+    public var body: Template
+  }
+  public struct FileTaboo: Decodable {
+    public var rule: String
+    public var file: Criteria?
+    public var line: Criteria?
   }
   public struct Cocoapods: Decodable {
     public var specs: [Spec]?
@@ -33,14 +41,10 @@ public enum Yaml {
       public var sha: String
     }
   }
-  public struct FileTaboo: Decodable {
-    public var rule: String
-    public var file: Criteria?
-    public var line: Criteria?
-  }
   public struct Production: Decodable {
     public var builds: Asset
     public var versions: Asset
+    public var releases: Asset
     public var bumpBuildNumber: Template
     public var exportBuild: Template
     public var exportVersions: Template
@@ -63,6 +67,7 @@ public enum Yaml {
       public var createAnnotation: Template
     }
     public struct ReleaseBranch: Decodable {
+      public var thread: Thread
       public var createName: Template
       public var parseVersion: Template
     }
@@ -80,6 +85,11 @@ public enum Yaml {
       public var product: String?
       public var version: String?
     }
+    public struct Release: Decodable {
+      public var thread: String
+      public var product: String
+      public var version: String
+    }
   }
   public struct Requisition: Decodable {
     public var branch: String
@@ -95,12 +105,14 @@ public enum Yaml {
       public var provisions: [String]
     }
   }
-  public struct Fusion: Decodable {
-    public var createMergeCommitMessage: Template
+  public struct Review: Decodable {
+    public var queue: Asset
+    public var targets: Criteria
+    public var approval: Approval?
     public var proposition: Proposition
     public var replication: Replication
     public var integration: Integration
-    public var targets: Criteria
+    public var createMergeCommitMessage: Template
     public struct Proposition: Decodable {
       public var createCommitMessage: Template
       public var rules: [Rule]
@@ -125,40 +137,30 @@ public enum Yaml {
         public var target: Criteria
       }
     }
-  }
-  public struct GitlabCi: Decodable {
-    public var botLogin: String
-    public var apiToken: Secret?
-    public var pushToken: Secret?
-  }
-  public struct AwardApproval: Decodable {
-    public var holdAward: String
-    public var statusLabel: String
-    public var sourceBranch: [String: Criteria]?
-    public var targetBranch: [String: Criteria]?
-    public var sanity: String
-    public var emergency: String?
-    public var groups: [String: Group]
-    public var personal: [String: [String]]?
-    public struct Group: Decodable {
-      public var award: String
-      public var quorum: Int
-      public var reserve: [String]?
-      public var optional: [String]?
-      public var required: [String]?
-    }
-  }
-  public struct Communication: Decodable {
-    public var slackHooks: [String: Secret]
-    public var templates: String?
-    public var slackHookTextMessages: [SlackHookTextMessage]?
-    public struct SlackHookTextMessage: Decodable {
-      public var hook: String
-      public var createMessageText: Template
-      public var events: [String]
-      public var userName: String?
-      public var channel: String?
-      public var emojiIcon: String?
+    public struct Approval: Decodable {
+      public var thread: Thread
+      public var sanityTeam: String
+      public var emergencyTeam: String
+      public var sourceBranch: [String: Criteria]?
+      public var targetBranch: [String: Criteria]?
+      public var owners: Preset
+      public var teams: Preset?
+      public var approves: Asset
+      public var userActivity: Asset
+      public struct Owners: Decodable {
+        public var quorum: Int
+        public var random: UInt?
+        public var fragile: Bool
+        public var selfish: Bool
+        public var reserve: [String]?
+        public var optional: [String]?
+        public var required: [String]?
+      }
+      public struct Approve: Decodable {
+        public var holders: [String]?
+        public var thread: String
+        public var admissions: [String: [[String: String]]]?
+      }
     }
   }
   public struct Asset: Decodable {
@@ -178,6 +180,14 @@ public enum Yaml {
   public struct Criteria: Decodable {
     var include: [String]?
     var exclude: [String]?
+  }
+  public struct Thread: Decodable {
+    public var createBody: Template
+    public var signals: [String: [Signal]]
+  }
+  public struct Signal: Decodable {
+    public var method: String
+    public var body: Template
   }
   public struct Template: Decodable {
     public var name: String?
