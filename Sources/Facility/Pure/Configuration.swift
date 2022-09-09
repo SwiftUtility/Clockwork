@@ -138,6 +138,16 @@ public struct Configuration {
       createCommitMessage: .make(yaml: yaml.createCommitMessage)
     )}
   }
+  public struct Thread {
+    public var createBody: Template
+    public var signals: [String: [Signal]]
+    public static func make(yaml: Yaml.Thread) throws -> Self { try .init(
+      createBody: yaml.createBody,
+      signals: yaml.signals
+        .get([:])
+        .mapValues { try $0.map(Signal.make(yaml:)) }
+    )}
+  }
   public struct Signal {
     public var method: String
     public var body: Template

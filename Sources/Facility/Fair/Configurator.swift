@@ -96,7 +96,8 @@ public final class Configurator {
         pushToken: GitlabCi.isPretected(env: env)
           .map { try parse(env: env, secret: profile.gitlabCi.pushToken) }
       )),
-      slackToken: .init(try parse(env: env, secret: profile.slackToken))
+      slackToken: GitlabCi.isPretected(env: env)
+        .map { try parse(env: env, secret: profile.slackToken) }
     )
   }
   public func resolveRequisition(

@@ -213,9 +213,28 @@ public struct Fusion {
     }
   }
   public struct Approval {
+    public var thread: Configuration.Thread
     public var sanityTeam: String
-    public var teams: [String: Team]
-    public var emergencyTeam: String?
+    public var emergencyTeam: String
+    public var sourceBranch: [String: Criteria]
+    public var targetBranch: [String: Criteria]
+    public var teams: Git.File
+    public var approves: Configuration.Asset
+    public var activity: Configuration.Asset
+    public static func make(yaml: Yaml.Fusion.Approval) throws -> Self { try .init(
+      thread: .make(yaml: yaml.thread),
+      sanityTeam: yaml.sanityTeam,
+      emergencyTeam: yaml.emergencyTeam,
+      sourceBranch: yaml.sourceBranch
+        .get([:])
+        .mapValues(Criteria.init(yaml:)),
+      targetBranch: yaml.targetBranch
+        .get([:])
+        .mapValues(Criteria.init(yaml:)),
+      teams: .make(preset: yaml.teams),
+      approves: .make(yaml: yaml.approves),
+      activity: .make(yaml: yaml.activity)
+    )}
     public struct Team {
     }
   }

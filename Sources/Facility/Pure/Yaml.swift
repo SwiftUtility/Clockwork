@@ -139,10 +139,9 @@ public enum Yaml {
       public var emergencyTeam: String
       public var sourceBranch: [String: Criteria]?
       public var targetBranch: [String: Criteria]?
-      public var owners: Preset
-      public var teams: Preset?
+      public var teams: Preset
       public var approves: Asset
-      public var userActivity: Asset
+      public var activity: Asset
       public struct Owners: Decodable {
         public var quorum: Int
         public var random: UInt?
@@ -151,6 +150,7 @@ public enum Yaml {
         public var reserve: [String]?
         public var optional: [String]?
         public var required: [String]?
+        public var authors: [String]?
       }
       public struct Approve: Decodable {
         public var holders: [String]?
@@ -179,7 +179,7 @@ public enum Yaml {
   }
   public struct Thread: Decodable {
     public var createBody: Template
-    public var signals: [String: [Signal]]
+    public var signals: [String: [Signal]]?
   }
   public struct Signal: Decodable {
     public var method: String
