@@ -60,12 +60,12 @@ public final class Approver {
   ) throws -> Bool {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
-    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
+    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.lastPipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
     let approval = try resolveAwardApproval(.init(cfg: cfg))
-    let sha = try Id(ctx.review.pipeline.sha)
+    let sha = try Id(ctx.review.lastPipeline.sha)
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
