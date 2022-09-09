@@ -54,7 +54,9 @@ public enum Json {
     public var workInProgress: Bool
     public var mergeStatus: String
     public var mergeError: String?
-    public var pipeline: Pipeline
+    public var pipeline: Pipeline?
+    public var headPipeline: Pipeline?
+    public var lastPipeline: Pipeline { headPipeline.get(pipeline!) }
     public var rebaseInProgress: Bool?
     public var hasConflicts: Bool
     public var blockingDiscussionsResolved: Bool
