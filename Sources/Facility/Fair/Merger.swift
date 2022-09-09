@@ -65,7 +65,7 @@ public final class Merger {
   public func acceptResolution(cfg: Configuration) throws -> Bool {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
-    let head = try Git.Sha(value: ctx.review.pipeline.sha)
+    let head = try Git.Sha(value: ctx.review.lastPipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
     let resolution = try resolveFusion(.init(cfg: cfg)).resolution.get()
     let message = try generate(cfg.createResolutionCommitMessage(
@@ -170,7 +170,7 @@ public final class Merger {
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
-    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
+    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.lastPipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()
@@ -432,7 +432,7 @@ public final class Merger {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
     let pushUrl = try ctx.gitlab.pushUrl.get()
-    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.pipeline.id)
+    let pipeline = try ctx.gitlab.getPipeline(pipeline: ctx.review.lastPipeline.id)
       .map(execute)
       .reduce(Json.GitlabPipeline.self, jsonDecoder.decode(success:reply:))
       .get()

@@ -58,7 +58,7 @@ public final class Worker {
     }
   }
   func isLastPipe(ctx: ParentReview) -> Bool {
-    guard ctx.job.pipeline.id == ctx.review.pipeline.id, ctx.review.state == "opened" else {
+    guard ctx.job.pipeline.id == ctx.review.lastPipeline.id, ctx.review.state == "opened" else {
       logMessage(.init(message: "Pipeline outdated"))
       return false
     }
