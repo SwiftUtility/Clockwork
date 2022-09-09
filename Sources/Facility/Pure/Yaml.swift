@@ -142,7 +142,7 @@ public enum Yaml {
       public var teams: Preset
       public var approves: Asset
       public var activity: Asset
-      public struct Owners: Decodable {
+      public struct Team: Decodable {
         public var quorum: Int
         public var random: UInt?
         public var fragile: Bool
@@ -155,7 +155,7 @@ public enum Yaml {
       public struct Approve: Decodable {
         public var holders: [String]?
         public var thread: String
-        public var admissions: [String: [String: String]]?
+        public var feed: [String: [String: String]]?
       }
     }
   }

@@ -188,22 +188,23 @@ public final class Configurator {
       data: .init(query.cocoapods.yaml.utf8)
     ))
   }
-//  public func resolveAwardApproval(
-//    query: Configuration.ResolveAwardApproval
-//  ) throws -> Configuration.ResolveAwardApproval.Reply { try query.cfg.profile.awardApproval
-//    .reduce(query.cfg.git, parse(git:yaml:))
-//    .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
-//    .map(AwardApproval.make(yaml:))
-//    .get()
-//  }
-//  public func resolveUserActivity(
-//    query: Configuration.ResolveUserActivity
-//  ) throws -> Configuration.ResolveUserActivity.Reply { try query.cfg.profile.userActivity
-//    .map(Git.File.make(asset:))
-//    .reduce(query.cfg.git, parse(git:yaml:))
-//    .reduce([String: Bool].self, dialect.read(_:from:))
-//    .get()
-//  }
+  public func resolveApproves(
+    query: Configuration.ResolveApproves
+  ) throws -> Configuration.ResolveApproves.Reply { try Id(query.approval.approves)
+    .map(Git.File.make(asset:))
+    .reduce(query.cfg.git, parse(git:yaml:))
+    .reduce([String: Yaml.Fusion.Approval.Approve].self, dialect.read(_:from:))
+    .get()
+    .mapValues(Fusion.Approval.Approve.make(yaml:))
+  }
+  public func resolveUserActivity(
+    query: Configuration.ResolveUserActivity
+  ) throws -> Configuration.ResolveUserActivity.Reply { try Id(query.approval.activity)
+    .map(Git.File.make(asset:))
+    .reduce(query.cfg.git, parse(git:yaml:))
+    .reduce([String: Bool].self, dialect.read(_:from:))
+    .get()
+  }
   public func resolveForbiddenCommits(
     query: Configuration.ResolveForbiddenCommits
   ) throws -> Configuration.ResolveForbiddenCommits.Reply { try query.cfg.profile.forbiddenCommits
@@ -215,7 +216,7 @@ public final class Configurator {
   }
   public func resolveReviewQueue(
     query: Fusion.Queue.Resolve
-  ) throws -> Fusion.Queue.Resolve.Reply { try query.cfg.profile.reviewQueue
+  ) throws -> Fusion.Queue.Resolve.Reply { try Id(query.fusion.queue)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: [UInt]].self, dialect.read(_:from:))
@@ -279,19 +280,18 @@ public final class Configurator {
   ) throws -> Configuration.PersistUserActivity.Reply {
     var userActivity = query.userActivity
     userActivity[query.user] = query.active
-    let asset = try query.cfg.profile.userActivity.get()
     let message = try generate(query.cfg.createUserActivityCommitMessage(
-      asset: asset,
+      asset: query.approval.activity,
       user: query.user,
       active: query.active
     ))
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
       url: query.pushUrl,
-      branch: asset.branch,
+      branch: query.approval.activity.branch,
       sha: persist(
         git: query.cfg.git,
-        file: asset.file,
-        branch: asset.branch,
+        file: query.approval.activity.file,
+        branch: query.approval.activity.branch,
         yaml: userActivity
           .map { "'\($0.key)': \($0.value)\n" }
           .sorted()
@@ -304,19 +304,18 @@ public final class Configurator {
   public func persistReviewQueue(
     query: Fusion.Queue.Persist
   ) throws -> Fusion.Queue.Persist.Reply {
-    let asset = try query.cfg.profile.reviewQueue.get()
     let message = try generate(query.cfg.createReviewQueueCommitMessage(
-      asset: asset,
+      asset: query.fusion.queue,
       review: query.review,
       queued: query.queued
     ))
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
       url: query.pushUrl,
-      branch: asset.branch,
+      branch: query.fusion.queue.branch,
       sha: persist(
         git: query.cfg.git,
-        file: asset.file,
-        branch: asset.branch,
+        file: query.fusion.queue.file,
+        branch: query.fusion.queue.branch,
         yaml: query.reviewQueue.yaml,
         message: message
       ),

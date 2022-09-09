@@ -142,7 +142,7 @@ public struct Configuration {
     public var createBody: Template
     public var signals: [String: [Signal]]
     public static func make(yaml: Yaml.Thread) throws -> Self { try .init(
-      createBody: yaml.createBody,
+      createBody: .make(yaml: yaml.createBody),
       signals: yaml.signals
         .get([:])
         .mapValues { try $0.map(Signal.make(yaml:)) }
@@ -234,22 +234,24 @@ public struct Configuration {
     }
     public typealias Reply = Void
   }
-//  public struct ResolveAwardApproval: Query {
-//    public var cfg: Configuration
-//    public init(cfg: Configuration) {
-//      self.cfg = cfg
-//    }
-//    public typealias Reply = AwardApproval
-//  }
-//  public struct ResolveUserActivity: Query {
-//    public var cfg: Configuration
-//    public var awardApproval: AwardApproval
-//    public init(cfg: Configuration, awardApproval: AwardApproval) {
-//      self.cfg = cfg
-//      self.awardApproval = awardApproval
-//    }
-//    public typealias Reply = [String: Bool]
-//  }
+  public struct ResolveApproves: Query {
+    public var cfg: Configuration
+    public var approval: Fusion.Approval
+    public init(cfg: Configuration, approval: Fusion.Approval) {
+      self.cfg = cfg
+      self.approval = approval
+    }
+    public typealias Reply = [String : Fusion.Approval.Approve]
+  }
+  public struct ResolveUserActivity: Query {
+    public var cfg: Configuration
+    public var approval: Fusion.Approval
+    public init(cfg: Configuration, approval: Fusion.Approval) {
+      self.cfg = cfg
+      self.approval = approval
+    }
+    public typealias Reply = [String: Bool]
+  }
   public struct ResolveRequisition: Query {
     public var cfg: Configuration
     public init(cfg: Configuration) {
@@ -341,28 +343,28 @@ public struct Configuration {
     }
     public typealias Reply = Void
   }
-//  public struct PersistUserActivity: Query {
-//    public var cfg: Configuration
-//    public var pushUrl: String
-//    public var awardApproval: AwardApproval
-//    public var userActivity: [String: Bool]
-//    public var user: String
-//    public var active: Bool
-//    public init(
-//      cfg: Configuration,
-//      pushUrl: String,
-//      awardApproval: AwardApproval,
-//      userActivity: [String: Bool],
-//      user: String,
-//      active: Bool
-//    ) {
-//      self.cfg = cfg
-//      self.pushUrl = pushUrl
-//      self.awardApproval = awardApproval
-//      self.userActivity = userActivity
-//      self.user = user
-//      self.active = active
-//    }
-//    public typealias Reply = Void
-//  }
+  public struct PersistUserActivity: Query {
+    public var cfg: Configuration
+    public var pushUrl: String
+    public var approval: Fusion.Approval
+    public var userActivity: [String: Bool]
+    public var user: String
+    public var active: Bool
+    public init(
+      cfg: Configuration,
+      pushUrl: String,
+      approval: Fusion.Approval,
+      userActivity: [String: Bool],
+      user: String,
+      active: Bool
+    ) {
+      self.cfg = cfg
+      self.pushUrl = pushUrl
+      self.approval = approval
+      self.userActivity = userActivity
+      self.user = user
+      self.active = active
+    }
+    public typealias Reply = Void
+  }
 }

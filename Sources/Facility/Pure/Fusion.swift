@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 public struct Fusion {
-  public var queue: Queue
+  public var queue: Configuration.Asset
   public var targets: Criteria
   public var approval: Approval?
   public var proposition: Proposition
@@ -32,9 +32,9 @@ public struct Fusion {
   public static func make(
     yaml: Yaml.Fusion
   ) throws -> Self { try .init(
-    queue: [:]
-    createMergeCommitMessage: .make(yaml: yaml.createMergeCommitMessage),
+    queue: .make(yaml: yaml.queue),
     targets: .init(yaml: yaml.targets),
+    approval: yaml.approval.map(Approval.make(yaml:)),
     proposition: .init(
       createCommitMessage: .make(yaml: yaml.proposition.createCommitMessage),
       rules: yaml.proposition.rules
@@ -58,7 +58,8 @@ public struct Fusion {
       prefix: yaml.integration.prefix,
       createCommitMessage: .make(yaml: yaml.integration.createCommitMessage),
       exportAvailableTargets: .make(yaml: yaml.integration.exportAvailableTargets)
-    )
+    ),
+    createMergeCommitMessage: .make(yaml: yaml.createMergeCommitMessage)
   )}
   public enum Kind {
     case proposition(Proposition.Rule?)
@@ -185,26 +186,34 @@ public struct Fusion {
     public static func make(queue: [String: [UInt]]) -> Self { .init(queue: queue) }
     public struct Resolve: Query {
       public var cfg: Configuration
-      public init(cfg: Configuration) {
+      public var fusion: Fusion
+      public init(
+        cfg: Configuration,
+        fusion: Fusion
+      ) {
         self.cfg = cfg
+        self.fusion = fusion
       }
       public typealias Reply = Fusion.Queue
     }
     public struct Persist: Query {
       public var cfg: Configuration
       public var pushUrl: String
+      public var fusion: Fusion
       public var reviewQueue: Fusion.Queue
       public var review: Json.GitlabReviewState
       public var queued: Bool
       public init(
         cfg: Configuration,
         pushUrl: String,
+        fusion: Fusion,
         reviewQueue: Fusion.Queue,
         review: Json.GitlabReviewState,
         queued: Bool
       ) {
         self.cfg = cfg
         self.pushUrl = pushUrl
+        self.fusion = fusion
         self.reviewQueue = reviewQueue
         self.review = review
         self.queued = queued
@@ -236,6 +245,36 @@ public struct Fusion {
       activity: .make(yaml: yaml.activity)
     )}
     public struct Team {
+      public var quorum: Int
+      public var random: UInt
+      public var fragile: Bool
+      public var selfish: Bool
+      public var reserve: [String]
+      public var optional: [String]
+      public var required: [String]
+      public var authors: [String]
+      public static func make(yaml: Yaml.Fusion.Approval.Team) -> Self { .init(
+        quorum: yaml.quorum,
+        random: yaml.random.get(0),
+        fragile: yaml.fragile,
+        selfish: yaml.selfish,
+        reserve: yaml.reserve.get([]),
+        optional: yaml.optional.get([]),
+        required: yaml.required.get([]),
+        authors: yaml.authors.get([])
+      )}
+    }
+    public struct Approve {
+      public var thread: String
+      public var holders: [String]
+      public var feed: [String: [String: Git.Sha]]
+      public static func make(yaml: Yaml.Fusion.Approval.Approve) throws -> Self { try .init(
+        thread: yaml.thread,
+        holders: yaml.holders.get([]),
+        feed: yaml.feed
+          .get([:])
+          .mapValues { try $0.mapValues(Git.Sha.init(value:)) }
+      )}
     }
   }
 }

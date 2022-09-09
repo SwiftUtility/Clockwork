@@ -20,14 +20,15 @@ public final class Porter {
     self.logMessage = logMessage
     self.worker = worker
   }
-  public func enqueueReview(cfg: Configuration) throws -> Bool {
-    var queue = try resolveReviewQueue(.init(cfg: cfg))
+  public func enqueueReview(cfg: Configuration, fusion: Fusion) throws -> Bool {
+    var queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
     let result = queue.enqueue(review: ctx.review.iid, target: ctx.review.targetBranch)
     if queue.isChanged { try persistReviewQueue(.init(
       cfg: cfg,
       pushUrl: ctx.gitlab.pushUrl.get(),
+      fusion: fusion,
       reviewQueue: queue,
       review: ctx.review,
       queued: true
@@ -37,14 +38,15 @@ public final class Porter {
     }
     return result
   }
-  public func dequeueReview(cfg: Configuration) throws -> Bool {
-    var queue = try resolveReviewQueue(.init(cfg: cfg))
+  public func dequeueReview(cfg: Configuration, fusion: Fusion) throws -> Bool {
+    var queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
     _ = queue.enqueue(review: ctx.review.iid, target: nil)
     if queue.isChanged { try persistReviewQueue(.init(
       cfg: cfg,
       pushUrl: ctx.gitlab.pushUrl.get(),
+      fusion: fusion,
       reviewQueue: queue,
       review: ctx.review,
       queued: true
