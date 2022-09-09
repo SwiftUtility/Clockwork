@@ -35,9 +35,14 @@ extension Clockwork.ReportCustom: RunnableCommand {
     try Assembler.reporter.reportCustom(cfg: cfg, event: event, stdin: stdin)
   }
 }
-extension Clockwork.ReportReviewCustom: RunnableCommand {
+extension Clockwork.ReportCustomReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reporter.reportReviewCustom(cfg: cfg, event: event, stdin: stdin)
+  }
+}
+extension Clockwork.ReportCustomRelease: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reporter.reportReleaseCustom(cfg: cfg, event: event, stdin: stdin)
   }
 }
 extension Clockwork.CheckUnownedCode: RunnableCommand {

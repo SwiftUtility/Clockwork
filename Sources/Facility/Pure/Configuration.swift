@@ -5,55 +5,66 @@ public struct Configuration {
   public var git: Git
   public var env: [String: String]
   public var profile: Profile
-  public var templates: [String: String] = [:]
+  public var templates: [String: String]
   public var context: AnyCodable?
-  public var communication: Communication = .init()
-  public var gitlabCi: Lossy<GitlabCi> = .error(Thrown("gitlabCi not configured"))
-  public init(
+  public var signals: [String: [Signal]]
+  public var gitlabCi: Lossy<GitlabCi>
+  public var slackToken: Lossy<String>
+  public static func make(
     verbose: Bool,
     git: Git,
     env: [String : String],
-    profile: Profile
-  ) {
-    self.verbose = verbose
-    self.git = git
-    self.env = env
-    self.profile = profile
-  }
-  public func get(env key: String) throws -> String {
-    try env[key].get { throw Thrown("No \(key) in environment") }
-  }
+    profile: Configuration.Profile,
+    templates: [String : String],
+    context: AnyCodable? = nil,
+    signals: [String : [Configuration.Signal]],
+    gitlabCi: Lossy<GitlabCi>,
+    slackToken: Lossy<String>
+  ) -> Self { .init(
+    verbose: verbose,
+    git: git,
+    env: env,
+    profile: profile,
+    templates: templates,
+    context: context,
+    signals: signals,
+    gitlabCi: gitlabCi,
+    slackToken: slackToken
+  )}
   public struct Profile {
     public var profile: Git.File
-    public var gitlabCi: Git.File
-    public var communication: Git.File
-    public var awardApproval: Lossy<Git.File>
+    public var gitlabCi: GitlabCi
+    public var slackToken: Secret
+    public var signals: Git.File?
     public var context: Git.File?
+    public var templates: Git.Dir?
+    public var fusion: Lossy<Git.File>
     public var codeOwnage: Lossy<Git.File>
     public var fileTaboos: Lossy<Git.File>
     public var cocoapods: Lossy<Git.File>
-    public var templates: Git.Dir?
     public var production: Lossy<Git.File>
     public var requisition: Lossy<Git.File>
-    public var fusion: Lossy<Git.File>
     public var forbiddenCommits: Lossy<Asset>
-    public var userActivity: Lossy<Asset>
-    public var reviewQueue: Lossy<Asset>
-    public var trigger: Trigger
-    public var obsolescence: Lossy<Criteria>
     public static func make(
       profile: Git.File,
       yaml: Yaml.Profile
     ) throws -> Self { try .init(
       profile: profile,
-      gitlabCi: .make(preset: yaml.gitlabCi),
-      communication: .make(preset: yaml.communication),
-      awardApproval: yaml.awardApproval
-        .map(Git.File.make(preset:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("awardApproval not configured"))),
+      gitlabCi: .make(yaml: yaml.gitlabCi),
+      slackToken: .make(yaml: yaml.slackToken),
+      signals: yaml.signals
+        .map(Files.Relative.init(value:))
+        .reduce(profile.ref, Git.File.init(ref:path:)),
       context: yaml.context
         .map(Git.File.make(preset:)),
+      templates: yaml.templates
+        .map(Files.Relative.init(value:))
+        .reduce(profile.ref, Git.Dir.init(ref:path:)),
+      fusion: yaml.fusion
+        .map(Files.Relative.init(value:))
+        .reduce(profile.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("fusion not configured"))),
       codeOwnage: yaml.codeOwnage
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:))
@@ -69,9 +80,6 @@ public struct Configuration {
         .reduce(profile.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("cocoapods not configured"))),
-      templates: yaml.templates
-        .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.Dir.init(ref:path:)),
       production: yaml.production
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:))
@@ -82,33 +90,10 @@ public struct Configuration {
         .reduce(profile.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("requisition not configured"))),
-      fusion: yaml.fusion
-        .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("fusion not configured"))),
       forbiddenCommits: yaml.forbiddenCommits
         .map(Asset.make(yaml:))
         .map(Lossy.value(_:))
-        .get(.error(Thrown("forbiddenCommits not configured"))),
-      userActivity: yaml.userActivity
-        .map(Asset.make(yaml:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("userActivity not configured"))),
-      reviewQueue: yaml.reviewQueue
-        .map(Asset.make(yaml:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("reviewQueue not configured"))),
-      trigger: .init(
-        job: yaml.trigger.job,
-        name: yaml.trigger.name,
-        profile: yaml.trigger.profile,
-        pipeline: yaml.trigger.pipeline
-      ),
-      obsolescence: yaml.obsolescence
-        .map(Criteria.init(yaml:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("obsolescence not configured")))
+        .get(.error(Thrown("forbiddenCommits not configured")))
     )}
     public var sanityFiles: [String] {
       [
@@ -120,12 +105,26 @@ public struct Configuration {
         try? fusion.get(),
       ].compactMap(\.?.path.value)
     }
-  }
-  public struct Trigger {
-    public var job: String
-    public var name: String
-    public var profile: String
-    public var pipeline: String
+    public struct GitlabCi {
+      public var botLogin: Secret
+      public var apiToken: Secret
+      public var pushToken: Secret
+      public var triggerJobId: String
+      public var triggerJobName: String
+      public var triggerProfile: String
+      public var triggerPipeline: String
+      public static func make(
+        yaml: Yaml.GitlabCi
+      ) throws -> Self { try .init(
+        botLogin: .make(yaml: yaml.botLogin),
+        apiToken: .make(yaml: yaml.apiToken),
+        pushToken: .make(yaml: yaml.pushToken),
+        triggerJobId: yaml.triggerJobId,
+        triggerJobName: yaml.triggerJobName,
+        triggerProfile: yaml.triggerProfile,
+        triggerPipeline: yaml.triggerPipeline
+      )}
+    }
   }
   public struct Asset {
     public var file: Files.Relative
@@ -137,6 +136,14 @@ public struct Configuration {
       file: .init(value: yaml.path),
       branch: .init(name: yaml.branch),
       createCommitMessage: .make(yaml: yaml.createCommitMessage)
+    )}
+  }
+  public struct Signal {
+    public var method: String
+    public var body: Template
+    public static func make(yaml: Yaml.Signal) throws -> Self { try .init(
+      method: yaml.method,
+      body: .make(yaml: yaml.body)
     )}
   }
   public enum Template {
@@ -217,22 +224,22 @@ public struct Configuration {
     }
     public typealias Reply = Void
   }
-  public struct ResolveAwardApproval: Query {
-    public var cfg: Configuration
-    public init(cfg: Configuration) {
-      self.cfg = cfg
-    }
-    public typealias Reply = AwardApproval
-  }
-  public struct ResolveUserActivity: Query {
-    public var cfg: Configuration
-    public var awardApproval: AwardApproval
-    public init(cfg: Configuration, awardApproval: AwardApproval) {
-      self.cfg = cfg
-      self.awardApproval = awardApproval
-    }
-    public typealias Reply = [String: Bool]
-  }
+//  public struct ResolveAwardApproval: Query {
+//    public var cfg: Configuration
+//    public init(cfg: Configuration) {
+//      self.cfg = cfg
+//    }
+//    public typealias Reply = AwardApproval
+//  }
+//  public struct ResolveUserActivity: Query {
+//    public var cfg: Configuration
+//    public var awardApproval: AwardApproval
+//    public init(cfg: Configuration, awardApproval: AwardApproval) {
+//      self.cfg = cfg
+//      self.awardApproval = awardApproval
+//    }
+//    public typealias Reply = [String: Bool]
+//  }
   public struct ResolveRequisition: Query {
     public var cfg: Configuration
     public init(cfg: Configuration) {
@@ -324,28 +331,28 @@ public struct Configuration {
     }
     public typealias Reply = Void
   }
-  public struct PersistUserActivity: Query {
-    public var cfg: Configuration
-    public var pushUrl: String
-    public var awardApproval: AwardApproval
-    public var userActivity: [String: Bool]
-    public var user: String
-    public var active: Bool
-    public init(
-      cfg: Configuration,
-      pushUrl: String,
-      awardApproval: AwardApproval,
-      userActivity: [String: Bool],
-      user: String,
-      active: Bool
-    ) {
-      self.cfg = cfg
-      self.pushUrl = pushUrl
-      self.awardApproval = awardApproval
-      self.userActivity = userActivity
-      self.user = user
-      self.active = active
-    }
-    public typealias Reply = Void
-  }
+//  public struct PersistUserActivity: Query {
+//    public var cfg: Configuration
+//    public var pushUrl: String
+//    public var awardApproval: AwardApproval
+//    public var userActivity: [String: Bool]
+//    public var user: String
+//    public var active: Bool
+//    public init(
+//      cfg: Configuration,
+//      pushUrl: String,
+//      awardApproval: AwardApproval,
+//      userActivity: [String: Bool],
+//      user: String,
+//      active: Bool
+//    ) {
+//      self.cfg = cfg
+//      self.pushUrl = pushUrl
+//      self.awardApproval = awardApproval
+//      self.userActivity = userActivity
+//      self.user = user
+//      self.active = active
+//    }
+//    public typealias Reply = Void
+//  }
 }

@@ -3,14 +3,14 @@ import Facility
 import FacilityPure
 public final class Porter {
   let execute: Try.Reply<Execute>
-  let resolveReviewQueue: Try.Reply<ReviewQueue.Resolve>
-  let persistReviewQueue: Try.Reply<ReviewQueue.Persist>
+  let resolveReviewQueue: Try.Reply<Fusion.Queue.Resolve>
+  let persistReviewQueue: Try.Reply<Fusion.Queue.Persist>
   let logMessage: Act.Reply<LogMessage>
   let worker: Worker
   public init(
     execute: @escaping Try.Reply<Execute>,
-    resolveReviewQueue: @escaping Try.Reply<ReviewQueue.Resolve>,
-    persistReviewQueue: @escaping Try.Reply<ReviewQueue.Persist>,
+    resolveReviewQueue: @escaping Try.Reply<Fusion.Queue.Resolve>,
+    persistReviewQueue: @escaping Try.Reply<Fusion.Queue.Persist>,
     logMessage: @escaping Act.Reply<LogMessage>,
     worker: Worker
   ) {

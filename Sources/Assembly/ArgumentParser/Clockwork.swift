@@ -40,8 +40,9 @@ struct Clockwork: ParsableCommand {
       ImportProvisions.self,
       PlayJobs.self,
       ReportCustom.self,
+      ReportCustomReview.self,
+      ReportCustomRelease.self,
       ReportExpiringRequisites.self,
-      ReportReviewCustom.self,
       ReserveParentReviewBuild.self,
       ReserveProtectedBuild.self,
       ResetPodSpecs.self,
@@ -198,19 +199,27 @@ struct Clockwork: ParsableCommand {
     @Option(help: "Event name to send report for")
     var event: String
   }
-  struct ReportExpiringRequisites: ClockworkCommand {
-    static var abstract: String { "Report expiring provisions and certificates" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Days till expired threashold or 0")
-    var days: UInt = 0
-  }
-  struct ReportReviewCustom: ClockworkCommand {
+  struct ReportCustomReview: ClockworkCommand {
     static var abstract: String { "Send preconfigured parent review report" }
     @OptionGroup var clockwork: Clockwork
     @Flag(help: "Should read stdin")
     var stdin = false
     @Option(help: "Event name to send report for")
     var event: String
+  }
+  struct ReportCustomRelease: ClockworkCommand {
+    static var abstract: String { "Send preconfigured release report" }
+    @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should read stdin")
+    var stdin = false
+    @Option(help: "Event name to send report for")
+    var event: String
+  }
+  struct ReportExpiringRequisites: ClockworkCommand {
+    static var abstract: String { "Report expiring provisions and certificates" }
+    @OptionGroup var clockwork: Clockwork
+    @Option(help: "Days till expired threashold or 0")
+    var days: UInt = 0
   }
   struct ReserveParentReviewBuild: ClockworkCommand {
     static var abstract: String { "Reserve build number for parent review pipeline" }

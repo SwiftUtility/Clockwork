@@ -34,25 +34,8 @@ public final class Merger {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
     let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
-    guard try checkIsRebased(cfg: cfg, ctx: ctx) {
-      if let sha = try rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion) {
-        try Execute.checkStatus(reply: execute(cfg.git.push(
-          url: ctx.gitlab.pushUrl.get(),
-          branch: .init(name: ctx.review.sourceBranch),
-          sha: sha,
-          force: false
-        )))
-      } else {
-        try report(cfg.reportReviewMergeConflicts(
-          review: ctx.review,
-          users: worker.resolveParticipants(
-            cfg: cfg,
-            gitlabCi: ctx.gitlab,
-            source: .make(sha: .init(value: ctx.job.pipeline.sha)),
-            target: .make(remote: .init(name: ctx.review.targetBranch))
-          )
-        ))
-      }
+    guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
+      try pushReview(cfg: cfg, ctx: ctx, sha: rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion))
       return false
     }
     if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: kind) {
@@ -65,6 +48,13 @@ public final class Merger {
     guard try checkIsApproved() else {
       return false
     }
+    guard try checkIsSquashed(cfg: cfg, ctx: ctx, kind: kind) else {
+      let sha = try squashReview(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind)
+      try pushReview(cfg: cfg, ctx: ctx, sha: sha)
+      try squashApproves(cfg: cfg, ctx: ctx, fusion: fusion, sha: sha)
+
+      return false
+    }
     return true
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
@@ -73,14 +63,10 @@ public final class Merger {
     guard worker.isLastPipe(ctx: ctx) else { return false }
     let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
     guard try checkIsRebased(cfg: cfg, ctx: ctx) else { return false }
-    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: kind) {
-      try closeReview(cfg: cfg, ctx: ctx)
-      throw Thrown(error)
-    }
-    guard try checkReviewErrors(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) else {
-      return false
-    }
+    guard try checkFusionErrors(cfg: cfg, fusion: fusion, kind: kind) == nil else { return false }
+    guard try checkReviewErrors(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) else { return false }
     guard try checkIsApproved() else { return false }
+    guard try checkIsSquashed(cfg: cfg, ctx: ctx, kind: kind) else { return false }
     switch kind {
     case .proposition:
       guard try acceptReview(cfg: cfg, ctx: ctx, message: generate(cfg.createPropositionCommitMessage(
@@ -196,7 +182,8 @@ public final class Merger {
     kind: Fusion.Kind
   ) throws -> String? {
     switch kind {
-    case .proposition: break
+    case .proposition(let rule):
+      guard rule != nil else { return "No rule for branch" }
     case .replication(let merge):
       guard fusion.targets.isMet(merge.target.name)
       else { return "Target blocked by fusion configuration" }
@@ -303,8 +290,39 @@ public final class Merger {
       .map(Execute.parseText(reply:))
       .map(Git.Sha.init(value:))
       .get()
-    guard target == parents[1] else { return false }
-    return true
+    return target == parents[1]
+  }
+  func checkIsSquashed(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    kind: Fusion.Kind
+  ) throws -> Bool {
+    let sha: Git.Sha
+    switch kind {
+    case .proposition: return true
+    case .replication(let merge): sha = merge.fork
+    case .integration(let merge): sha = merge.fork
+    }
+    let parents = try Id(ctx.review.pipeline.sha)
+      .map(Git.Sha.init(value:))
+      .map(Git.Ref.make(sha:))
+      .map(cfg.git.listParents(ref:))
+      .map(execute)
+      .map(Execute.parseLines(reply:))
+      .get()
+      .map(Git.Sha.init(value:))
+    let target = try Id(ctx.review.targetBranch)
+      .map(Git.Branch.init(name:))
+      .map(Git.Ref.make(remote:))
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(Execute.parseText(reply:))
+      .map(Git.Sha.init(value:))
+      .get()
+    return parents == [sha, target]
+  }
+  func checkIsApproved() throws -> Bool {
+    #error("tbd")
   }
   func listTrackingBranches(cfg: Configuration) throws -> [Git.Branch] {
     var result: [Git.Branch] = []
@@ -365,6 +383,46 @@ public final class Merger {
     try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: initial)))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     return result
+  }
+  func pushReview(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    sha: Git.Sha?
+  ) throws {
+    if let sha = sha {
+      try Execute.checkStatus(reply: execute(cfg.git.push(
+        url: ctx.gitlab.pushUrl.get(),
+        branch: .init(name: ctx.review.sourceBranch),
+        sha: sha,
+        force: false
+      )))
+    } else {
+      try report(cfg.reportReviewMergeConflicts(
+        review: ctx.review,
+        users: worker.resolveParticipants(
+          cfg: cfg,
+          gitlabCi: ctx.gitlab,
+          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
+          target: .make(remote: .init(name: ctx.review.targetBranch))
+        )
+      ))
+    }
+  }
+  func squashReview(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    fusion: Fusion,
+    kind: Fusion.Kind
+  ) throws -> Git.Sha {
+    #error("tbd")
+  }
+  func squashApproves(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    fusion: Fusion,
+    sha: Git.Sha
+  ) throws {
+    #error("tbd")
   }
   func closeReview(cfg: Configuration, ctx: Worker.ParentReview) throws {
     try ctx.gitlab

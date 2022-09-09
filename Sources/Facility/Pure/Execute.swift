@@ -102,12 +102,13 @@ public extension Configuration {
     input: execute.input,
     tasks: execute.tasks + [.init(environment: env, verbose: verbose, arguments: ["tee", file.value])]
   )}
-  func curlSlackHook(url: String, payload: String) throws -> Execute { try .makeCurl(
+  func curlSlack(token: String, method: String, body: String) throws -> Execute { try .makeCurl(
     verbose: verbose,
-    url: url,
+    url: "https://slack.com/api/\(method)",
     method: "POST",
     retry: 2,
-    urlencode: ["payload=\(payload)"]
+    data: body,
+    headers: [Json.contentType, "Authorization: Bearer \(token)"]
   )}
   func write(file: Files.Absolute, execute: Execute) -> Execute {
     var execute = execute

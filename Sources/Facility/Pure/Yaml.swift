@@ -11,22 +11,18 @@ public enum Yaml {
     public var templates: String?
     public var production: String?
     public var requisition: String?
-    public var review: String?
+    public var fusion: String?
     public var context: Preset?
     public var forbiddenCommits: Asset?
   }
   public struct GitlabCi: Decodable {
     public var botLogin: Secret
-    public var apiToken: Secret?
-    public var pushToken: Secret?
+    public var apiToken: Secret
+    public var pushToken: Secret
     public var triggerJobId: String
     public var triggerJobName: String
     public var triggerProfile: String
     public var triggerPipeline: String
-  }
-  public struct Communication: Decodable {
-    public var method: String
-    public var body: Template
   }
   public struct FileTaboo: Decodable {
     public var rule: String
@@ -105,7 +101,7 @@ public enum Yaml {
       public var provisions: [String]
     }
   }
-  public struct Review: Decodable {
+  public struct Fusion: Decodable {
     public var queue: Asset
     public var targets: Criteria
     public var approval: Approval?
@@ -159,7 +155,7 @@ public enum Yaml {
       public struct Approve: Decodable {
         public var holders: [String]?
         public var thread: String
-        public var admissions: [String: [[String: String]]]?
+        public var admissions: [String: [String: String]]?
       }
     }
   }

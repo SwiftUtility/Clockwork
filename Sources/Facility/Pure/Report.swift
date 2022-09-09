@@ -7,7 +7,7 @@ public struct Report: Query {
   public func generate(template: Configuration.Template) -> Generate { .init(
     allowEmpty: true,
     template: template,
-    templates: cfg.communication.templates,
+    templates: cfg.templates,
     context: context
   )}
   public struct Custom: GenerationContext {
@@ -114,70 +114,70 @@ public struct Report: Query {
     public var users: Set<String>
     public var error: String
   }
-  public struct EmergencyAwardApproval: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-    public var cheaters: Set<String>
-  }
-  public struct AwardApprovalReady: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-  }
-  public struct NewAwardApproval: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-    public var group: AwardApproval.Group.Report
-    public var subevent: String { group.name }
-  }
-  public struct WaitAwardApproval: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-    public var group: AwardApproval.Group.Report
-    public var subevent: String { group.name }
-  }
-  public struct NewAwardApprovals: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-    public var groups: [AwardApproval.Group.Report]
-  }
-  public struct WaitAwardApprovals: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-    public var groups: [AwardApproval.Group.Report]
-  }
-  public struct AwardApprovalHolders: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-    public var holders: Set<String>
-  }
+//  public struct EmergencyAwardApproval: GenerationContext {
+//    public var event: String = Self.event
+//    public var env: [String: String]
+//    public var ctx: AnyCodable?
+//    public var info: GitlabCi.Info?
+//    public var review: Json.GitlabReviewState
+//    public var users: Set<String>
+//    public var cheaters: Set<String>
+//  }
+//  public struct AwardApprovalReady: GenerationContext {
+//    public var event: String = Self.event
+//    public var env: [String: String]
+//    public var ctx: AnyCodable?
+//    public var info: GitlabCi.Info?
+//    public var review: Json.GitlabReviewState
+//    public var users: Set<String>
+//  }
+//  public struct NewAwardApproval: GenerationContext {
+//    public var event: String = Self.event
+//    public var env: [String: String]
+//    public var ctx: AnyCodable?
+//    public var info: GitlabCi.Info?
+//    public var review: Json.GitlabReviewState
+//    public var users: Set<String>
+//    public var group: AwardApproval.Group.Report
+//    public var subevent: String { group.name }
+//  }
+//  public struct WaitAwardApproval: GenerationContext {
+//    public var event: String = Self.event
+//    public var env: [String: String]
+//    public var ctx: AnyCodable?
+//    public var info: GitlabCi.Info?
+//    public var review: Json.GitlabReviewState
+//    public var users: Set<String>
+//    public var group: AwardApproval.Group.Report
+//    public var subevent: String { group.name }
+//  }
+//  public struct NewAwardApprovals: GenerationContext {
+//    public var event: String = Self.event
+//    public var env: [String: String]
+//    public var ctx: AnyCodable?
+//    public var info: GitlabCi.Info?
+//    public var review: Json.GitlabReviewState
+//    public var users: Set<String>
+//    public var groups: [AwardApproval.Group.Report]
+//  }
+//  public struct WaitAwardApprovals: GenerationContext {
+//    public var event: String = Self.event
+//    public var env: [String: String]
+//    public var ctx: AnyCodable?
+//    public var info: GitlabCi.Info?
+//    public var review: Json.GitlabReviewState
+//    public var users: Set<String>
+//    public var groups: [AwardApproval.Group.Report]
+//  }
+//  public struct AwardApprovalHolders: GenerationContext {
+//    public var event: String = Self.event
+//    public var env: [String: String]
+//    public var ctx: AnyCodable?
+//    public var info: GitlabCi.Info?
+//    public var review: Json.GitlabReviewState
+//    public var users: Set<String>
+//    public var holders: Set<String>
+//  }
   public struct ReleaseBranchCreated: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
@@ -372,88 +372,88 @@ public extension Configuration {
       .union([review.author.username]),
     error: error
   ))}
-  func reportEmergencyAwardApproval(
-    review: Json.GitlabReviewState,
-    users: Set<String>,
-    cheaters: Set<String>
-  ) -> Report { .init(cfg: self, context: Report.EmergencyAwardApproval(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: users,
-    cheaters: cheaters
-  ))}
-  func reportAwardApprovalReady(
-    review: Json.GitlabReviewState,
-    users: Set<String>
-  ) -> Report { .init(cfg: self, context: Report.AwardApprovalReady(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: users
-  ))}
-  func reportNewAwardApproval(
-    review: Json.GitlabReviewState,
-    users: Set<String>,
-    group: AwardApproval.Group.Report
-  ) -> Report { .init(cfg: self, context: Report.NewAwardApproval(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: users,
-    group: group
-  ))}
-  func reportWaitAwardApproval(
-    review: Json.GitlabReviewState,
-    users: Set<String>,
-    group: AwardApproval.Group.Report
-  ) -> Report { .init(cfg: self, context: Report.WaitAwardApproval(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: users,
-    group: group
-  ))}
-  func reportNewAwardApprovals(
-    review: Json.GitlabReviewState,
-    users: Set<String>,
-    groups: [AwardApproval.Group.Report]
-  ) -> Report { .init(cfg: self, context: Report.NewAwardApprovals(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: users,
-    groups: groups
-  ))}
-  func reportWaitAwardApprovals(
-    review: Json.GitlabReviewState,
-    users: Set<String>,
-    groups: [AwardApproval.Group.Report]
-  ) -> Report { .init(cfg: self, context: Report.WaitAwardApprovals(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: users,
-    groups: groups
-  ))}
-  func reportAwardApprovalHolders(
-    review: Json.GitlabReviewState,
-    users: Set<String>,
-    holders: Set<String>
-  ) -> Report { .init(cfg: self, context: Report.AwardApprovalHolders(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: users,
-    holders: holders
-  ))}
+//  func reportEmergencyAwardApproval(
+//    review: Json.GitlabReviewState,
+//    users: Set<String>,
+//    cheaters: Set<String>
+//  ) -> Report { .init(cfg: self, context: Report.EmergencyAwardApproval(
+//    env: env,
+//    ctx: context,
+//    info: try? gitlabCi.get().info,
+//    review: review,
+//    users: users,
+//    cheaters: cheaters
+//  ))}
+//  func reportAwardApprovalReady(
+//    review: Json.GitlabReviewState,
+//    users: Set<String>
+//  ) -> Report { .init(cfg: self, context: Report.AwardApprovalReady(
+//    env: env,
+//    ctx: context,
+//    info: try? gitlabCi.get().info,
+//    review: review,
+//    users: users
+//  ))}
+//  func reportNewAwardApproval(
+//    review: Json.GitlabReviewState,
+//    users: Set<String>,
+//    group: AwardApproval.Group.Report
+//  ) -> Report { .init(cfg: self, context: Report.NewAwardApproval(
+//    env: env,
+//    ctx: context,
+//    info: try? gitlabCi.get().info,
+//    review: review,
+//    users: users,
+//    group: group
+//  ))}
+//  func reportWaitAwardApproval(
+//    review: Json.GitlabReviewState,
+//    users: Set<String>,
+//    group: AwardApproval.Group.Report
+//  ) -> Report { .init(cfg: self, context: Report.WaitAwardApproval(
+//    env: env,
+//    ctx: context,
+//    info: try? gitlabCi.get().info,
+//    review: review,
+//    users: users,
+//    group: group
+//  ))}
+//  func reportNewAwardApprovals(
+//    review: Json.GitlabReviewState,
+//    users: Set<String>,
+//    groups: [AwardApproval.Group.Report]
+//  ) -> Report { .init(cfg: self, context: Report.NewAwardApprovals(
+//    env: env,
+//    ctx: context,
+//    info: try? gitlabCi.get().info,
+//    review: review,
+//    users: users,
+//    groups: groups
+//  ))}
+//  func reportWaitAwardApprovals(
+//    review: Json.GitlabReviewState,
+//    users: Set<String>,
+//    groups: [AwardApproval.Group.Report]
+//  ) -> Report { .init(cfg: self, context: Report.WaitAwardApprovals(
+//    env: env,
+//    ctx: context,
+//    info: try? gitlabCi.get().info,
+//    review: review,
+//    users: users,
+//    groups: groups
+//  ))}
+//  func reportAwardApprovalHolders(
+//    review: Json.GitlabReviewState,
+//    users: Set<String>,
+//    holders: Set<String>
+//  ) -> Report { .init(cfg: self, context: Report.AwardApprovalHolders(
+//    env: env,
+//    ctx: context,
+//    info: try? gitlabCi.get().info,
+//    review: review,
+//    users: users,
+//    holders: holders
+//  ))}
   func reportReleaseBranchCreated(
     ref: String,
     product: String,

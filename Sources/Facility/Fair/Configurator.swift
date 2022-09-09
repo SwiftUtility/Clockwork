@@ -68,54 +68,36 @@ public final class Configurator {
       ref: .head,
       path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
     )))
-    var cfg = Configuration(verbose: verbose, git: git, env: env, profile: profile)
-    cfg.context = try profile.context
-      .reduce(git, parse(git:yaml:))
-    cfg.templates = try profile.templates
-      .reduce(git, parse(git:templates:))
-      .get([:])
-    let gitlab = try Id(profile.gitlabCi)
-      .reduce(git, parse(git:yaml:))
-      .reduce(Yaml.GitlabCi.self, dialect.read(_:from:))
-      .get()
-    cfg.gitlabCi = .init(try .make(
+    return try .make(
       verbose: verbose,
+      git: git,
       env: env,
-      trigger: profile.trigger,
-      yaml: gitlab,
-      job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
-        .map(execute)
-        .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
-      apiToken: GitlabCi
-        .makeApiToken(env: env, yaml: gitlab)
-        .reduce(env, parse(env:secret:)),
-      pushToken: GitlabCi
-        .makePushToken(env: env, yaml: gitlab)
-        .reduce(env, parse(env:secret:))
-    ))
-    let communication = try Id(profile.communication)
-      .reduce(git, parse(git:yaml:))
-      .reduce(Yaml.Communication.self, dialect.read(_:from:))
-      .get()
-    cfg.communication.templates = try communication.templates
-      .map(Files.Relative.init(value:))
-      .reduce(profile.communication.ref, Git.Dir.init(ref:path:))
-      .reduce(git, parse(git:templates:))
-      .get([:])
-    let hooks = try communication.slackHooks
-      .mapValues { try parse(env: env, secret: .make(yaml: $0)) }
-    for yaml in communication.slackHookTextMessages.get([]) {
-      let communication = try [Communication.SlackHookTextMessage(
-        url: hooks[yaml.hook]
-          .get { throw Thrown("No \(yaml.hook) in slackHooks") },
-        yaml: yaml
-      )]
-      for event in yaml.events {
-        let present = cfg.communication.slackHookTextMessages[event].get([])
-        cfg.communication.slackHookTextMessages[event] = present + communication
-      }
-    }
-    return cfg
+      profile: profile,
+      templates: profile.templates
+        .reduce(git, parse(git:templates:))
+        .get([:]),
+      context: profile.context
+        .reduce(git, parse(git:yaml:)),
+      signals: profile.signals
+        .reduce(git, parse(git:yaml:))
+        .reduce([String: [Yaml.Signal]].self, dialect.read(_:from:))
+        .get([:])
+        .mapValues { try $0.map(Configuration.Signal.make(yaml:)) },
+      gitlabCi: .init(try .make(
+        verbose: verbose,
+        env: env,
+        gitlabCi: profile.gitlabCi,
+        job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
+          .map(execute)
+          .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
+        botLogin: parse(env: env, secret: profile.gitlabCi.botLogin),
+        apiToken: GitlabCi.isPretected(env: env)
+          .map { try parse(env: env, secret: profile.gitlabCi.apiToken) },
+        pushToken: GitlabCi.isPretected(env: env)
+          .map { try parse(env: env, secret: profile.gitlabCi.pushToken) }
+      )),
+      slackToken: .init(try parse(env: env, secret: profile.slackToken))
+    )
   }
   public func resolveRequisition(
     query: Configuration.ResolveRequisition
@@ -205,22 +187,22 @@ public final class Configurator {
       data: .init(query.cocoapods.yaml.utf8)
     ))
   }
-  public func resolveAwardApproval(
-    query: Configuration.ResolveAwardApproval
-  ) throws -> Configuration.ResolveAwardApproval.Reply { try query.cfg.profile.awardApproval
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
-    .map(AwardApproval.make(yaml:))
-    .get()
-  }
-  public func resolveUserActivity(
-    query: Configuration.ResolveUserActivity
-  ) throws -> Configuration.ResolveUserActivity.Reply { try query.cfg.profile.userActivity
-    .map(Git.File.make(asset:))
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Bool].self, dialect.read(_:from:))
-    .get()
-  }
+//  public func resolveAwardApproval(
+//    query: Configuration.ResolveAwardApproval
+//  ) throws -> Configuration.ResolveAwardApproval.Reply { try query.cfg.profile.awardApproval
+//    .reduce(query.cfg.git, parse(git:yaml:))
+//    .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
+//    .map(AwardApproval.make(yaml:))
+//    .get()
+//  }
+//  public func resolveUserActivity(
+//    query: Configuration.ResolveUserActivity
+//  ) throws -> Configuration.ResolveUserActivity.Reply { try query.cfg.profile.userActivity
+//    .map(Git.File.make(asset:))
+//    .reduce(query.cfg.git, parse(git:yaml:))
+//    .reduce([String: Bool].self, dialect.read(_:from:))
+//    .get()
+//  }
   public func resolveForbiddenCommits(
     query: Configuration.ResolveForbiddenCommits
   ) throws -> Configuration.ResolveForbiddenCommits.Reply { try query.cfg.profile.forbiddenCommits
@@ -231,12 +213,12 @@ public final class Configurator {
     .map(Git.Sha.init(value:))
   }
   public func resolveReviewQueue(
-    query: ReviewQueue.Resolve
-  ) throws -> ReviewQueue.Resolve.Reply { try query.cfg.profile.reviewQueue
+    query: Fusion.Queue.Resolve
+  ) throws -> Fusion.Queue.Resolve.Reply { try query.cfg.profile.reviewQueue
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: [UInt]].self, dialect.read(_:from:))
-    .map(ReviewQueue.make(queue:))
+    .map(Fusion.Queue.make(queue:))
     .get()
   }
   public func persistVersions(
@@ -319,8 +301,8 @@ public final class Configurator {
     )))
   }
   public func persistReviewQueue(
-    query: ReviewQueue.Persist
-  ) throws -> ReviewQueue.Persist.Reply {
+    query: Fusion.Queue.Persist
+  ) throws -> Fusion.Queue.Persist.Reply {
     let asset = try query.cfg.profile.reviewQueue.get()
     let message = try generate(query.cfg.createReviewQueueCommitMessage(
       asset: asset,

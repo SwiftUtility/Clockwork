@@ -60,28 +60,25 @@ public final class Reporter {
     return true
   }
   public func report(query: Report) -> Report.Reply {
-    let encoder = JSONEncoder()
-    encoder.keyEncodingStrategy = .convertToSnakeCase
-    for value in query.cfg.communication.slackHookTextMessages[query.context.identity].get([]) {
-      let message: String
+    let token: String
+    do { token = try query.cfg.slackToken.get() }
+    catch { return logMessage(.init(message: "Report failed: \(error)")) }
+    for signal in query.cfg.signals[query.context.identity].get([]) {
+      let body: String
       do {
-        message = try generate(query.generate(template: value.createMessageText))
+        body = try generate(query.generate(template: signal.body))
+        guard !body.isEmpty else { continue }
       } catch {
         logMessage(.init(message: "Generate report error: \(error)"))
-        message = ""
+        continue
       }
-      guard !message.isEmpty else { continue }
-      do { try Id(message)
-        .map(value.makePayload(text:))
-        .map(encoder.encode(_:))
-        .map(String.make(utf8:))
-        .reduce(value.url, query.cfg.curlSlackHook(url:payload:))
-        .map(execute)
-        .map(Execute.checkStatus(reply:))
-        .get()
-      } catch {
-        logMessage(.init(message: "Delivery error: \(error)"))
-        logMessage(.init(message: message))
+      do { try Execute.checkStatus(reply: execute(query.cfg.curlSlack(
+        token: token,
+        method: signal.method,
+        body: body
+      ))) } catch {
+        logMessage(.init(message: "Report delivery failed: \(error)"))
+        logMessage(.init(message: body))
       }
     }
   }

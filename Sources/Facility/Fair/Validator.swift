@@ -92,20 +92,6 @@ public final class Validator {
     report(cfg.reportFileTaboos(issues: issues))
     return false
   }
-  public func validateReviewObsolete(cfg: Configuration, target: String) throws -> Bool {
-    let obsolescence = try cfg.profile.obsolescence.get()
-    let files = try Id(target)
-      .map(Git.Branch.init(name:))
-      .map(Git.Ref.make(remote:))
-      .reduce(.head, cfg.git.listChangedOutsideFiles(source:target:))
-      .map(execute)
-      .map(Execute.parseLines(reply:))
-      .get()
-      .filter(obsolescence.isMet(_:))
-    guard !files.isEmpty else { return true }
-    report(cfg.reportReviewObsolete(files: files))
-    return false
-  }
   public func validateForbiddenCommits(cfg: Configuration) throws -> Bool {
     let commits = try resolveForbiddenCommits(.init(cfg: cfg)).compactMap { sha in try Id
       .make(.make(sha: sha))

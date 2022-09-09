@@ -1,11 +1,14 @@
 import Foundation
 import Facility
 public struct Fusion {
-  public var createMergeCommitMessage: Configuration.Template
+  public var queue: Queue
   public var targets: Criteria
+  public var approval: Approval?
   public var proposition: Proposition
   public var replication: Replication
   public var integration: Integration
+  public var createMergeCommitMessage: Configuration.Template
+
   func createCommitMessage(kind: Kind) -> Configuration.Template {
     switch kind {
     case .proposition: return proposition.createCommitMessage
@@ -29,6 +32,7 @@ public struct Fusion {
   public static func make(
     yaml: Yaml.Fusion
   ) throws -> Self { try .init(
+    queue: [:]
     createMergeCommitMessage: .make(yaml: yaml.createMergeCommitMessage),
     targets: .init(yaml: yaml.targets),
     proposition: .init(
@@ -137,6 +141,82 @@ public struct Fusion {
         target: .init(name: components[1]),
         supply: .init(name: supply)
       )
+    }
+  }
+  public struct Queue {
+    public private(set) var queue: [String: [UInt]]
+    public private(set) var isChanged: Bool = false
+    public private(set) var notifiables: Set<UInt> = []
+    public var yaml: String {
+      var result: String = ""
+      for target in queue.keys.sorted() {
+        guard let reviews = queue[target], !reviews.isEmpty else { continue }
+        result += "'\(target)':\n"
+        for review in reviews { result += "- \(review)\n" }
+      }
+      return result.isEmpty.else(result).get("{}\n")
+    }
+    public mutating func enqueue(review: UInt, target: String?) -> Bool {
+      var result = false
+      for (key, value) in queue {
+        if key == target {
+          guard !value.contains(where: { $0 == review }) else {
+            result = value.first == review
+            continue
+          }
+          queue[key] = value + [review]
+          isChanged = true
+          if queue[key]?.first == review { notifiables.insert(review) }
+        } else {
+          let targets = value.filter { $0 != review }
+          guard value.count != targets.count else { continue }
+          queue[key] = targets.isEmpty.else(targets)
+          isChanged = true
+          if let first = targets.first, first != value.first { notifiables.insert(first) }
+        }
+      }
+      if let target = target, queue[target] == nil {
+        queue[target] = [review]
+        isChanged = true
+        notifiables.insert(review)
+      }
+      return result
+    }
+    public static func make(queue: [String: [UInt]]) -> Self { .init(queue: queue) }
+    public struct Resolve: Query {
+      public var cfg: Configuration
+      public init(cfg: Configuration) {
+        self.cfg = cfg
+      }
+      public typealias Reply = Fusion.Queue
+    }
+    public struct Persist: Query {
+      public var cfg: Configuration
+      public var pushUrl: String
+      public var reviewQueue: Fusion.Queue
+      public var review: Json.GitlabReviewState
+      public var queued: Bool
+      public init(
+        cfg: Configuration,
+        pushUrl: String,
+        reviewQueue: Fusion.Queue,
+        review: Json.GitlabReviewState,
+        queued: Bool
+      ) {
+        self.cfg = cfg
+        self.pushUrl = pushUrl
+        self.reviewQueue = reviewQueue
+        self.review = review
+        self.queued = queued
+      }
+      public typealias Reply = Void
+    }
+  }
+  public struct Approval {
+    public var sanityTeam: String
+    public var teams: [String: Team]
+    public var emergencyTeam: String?
+    public struct Team {
     }
   }
 }
