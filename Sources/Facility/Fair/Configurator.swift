@@ -205,15 +205,6 @@ public final class Configurator {
     .reduce([String: Bool].self, dialect.read(_:from:))
     .get()
   }
-  public func resolveForbiddenCommits(
-    query: Configuration.ResolveForbiddenCommits
-  ) throws -> Configuration.ResolveForbiddenCommits.Reply { try query.cfg.profile.forbiddenCommits
-    .map(Git.File.make(asset:))
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String].self, dialect.read(_:from:))
-    .get()
-    .map(Git.Sha.init(value:))
-  }
   public func resolveReviewQueue(
     query: Fusion.Queue.Resolve
   ) throws -> Fusion.Queue.Resolve.Reply { try Id(query.fusion.queue)

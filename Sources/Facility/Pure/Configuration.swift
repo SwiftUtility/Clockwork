@@ -44,7 +44,6 @@ public struct Configuration {
     public var cocoapods: Lossy<Git.File>
     public var production: Lossy<Git.File>
     public var requisition: Lossy<Git.File>
-    public var forbiddenCommits: Lossy<Asset>
     public static func make(
       profile: Git.File,
       yaml: Yaml.Profile
@@ -89,11 +88,7 @@ public struct Configuration {
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
-        .get(.error(Thrown("requisition not configured"))),
-      forbiddenCommits: yaml.forbiddenCommits
-        .map(Asset.make(yaml:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("forbiddenCommits not configured")))
+        .get(.error(Thrown("requisition not configured")))
     )}
     public var sanityFiles: [String] {
       [
@@ -290,13 +285,6 @@ public struct Configuration {
       self.production = production
     }
     public typealias Reply = [String: String]
-  }
-  public struct ResolveForbiddenCommits: Query {
-    public var cfg: Configuration
-    public init(cfg: Configuration) {
-      self.cfg = cfg
-    }
-    public typealias Reply = [Git.Sha]
   }
   public struct PersistBuilds: Query {
     public var cfg: Configuration

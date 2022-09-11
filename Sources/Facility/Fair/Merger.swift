@@ -237,7 +237,7 @@ public final class Merger {
       if ctx.review.author.username != ctx.gitlab.botLogin { reasons.append(.configuration) }
       excludes = [.make(remote: merge.target), .make(sha: merge.fork)]
     }
-    let head = try Git.Sha(value: ctx.review.pipeline.sha)
+    let head = try Git.Sha(value: ctx.job.pipeline.sha)
     for branch in try listTrackingBranches(cfg: cfg) {
       guard fusion.targets.isMet(branch.name) else { continue }
       let base = try Execute.parseText(reply: execute(cfg.git.mergeBase(
@@ -290,19 +290,14 @@ public final class Merger {
       .map(Execute.parseText(reply:))
       .map(Git.Sha.init(value:))
       .get()
-    return target == parents[1]
+    return target == parents.end
   }
   func checkIsSquashed(
     cfg: Configuration,
     ctx: Worker.ParentReview,
     kind: Fusion.Kind
   ) throws -> Bool {
-    let sha: Git.Sha
-    switch kind {
-    case .proposition: return true
-    case .replication(let merge): sha = merge.fork
-    case .integration(let merge): sha = merge.fork
-    }
+    guard let sha = kind.merge?.fork else { return true }
     let parents = try Id(ctx.review.pipeline.sha)
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
@@ -414,7 +409,24 @@ public final class Merger {
     fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> Git.Sha {
-    #error("tbd")
+    guard let merge = kind.merge else { throw MayDay("Squashing proposition") }
+    let fork = Git.Ref.make(sha: merge.fork)
+    let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: fork)))
+    let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: fork)))
+    return try Git.Sha(value: Execute.parseText(reply: execute(cfg.git.commitTree(
+      tree: .init(ref: .make(sha: .init(value: ctx.job.pipeline.sha))),
+      message: generate(cfg.createFusionMergeCommitMessage(
+        fusion: fusion,
+        review: ctx.review
+      )),
+      parents: [fork, .make(remote: merge.target)],
+      env: Git.env(
+        authorName: name,
+        authorEmail: email,
+        commiterName: name,
+        commiterEmail: email
+      )
+    ))))
   }
   func squashApproves(
     cfg: Configuration,

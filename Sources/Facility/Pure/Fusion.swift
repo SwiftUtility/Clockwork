@@ -266,14 +266,14 @@ public struct Fusion {
     }
     public struct Approve {
       public var thread: String
+      public var commit: Git.Sha
       public var holders: [String]
-      public var feed: [String: [String: Git.Sha]]
+      public var feed: [String: [String: Bool]]
       public static func make(yaml: Yaml.Fusion.Approval.Approve) throws -> Self { try .init(
         thread: yaml.thread,
+        commit: .init(value: yaml.commit),
         holders: yaml.holders.get([]),
-        feed: yaml.feed
-          .get([:])
-          .mapValues { try $0.mapValues(Git.Sha.init(value:)) }
+        feed: yaml.feed.get([:])
       )}
     }
   }

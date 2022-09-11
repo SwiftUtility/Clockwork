@@ -13,7 +13,6 @@ public enum Yaml {
     public var requisition: String?
     public var fusion: String?
     public var context: Preset?
-    public var forbiddenCommits: Asset?
   }
   public struct GitlabCi: Decodable {
     public var botLogin: Secret
@@ -144,18 +143,20 @@ public enum Yaml {
       public var activity: Asset
       public struct Team: Decodable {
         public var quorum: Int
-        public var random: UInt?
         public var fragile: Bool
         public var selfish: Bool
+        public var label: String?
+        public var random: UInt?
         public var reserve: [String]?
         public var optional: [String]?
         public var required: [String]?
         public var authors: [String]?
       }
       public struct Approve: Decodable {
-        public var holders: [String]?
         public var thread: String
-        public var feed: [String: [String: String]]?
+        public var commit: String
+        public var holders: [String]?
+        public var feed: [String: [String: Bool]]?
       }
     }
   }
