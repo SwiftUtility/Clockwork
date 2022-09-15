@@ -5,6 +5,7 @@ public final class Merger {
   let execute: Try.Reply<Execute>
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let resolveApprovalStatuses: Try.Reply<Configuration.ResolveApprovalStatuses>
+  let persistApprovalStatuses: Try.Reply<Configuration.PersistApprovalStatuses>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Act.Reply<Report>
@@ -16,6 +17,7 @@ public final class Merger {
     execute: @escaping Try.Reply<Execute>,
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     resolveApprovalStatuses: @escaping Try.Reply<Configuration.ResolveApprovalStatuses>,
+    persistApprovalStatuses: @escaping Try.Reply<Configuration.PersistApprovalStatuses>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Act.Reply<Report>,
@@ -27,6 +29,7 @@ public final class Merger {
     self.execute = execute
     self.resolveFusion = resolveFusion
     self.resolveApprovalStatuses = resolveApprovalStatuses
+    self.persistApprovalStatuses = persistApprovalStatuses
     self.writeStdout = writeStdout
     self.generate = generate
     self.report = report
@@ -196,15 +199,25 @@ public final class Merger {
     fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> Fusion.Approval.Status {
-    let statuses = try resolveApprovalStatuses(.init(cfg: cfg, approval: fusion.approval))
-    let iid = "\(ctx.review.iid)"
-    var status: Fusion.Approval.Status
-    if let status = statuses[iid] { return status }
+    var statuses = try resolveApprovalStatuses(.init(cfg: cfg, approval: fusion.approval))
+    if let status = statuses[ctx.review.iid] { return status }
     let authors = try worker.resolveParticipants(cfg: cfg, ctx: ctx, kind: kind)
     let thread = try createStream(cfg.reportCreateReview(
       fusion: fusion,
       review: ctx.review,
       authors: authors
+    ))
+    let result = Fusion.Approval.Status.make(
+      thread: thread,
+      target: ctx.review.targetBranch,
+      authors: authors
+    )
+    statuses[ctx.review.iid] = result
+    try persistApprovalStatuses(.init(
+      cfg: cfg,
+      approval: fusion.approval,
+      review: ctx.review,
+      statuses: statuses
     ))
     return .make(thread: thread, target: ctx.review.targetBranch, authors: authors)
   }

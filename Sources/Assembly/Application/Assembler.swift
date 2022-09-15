@@ -67,6 +67,7 @@ enum Assembler {
     execute: execute,
     resolveFusion: configurator.resolveFusion(query:),
     resolveApprovalStatuses: configurator.resolveApprovalStatuses(query:),
+    persistApprovalStatuses: configurator.persistApprovalStatuses(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),

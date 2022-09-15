@@ -192,7 +192,29 @@ public final class Configurator {
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Yaml.Fusion.Approval.Status].self, dialect.read(_:from:))
     .get()
-    .mapValues(Fusion.Approval.Status.make(yaml:))
+    .reduce(into: [:]) {
+      try $0[UInt($1.key).get { throw Thrown("Bad approval asset") }] = .make(yaml: $1.value)
+    }
+  }
+  public func persistApprovalStatuses(
+    query: Configuration.PersistApprovalStatuses
+  ) throws -> Configuration.PersistApprovalStatuses.Reply {
+    let message = try generate(query.cfg.createApprovalStatusesCommitMessage(
+      asset: query.approval.statuses,
+      review: query.review
+    ))
+    try Execute.checkStatus(reply: execute(query.cfg.git.push(
+      url: query.cfg.gitlabCi.flatMap(\.pushUrl).get(),
+      branch: query.approval.statuses.branch,
+      sha: persist(
+        git: query.cfg.git,
+        file: query.approval.statuses.file,
+        branch: query.approval.statuses.branch,
+        yaml: Fusion.Approval.Status.yaml(statuses: query.statuses),
+        message: message
+      ),
+      force: false
+    )))
   }
   public func resolveUserActivity(
     query: Configuration.ResolveUserActivity

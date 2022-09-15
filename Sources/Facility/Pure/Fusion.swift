@@ -256,6 +256,33 @@ public struct Fusion {
         authors: .init(yaml.authors),
         review: yaml.review.map(Review.make(yaml:))
       )}
+      public static func yaml(statuses: [UInt: Self]) -> String {
+        var result = ""
+        for (key, value) in statuses.sorted(by: { $0.key < $1.key }) {
+          result += "'\(key)':\n"
+          result += "  thread:\n"
+          result += "    channel: '\(value.thread.channel)'\n"
+          result += "    ts: '\(value.thread.ts)'\n"
+          result += "  target: '\(value.target)'\n"
+          result += "  authors: [\(value.authors.map { "'\($0)'" }.joined(separator: ", "))]\n"
+          guard let review = value.review else { continue }
+          result += "  review:\n"
+          let randoms = review.randoms.sorted().map { "'\($0)'" }.joined(separator: ", ")
+          result += "    randoms: [\(randoms)]\n"
+          result += "    teams:\n"
+          for (key, value) in review.teams.sorted(by: { $0.key.value < $1.key.value }) {
+            let teams = value.sorted().map { "'\($0)'" }.joined(separator: ", ")
+            result += "      '\(key.value)': [\(teams)]\n"
+          }
+          result += "    approves:\n"
+          for (key, value) in review.approves.sorted(by: { $0.key < $1.key }) {
+            result += "      '\(key)':\n"
+            result += "        commit: '\(value.commit.value)'\n"
+            result += "        advance: \(value.advance.map { "\($0)" }.get("null"))\n"
+          }
+        }
+        return result.isEmpty.then("{}\n").get(result)
+      }
       public static func make(
         thread: Yaml.Thread,
         target: String,

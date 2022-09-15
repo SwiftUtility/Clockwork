@@ -236,7 +236,25 @@ public struct Configuration {
       self.cfg = cfg
       self.approval = approval
     }
-    public typealias Reply = [String : Fusion.Approval.Status]
+    public typealias Reply = [UInt: Fusion.Approval.Status]
+  }
+  public struct PersistApprovalStatuses: Query {
+    public var cfg: Configuration
+    public var approval: Fusion.Approval
+    public var review: Json.GitlabReviewState
+    public var statuses: [UInt : Fusion.Approval.Status]
+    public init(
+      cfg: Configuration,
+      approval: Fusion.Approval,
+      review: Json.GitlabReviewState,
+      statuses: [UInt : Fusion.Approval.Status]
+    ) {
+      self.cfg = cfg
+      self.approval = approval
+      self.review = review
+      self.statuses = statuses
+    }
+    public typealias Reply = Void
   }
   public struct ResolveUserActivity: Query {
     public var cfg: Configuration
