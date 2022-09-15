@@ -33,7 +33,7 @@ public final class Reporter {
     report(query: cfg.reportUnexpected(error: error))
     throw error
   }
-  public func createStream(query: Report.CreateStream) throws -> Report.CreateStream.Reply {
+  public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
     let token = try query.report.cfg.slackToken.get()
     let body = try generate(query.report.generate(template: query.template))
     let data = try Execute.parseData(reply: execute(query.report.cfg.curlSlack(

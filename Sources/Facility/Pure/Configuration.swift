@@ -133,16 +133,6 @@ public struct Configuration {
       createCommitMessage: .make(yaml: yaml.createCommitMessage)
     )}
   }
-  public struct Stream {
-    public var createBody: Template
-    public var signals: [String: [Signal]]
-    public static func make(yaml: Yaml.Stream) throws -> Self { try .init(
-      createBody: .make(yaml: yaml.createBody),
-      signals: yaml.signals
-        .get([:])
-        .mapValues { try $0.map(Signal.make(yaml:)) }
-    )}
-  }
   public struct Signal {
     public var method: String
     public var body: Template
@@ -236,18 +226,18 @@ public struct Configuration {
       self.cfg = cfg
       self.approval = approval
     }
-    public typealias Reply = [UInt: Fusion.Approval.Status]
+    public typealias Reply = [UInt: Fusion.Status]
   }
   public struct PersistApprovalStatuses: Query {
     public var cfg: Configuration
     public var approval: Fusion.Approval
     public var review: Json.GitlabReviewState
-    public var statuses: [UInt : Fusion.Approval.Status]
+    public var statuses: [UInt : Fusion.Status]
     public init(
       cfg: Configuration,
       approval: Fusion.Approval,
       review: Json.GitlabReviewState,
-      statuses: [UInt : Fusion.Approval.Status]
+      statuses: [UInt : Fusion.Status]
     ) {
       self.cfg = cfg
       self.approval = approval

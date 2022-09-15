@@ -3,15 +3,10 @@ import Facility
 public struct Report: Query {
   public var cfg: Configuration
   public var context: GenerationContext
-  public struct CreateStream: Query {
+  public struct CreateThread: Query {
     public var template: Configuration.Template
     public var report: Report
     public typealias Reply = Yaml.Thread
-  }
-  public struct UpdateStream: Query {
-    public var stream: Configuration.Stream
-    public var report: Report
-    public typealias Reply = Void
   }
   public typealias Reply = Void
   public func generate(template: Configuration.Template) -> Generate { .init(
@@ -25,6 +20,15 @@ public struct Report: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState
+    public var authors: [String]
+  }
+  public struct ReviewMergeConflicts: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Yaml.Thread
     public var review: Json.GitlabReviewState
     public var authors: [String]
   }
@@ -109,14 +113,6 @@ public struct Report: Query {
       case configuration
       case forkPoint
     }
-  }
-  public struct ReviewMergeConflicts: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
   }
   public struct ReviewMerged: GenerationContext {
     public var event: String = Self.event
@@ -276,8 +272,8 @@ public extension Configuration {
     fusion: Fusion,
     review: Json.GitlabReviewState,
     authors: [String]
-  ) -> Report.CreateStream { .init(
-    template: fusion.approval.stream.createBody,
+  ) -> Report.CreateThread { .init(
+    template: fusion.createThread,
     report: .init(cfg: self, context: Report.CreateReview(
       env: env,
       ctx: context,
@@ -286,6 +282,18 @@ public extension Configuration {
       authors: authors
     ))
   )}
+  func reportReviewMergeConflicts(
+    fusion: Fusion,
+    status: Fusion.Status,
+    review: Json.GitlabReviewState
+  ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: status.thread,
+    review: review,
+    authors: status.authors
+  ))}
   func reportCustom(
     event: String,
     stdin: [String]
@@ -371,17 +379,6 @@ public extension Configuration {
     users: .init(users)
       .union([review.author.username]),
     reasons: reasons
-  ))}
-  func reportReviewMergeConflicts(
-    review: Json.GitlabReviewState,
-    users: [String]
-  ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: .init(users)
-      .union([review.author.username])
   ))}
   func reportReviewMerged(
     review: Json.GitlabReviewState,

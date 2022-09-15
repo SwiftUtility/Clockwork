@@ -62,7 +62,7 @@ public enum Yaml {
       public var createAnnotation: Template
     }
     public struct ReleaseBranch: Decodable {
-      public var stream: Stream
+      public var createThread: Template
       public var createName: Template
       public var parseVersion: Template
     }
@@ -103,6 +103,7 @@ public enum Yaml {
   public struct Fusion: Decodable {
     public var queue: Asset
     public var approval: Approval
+    public var createThread: Template
     public var proposition: Proposition
     public var replication: Replication
     public var integration: Integration
@@ -123,7 +124,6 @@ public enum Yaml {
       public var exportAvailableTargets: Template
     }
     public struct Approval: Decodable {
-      public var stream: Stream
       public var sanity: String
       public var activity: Asset
       public var statuses: Asset
@@ -187,15 +187,11 @@ public enum Yaml {
     var include: [String]?
     var exclude: [String]?
   }
-  public struct Stream: Decodable {
-    public var createBody: Template
-    public var signals: [String: [Signal]]?
-  }
   public struct Signal: Decodable {
     public var method: String
     public var body: Template
   }
-  public struct Thread: Decodable {
+  public struct Thread: Codable {
     public var channel: String
     public var ts: String
   }

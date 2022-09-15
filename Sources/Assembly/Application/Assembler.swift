@@ -71,7 +71,7 @@ enum Assembler {
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
-    createStream: reporter.createStream(query:),
+    createThread: reporter.createThread(query:),
     logMessage: logger.logMessage(query:),
     worker: worker,
     jsonDecoder: jsonDecoder

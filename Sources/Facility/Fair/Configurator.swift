@@ -210,7 +210,7 @@ public final class Configurator {
         git: query.cfg.git,
         file: query.approval.statuses.file,
         branch: query.approval.statuses.branch,
-        yaml: Fusion.Approval.Status.yaml(statuses: query.statuses),
+        yaml: Fusion.Status.yaml(statuses: query.statuses),
         message: message
       ),
       force: false
