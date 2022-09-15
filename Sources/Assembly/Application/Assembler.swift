@@ -26,7 +26,6 @@ enum Assembler {
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
     logMessage: logger.logMessage(query:),
-    writeStdout: writeStdout,
     dialect: .json,
     jsonDecoder: jsonDecoder
   )
@@ -35,9 +34,7 @@ enum Assembler {
     execute: execute,
     resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
     resolveFileTaboos: configurator.resolveFileTaboos(query:),
-    resolveForbiddenCommits: configurator.resolveForbiddenCommits(query:),
     listFileLines: FileLiner.listFileLines(query:),
-    report: reporter.report(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -53,25 +50,27 @@ enum Assembler {
     getTime: Date.init,
     plistDecoder: .init()
   )
-  static let approver = Approver(
-    execute: execute,
-    resolveProfile: configurator.resolveProfile(query:),
-    resolveAwardApproval: configurator.resolveAwardApproval(query:),
-    resolveUserActivity: configurator.resolveUserActivity(query:),
-    resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
-    persistUserActivity: configurator.persistUserActivity(query:),
-    resolveFusion: configurator.resolveFusion(query:),
-    report: reporter.report(query:),
-    logMessage: logger.logMessage(query:),
-    worker: worker,
-    jsonDecoder: jsonDecoder
-  )
+//  static let approver = Approver(
+//    execute: execute,
+//    resolveProfile: configurator.resolveProfile(query:),
+//    resolveAwardApproval: configurator.resolveAwardApproval(query:),
+//    resolveUserActivity: configurator.resolveUserActivity(query:),
+//    resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
+//    persistUserActivity: configurator.persistUserActivity(query:),
+//    resolveFusion: configurator.resolveFusion(query:),
+//    report: reporter.report(query:),
+//    logMessage: logger.logMessage(query:),
+//    worker: worker,
+//    jsonDecoder: jsonDecoder
+//  )
   static let merger = Merger(
     execute: execute,
     resolveFusion: configurator.resolveFusion(query:),
+    resolveApprovalStatuses: configurator.resolveApprovalStatuses(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
+    createStream: reporter.createStream(query:),
     logMessage: logger.logMessage(query:),
     worker: worker,
     jsonDecoder: jsonDecoder

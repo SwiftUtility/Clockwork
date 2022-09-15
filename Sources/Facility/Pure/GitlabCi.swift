@@ -45,7 +45,7 @@ public struct GitlabCi {
       job: job.get(),
       jobToken: jobToken.get(env: env),
       botAuth: apiToken
-        .map { "Authorization: Bearer " + $0 },
+        .map { "Authorization: Bearer \($0)" },
       pushUrl: pushToken
         .map { pushToken in
           let scheme = try scheme.get(env: env)
@@ -241,13 +241,19 @@ public extension GitlabCi {
     guard let name = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics)
     else { return .error(MayDay("addingPercentEncoding failed")) }
     return .init(try .makeCurl(
+      verbose: verbose,
+      url: "\(url)/repository/branches",
+      method: "POST",
+      form: [
+        "branch=\(name)",
+        "ref=\(ref)",
+      ],
+      headers: [botAuth.get()]
+    ))
+  }
+  func getBranches() -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/repository/branches",
-    method: "POST",
-    form: [
-      "branch=\(name)",
-      "ref=\(ref)",
-    ],
     headers: [botAuth.get()]
   ))}
   struct PutMrState: Encodable {

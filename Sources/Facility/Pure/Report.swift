@@ -3,6 +3,16 @@ import Facility
 public struct Report: Query {
   public var cfg: Configuration
   public var context: GenerationContext
+  public struct CreateStream: Query {
+    public var template: Configuration.Template
+    public var report: Report
+    public typealias Reply = Yaml.Thread
+  }
+  public struct UpdateStream: Query {
+    public var stream: Configuration.Stream
+    public var report: Report
+    public typealias Reply = Void
+  }
   public typealias Reply = Void
   public func generate(template: Configuration.Template) -> Generate { .init(
     allowEmpty: true,
@@ -10,6 +20,17 @@ public struct Report: Query {
     templates: cfg.templates,
     context: context
   )}
+  public struct CreateReview: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState
+    public var authors: [String]
+  }
+
+
+
   public struct Custom: GenerationContext {
     public var event: String = Self.event
     public var subevent: String
@@ -251,6 +272,20 @@ public struct Report: Query {
   }
 }
 public extension Configuration {
+  func reportCreateReview(
+    fusion: Fusion,
+    review: Json.GitlabReviewState,
+    authors: [String]
+  ) -> Report.CreateStream { .init(
+    template: fusion.approval.stream.createBody,
+    report: .init(cfg: self, context: Report.CreateReview(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      review: review,
+      authors: authors
+    ))
+  )}
   func reportCustom(
     event: String,
     stdin: [String]

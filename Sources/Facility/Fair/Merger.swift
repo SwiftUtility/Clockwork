@@ -4,27 +4,33 @@ import FacilityPure
 public final class Merger {
   let execute: Try.Reply<Execute>
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
+  let resolveApprovalStatuses: Try.Reply<Configuration.ResolveApprovalStatuses>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Act.Reply<Report>
+  let createStream: Try.Reply<Report.CreateStream>
   let logMessage: Act.Reply<LogMessage>
   let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
+    resolveApprovalStatuses: @escaping Try.Reply<Configuration.ResolveApprovalStatuses>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Act.Reply<Report>,
+    createStream: @escaping Try.Reply<Report.CreateStream>,
     logMessage: @escaping Act.Reply<LogMessage>,
     worker: Worker,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.resolveFusion = resolveFusion
+    self.resolveApprovalStatuses = resolveApprovalStatuses
     self.writeStdout = writeStdout
     self.generate = generate
     self.report = report
+    self.createStream = createStream
     self.logMessage = logMessage
     self.worker = worker
     self.jsonDecoder = jsonDecoder
@@ -34,91 +40,97 @@ public final class Merger {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
     let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
-    guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
-      try pushReview(cfg: cfg, ctx: ctx, sha: rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion))
-      return false
-    }
-    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: kind) {
-      try closeReview(cfg: cfg, ctx: ctx)
-      throw Thrown(error)
-    }
-    guard try checkReviewErrors(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) else {
-      return false
-    }
-    guard try checkIsApproved() else {
-      return false
-    }
-    guard try checkIsSquashed(cfg: cfg, ctx: ctx, kind: kind) else {
-      let sha = try squashReview(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind)
-      try pushReview(cfg: cfg, ctx: ctx, sha: sha)
-      try squashApproves(cfg: cfg, ctx: ctx, fusion: fusion, sha: sha)
+    let thread = try resolveReviewStatus(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind)
 
-      return false
-    }
+
+//    guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
+//      try pushReview(cfg: cfg, ctx: ctx, sha: rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion))
+//      return false
+//    }
+//    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: kind) {
+//      try closeReview(cfg: cfg, ctx: ctx)
+//      throw Thrown(error)
+//    }
+//    guard try checkReviewErrors(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) else {
+//      return false
+//    }
+//    guard try checkIsApproved() else {
+//      return false
+//    }
+//    guard try checkIsSquashed(cfg: cfg, ctx: ctx, kind: kind) else {
+//      let sha = try squashReview(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind)
+//      try pushReview(cfg: cfg, ctx: ctx, sha: sha)
+//      try squashApproves(cfg: cfg, ctx: ctx, fusion: fusion, sha: sha)
+//
+//      return false
+//    }
     return true
+    #warning("tbd")
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
-    let fusion = try resolveFusion(.init(cfg: cfg))
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
-    let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
-    guard try checkIsRebased(cfg: cfg, ctx: ctx) else { return false }
-    guard try checkFusionErrors(cfg: cfg, fusion: fusion, kind: kind) == nil else { return false }
-    guard try checkReviewErrors(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) else { return false }
-    guard try checkIsApproved() else { return false }
-    guard try checkIsSquashed(cfg: cfg, ctx: ctx, kind: kind) else { return false }
-    switch kind {
-    case .proposition:
-      guard try acceptReview(cfg: cfg, ctx: ctx, message: generate(cfg.createPropositionCommitMessage(
-        proposition: fusion.proposition,
-        review: ctx.review
-      ))) else { return false }
-    case .replication(let merge):
-      guard try acceptReview(cfg: cfg, ctx: ctx, message: generate(cfg.createReplicationCommitMessage(
-        replication: fusion.replication,
-        merge: merge
-      ))) else { return false }
-      if let merge = try shiftReplication(cfg: cfg, merge: merge) {
-        try createReview(
-          cfg: cfg,
-          gitlab: ctx.gitlab,
-          merge: merge,
-          title: generate(cfg.createReplicationCommitMessage(
-            replication: fusion.replication,
-            merge: merge
-          ))
-        )
-      }
-    case .integration(let merge):
-      guard try acceptReview(cfg: cfg, ctx: ctx, message: generate(cfg.createIntegrationCommitMessage(
-        integration: fusion.integration,
-        merge: merge
-      ))) else { return false }
-    }
+//    let fusion = try resolveFusion(.init(cfg: cfg))
+//    let ctx = try worker.resolveParentReview(cfg: cfg)
+//    guard worker.isLastPipe(ctx: ctx) else { return false }
+//    let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
+//    guard try checkIsRebased(cfg: cfg, ctx: ctx) else { return false }
+//    guard try checkFusionErrors(cfg: cfg, fusion: fusion, kind: kind) == nil else { return false }
+//    guard try checkReviewErrors(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) else { return false }
+//    guard try checkIsApproved() else { return false }
+//    guard try checkIsSquashed(cfg: cfg, ctx: ctx, kind: kind) else { return false }
+//    switch kind {
+//    case .proposition:
+//      guard try acceptReview(cfg: cfg, ctx: ctx, message: generate(cfg.createPropositionCommitMessage(
+//        proposition: fusion.proposition,
+//        review: ctx.review
+//      ))) else { return false }
+//    case .replication(let merge):
+//      guard try acceptReview(cfg: cfg, ctx: ctx, message: generate(cfg.createReplicationCommitMessage(
+//        replication: fusion.replication,
+//        merge: merge
+//      ))) else { return false }
+//      if let merge = try shiftReplication(cfg: cfg, merge: merge) {
+//        try createReview(
+//          cfg: cfg,
+//          gitlab: ctx.gitlab,
+//          merge: merge,
+//          title: generate(cfg.createReplicationCommitMessage(
+//            replication: fusion.replication,
+//            merge: merge
+//          ))
+//        )
+//      }
+//    case .integration(let merge):
+//      guard try acceptReview(cfg: cfg, ctx: ctx, message: generate(cfg.createIntegrationCommitMessage(
+//        integration: fusion.integration,
+//        merge: merge
+//      ))) else { return false }
+//    }
+    #warning("tbd")
     return true
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let parent = try gitlabCi.parent.get()
-    let job = try gitlabCi.getJob(id: parent.job)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let fusion = try resolveFusion(.init(cfg: cfg))
-    let merge = try fusion.replication.makeMerge(source: job.pipeline.ref, fork: job.pipeline.sha)
-    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: .integration(merge)) {
-      logMessage(.init(message: error))
-      return false
-    }
-    try createReview(
-      cfg: cfg,
-      gitlab: cfg.gitlabCi.get(),
-      merge: merge,
-      title: generate(cfg.createReplicationCommitMessage(
-        replication: fusion.replication,
-        merge: merge
-      ))
-    )
+//    let gitlabCi = try cfg.gitlabCi.get()
+//    let parent = try gitlabCi.parent.get()
+//    let job = try gitlabCi.getJob(id: parent.job)
+//      .map(execute)
+//      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
+//      .get()
+//    let fusion = try resolveFusion(.init(cfg: cfg))
+//    let merge = try fusion.replication.makeMerge(source: job.pipeline.ref, fork: job.pipeline.sha)
+//    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: .integration(merge)) {
+//      logMessage(.init(message: error))
+//      return false
+//    }
+//    try createReview(
+//      cfg: cfg,
+//      gitlab: cfg.gitlabCi.get(),
+//      merge: merge,
+//      title: generate(cfg.createReplicationCommitMessage(
+//        replication: fusion.replication,
+//        merge: merge
+//      ))
+//    )
+    #warning("tbd")
     return true
   }
   public func startIntegration(
@@ -127,89 +139,110 @@ public final class Merger {
     target: String,
     fork: String
   ) throws -> Bool {
-    let fusion = try resolveFusion(.init(cfg: cfg))
-    let merge = try fusion.integration.makeMerge(target: target, source: source, fork: fork)
-    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: .integration(merge)) {
-      logMessage(.init(message: error))
-      return false
-    }
-    try createReview(
-      cfg: cfg,
-      gitlab: cfg.gitlabCi.get(),
-      merge: merge,
-      title: generate(cfg.createIntegrationCommitMessage(
-        integration: fusion.integration,
-        merge: merge
-      ))
-    )
+//    let fusion = try resolveFusion(.init(cfg: cfg))
+//    let merge = try fusion.integration.makeMerge(target: target, source: source, fork: fork)
+//    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: .integration(merge)) {
+//      logMessage(.init(message: error))
+//      return false
+//    }
+//    try createReview(
+//      cfg: cfg,
+//      gitlab: cfg.gitlabCi.get(),
+//      merge: merge,
+//      title: generate(cfg.createIntegrationCommitMessage(
+//        integration: fusion.integration,
+//        merge: merge
+//      ))
+//    )
+    #warning("tbd")
     return true
   }
   public func renderIntegration(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let parent = try gitlabCi.parent.get()
-    let job = try gitlabCi.getJob(id: parent.job)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let fusion = try resolveFusion(.init(cfg: cfg))
-    let fork = try Git.Sha(value: job.pipeline.sha)
-    let source = try Git.Branch(name: job.pipeline.ref)
-    let rules = try fusion.integration.rules
-      .filter { $0.source.isMet(source.name) }
-      .mapEmpty { throw Thrown("Integration for \(source.name) not configured") }
-    var targets: [String] = []
-    for target in try listTrackingBranches(cfg: cfg) {
-      guard fusion.targets.isMet(target.name) else { continue }
-      guard rules.contains(where: { $0.target.isMet(target.name) }) else { continue }
-      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: target),
-        parent: .make(sha: fork)
-      ))) else { continue }
-      targets.append(target.name)
-    }
-    guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-    try writeStdout(generate(cfg.exportIntegrationTargets(
-      integration: fusion.integration,
-      fork: fork,
-      source: source.name,
-      targets: targets
-    )))
+//    let gitlabCi = try cfg.gitlabCi.get()
+//    let parent = try gitlabCi.parent.get()
+//    let job = try gitlabCi.getJob(id: parent.job)
+//      .map(execute)
+//      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
+//      .get()
+//    let fusion = try resolveFusion(.init(cfg: cfg))
+//    let fork = try Git.Sha(value: job.pipeline.sha)
+//    let source = try Git.Branch(name: job.pipeline.ref)
+//    let rules = try fusion.integration.rules
+//      .filter { $0.source.isMet(source.name) }
+//      .mapEmpty { throw Thrown("Integration for \(source.name) not configured") }
+//    var targets: [String] = []
+//    for target in try listTrackingBranches(cfg: cfg) {
+//      guard fusion.targets.isMet(target.name) else { continue }
+//      guard rules.contains(where: { $0.target.isMet(target.name) }) else { continue }
+//      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
+//        child: .make(remote: target),
+//        parent: .make(sha: fork)
+//      ))) else { continue }
+//      targets.append(target.name)
+//    }
+//    guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
+//    try writeStdout(generate(cfg.exportIntegrationTargets(
+//      integration: fusion.integration,
+//      fork: fork,
+//      source: source.name,
+//      targets: targets
+//    )))
+    #warning("tbd")
     return true
+  }
+  func resolveReviewStatus(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    fusion: Fusion,
+    kind: Fusion.Kind
+  ) throws -> Fusion.Approval.Status {
+    let statuses = try resolveApprovalStatuses(.init(cfg: cfg, approval: fusion.approval))
+    let iid = "\(ctx.review.iid)"
+    var status: Fusion.Approval.Status
+    if let status = statuses[iid] { return status }
+    let authors = try worker.resolveParticipants(cfg: cfg, ctx: ctx, kind: kind)
+    let thread = try createStream(cfg.reportCreateReview(
+      fusion: fusion,
+      review: ctx.review,
+      authors: authors
+    ))
+    return .make(thread: thread, target: ctx.review.targetBranch, authors: authors)
   }
   func checkFusionErrors(
     cfg: Configuration,
     fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> String? {
-    switch kind {
-    case .proposition(let rule):
-      guard rule != nil else { return "No rule for branch" }
-    case .replication(let merge):
-      guard fusion.targets.isMet(merge.target.name)
-      else { return "Target blocked by fusion configuration" }
-      guard fusion.replication.source.isMet(merge.source.name)
-      else { return "Source blocked by replication configuration" }
-      guard merge.target.name == fusion.replication.target
-      else { return "Target blocked by replication configuration" }
-      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: merge.target),
-        parent: .make(sha: merge.fork)
-      ))) else { return "Replication fork already merged" }
-      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: merge.target),
-        parent: .make(sha: merge.fork).make(parent: 1)
-      ))) else { return "Replication fork parent is not merged" }
-    case .integration(let merge):
-      guard fusion.targets.isMet(merge.target.name)
-      else { return "Target blocked by fusion configuration" }
-      guard fusion.integration.rules.contains(where: { rule in
-        rule.target.isMet(merge.target.name) && rule.source.isMet(merge.source.name)
-      }) else { return "Source or target blocked by integration configuration" }
-      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: merge.target),
-        parent: .make(sha: merge.fork)
-      ))) else { return "Integration fork already merged" }
-    }
+//    switch kind {
+//    case .proposition(let rule):
+//      guard rule != nil else { return "No rule for branch" }
+//    case .replication(let merge):
+//      guard fusion.targets.isMet(merge.target.name)
+//      else { return "Target blocked by fusion configuration" }
+//      guard fusion.replication.source.isMet(merge.source.name)
+//      else { return "Source blocked by replication configuration" }
+//      guard merge.target.name == fusion.replication.target
+//      else { return "Target blocked by replication configuration" }
+//      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
+//        child: .make(remote: merge.target),
+//        parent: .make(sha: merge.fork)
+//      ))) else { return "Replication fork already merged" }
+//      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+//        child: .make(remote: merge.target),
+//        parent: .make(sha: merge.fork).make(parent: 1)
+//      ))) else { return "Replication fork parent is not merged" }
+//    case .integration(let merge):
+//      guard fusion.targets.isMet(merge.target.name)
+//      else { return "Target blocked by fusion configuration" }
+//      guard fusion.integration.rules.contains(where: { rule in
+//        rule.target.isMet(merge.target.name) && rule.source.isMet(merge.source.name)
+//      }) else { return "Source or target blocked by integration configuration" }
+//      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
+//        child: .make(remote: merge.target),
+//        parent: .make(sha: merge.fork)
+//      ))) else { return "Integration fork already merged" }
+//    }
+    #warning("tbd")
     return nil
   }
   func checkReviewErrors(
@@ -218,55 +251,56 @@ public final class Merger {
     fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> Bool {
-    var reasons: [Report.ReviewBlocked.Reason] = []
-    if ctx.review.draft { reasons.append(.draft) }
-    if ctx.review.workInProgress { reasons.append(.workInProgress) }
-    if !ctx.review.blockingDiscussionsResolved { reasons.append(.blockingDiscussions) }
-    let excludes: [Git.Ref]
-    switch kind {
-    case .proposition(let rule):
-      if !ctx.review.squash { reasons.append(.squashStatus) }
-      if !fusion.targets.isMet(ctx.review.targetBranch) { reasons.append(.badTarget) }
-      if let rule = rule {
-        if !rule.title.isMet(ctx.review.title) { reasons.append(.badTitle) }
-      } else { reasons.append(.configuration) }
-      try excludes = [.make(remote: .init(name: ctx.review.targetBranch))]
-    case .replication(let merge), .integration(let merge):
-      if ctx.review.squash { reasons.append(.squashStatus) }
-      if ctx.review.targetBranch != merge.target.name { reasons.append(.badTarget) }
-      if ctx.review.author.username != ctx.gitlab.botLogin { reasons.append(.configuration) }
-      excludes = [.make(remote: merge.target), .make(sha: merge.fork)]
-    }
-    let head = try Git.Sha(value: ctx.job.pipeline.sha)
-    for branch in try listTrackingBranches(cfg: cfg) {
-      guard fusion.targets.isMet(branch.name) else { continue }
-      let base = try Execute.parseText(reply: execute(cfg.git.mergeBase(
-        .make(remote: branch),
-        .make(sha: head)
-      )))
-      let extras = try Execute.parseLines(reply: execute(cfg.git.listCommits(
-        in: [.make(sha: .init(value: base))],
-        notIn: excludes,
-        noMerges: false,
-        firstParents: false
-      )))
-      guard !extras.isEmpty else { continue }
-      reasons.append(.forkPoint)
-      break
-    }
-    guard reasons.isEmpty else {
-      try report(cfg.reportReviewBlocked(
-        review: ctx.review,
-        users: worker.resolveParticipants(
-          cfg: cfg,
-          gitlabCi: ctx.gitlab,
-          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
-          target: .make(remote: .init(name: ctx.review.targetBranch))
-        ),
-        reasons: reasons
-      ))
-      return false
-    }
+//    var reasons: [Report.ReviewBlocked.Reason] = []
+//    if ctx.review.draft { reasons.append(.draft) }
+//    if ctx.review.workInProgress { reasons.append(.workInProgress) }
+//    if !ctx.review.blockingDiscussionsResolved { reasons.append(.blockingDiscussions) }
+//    let excludes: [Git.Ref]
+//    switch kind {
+//    case .proposition(let rule):
+//      if !ctx.review.squash { reasons.append(.squashStatus) }
+//      if !fusion.targets.isMet(ctx.review.targetBranch) { reasons.append(.badTarget) }
+//      if let rule = rule {
+//        if !rule.title.isMet(ctx.review.title) { reasons.append(.badTitle) }
+//      } else { reasons.append(.configuration) }
+//      try excludes = [.make(remote: .init(name: ctx.review.targetBranch))]
+//    case .replication(let merge), .integration(let merge):
+//      if ctx.review.squash { reasons.append(.squashStatus) }
+//      if ctx.review.targetBranch != merge.target.name { reasons.append(.badTarget) }
+//      if ctx.review.author.username != ctx.gitlab.botLogin { reasons.append(.configuration) }
+//      excludes = [.make(remote: merge.target), .make(sha: merge.fork)]
+//    }
+//    let head = try Git.Sha(value: ctx.job.pipeline.sha)
+//    for branch in try listTrackingBranches(cfg: cfg) {
+//      guard fusion.targets.isMet(branch.name) else { continue }
+//      let base = try Execute.parseText(reply: execute(cfg.git.mergeBase(
+//        .make(remote: branch),
+//        .make(sha: head)
+//      )))
+//      let extras = try Execute.parseLines(reply: execute(cfg.git.listCommits(
+//        in: [.make(sha: .init(value: base))],
+//        notIn: excludes,
+//        noMerges: false,
+//        firstParents: false
+//      )))
+//      guard !extras.isEmpty else { continue }
+//      reasons.append(.forkPoint)
+//      break
+//    }
+//    guard reasons.isEmpty else {
+//      try report(cfg.reportReviewBlocked(
+//        review: ctx.review,
+//        users: worker.resolveParticipants(
+//          cfg: cfg,
+//          gitlabCi: ctx.gitlab,
+//          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
+//          target: .make(remote: .init(name: ctx.review.targetBranch))
+//        ),
+//        reasons: reasons
+//      ))
+//      return false
+//    }
+    #warning("tbd")
     return true
   }
   func checkIsRebased(
@@ -317,7 +351,8 @@ public final class Merger {
     return parents == [sha, target]
   }
   func checkIsApproved() throws -> Bool {
-    #error("tbd")
+//    #error("tbd")
+    return false
   }
   func listTrackingBranches(cfg: Configuration) throws -> [Git.Branch] {
     var result: [Git.Branch] = []
@@ -384,24 +419,25 @@ public final class Merger {
     ctx: Worker.ParentReview,
     sha: Git.Sha?
   ) throws {
-    if let sha = sha {
-      try Execute.checkStatus(reply: execute(cfg.git.push(
-        url: ctx.gitlab.pushUrl.get(),
-        branch: .init(name: ctx.review.sourceBranch),
-        sha: sha,
-        force: false
-      )))
-    } else {
-      try report(cfg.reportReviewMergeConflicts(
-        review: ctx.review,
-        users: worker.resolveParticipants(
-          cfg: cfg,
-          gitlabCi: ctx.gitlab,
-          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
-          target: .make(remote: .init(name: ctx.review.targetBranch))
-        )
-      ))
-    }
+    #warning("tbd")
+//    if let sha = sha {
+//      try Execute.checkStatus(reply: execute(cfg.git.push(
+//        url: ctx.gitlab.pushUrl.get(),
+//        branch: .init(name: ctx.review.sourceBranch),
+//        sha: sha,
+//        force: false
+//      )))
+//    } else {
+//      try report(cfg.reportReviewMergeConflicts(
+//        review: ctx.review,
+//        users: worker.resolveParticipants(
+//          cfg: cfg,
+//          gitlabCi: ctx.gitlab,
+//          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
+//          target: .make(remote: .init(name: ctx.review.targetBranch))
+//        )
+//      ))
+//    }
   }
   func squashReview(
     cfg: Configuration,
@@ -434,7 +470,7 @@ public final class Merger {
     fusion: Fusion,
     sha: Git.Sha
   ) throws {
-    #error("tbd")
+//    #error("tbd")
   }
   func closeReview(cfg: Configuration, ctx: Worker.ParentReview) throws {
     try ctx.gitlab
@@ -456,65 +492,70 @@ public final class Merger {
     ctx: Worker.ParentReview,
     message: String
   ) throws -> Bool {
-    let result = try ctx.gitlab
-      .putMrMerge(
-        parameters: .init(
-          mergeCommitMessage: message,
-          squashCommitMessage: message,
-          squash: ctx.review.squash,
-          shouldRemoveSourceBranch: true,
-          sha: .init(value: ctx.review.pipeline.sha)
-        ),
-        review: ctx.review.iid
-      )
-      .map(execute)
-      .map(\.data)
-      .get()
-      .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
-    if case "merged"? = result?.map?["state"]?.value?.string {
-      logMessage(.init(message: "Review merged"))
-      try report(cfg.reportReviewMerged(
-        review: ctx.review,
-        users: worker.resolveParticipants(
-          cfg: cfg,
-          gitlabCi: ctx.gitlab,
-          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
-          target: .make(remote: .init(name: ctx.review.targetBranch))
-        )
-      ))
-      return true
-    } else if let message = result?.map?["message"]?.value?.string {
-      logMessage(.init(message: message))
-      try report(cfg.reportReviewMergeError(
-        review: ctx.review,
-        users: worker.resolveParticipants(
-          cfg: cfg,
-          gitlabCi: ctx.gitlab,
-          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
-          target: .make(remote: .init(name: ctx.review.targetBranch))
-        ),
-        error: message
-      ))
-      return false
-    } else {
-      throw MayDay("Unexpected merge response")
-    }
+    #warning("tbd")
+    return false
+//    let result = try ctx.gitlab
+//      .putMrMerge(
+//        parameters: .init(
+//          mergeCommitMessage: message,
+//          squashCommitMessage: message,
+//          squash: ctx.review.squash,
+//          shouldRemoveSourceBranch: true,
+//          sha: .init(value: ctx.review.pipeline.sha)
+//        ),
+//        review: ctx.review.iid
+//      )
+//      .map(execute)
+//      .map(\.data)
+//      .get()
+//      .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
+//    if case "merged"? = result?.map?["state"]?.value?.string {
+//      logMessage(.init(message: "Review merged"))
+//      try report(cfg.reportReviewMerged(
+//        review: ctx.review,
+//        users: worker.resolveParticipants(
+//          cfg: cfg,
+//          gitlabCi: ctx.gitlab,
+//          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
+//          target: .make(remote: .init(name: ctx.review.targetBranch))
+//        )
+//      ))
+//      return true
+//    } else if let message = result?.map?["message"]?.value?.string {
+//      logMessage(.init(message: message))
+//      try report(cfg.reportReviewMergeError(
+//        review: ctx.review,
+//        users: worker.resolveParticipants(
+//          cfg: cfg,
+//          gitlabCi: ctx.gitlab,
+//          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
+//          target: .make(remote: .init(name: ctx.review.targetBranch))
+//        ),
+//        error: message
+//      ))
+//      return false
+//    } else {
+//      throw MayDay("Unexpected merge response")
+//    }
   }
   func shiftReplication(
     cfg: Configuration,
     merge: Fusion.Merge
-  ) throws -> Fusion.Merge? { try Id
-    .make(cfg.git.listCommits(
-      in: [.make(remote: merge.source)],
-      notIn: [.make(sha: merge.fork)],
-      noMerges: false,
-      firstParents: true
-    ))
-    .map(execute)
-    .map(Execute.parseLines(reply:))
-    .get()
-    .last
-    .map(merge.changing(fork:))
+  ) throws -> Fusion.Merge? {
+    let fork = try Id
+      .make(cfg.git.listCommits(
+        in: [.make(remote: merge.source)],
+        notIn: [.make(sha: merge.fork)],
+        noMerges: false,
+        firstParents: true
+      ))
+      .map(execute)
+      .map(Execute.parseLines(reply:))
+      .get()
+      .last
+      .map(Git.Sha.init(value:))
+    guard let fork = fork else { return nil }
+    return try .make(fork: fork, source: merge.source, target: merge.target, isReplication: true)
   }
   func createReview(
     cfg: Configuration,

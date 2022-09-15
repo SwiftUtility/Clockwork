@@ -24,6 +24,8 @@ public final class Validator {
     self.jsonDecoder = jsonDecoder
   }
   public func validateUnownedCode(cfg: Configuration) throws -> Bool {
+    guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
+    else { throw Thrown("Git is dirty") }
     let approvals = try resolveCodeOwnage(.init(cfg: cfg, profile: cfg.profile)).values
     var result = true
     for file in try Execute.parseLines(reply: execute(cfg.git.listAllTrackedFiles(ref: .head))) {
@@ -34,9 +36,9 @@ public final class Validator {
     return result
   }
   public func validateFileTaboos(cfg: Configuration) throws -> Bool {
-    let rules = try resolveFileTaboos(.init(cfg: cfg, profile: cfg.profile))
     guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
     else { throw Thrown("Git is dirty") }
+    let rules = try resolveFileTaboos(.init(cfg: cfg, profile: cfg.profile))
     let nameRules = rules.filter(\.lines.isEmpty)
     let lineRules = rules.filter(\.lines.isEmpty.not)
     let files = try Execute.parseLines(reply: execute(cfg.git.listAllTrackedFiles(ref: .head)))
@@ -60,16 +62,16 @@ public final class Validator {
     }}
     return result
   }
-  public func validateReviewConflictMarkers(cfg: Configuration, target: String) throws -> Bool {
-    let head = try Execute.parseText(reply: execute(cfg.git.getSha(ref: .head)))
-    let base = try Execute.parseText(reply: execute(cfg.git.mergeBase(
-      .head,
-        .make(remote: .init(name: target))
-    )))
+  public func validateReviewConflictMarkers(cfg: Configuration, base: String) throws -> Bool {
+    guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
+    else { throw Thrown("Git is dirty") }
+    let initial = try Execute.parseText(reply: execute(cfg.git.getSha(ref: .head)))
     try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: .make(sha: .init(value: base)))))
     let markers = try Execute.parseLines(reply: execute(cfg.git.listConflictMarkers))
     markers.forEach { logMessage(.init(message: $0)) }
-    try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: .make(sha: .init(value: head)))))
+    try Execute.checkStatus(reply: execute(cfg.git.resetHard(
+      ref: .make(sha: .init(value: initial))
+    )))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     return markers.isEmpty
   }

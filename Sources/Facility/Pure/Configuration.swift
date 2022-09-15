@@ -133,10 +133,10 @@ public struct Configuration {
       createCommitMessage: .make(yaml: yaml.createCommitMessage)
     )}
   }
-  public struct Thread {
+  public struct Stream {
     public var createBody: Template
     public var signals: [String: [Signal]]
-    public static func make(yaml: Yaml.Thread) throws -> Self { try .init(
+    public static func make(yaml: Yaml.Stream) throws -> Self { try .init(
       createBody: .make(yaml: yaml.createBody),
       signals: yaml.signals
         .get([:])
@@ -229,14 +229,14 @@ public struct Configuration {
     }
     public typealias Reply = Void
   }
-  public struct ResolveApproves: Query {
+  public struct ResolveApprovalStatuses: Query {
     public var cfg: Configuration
     public var approval: Fusion.Approval
     public init(cfg: Configuration, approval: Fusion.Approval) {
       self.cfg = cfg
       self.approval = approval
     }
-    public typealias Reply = [String : Fusion.Approval.Approve]
+    public typealias Reply = [String : Fusion.Approval.Status]
   }
   public struct ResolveUserActivity: Query {
     public var cfg: Configuration

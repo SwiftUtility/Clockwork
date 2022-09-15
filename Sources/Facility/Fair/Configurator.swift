@@ -9,7 +9,6 @@ public final class Configurator {
   let generate: Try.Reply<Generate>
   let writeFile: Try.Reply<Files.WriteFile>
   let logMessage: Act.Reply<LogMessage>
-  let writeStdout: Act.Of<String>.Go
   let dialect: AnyCodable.Dialect
   let jsonDecoder: JSONDecoder
   public init(
@@ -20,7 +19,6 @@ public final class Configurator {
     generate: @escaping Try.Reply<Generate>,
     writeFile: @escaping Try.Reply<Files.WriteFile>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    writeStdout: @escaping Act.Of<String>.Go,
     dialect: AnyCodable.Dialect,
     jsonDecoder: JSONDecoder
   ) {
@@ -31,7 +29,6 @@ public final class Configurator {
     self.generate = generate
     self.writeFile = writeFile
     self.logMessage = logMessage
-    self.writeStdout = writeStdout
     self.dialect = dialect
     self.jsonDecoder = jsonDecoder
   }
@@ -188,14 +185,14 @@ public final class Configurator {
       data: .init(query.cocoapods.yaml.utf8)
     ))
   }
-  public func resolveApproves(
-    query: Configuration.ResolveApproves
-  ) throws -> Configuration.ResolveApproves.Reply { try Id(query.approval.approves)
+  public func resolveApprovalStatuses(
+    query: Configuration.ResolveApprovalStatuses
+  ) throws -> Configuration.ResolveApprovalStatuses.Reply { try Id(query.approval.statuses)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Yaml.Fusion.Approval.Approve].self, dialect.read(_:from:))
+    .reduce([String: Yaml.Fusion.Approval.Status].self, dialect.read(_:from:))
     .get()
-    .mapValues(Fusion.Approval.Approve.make(yaml:))
+    .mapValues(Fusion.Approval.Status.make(yaml:))
   }
   public func resolveUserActivity(
     query: Configuration.ResolveUserActivity

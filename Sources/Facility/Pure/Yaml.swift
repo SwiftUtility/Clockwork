@@ -62,7 +62,7 @@ public enum Yaml {
       public var createAnnotation: Template
     }
     public struct ReleaseBranch: Decodable {
-      public var thread: Thread
+      public var stream: Stream
       public var createName: Template
       public var parseVersion: Template
     }
@@ -81,7 +81,7 @@ public enum Yaml {
       public var version: String?
     }
     public struct Release: Decodable {
-      public var thread: String
+      public var thread: Thread
       public var product: String
       public var version: String
     }
@@ -102,8 +102,7 @@ public enum Yaml {
   }
   public struct Fusion: Decodable {
     public var queue: Asset
-    public var targets: Criteria
-    public var approval: Approval?
+    public var approval: Approval
     public var proposition: Proposition
     public var replication: Replication
     public var integration: Integration
@@ -117,46 +116,56 @@ public enum Yaml {
       }
     }
     public struct Replication: Decodable {
-      public var target: String
-      public var prefix: String
-      public var source: Criteria
       public var createCommitMessage: Template
     }
     public struct Integration: Decodable {
-      public var rules: [Rule]
-      public var prefix: String
       public var createCommitMessage: Template
       public var exportAvailableTargets: Template
-      public struct Rule: Decodable {
-        public var source: Criteria
-        public var target: Criteria
-      }
     }
     public struct Approval: Decodable {
-      public var thread: Thread
-      public var sanityTeam: String
-      public var emergencyTeam: String
-      public var sourceBranch: [String: Criteria]?
-      public var targetBranch: [String: Criteria]?
-      public var teams: Preset
-      public var approves: Asset
+      public var stream: Stream
+      public var sanity: String
       public var activity: Asset
-      public struct Team: Decodable {
-        public var quorum: Int
-        public var fragile: Bool
-        public var selfish: Bool
-        public var label: String?
-        public var random: UInt?
-        public var reserve: [String]?
-        public var optional: [String]?
-        public var required: [String]?
-        public var authors: [String]?
+      public var statuses: Asset
+      public var approvers: Preset
+      public struct Approvers: Decodable {
+        public var emergency: String
+        public var randoms: Randoms
+        public var teams: [String: Team]
+        public var authorship: [String: [String]]?
+        public var sourceBranch: [String: Criteria]?
+        public var targetBranch: [String: Criteria]?
+        public struct Team: Decodable {
+          public var quorum: Int
+          public var advanceApproval: Bool
+          public var selfApproval: Bool
+          public var label: String?
+          public var reserve: [String]?
+          public var optional: [String]?
+          public var required: [String]?
+        }
+        public struct Randoms: Decodable {
+          public var minQuorum: Int
+          public var maxQuorum: Int
+          public var baseWeight: Int
+          public var weights: [String: Int]?
+          public var advanceApproval: Bool
+        }
       }
-      public struct Approve: Decodable {
-        public var thread: String
-        public var commit: String
-        public var holders: [String]?
-        public var feed: [String: [String: Bool]]?
+      public struct Status: Decodable {
+        public var thread: Thread
+        public var target: String
+        public var authors: [String]
+        public var review: Review?
+        public struct Review: Decodable {
+          public var randoms: [String]
+          public var teams: [String: [String]]
+          public var approves: [String: Approve]
+          public struct Approve: Decodable {
+            public var commit: String
+            public var advance: Bool?
+          }
+        }
       }
     }
   }
@@ -178,13 +187,17 @@ public enum Yaml {
     var include: [String]?
     var exclude: [String]?
   }
-  public struct Thread: Decodable {
+  public struct Stream: Decodable {
     public var createBody: Template
     public var signals: [String: [Signal]]?
   }
   public struct Signal: Decodable {
     public var method: String
     public var body: Template
+  }
+  public struct Thread: Decodable {
+    public var channel: String
+    public var ts: String
   }
   public struct Template: Decodable {
     public var name: String?

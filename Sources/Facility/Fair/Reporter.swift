@@ -33,6 +33,17 @@ public final class Reporter {
     report(query: cfg.reportUnexpected(error: error))
     throw error
   }
+  public func createStream(query: Report.CreateStream) throws -> Report.CreateStream.Reply {
+    let token = try query.report.cfg.slackToken.get()
+    let body = try generate(query.report.generate(template: query.template))
+    let data = try Execute.parseData(reply: execute(query.report.cfg.curlSlack(
+      token: token,
+      method: "chat.postMessage",
+      body: body
+    )))
+    self.report(query: query.report)
+    return try jsonDecoder.decode(Yaml.Thread.self, from: data)
+  }
   public func reportCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
     let stdin = try stdin
       .then(readStdin())
@@ -42,22 +53,24 @@ public final class Reporter {
     return true
   }
   public func reportReviewCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
-    let stdin = try stdin
-      .then(readStdin())
-      .map(Execute.parseLines(reply:))
-      .get([])
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    try report(query: cfg.reportReviewCustom(
-      event: event,
-      review: ctx.review,
-      users: worker.resolveParticipants(
-        cfg: cfg,
-        gitlabCi: ctx.gitlab,
-        source: .make(sha: .init(value: ctx.job.pipeline.sha)),
-        target: .make(remote: .init(name: ctx.review.targetBranch))
-      ),
-      stdin: stdin))
-    return true
+    #warning("tbc")
+    return false
+//    let stdin = try stdin
+//      .then(readStdin())
+//      .map(Execute.parseLines(reply:))
+//      .get([])
+//    let ctx = try worker.resolveParentReview(cfg: cfg)
+//    try report(query: cfg.reportReviewCustom(
+//      event: event,
+//      review: ctx.review,
+//      users: worker.resolveParticipants(
+//        cfg: cfg,
+//        gitlabCi: ctx.gitlab,
+//        source: .make(sha: .init(value: ctx.job.pipeline.sha)),
+//        target: .make(remote: .init(name: ctx.review.targetBranch))
+//      ),
+//      stdin: stdin))
+//    return true
   }
   public func report(query: Report) -> Report.Reply {
     let token: String

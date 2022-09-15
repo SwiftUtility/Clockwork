@@ -2,8 +2,7 @@ import Foundation
 import Facility
 public struct Fusion {
   public var queue: Configuration.Asset
-  public var targets: Criteria
-  public var approval: Approval?
+  public var approval: Approval
   public var proposition: Proposition
   public var replication: Replication
   public var integration: Integration
@@ -17,24 +16,20 @@ public struct Fusion {
     }
   }
   public func makeKind(supply: String) throws -> Kind {
-    guard replication.prefix != integration.prefix else {
-      throw Thrown("Prefix for replication and integration must be different")
-    }
     guard let merge = try Merge.make(supply: supply) else {
       let rules = proposition.rules.filter { $0.source.isMet(supply) }
       guard rules.count < 2 else { throw Thrown("\(supply) matches multiple proposition rules") }
       return .proposition(rules.first)
     }
-    if merge.prefix == replication.prefix { return .replication(merge) }
-    if merge.prefix == integration.prefix { return .integration(merge) }
+    if merge.prefix == "replicate" { return .replication(merge) }
+    if merge.prefix == "integrate" { return .integration(merge) }
     throw Thrown("\(supply) prefix not configured")
   }
   public static func make(
     yaml: Yaml.Fusion
   ) throws -> Self { try .init(
     queue: .make(yaml: yaml.queue),
-    targets: .init(yaml: yaml.targets),
-    approval: yaml.approval.map(Approval.make(yaml:)),
+    approval: .make(yaml: yaml.approval),
     proposition: .init(
       createCommitMessage: .make(yaml: yaml.proposition.createCommitMessage),
       rules: yaml.proposition.rules
@@ -44,18 +39,9 @@ public struct Fusion {
         )}
     ),
     replication: .init(
-      target: yaml.replication.target,
-      prefix: yaml.replication.prefix,
-      source: .init(yaml: yaml.replication.source),
       createCommitMessage: .make(yaml: yaml.replication.createCommitMessage)
     ),
     integration: .init(
-      rules: yaml.integration.rules
-        .map { yaml in try .init(
-          source: .init(yaml: yaml.source),
-          target: .init(yaml: yaml.target)
-        )},
-      prefix: yaml.integration.prefix,
       createCommitMessage: .make(yaml: yaml.integration.createCommitMessage),
       exportAvailableTargets: .make(yaml: yaml.integration.exportAvailableTargets)
     ),
@@ -81,32 +67,11 @@ public struct Fusion {
     }
   }
   public struct Replication {
-    public var target: String
-    public var prefix: String
-    public var source: Criteria
     public var createCommitMessage: Configuration.Template
-    public func makeMerge(source: String, fork: String) throws -> Merge { try .make(
-      fork: .init(value: fork),
-      prefix: prefix,
-      source: .init(name: source),
-      target: .init(name: target)
-    )}
   }
   public struct Integration {
-    public var rules: [Rule]
-    public var prefix: String
     public var createCommitMessage: Configuration.Template
     public var exportAvailableTargets: Configuration.Template
-    public func makeMerge(target: String, source: String, fork: String) throws -> Merge { try .make(
-      fork: .init(value: fork),
-      prefix: prefix,
-      source: .init(name: source),
-      target: .init(name: target)
-    )}
-    public struct Rule {
-      public var source: Criteria
-      public var target: Criteria
-    }
   }
   public struct Merge {
     public let fork: Git.Sha
@@ -114,24 +79,21 @@ public struct Fusion {
     public let source: Git.Branch
     public let target: Git.Branch
     public let supply: Git.Branch
-    public func changing(fork: String) throws -> Self { try .make(
-      fork: .init(value: fork),
-      prefix: prefix,
-      source: source,
-      target: target
-    )}
     public static func make(
       fork: Git.Sha,
-      prefix: String,
       source: Git.Branch,
-      target: Git.Branch
-    ) throws -> Self { try .init(
-      fork: fork,
-      prefix: prefix,
-      source: source,
-      target: target,
-      supply: .init(name: "\(prefix)/-/\(target)/-/\(source)/-/\(fork)")
-    )}
+      target: Git.Branch,
+      isReplication: Bool
+    ) throws -> Self {
+      let prefix = isReplication.then("replicate").get("integrate")
+      return try .init(
+        fork: fork,
+        prefix: prefix,
+        source: source,
+        target: target,
+        supply: .init(name: "\(prefix)/-/\(target)/-/\(source)/-/\(fork)")
+      )
+    }
     public static func make(supply: String) throws -> Self? {
       let components = supply.components(separatedBy: "/-/")
       guard components.count == 4 else { return nil }
@@ -222,59 +184,106 @@ public struct Fusion {
     }
   }
   public struct Approval {
-    public var thread: Configuration.Thread
-    public var sanityTeam: String
-    public var emergencyTeam: String
-    public var sourceBranch: [String: Criteria]
-    public var targetBranch: [String: Criteria]
-    public var teams: Git.File
-    public var approves: Configuration.Asset
+    public var stream: Configuration.Stream
+    public var sanity: String
+    public var approvers: Git.File
+    public var statuses: Configuration.Asset
     public var activity: Configuration.Asset
     public static func make(yaml: Yaml.Fusion.Approval) throws -> Self { try .init(
-      thread: .make(yaml: yaml.thread),
-      sanityTeam: yaml.sanityTeam,
-      emergencyTeam: yaml.emergencyTeam,
-      sourceBranch: yaml.sourceBranch
-        .get([:])
-        .mapValues(Criteria.init(yaml:)),
-      targetBranch: yaml.targetBranch
-        .get([:])
-        .mapValues(Criteria.init(yaml:)),
-      teams: .make(preset: yaml.teams),
-      approves: .make(yaml: yaml.approves),
+      stream: .make(yaml: yaml.stream),
+      sanity: yaml.sanity,
+      approvers: .make(preset: yaml.approvers),
+      statuses: .make(yaml: yaml.statuses),
       activity: .make(yaml: yaml.activity)
     )}
-    public struct Team {
-      public var quorum: Int
-      public var random: UInt
-      public var fragile: Bool
-      public var selfish: Bool
-      public var reserve: [String]
-      public var optional: [String]
-      public var required: [String]
-      public var authors: [String]
-      public static func make(yaml: Yaml.Fusion.Approval.Team) -> Self { .init(
-        quorum: yaml.quorum,
-        random: yaml.random.get(0),
-        fragile: yaml.fragile,
-        selfish: yaml.selfish,
-        reserve: yaml.reserve.get([]),
-        optional: yaml.optional.get([]),
-        required: yaml.required.get([]),
-        authors: yaml.authors.get([])
+    public struct Approvers {
+      public var emergency: String
+      public var randoms: Randoms
+      public var teams: [String: Team]
+      public var authorship: [String: [String]]
+      public var sourceBranch: [String: Criteria]
+      public var targetBranch: [String: Criteria]
+      public static func make(yaml: Yaml.Fusion.Approval.Approvers) throws -> Self { try .init(
+        emergency: yaml.emergency,
+        randoms: .make(yaml: yaml.randoms),
+        teams: yaml.teams.mapValues(Team.make(yaml:)),
+        authorship: yaml.authorship.get([:]),
+        sourceBranch: yaml.sourceBranch.get([:]).mapValues(Criteria.init(yaml:)),
+        targetBranch: yaml.targetBranch.get([:]).mapValues(Criteria.init(yaml:))
       )}
+      public struct Team {
+        public var quorum: Int
+        public var advanceApproval: Bool
+        public var selfApproval: Bool
+        public var label: String?
+        public var reserve: [String]
+        public var optional: [String]
+        public var required: [String]
+        public static func make(yaml: Yaml.Fusion.Approval.Approvers.Team) -> Self { .init(
+          quorum: yaml.quorum,
+          advanceApproval: yaml.advanceApproval,
+          selfApproval: yaml.selfApproval,
+          label: yaml.label,
+          reserve: yaml.reserve.get([]),
+          optional: yaml.optional.get([]),
+          required: yaml.required.get([])
+        )}
+      }
+      public struct Randoms {
+        public var minQuorum: Int
+        public var maxQuorum: Int
+        public var baseWeight: Int
+        public var weights: [String: Int]
+        public var advanceApproval: Bool
+        public static func make(yaml: Yaml.Fusion.Approval.Approvers.Randoms) -> Self { .init(
+          minQuorum: yaml.minQuorum,
+          maxQuorum: yaml.maxQuorum,
+          baseWeight: yaml.baseWeight,
+          weights: yaml.weights
+            .get([:]),
+          advanceApproval: yaml.advanceApproval
+        )}
+      }
     }
-    public struct Approve {
-      public var thread: String
-      public var commit: Git.Sha
-      public var holders: [String]
-      public var feed: [String: [String: Bool]]
-      public static func make(yaml: Yaml.Fusion.Approval.Approve) throws -> Self { try .init(
+    public struct Status {
+      public var thread: Yaml.Thread
+      public var target: String
+      public var authors: [String]
+      public var review: Review?
+      public static func make(yaml: Yaml.Fusion.Approval.Status) throws -> Self { try .init(
         thread: yaml.thread,
-        commit: .init(value: yaml.commit),
-        holders: yaml.holders.get([]),
-        feed: yaml.feed.get([:])
+        target: yaml.target,
+        authors: .init(yaml.authors),
+        review: yaml.review.map(Review.make(yaml:))
       )}
+      public static func make(
+        thread: Yaml.Thread,
+        target: String,
+        authors: [String]
+      ) -> Self { .init(
+        thread: thread,
+        target: target,
+        authors: authors
+      )}
+      public struct Review {
+        public var randoms: Set<String>
+        public var teams: [Git.Sha: Set<String>]
+        public var approves: [String: Approve]
+        public static func make(yaml: Yaml.Fusion.Approval.Status.Review) throws -> Self { try .init(
+          randoms: .init(yaml.randoms),
+          teams: yaml.teams
+            .reduce(into: [:]) { try $0[.init(value: $1.key)] = .init($1.value) },
+          approves: yaml.approves
+            .mapValues(Approve.make(yaml:))
+        )}
+        public struct Approve {
+          public var commit: Git.Sha
+          public var advance: Bool?
+          public static func make(yaml: Yaml.Fusion.Approval.Status.Review.Approve) throws -> Self {
+            try .init(commit: .init(value: yaml.commit), advance: yaml.advance)
+          }
+        }
+      }
     }
   }
 }

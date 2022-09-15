@@ -35,52 +35,30 @@ public final class Worker {
   }
   func resolveParticipants(
     cfg: Configuration,
-    gitlabCi: GitlabCi,
-    source: Git.Ref,
-    target: Git.Ref
-  ) throws -> [String] { try Id
-    .make(cfg.git.listCommits(
-      in: [source],
-      notIn: [target],
-      noMerges: true,
-      firstParents: false
-    ))
-    .map(execute)
-    .map(Execute.parseLines(reply:))
-    .get()
-    .map(Git.Sha.init(value:))
-    .flatMap { sha in try gitlabCi
-      .listShaMergeRequests(sha: sha)
-      .map(execute)
-      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
-      .get()
-      .filter { $0.squashCommitSha == sha.value }
-      .map(\.author.username)
-    }
-  }
-  func resolveParticipants(
-    cfg: Configuration,
-    gitlabCi: GitlabCi,
-    merge: Fusion.Merge
-  ) throws -> [String] { try Id
-    .make(cfg.git.listCommits(
+    ctx: ParentReview,
+    kind: Fusion.Kind
+  ) throws -> [String] {
+    guard let merge = kind.merge else { return [ctx.review.author.username] }
+    let commits = try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [.make(sha: merge.fork)],
       notIn: [.make(remote: merge.target)],
       noMerges: true,
       firstParents: false
-    ))
-    .map(execute)
-    .map(Execute.parseLines(reply:))
-    .get()
-    .map(Git.Sha.init(value:))
-    .flatMap { sha in try gitlabCi
-      .listShaMergeRequests(sha: sha)
-      .map(execute)
-      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
-      .get()
-      .filter { $0.squashCommitSha == sha.value }
-      .map(\.author.username)
+    )))
+    var result: Set<String> = [ctx.review.author.username]
+    for commit in commits {
+      let authors = try ctx.gitlab
+        .listShaMergeRequests(sha: .init(value: commit))
+        .map(execute)
+        .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
+        .get()
+        .filter { $0.squashCommitSha == commit }
+        .map(\.author.username)
+      result = result.union(authors)
     }
+    return [ctx.review.author.username] + result
+      .subtracting([ctx.review.author.username])
+      .sorted()
   }
   func isLastPipe(ctx: ParentReview) -> Bool {
     guard ctx.job.pipeline.id == ctx.review.pipeline.id else {
@@ -88,7 +66,7 @@ public final class Worker {
       return false
     }
     guard ctx.review.state == "opened" else {
-      logMessage(.init(message: "Review closed"))
+      logMessage(.init(message: "Review must be opened"))
       return false
     }
     guard ctx.job.pipeline.sha == ctx.review.pipeline.sha else {
