@@ -66,8 +66,8 @@ enum Assembler {
   static let merger = Merger(
     execute: execute,
     resolveFusion: configurator.resolveFusion(query:),
-    resolveApprovalStatuses: configurator.resolveApprovalStatuses(query:),
-    persistApprovalStatuses: configurator.persistApprovalStatuses(query:),
+    resolveFusionStatuses: configurator.resolveFusionStatuses(query:),
+    persistFusionStatuses: configurator.persistFusionStatuses(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),

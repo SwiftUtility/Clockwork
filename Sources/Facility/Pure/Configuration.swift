@@ -219,7 +219,7 @@ public struct Configuration {
     }
     public typealias Reply = Void
   }
-  public struct ResolveApprovalStatuses: Query {
+  public struct ResolveFusionStatuses: Query {
     public var cfg: Configuration
     public var approval: Fusion.Approval
     public init(cfg: Configuration, approval: Fusion.Approval) {
@@ -228,7 +228,7 @@ public struct Configuration {
     }
     public typealias Reply = [UInt: Fusion.Status]
   }
-  public struct PersistApprovalStatuses: Query {
+  public struct PersistFusionStatuses: Query {
     public var cfg: Configuration
     public var approval: Fusion.Approval
     public var review: Json.GitlabReviewState

@@ -250,7 +250,7 @@ public struct Fusion {
     public var target: String
     public var authors: [String]
     public var review: Review?
-    public static func make(yaml: Yaml.Fusion.Approval.Status) throws -> Self { try .init(
+    public static func make(yaml: Yaml.Fusion.Status) throws -> Self { try .init(
       thread: yaml.thread,
       target: yaml.target,
       authors: .init(yaml.authors),
@@ -296,7 +296,7 @@ public struct Fusion {
       public var randoms: Set<String>
       public var teams: [Git.Sha: Set<String>]
       public var approves: [String: Approve]
-      public static func make(yaml: Yaml.Fusion.Approval.Status.Review) throws -> Self { try .init(
+      public static func make(yaml: Yaml.Fusion.Status.Review) throws -> Self { try .init(
         randoms: .init(yaml.randoms),
         teams: yaml.teams
           .reduce(into: [:]) { try $0[.init(value: $1.key)] = .init($1.value) },
@@ -306,7 +306,7 @@ public struct Fusion {
       public struct Approve {
         public var commit: Git.Sha
         public var advance: Bool?
-        public static func make(yaml: Yaml.Fusion.Approval.Status.Review.Approve) throws -> Self {
+        public static func make(yaml: Yaml.Fusion.Status.Review.Approve) throws -> Self {
           try .init(commit: .init(value: yaml.commit), advance: yaml.advance)
         }
       }

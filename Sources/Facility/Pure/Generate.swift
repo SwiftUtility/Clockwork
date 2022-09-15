@@ -160,7 +160,7 @@ public struct Generate: Query {
     public var review: Json.GitlabReviewState
     public var queued: Bool
   }
-  public struct CreateApprovalStatusesCommitMessage: GenerationContext {
+  public struct CreateFusionStatusesCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -481,14 +481,14 @@ public extension Configuration {
       queued: queued
     )
   )}
-  func createApprovalStatusesCommitMessage(
+  func createFusionStatusesCommitMessage(
     asset: Asset,
     review: Json.GitlabReviewState
   ) -> Generate { .init(
     allowEmpty: false,
     template: asset.createCommitMessage,
     templates: templates,
-    context: Generate.CreateApprovalStatusesCommitMessage(
+    context: Generate.CreateFusionStatusesCommitMessage(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,

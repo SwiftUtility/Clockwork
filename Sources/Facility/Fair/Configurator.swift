@@ -185,21 +185,21 @@ public final class Configurator {
       data: .init(query.cocoapods.yaml.utf8)
     ))
   }
-  public func resolveApprovalStatuses(
-    query: Configuration.ResolveApprovalStatuses
-  ) throws -> Configuration.ResolveApprovalStatuses.Reply { try Id(query.approval.statuses)
+  public func resolveFusionStatuses(
+    query: Configuration.ResolveFusionStatuses
+  ) throws -> Configuration.ResolveFusionStatuses.Reply { try Id(query.approval.statuses)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Yaml.Fusion.Approval.Status].self, dialect.read(_:from:))
+    .reduce([String: Yaml.Fusion.Status].self, dialect.read(_:from:))
     .get()
     .reduce(into: [:]) {
       try $0[UInt($1.key).get { throw Thrown("Bad approval asset") }] = .make(yaml: $1.value)
     }
   }
-  public func persistApprovalStatuses(
-    query: Configuration.PersistApprovalStatuses
-  ) throws -> Configuration.PersistApprovalStatuses.Reply {
-    let message = try generate(query.cfg.createApprovalStatusesCommitMessage(
+  public func persistFusionStatuses(
+    query: Configuration.PersistFusionStatuses
+  ) throws -> Configuration.PersistFusionStatuses.Reply {
+    let message = try generate(query.cfg.createFusionStatusesCommitMessage(
       asset: query.approval.statuses,
       review: query.review
     ))

@@ -4,8 +4,8 @@ import FacilityPure
 public final class Merger {
   let execute: Try.Reply<Execute>
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
-  let resolveApprovalStatuses: Try.Reply<Configuration.ResolveApprovalStatuses>
-  let persistApprovalStatuses: Try.Reply<Configuration.PersistApprovalStatuses>
+  let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
+  let persistFusionStatuses: Try.Reply<Configuration.PersistFusionStatuses>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Act.Reply<Report>
@@ -16,8 +16,8 @@ public final class Merger {
   public init(
     execute: @escaping Try.Reply<Execute>,
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
-    resolveApprovalStatuses: @escaping Try.Reply<Configuration.ResolveApprovalStatuses>,
-    persistApprovalStatuses: @escaping Try.Reply<Configuration.PersistApprovalStatuses>,
+    resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
+    persistFusionStatuses: @escaping Try.Reply<Configuration.PersistFusionStatuses>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Act.Reply<Report>,
@@ -28,8 +28,8 @@ public final class Merger {
   ) {
     self.execute = execute
     self.resolveFusion = resolveFusion
-    self.resolveApprovalStatuses = resolveApprovalStatuses
-    self.persistApprovalStatuses = persistApprovalStatuses
+    self.resolveFusionStatuses = resolveFusionStatuses
+    self.persistFusionStatuses = persistFusionStatuses
     self.writeStdout = writeStdout
     self.generate = generate
     self.report = report
@@ -210,7 +210,7 @@ public final class Merger {
     fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> Fusion.Status {
-    var statuses = try resolveApprovalStatuses(.init(cfg: cfg, approval: fusion.approval))
+    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     if let status = statuses[ctx.review.iid] { return status }
     let authors = try worker.resolveParticipants(cfg: cfg, ctx: ctx, kind: kind)
     let thread = try createThread(cfg.reportCreateReview(
@@ -224,7 +224,7 @@ public final class Merger {
       authors: authors
     )
     statuses[ctx.review.iid] = result
-    try persistApprovalStatuses(.init(
+    try persistFusionStatuses(.init(
       cfg: cfg,
       approval: fusion.approval,
       review: ctx.review,
