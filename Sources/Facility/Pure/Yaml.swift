@@ -28,6 +28,10 @@ public enum Yaml {
   public struct Slack: Decodable {
     public var token: Secret
     public var signals: String
+    public struct Signal: Decodable {
+      public var method: String
+      public var body: Template
+    }
   }
   public struct FileTaboo: Decodable {
     public var rule: String
@@ -193,10 +197,6 @@ public enum Yaml {
   public struct Criteria: Decodable {
     var include: [String]?
     var exclude: [String]?
-  }
-  public struct Signal: Decodable {
-    public var method: String
-    public var body: Template
   }
   public struct Thread: Codable {
     public var channel: String

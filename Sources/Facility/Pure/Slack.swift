@@ -5,7 +5,7 @@ public struct Slack {
   public var signals: [String: [Signal]]
   public static func make(
     token: String,
-    signals: [String: [Yaml.Signal]]
+    signals: [String: [Yaml.Slack.Signal]]
   ) throws -> Self { try .init(
     token: token,
     signals: signals
@@ -14,7 +14,7 @@ public struct Slack {
   public struct Signal {
     public var method: String
     public var body: Configuration.Template
-    public static func make(yaml: Yaml.Signal) throws -> Self { try .init(
+    public static func make(yaml: Yaml.Slack.Signal) throws -> Self { try .init(
       method: yaml.method,
       body: .make(yaml: yaml.body)
     )}
