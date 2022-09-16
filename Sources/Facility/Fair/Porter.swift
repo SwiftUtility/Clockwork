@@ -39,9 +39,9 @@ public final class Porter {
     return result
   }
   public func dequeueReview(cfg: Configuration, fusion: Fusion) throws -> Bool {
-    var queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
+    var queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
     _ = queue.enqueue(review: ctx.review.iid, target: nil)
     if queue.isChanged { try persistReviewQueue(.init(
       cfg: cfg,

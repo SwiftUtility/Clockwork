@@ -121,16 +121,11 @@ public struct Fusion {
       return result.isEmpty.else(result).get("{}\n")
     }
     public mutating func enqueue(review: UInt, target: String?) -> Bool {
-      var result = false
       for (key, value) in queue {
         if key == target {
-          guard !value.contains(where: { $0 == review }) else {
-            result = value.first == review
-            continue
-          }
+          guard !value.contains(where: { $0 == review }) else { continue }
           queue[key] = value + [review]
           isChanged = true
-          if queue[key]?.first == review { notifiables.insert(review) }
         } else {
           let targets = value.filter { $0 != review }
           guard value.count != targets.count else { continue }
@@ -142,9 +137,8 @@ public struct Fusion {
       if let target = target, queue[target] == nil {
         queue[target] = [review]
         isChanged = true
-        notifiables.insert(review)
       }
-      return result
+      return target.flatMap { queue[$0] }?.first == review
     }
     public static func make(queue: [String: [UInt]]) -> Self { .init(queue: queue) }
     public struct Resolve: Query {
@@ -269,13 +263,19 @@ public struct Fusion {
         result += "  review:\n"
         let randoms = review.randoms.sorted().map { "'\($0)'" }.joined(separator: ", ")
         result += "    randoms: [\(randoms)]\n"
-        result += "    teams:\n"
+        result += "    teams:\(review.teams.isEmpty.then(" {}").get(""))\n"
         for (key, value) in review.teams.sorted(by: { $0.key.value < $1.key.value }) {
           let teams = value.sorted().map { "'\($0)'" }.joined(separator: ", ")
           result += "      '\(key.value)': [\(teams)]\n"
         }
-        result += "    approves:\n"
+        result += "    approves:\(review.approves.isEmpty.then(" {}").get(""))\n"
         for (key, value) in review.approves.sorted(by: { $0.key < $1.key }) {
+          result += "      '\(key)':\n"
+          result += "        commit: '\(value.commit.value)'\n"
+          result += "        advance: \(value.advance.map { "\($0)" }.get("null"))\n"
+        }
+        result += "    emergent:\(review.emergent.isEmpty.then(" {}").get(""))\n"
+        for (key, value) in review.emergent.sorted(by: { $0.key < $1.key }) {
           result += "      '\(key)':\n"
           result += "        commit: '\(value.commit.value)'\n"
           result += "        advance: \(value.advance.map { "\($0)" }.get("null"))\n"
@@ -296,11 +296,14 @@ public struct Fusion {
       public var randoms: Set<String>
       public var teams: [Git.Sha: Set<String>]
       public var approves: [String: Approve]
+      public var emergent: [String: Approve]
       public static func make(yaml: Yaml.Fusion.Status.Review) throws -> Self { try .init(
         randoms: .init(yaml.randoms),
         teams: yaml.teams
           .reduce(into: [:]) { try $0[.init(value: $1.key)] = .init($1.value) },
         approves: yaml.approves
+          .mapValues(Approve.make(yaml:)),
+        emergent: yaml.emergent
           .mapValues(Approve.make(yaml:))
       )}
       public struct Approve {

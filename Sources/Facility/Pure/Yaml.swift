@@ -2,9 +2,8 @@ import Foundation
 import Facility
 public enum Yaml {
   public struct Profile: Decodable {
-    public var gitlabCi: GitlabCi
-    public var slackToken: Secret
-    public var signals: String?
+    public var gitlabCi: GitlabCi?
+    public var slack: Slack?
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var cocoapods: String?
@@ -22,6 +21,10 @@ public enum Yaml {
     public var triggerJobName: String
     public var triggerProfile: String
     public var triggerPipeline: String
+  }
+  public struct Slack: Decodable {
+    public var token: Secret
+    public var signals: String
   }
   public struct FileTaboo: Decodable {
     public var rule: String
@@ -162,6 +165,7 @@ public enum Yaml {
         public var randoms: [String]
         public var teams: [String: [String]]
         public var approves: [String: Approve]
+        public var emergent: [String: Approve]
         public struct Approve: Decodable {
           public var commit: String
           public var advance: Bool?

@@ -6,6 +6,8 @@ public final class Merger {
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
   let persistFusionStatuses: Try.Reply<Configuration.PersistFusionStatuses>
+  let resolveReviewQueue: Try.Reply<Fusion.Queue.Resolve>
+  let persistReviewQueue: Try.Reply<Fusion.Queue.Persist>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Act.Reply<Report>
@@ -18,6 +20,8 @@ public final class Merger {
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
     persistFusionStatuses: @escaping Try.Reply<Configuration.PersistFusionStatuses>,
+    resolveReviewQueue: @escaping Try.Reply<Fusion.Queue.Resolve>,
+    persistReviewQueue: @escaping Try.Reply<Fusion.Queue.Persist>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Act.Reply<Report>,
@@ -30,6 +34,8 @@ public final class Merger {
     self.resolveFusion = resolveFusion
     self.resolveFusionStatuses = resolveFusionStatuses
     self.persistFusionStatuses = persistFusionStatuses
+    self.resolveReviewQueue = resolveReviewQueue
+    self.persistReviewQueue = persistReviewQueue
     self.writeStdout = writeStdout
     self.generate = generate
     self.report = report
@@ -53,18 +59,22 @@ public final class Merger {
           force: false
         )))
       } else {
-        report(cfg.reportReviewMergeConflicts(
-          fusion: fusion,
-          status: status,
-          review: ctx.review
-        ))
+        report(cfg.reportReviewMergeConflicts(fusion: fusion, status: status, review: ctx.review))
+        try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       }
       return false
     }
-//    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: kind) {
-//      try closeReview(cfg: cfg, ctx: ctx)
-//      throw Thrown(error)
-//    }
+    if let reason = try checkCloseReason(cfg: cfg, fusion: fusion, kind: kind) {
+      try closeReview(cfg: cfg, ctx: ctx)
+      report(cfg.reportReviewClosed(
+        fusion: fusion,
+        status: status,
+        review: ctx.review,
+        reason: reason
+      ))
+      try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
+      return false
+    }
 //    guard try checkReviewErrors(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) else {
 //      return false
 //    }
@@ -78,8 +88,8 @@ public final class Merger {
 //
 //      return false
 //    }
-    return true
     #warning("tbd")
+    return true
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
 //    let fusion = try resolveFusion(.init(cfg: cfg))
@@ -213,7 +223,7 @@ public final class Merger {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     if let status = statuses[ctx.review.iid] { return status }
     let authors = try worker.resolveParticipants(cfg: cfg, ctx: ctx, kind: kind)
-    let thread = try createThread(cfg.reportCreateReview(
+    let thread = try createThread(cfg.reportReviewCreated(
       fusion: fusion,
       review: ctx.review,
       authors: authors
@@ -232,11 +242,11 @@ public final class Merger {
     ))
     return .make(thread: thread, target: ctx.review.targetBranch, authors: authors)
   }
-  func checkFusionErrors(
+  func checkCloseReason(
     cfg: Configuration,
     fusion: Fusion,
     kind: Fusion.Kind
-  ) throws -> String? {
+  ) throws -> Report.ReviewClosed.Reason? {
 //    switch kind {
 //    case .proposition(let rule):
 //      guard rule != nil else { return "No rule for branch" }
@@ -371,6 +381,31 @@ public final class Merger {
       guard pair.count == 2 else { throw MayDay("bad git reply") }
       guard let name = try? pair[1].dropPrefix("refs/remotes/origin/") else { continue }
       try result.append(.init(name: name))
+    }
+    return result
+  }
+  @discardableResult
+  func changeQueue(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    fusion: Fusion,
+    enqueue: Bool
+  ) throws -> Bool {
+    var queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
+    let result = queue.enqueue(
+      review: ctx.review.iid,
+      target: enqueue.then(ctx.review.targetBranch)
+    )
+    if queue.isChanged { try persistReviewQueue(.init(
+      cfg: cfg,
+      pushUrl: ctx.gitlab.pushUrl.get(),
+      fusion: fusion,
+      reviewQueue: queue,
+      review: ctx.review,
+      queued: true
+    ))}
+    for notifiable in queue.notifiables {
+      try Execute.checkStatus(reply: execute(ctx.gitlab.postMrPipelines(review: notifiable).get()))
     }
     return result
   }

@@ -7,9 +7,7 @@ public struct Configuration {
   public var profile: Profile
   public var templates: [String: String]
   public var context: AnyCodable?
-  public var signals: [String: [Signal]]
   public var gitlabCi: Lossy<GitlabCi>
-  public var slackToken: Lossy<String>
   public static func make(
     verbose: Bool,
     git: Git,
@@ -33,9 +31,8 @@ public struct Configuration {
   )}
   public struct Profile {
     public var profile: Git.File
-    public var gitlabCi: GitlabCi
-    public var slackToken: Secret
-    public var signals: Git.File?
+    public var gitlabCi: GitlabCi?
+    public var slack: Slack?
     public var context: Git.File?
     public var templates: Git.Dir?
     public var fusion: Lossy<Git.File>
@@ -120,6 +117,10 @@ public struct Configuration {
         triggerPipeline: yaml.triggerPipeline
       )}
     }
+    public struct Slack {
+      public var token: Secret
+      public var signals: Git.File
+    }
   }
   public struct Asset {
     public var file: Files.Relative
@@ -131,14 +132,6 @@ public struct Configuration {
       file: .init(value: yaml.path),
       branch: .init(name: yaml.branch),
       createCommitMessage: .make(yaml: yaml.createCommitMessage)
-    )}
-  }
-  public struct Signal {
-    public var method: String
-    public var body: Template
-    public static func make(yaml: Yaml.Signal) throws -> Self { try .init(
-      method: yaml.method,
-      body: .make(yaml: yaml.body)
     )}
   }
   public enum Template {

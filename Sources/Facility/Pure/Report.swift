@@ -15,7 +15,7 @@ public struct Report: Query {
     templates: cfg.templates,
     context: context
   )}
-  public struct CreateReview: GenerationContext {
+  public struct ReviewCreated: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -32,9 +32,24 @@ public struct Report: Query {
     public var review: Json.GitlabReviewState
     public var authors: [String]
   }
-
-
-
+  public struct ReviewClosed: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Yaml.Thread
+    public var review: Json.GitlabReviewState
+    public var authors: [String]
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case noSourceRule
+      case targetNotProtected
+      case targetNotDefault
+      case authorNotBot
+      case forkInTarget
+      case forkParentNotInTarget
+    }
+  }
   public struct Custom: GenerationContext {
     public var event: String = Self.event
     public var subevent: String
@@ -268,13 +283,13 @@ public struct Report: Query {
   }
 }
 public extension Configuration {
-  func reportCreateReview(
+  func reportReviewCreated(
     fusion: Fusion,
     review: Json.GitlabReviewState,
     authors: [String]
   ) -> Report.CreateThread { .init(
     template: fusion.createThread,
-    report: .init(cfg: self, context: Report.CreateReview(
+    report: .init(cfg: self, context: Report.ReviewCreated(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
@@ -293,6 +308,20 @@ public extension Configuration {
     thread: status.thread,
     review: review,
     authors: status.authors
+  ))}
+  func reportReviewClosed(
+    fusion: Fusion,
+    status: Fusion.Status,
+    review: Json.GitlabReviewState,
+    reason: Report.ReviewClosed.Reason
+  ) -> Report { .init(cfg: self, context: Report.ReviewClosed(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: status.thread,
+    review: review,
+    authors: status.authors,
+    reason: reason
   ))}
   func reportCustom(
     event: String,
