@@ -459,29 +459,6 @@ public final class Merger {
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     return result
   }
-  func pushReview(
-    cfg: Configuration,
-    ctx: Worker.ParentReview,
-    fusion: Fusion,
-    status: Fusion.Status,
-    sha: Git.Sha?
-  ) throws {
-    #warning("tbd")
-    if let sha = sha {
-      try Execute.checkStatus(reply: execute(cfg.git.push(
-        url: ctx.gitlab.pushUrl.get(),
-        branch: .init(name: ctx.review.sourceBranch),
-        sha: sha,
-        force: false
-      )))
-    } else {
-      try report(cfg.reportReviewMergeConflicts(
-        fusion: fusion,
-        status: status,
-        review: ctx.review
-      ))
-    }
-  }
   func squashReview(
     cfg: Configuration,
     ctx: Worker.ParentReview,

@@ -17,10 +17,13 @@ public enum Yaml {
     public var botLogin: Secret
     public var apiToken: Secret
     public var pushToken: Secret
-    public var triggerJobId: String
-    public var triggerJobName: String
-    public var triggerProfile: String
-    public var triggerPipeline: String
+    public var trigger: Trigger
+    public struct Trigger: Decodable {
+      public var jobId: String
+      public var jobName: String
+      public var profile: String
+      public var pipeline: String
+    }
   }
   public struct Slack: Decodable {
     public var token: Secret

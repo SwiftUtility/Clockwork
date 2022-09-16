@@ -8,6 +8,7 @@ public struct Configuration {
   public var templates: [String: String]
   public var context: AnyCodable?
   public var gitlabCi: Lossy<GitlabCi>
+  public var slack: Lossy<Slack>
   public static func make(
     verbose: Bool,
     git: Git,
@@ -15,9 +16,8 @@ public struct Configuration {
     profile: Configuration.Profile,
     templates: [String : String],
     context: AnyCodable? = nil,
-    signals: [String : [Configuration.Signal]],
     gitlabCi: Lossy<GitlabCi>,
-    slackToken: Lossy<String>
+    slack: Lossy<Slack>
   ) -> Self { .init(
     verbose: verbose,
     git: git,
@@ -25,9 +25,8 @@ public struct Configuration {
     profile: profile,
     templates: templates,
     context: context,
-    signals: signals,
     gitlabCi: gitlabCi,
-    slackToken: slackToken
+    slack: slack
   )}
   public struct Profile {
     public var profile: Git.File
@@ -46,11 +45,10 @@ public struct Configuration {
       yaml: Yaml.Profile
     ) throws -> Self { try .init(
       profile: profile,
-      gitlabCi: .make(yaml: yaml.gitlabCi),
-      slackToken: .make(yaml: yaml.slackToken),
-      signals: yaml.signals
-        .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:)),
+      gitlabCi: yaml.gitlabCi
+        .map(GitlabCi.make(yaml:)),
+      slack: yaml.slack
+        .reduce(profile.ref, Slack.make(ref:yaml:)),
       context: yaml.context
         .map(Git.File.make(preset:)),
       templates: yaml.templates
@@ -101,25 +99,40 @@ public struct Configuration {
       public var botLogin: Secret
       public var apiToken: Secret
       public var pushToken: Secret
-      public var triggerJobId: String
-      public var triggerJobName: String
-      public var triggerProfile: String
-      public var triggerPipeline: String
+      public var trigger: Trigger
       public static func make(
         yaml: Yaml.GitlabCi
       ) throws -> Self { try .init(
         botLogin: .make(yaml: yaml.botLogin),
         apiToken: .make(yaml: yaml.apiToken),
         pushToken: .make(yaml: yaml.pushToken),
-        triggerJobId: yaml.triggerJobId,
-        triggerJobName: yaml.triggerJobName,
-        triggerProfile: yaml.triggerProfile,
-        triggerPipeline: yaml.triggerPipeline
+        trigger: .make(yaml: yaml.trigger)
       )}
+      public struct Trigger {
+        public var jobId: String
+        public var jobName: String
+        public var profile: String
+        public var pipeline: String
+        public static func make(
+          yaml: Yaml.GitlabCi.Trigger
+        ) -> Self { .init(
+          jobId: yaml.jobId,
+          jobName: yaml.jobName,
+          profile: yaml.profile,
+          pipeline: yaml.pipeline
+        )}
+      }
     }
     public struct Slack {
       public var token: Secret
       public var signals: Git.File
+      public static func make(
+        ref: Git.Ref,
+        yaml: Yaml.Slack
+      ) throws -> Self { try .init(
+        token: .make(yaml: yaml.token),
+        signals: .init(ref: ref, path: .init(value: yaml.signals))
+      )}
     }
   }
   public struct Asset {

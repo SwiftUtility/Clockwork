@@ -75,26 +75,30 @@ public final class Configurator {
         .get([:]),
       context: profile.context
         .reduce(git, parse(git:yaml:)),
-      signals: profile.signals
-        .reduce(git, parse(git:yaml:))
-        .reduce([String: [Yaml.Signal]].self, dialect.read(_:from:))
-        .get([:])
-        .mapValues { try $0.map(Configuration.Signal.make(yaml:)) },
-      gitlabCi: .init(try .make(
-        verbose: verbose,
-        env: env,
-        gitlabCi: profile.gitlabCi,
-        job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
-          .map(execute)
-          .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
-        botLogin: parse(env: env, secret: profile.gitlabCi.botLogin),
-        apiToken: GitlabCi.isPretected(env: env)
-          .map { try parse(env: env, secret: profile.gitlabCi.apiToken) },
-        pushToken: GitlabCi.isPretected(env: env)
-          .map { try parse(env: env, secret: profile.gitlabCi.pushToken) }
-      )),
-      slackToken: GitlabCi.isPretected(env: env)
-        .map { try parse(env: env, secret: profile.slackToken) }
+      gitlabCi: Lossy
+        .make { try profile.gitlabCi.get { throw Thrown("GitlabCi not configured") }}
+        .map { gitlabCi in try .make(
+          verbose: verbose,
+          env: env,
+          gitlabCi: gitlabCi,
+          job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
+            .map(execute)
+            .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
+          botLogin: parse(env: env, secret: gitlabCi.botLogin),
+          apiToken: GitlabCi.isProtected(env: env)
+            .map { try parse(env: env, secret: gitlabCi.apiToken) },
+          pushToken: GitlabCi.isProtected(env: env)
+            .map { try parse(env: env, secret: gitlabCi.pushToken) }
+        )},
+      slack: GitlabCi.isProtected(env: env)
+        .map { try profile.slack.get { throw Thrown("Slack not configured") } }
+        .map { slack in try .make(
+          token: parse(env: env, secret: slack.token),
+          signals: dialect.read(
+            [String: [Yaml.Signal]].self,
+            from: parse(git: git, yaml: slack.signals
+          ))
+        )}
     )
   }
   public func resolveRequisition(

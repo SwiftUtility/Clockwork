@@ -34,10 +34,10 @@ public final class Reporter {
     throw error
   }
   public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
-    let token = try query.report.cfg.slackToken.get()
+    let slack = try query.report.cfg.slack.get()
     let body = try generate(query.report.generate(template: query.template))
     let data = try Execute.parseData(reply: execute(query.report.cfg.curlSlack(
-      token: token,
+      token: slack.token,
       method: "chat.postMessage",
       body: body
     )))
@@ -73,10 +73,10 @@ public final class Reporter {
 //    return true
   }
   public func report(query: Report) -> Report.Reply {
-    let token: String
-    do { token = try query.cfg.slackToken.get() }
+    let slack: Slack
+    do { slack = try query.cfg.slack.get() }
     catch { return logMessage(.init(message: "Report failed: \(error)")) }
-    for signal in query.cfg.signals[query.context.identity].get([]) {
+    for signal in slack.signals[query.context.identity].get([]) {
       let body: String
       do {
         body = try generate(query.generate(template: signal.body))
@@ -86,7 +86,7 @@ public final class Reporter {
         continue
       }
       do { try Execute.checkStatus(reply: execute(query.cfg.curlSlack(
-        token: token,
+        token: slack.token,
         method: signal.method,
         body: body
       ))) } catch {

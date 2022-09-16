@@ -11,6 +11,7 @@ public struct GitlabCi {
   public var botAuth: Lossy<String>
   public var pushUrl: Lossy<String>
   public var parent: Lossy<Parent>
+  public var trigger: Configuration.Profile.GitlabCi.Trigger
   public var url: String { "\(api)/projects/\(project)" }
   public var info: Info { .init(
     bot: botLogin,
@@ -54,14 +55,15 @@ public struct GitlabCi {
           let path = try path.get(env: env)
           return "\(scheme)://\(botLogin):\(pushToken)@\(host):\(port)/\(path)"
         },
-      parent: Self.isPretected(env: env)
+      parent: Self.isProtected(env: env)
         .map { try .init(
-          job: gitlabCi.triggerJobId.get(env: env).getUInt(),
-          profile: .init(value: gitlabCi.triggerProfile.get(env: env))
-        )}
+          job: gitlabCi.trigger.jobId.get(env: env).getUInt(),
+          profile: .init(value: gitlabCi.trigger.profile.get(env: env))
+        )},
+      trigger: gitlabCi.trigger
     )
   }
-  public static func isPretected(env: [String: String]) -> Lossy<Void> {
+  public static func isProtected(env: [String: String]) -> Lossy<Void> {
     guard "true" == env[Self.protected] else { return .error(Thrown("Not in protected pipeline")) }
     return .value(Void())
   }
