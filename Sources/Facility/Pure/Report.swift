@@ -46,6 +46,7 @@ public struct Report: Query {
       case targetNotProtected
       case targetNotDefault
       case authorNotBot
+      case sourceNotProtected
       case forkInTarget
       case forkParentNotInTarget
     }

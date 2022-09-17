@@ -64,7 +64,7 @@ public final class Merger {
       }
       return false
     }
-    if let reason = try checkCloseReason(cfg: cfg, fusion: fusion, kind: kind) {
+    if let reason = try checkCloseReason(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) {
       try closeReview(cfg: cfg, ctx: ctx)
       report(cfg.reportReviewClosed(
         fusion: fusion,
@@ -244,39 +244,37 @@ public final class Merger {
   }
   func checkCloseReason(
     cfg: Configuration,
+    ctx: Worker.ParentReview,
     fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> Report.ReviewClosed.Reason? {
-//    switch kind {
-//    case .proposition(let rule):
-//      guard rule != nil else { return "No rule for branch" }
-//    case .replication(let merge):
-//      guard fusion.targets.isMet(merge.target.name)
-//      else { return "Target blocked by fusion configuration" }
-//      guard fusion.replication.source.isMet(merge.source.name)
-//      else { return "Source blocked by replication configuration" }
-//      guard merge.target.name == fusion.replication.target
-//      else { return "Target blocked by replication configuration" }
-//      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
-//        child: .make(remote: merge.target),
-//        parent: .make(sha: merge.fork)
-//      ))) else { return "Replication fork already merged" }
-//      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-//        child: .make(remote: merge.target),
-//        parent: .make(sha: merge.fork).make(parent: 1)
-//      ))) else { return "Replication fork parent is not merged" }
-//    case .integration(let merge):
-//      guard fusion.targets.isMet(merge.target.name)
-//      else { return "Target blocked by fusion configuration" }
-//      guard fusion.integration.rules.contains(where: { rule in
-//        rule.target.isMet(merge.target.name) && rule.source.isMet(merge.source.name)
-//      }) else { return "Source or target blocked by integration configuration" }
-//      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
-//        child: .make(remote: merge.target),
-//        parent: .make(sha: merge.fork)
-//      ))) else { return "Integration fork already merged" }
-//    }
-    #warning("tbd")
+    switch kind {
+    case .proposition(let rule):
+      guard rule != nil else { return .noSourceRule }
+    case .replication(let merge):
+      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
+        child: .make(remote: merge.target),
+        parent: .make(sha: merge.fork)
+      ))) else { return .forkInTarget }
+      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+        child: .make(remote: merge.target),
+        parent: .make(sha: merge.fork).make(parent: 1)
+      ))) else { return .forkParentNotInTarget }
+      let target = try worker.resolveBranch(cfg: cfg, name: merge.target.name)
+      guard target.protected else { return .targetNotProtected }
+      guard target.default else { return .targetNotDefault }
+      let source = try worker.resolveBranch(cfg: cfg, name: merge.source.name)
+      guard source.protected else { return .sourceNotProtected }
+    case .integration(let merge):
+      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
+        child: .make(remote: merge.target),
+        parent: .make(sha: merge.fork)
+      ))) else { return .forkInTarget }
+      let target = try worker.resolveBranch(cfg: cfg, name: merge.target.name)
+      guard target.protected else { return .targetNotProtected }
+      let source = try worker.resolveBranch(cfg: cfg, name: merge.source.name)
+      guard source.protected else { return .sourceNotProtected }
+    }
     return nil
   }
   func checkReviewErrors(

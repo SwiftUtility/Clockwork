@@ -4,15 +4,13 @@ public struct GitlabCi {
   public var verbose: Bool
   public var botLogin: String
   public var api: String
-  public var project: String
-  public var config: String
   public var job: Json.GitlabJob
   public var jobToken: String
   public var botAuth: Lossy<String>
   public var pushUrl: Lossy<String>
   public var parent: Lossy<Parent>
   public var trigger: Configuration.Profile.GitlabCi.Trigger
-  public var url: String { "\(api)/projects/\(project)" }
+  public var url: String { "\(api)/projects/\(job.pipeline.projectId)" }
   public var info: Info { .init(
     bot: botLogin,
     url: job.webUrl
@@ -41,8 +39,6 @@ public struct GitlabCi {
       verbose: verbose,
       botLogin: botLogin,
       api: apiV4.get(env: env),
-      project: projectId.get(env: env),
-      config: config.get(env: env),
       job: job.get(),
       jobToken: jobToken.get(env: env),
       botAuth: apiToken
@@ -76,7 +72,6 @@ public struct GitlabCi {
   static var host: String { "CI_SERVER_HOST" }
   static var port: String { "CI_SERVER_PORT" }
   static var path: String { "CI_PROJECT_PATH" }
-  static var config: String { "CI_CONFIG_PATH" }
   public struct Parent {
     public var job: UInt
     public var profile: Files.Relative
@@ -102,6 +97,11 @@ public extension GitlabCi {
   ) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
     url: "\(url)/jobs/\(id)",
+    headers: [botAuth.get()]
+  ))}
+  var getProject: Lossy<Execute> { .init(try .makeCurl(
+    verbose: verbose,
+    url: "\(url)",
     headers: [botAuth.get()]
   ))}
   func getPipeline(
@@ -253,9 +253,14 @@ public extension GitlabCi {
       headers: [botAuth.get()]
     ))
   }
-  func getBranches() -> Lossy<Execute> { .init(try .makeCurl(
+  func getBranches(page: Int, count: Int) -> Lossy<Execute> { .init(try .makeCurl(
     verbose: verbose,
-    url: "\(url)/repository/branches",
+    url: "\(url)/repository/branches?page=\(page)&per_page=\(count)",
+    headers: [botAuth.get()]
+  ))}
+  func getBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
+    verbose: verbose,
+    url: "\(url)/repository/branches/\(name)",
     headers: [botAuth.get()]
   ))}
   struct PutMrState: Encodable {

@@ -38,6 +38,7 @@ public enum Json {
       public var id: UInt
       public var ref: String
       public var sha: String
+      public var projectId: UInt
     }
   }
   public struct GitlabCommitMergeRequest: Codable {
@@ -77,5 +78,13 @@ public enum Json {
     public var id: Int
     public var name: String
     public var username: String
+  }
+  public struct GitlabBranch: Codable {
+    public var name: String
+    public var protected: Bool
+    public var `default`: Bool
+  }
+  public struct GitlabProject: Codable {
+    public var defaultBranch: String
   }
 }

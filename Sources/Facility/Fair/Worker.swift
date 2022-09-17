@@ -33,6 +33,20 @@ public final class Worker {
       review: review
     )
   }
+  func resolveProject(cfg: Configuration) throws -> Json.GitlabProject { try cfg
+    .gitlabCi
+    .flatMap(\.getProject)
+    .map(execute)
+    .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
+    .get()
+  }
+  func resolveBranch(cfg: Configuration, name: String) throws -> Json.GitlabBranch { try cfg
+    .gitlabCi
+    .flatReduce(curry: name, GitlabCi.getBranch(name:))
+    .map(execute)
+    .reduce(Json.GitlabBranch.self, jsonDecoder.decode(success:reply:))
+    .get()
+  }
   func resolveParticipants(
     cfg: Configuration,
     ctx: ParentReview,
