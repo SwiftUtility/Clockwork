@@ -47,6 +47,24 @@ public final class Worker {
     .reduce(Json.GitlabBranch.self, jsonDecoder.decode(success:reply:))
     .get()
   }
+  func resolveProtectedBranches(cfg: Configuration) throws -> [Git.Branch] {
+    var result: [Git.Branch] = []
+    var page = 1
+    let gitlab = try cfg.gitlabCi.get()
+    while true {
+      let branches = try gitlab
+        .getBranches(page: page, count: 100)
+        .map(execute)
+        .reduce([Json.GitlabBranch].self, jsonDecoder.decode(success:reply:))
+        .get()
+      result += try branches
+        .filter(\.protected)
+        .map(\.name)
+        .map(Git.Branch.init(name:))
+      guard branches.count == 100 else { return result }
+      page += 1
+    }
+  }
   func resolveParticipants(
     cfg: Configuration,
     ctx: ParentReview,

@@ -34,7 +34,9 @@ public struct Fusion {
       rules: yaml.proposition.rules
         .map { yaml in try .init(
           title: .init(yaml: yaml.title),
-          source: .init(yaml: yaml.source)
+          source: .init(yaml: yaml.source),
+          consistency: yaml.consistency
+            .map { try NSRegularExpression(pattern: $0, options: [.anchorsMatchLines]) }
         )}
     ),
     replication: .init(
@@ -65,6 +67,7 @@ public struct Fusion {
     public struct Rule {
       public var title: Criteria
       public var source: Criteria
+      public var consistency: NSRegularExpression?
     }
   }
   public struct Replication {

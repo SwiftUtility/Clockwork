@@ -49,8 +49,32 @@ public struct Report: Query {
       case sourceNotProtected
       case forkInTarget
       case forkParentNotInTarget
+      case forkNotInSource
     }
   }
+  public struct ReviewBlocked: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Yaml.Thread
+    public var review: Json.GitlabReviewState
+    public var authors: [String]
+    public var reasons: [Reason]
+    public enum Reason: String, Encodable {
+      case draft
+      case workInProgress
+      case blockingDiscussions
+      case squashStatus
+      case badTarget
+      case badTitle
+      case extraCommits
+      case titleInconsistency
+    }
+  }
+
+
+
   public struct Custom: GenerationContext {
     public var event: String = Self.event
     public var subevent: String
@@ -110,25 +134,6 @@ public struct Report: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var markers: [String]
-  }
-  public struct ReviewBlocked: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-    public var reasons: [Reason]
-    public enum Reason: String, Encodable {
-      case draft
-      case workInProgress
-      case blockingDiscussions
-      case squashStatus
-      case badTarget
-      case badTitle
-      case configuration
-      case forkPoint
-    }
   }
   public struct ReviewMerged: GenerationContext {
     public var event: String = Self.event
@@ -299,7 +304,6 @@ public extension Configuration {
     ))
   )}
   func reportReviewMergeConflicts(
-    fusion: Fusion,
     status: Fusion.Status,
     review: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
@@ -311,7 +315,6 @@ public extension Configuration {
     authors: status.authors
   ))}
   func reportReviewClosed(
-    fusion: Fusion,
     status: Fusion.Status,
     review: Json.GitlabReviewState,
     reason: Report.ReviewClosed.Reason
@@ -323,6 +326,19 @@ public extension Configuration {
     review: review,
     authors: status.authors,
     reason: reason
+  ))}
+  func reportReviewBlocked(
+    status: Fusion.Status,
+    review: Json.GitlabReviewState,
+    reasons: [Report.ReviewBlocked.Reason]
+  ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: status.thread,
+    review: review,
+    authors: status.authors,
+    reasons: reasons
   ))}
   func reportCustom(
     event: String,
@@ -396,19 +412,6 @@ public extension Configuration {
     ctx: context,
     info: try? gitlabCi.get().info,
     markers: markers
-  ))}
-  func reportReviewBlocked(
-    review: Json.GitlabReviewState,
-    users: [String],
-    reasons: [Report.ReviewBlocked.Reason]
-  ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: .init(users)
-      .union([review.author.username]),
-    reasons: reasons
   ))}
   func reportReviewMerged(
     review: Json.GitlabReviewState,

@@ -59,25 +59,23 @@ public final class Merger {
           force: false
         )))
       } else {
-        report(cfg.reportReviewMergeConflicts(fusion: fusion, status: status, review: ctx.review))
+        report(cfg.reportReviewMergeConflicts(status: status, review: ctx.review))
         try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       }
       return false
     }
-    if let reason = try checkCloseReason(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) {
+    if let reason = try checkReviewClosers(cfg: cfg, ctx: ctx, kind: kind) {
       try closeReview(cfg: cfg, ctx: ctx)
-      report(cfg.reportReviewClosed(
-        fusion: fusion,
-        status: status,
-        review: ctx.review,
-        reason: reason
-      ))
+      report(cfg.reportReviewClosed(status: status, review: ctx.review, reason: reason))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
-//    guard try checkReviewErrors(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind) else {
-//      return false
-//    }
+    let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, kind: kind)
+    guard blockers.isEmpty else {
+      report(cfg.reportReviewBlocked(status: status, review: ctx.review, reasons: blockers))
+      try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
+      return false
+    }
 //    guard try checkIsApproved() else {
 //      return false
 //    }
@@ -242,16 +240,16 @@ public final class Merger {
     ))
     return .make(thread: thread, target: ctx.review.targetBranch, authors: authors)
   }
-  func checkCloseReason(
+  func checkReviewClosers(
     cfg: Configuration,
     ctx: Worker.ParentReview,
-    fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> Report.ReviewClosed.Reason? {
     switch kind {
     case .proposition(let rule):
       guard rule != nil else { return .noSourceRule }
     case .replication(let merge):
+      guard ctx.review.author.username == ctx.gitlab.botLogin else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
@@ -260,16 +258,25 @@ public final class Merger {
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
       ))) else { return .forkParentNotInTarget }
+      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+        child: .make(remote: merge.source),
+        parent: .make(sha: merge.fork)
+      ))) else { return .forkNotInSource }
       let target = try worker.resolveBranch(cfg: cfg, name: merge.target.name)
       guard target.protected else { return .targetNotProtected }
       guard target.default else { return .targetNotDefault }
       let source = try worker.resolveBranch(cfg: cfg, name: merge.source.name)
       guard source.protected else { return .sourceNotProtected }
     case .integration(let merge):
+      guard ctx.review.author.username == ctx.gitlab.botLogin else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
       ))) else { return .forkInTarget }
+      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+        child: .make(remote: merge.source),
+        parent: .make(sha: merge.fork)
+      ))) else { return .forkNotInSource }
       let target = try worker.resolveBranch(cfg: cfg, name: merge.target.name)
       guard target.protected else { return .targetNotProtected }
       let source = try worker.resolveBranch(cfg: cfg, name: merge.source.name)
@@ -277,63 +284,51 @@ public final class Merger {
     }
     return nil
   }
-  func checkReviewErrors(
+  func checkReviewBlockers(
     cfg: Configuration,
     ctx: Worker.ParentReview,
-    fusion: Fusion,
     kind: Fusion.Kind
-  ) throws -> Bool {
-//    var reasons: [Report.ReviewBlocked.Reason] = []
-//    if ctx.review.draft { reasons.append(.draft) }
-//    if ctx.review.workInProgress { reasons.append(.workInProgress) }
-//    if !ctx.review.blockingDiscussionsResolved { reasons.append(.blockingDiscussions) }
-//    let excludes: [Git.Ref]
-//    switch kind {
-//    case .proposition(let rule):
-//      if !ctx.review.squash { reasons.append(.squashStatus) }
-//      if !fusion.targets.isMet(ctx.review.targetBranch) { reasons.append(.badTarget) }
-//      if let rule = rule {
-//        if !rule.title.isMet(ctx.review.title) { reasons.append(.badTitle) }
-//      } else { reasons.append(.configuration) }
-//      try excludes = [.make(remote: .init(name: ctx.review.targetBranch))]
-//    case .replication(let merge), .integration(let merge):
-//      if ctx.review.squash { reasons.append(.squashStatus) }
-//      if ctx.review.targetBranch != merge.target.name { reasons.append(.badTarget) }
-//      if ctx.review.author.username != ctx.gitlab.botLogin { reasons.append(.configuration) }
-//      excludes = [.make(remote: merge.target), .make(sha: merge.fork)]
-//    }
-//    let head = try Git.Sha(value: ctx.job.pipeline.sha)
-//    for branch in try listTrackingBranches(cfg: cfg) {
-//      guard fusion.targets.isMet(branch.name) else { continue }
-//      let base = try Execute.parseText(reply: execute(cfg.git.mergeBase(
-//        .make(remote: branch),
-//        .make(sha: head)
-//      )))
-//      let extras = try Execute.parseLines(reply: execute(cfg.git.listCommits(
-//        in: [.make(sha: .init(value: base))],
-//        notIn: excludes,
-//        noMerges: false,
-//        firstParents: false
-//      )))
-//      guard !extras.isEmpty else { continue }
-//      reasons.append(.forkPoint)
-//      break
-//    }
-//    guard reasons.isEmpty else {
-//      try report(cfg.reportReviewBlocked(
-//        review: ctx.review,
-//        users: worker.resolveParticipants(
-//          cfg: cfg,
-//          gitlabCi: ctx.gitlab,
-//          source: .make(sha: .init(value: ctx.job.pipeline.sha)),
-//          target: .make(remote: .init(name: ctx.review.targetBranch))
-//        ),
-//        reasons: reasons
-//      ))
-//      return false
-//    }
-    #warning("tbd")
-    return true
+  ) throws -> [Report.ReviewBlocked.Reason] {
+    var result: [Report.ReviewBlocked.Reason] = []
+    if ctx.review.draft { result.append(.draft) }
+    if ctx.review.workInProgress { result.append(.workInProgress) }
+    if !ctx.review.blockingDiscussionsResolved { result.append(.blockingDiscussions) }
+    let excludes: [Git.Ref]
+    switch kind {
+    case .proposition(let rule):
+      if !ctx.review.squash { result.append(.squashStatus) }
+      let target = try worker.resolveBranch(cfg: cfg, name: ctx.review.targetBranch)
+      if !target.protected { result.append(.badTarget) }
+      guard let rule = rule else { throw MayDay("no proposition rule") }
+      if !rule.title.isMet(ctx.review.title) { result.append(.badTitle) }
+      if let consistency = rule.consistency {
+        let source = try findMatches(in: ctx.review.sourceBranch, regexp: consistency)
+        let title = try findMatches(in: ctx.review.title, regexp: consistency)
+        if source.symmetricDifference(title).isEmpty { result.append(.titleInconsistency) }
+      }
+      try excludes = [.make(remote: .init(name: ctx.review.targetBranch))]
+    case .replication(let merge), .integration(let merge):
+      if ctx.review.squash { result.append(.squashStatus) }
+      if ctx.review.targetBranch != merge.target.name { result.append(.badTarget) }
+      excludes = [.make(remote: merge.target), .make(sha: merge.fork)]
+    }
+    let head = try Git.Sha(value: ctx.job.pipeline.sha)
+    for branch in try worker.resolveProtectedBranches(cfg: cfg) {
+      let base = try Execute.parseText(reply: execute(cfg.git.mergeBase(
+        .make(remote: branch),
+        .make(sha: head)
+      )))
+      let extras = try Execute.parseLines(reply: execute(cfg.git.listCommits(
+        in: [.make(sha: .init(value: base))],
+        notIn: excludes,
+        noMerges: false,
+        firstParents: false
+      )))
+      guard !extras.isEmpty else { continue }
+      result.append(.extraCommits)
+      break
+    }
+    return result
   }
   func checkIsRebased(
     cfg: Configuration,
@@ -606,5 +601,18 @@ public final class Merger {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
+  }
+  func findMatches(in string: String, regexp: NSRegularExpression) throws -> Set<String> {
+    var result: Set<String> = []
+    for match in regexp.matches(
+      in: string,
+      options: .withoutAnchoringBounds,
+      range: .init(string.startIndex..<string.endIndex, in: string)
+    ) {
+      guard match.range.location != NSNotFound, let range = Range(match.range, in: string)
+      else { continue }
+      result.insert(String(string[range]))
+    }
+    return result
   }
 }

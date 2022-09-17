@@ -124,6 +124,7 @@ public enum Yaml {
       public struct Rule: Decodable {
         public var title: Criteria
         public var source: Criteria
+        public var consistency: String?
       }
     }
     public struct Replication: Decodable {
