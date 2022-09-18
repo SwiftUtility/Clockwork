@@ -43,15 +43,22 @@ public struct Execute: Query {
     public func checkStatus() throws {
       for status in statuses {
         guard status.task.escalate, status.termination != 0 else { continue }
-        throw Thrown("Subprocess termination status")
+        let launch = ["\(status.termination): \(status.task.launch)\n"]
+        + status.task.arguments.map { "  \($0)\n" }
+        let message = launch.joined() + status.stderr
+          .flatMap { String(data: $0, encoding: .utf8) }
+          .get("")
+        throw Thrown(message)
       }
     }
     public struct Status {
-      public var termination: Int32
       public var task: Task
-      public init(termination: Int32, task: Task) {
-        self.termination = termination
+      public var stderr: Data?
+      public var termination: Int32
+      public init(task: Task, stderr: Data?, termination: Int32) {
         self.task = task
+        self.stderr = stderr
+        self.termination = termination
       }
     }
   }

@@ -25,16 +25,13 @@ public struct Processor {
     this.process.launch()
   }
   private static func wait(this: Self) throws -> Execute.Reply.Status {
-    let stderr = try this.log.fileHandleForReading.readToEnd()
+    let stderr = try? this.log.fileHandleForReading.readToEnd()
     this.process.waitUntilExit()
-    if this.process.terminationStatus != 0 && this.task.escalate {
-      try FileHandle.standardError.write(contentsOf: Data((
-        ["\(this.process.terminationStatus): \(this.task.launch)"]
-        + this.task.arguments.map { "  \($0)" }
-      ).map { "\($0)\n" }.joined().utf8))
-      try stderr.map(FileHandle.standardError.write(contentsOf:))
-    }
-    return .init(termination: this.process.terminationStatus, task: this.task)
+    return .init(
+      task: this.task,
+      stderr: stderr,
+      termination: this.process.terminationStatus
+    )
   }
   public static func execute(query: Execute) throws -> Execute.Reply {
     let processors = query.tasks.map(Self.init(task:))
