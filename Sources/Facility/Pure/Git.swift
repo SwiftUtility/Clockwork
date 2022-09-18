@@ -3,11 +3,9 @@ import Facility
 public struct Git {
   public var root: Files.Absolute
   public var lfs: Bool = false
-  public var verbose: Bool
   public var env: [String: String]
-  public init(verbose: Bool, env: [String: String], root: Files.Absolute) throws {
+  public init(env: [String: String], root: Files.Absolute) throws {
     self.root = root
-    self.verbose = verbose
     self.env = env
   }
   public struct File: Hashable {
@@ -217,7 +215,6 @@ public extension Git {
     args: ["ls-remote", "--tags", "--refs"]
   )}
   static func resolveTopLevel(
-    verbose: Bool,
     path: Files.Absolute
   ) -> Execute { .init(tasks: [.init(
     environment: [:],

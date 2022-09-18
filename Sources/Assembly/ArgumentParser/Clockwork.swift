@@ -3,8 +3,6 @@ struct Clockwork: ParsableCommand {
   static var version: String { "0.4.0" }
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
-  @Flag(help: "Should log subprocesses")
-  var logsubs = false
   static let configuration = CommandConfiguration(
     abstract: "Distributed scalable monorepo management tool",
     version: Self.version,

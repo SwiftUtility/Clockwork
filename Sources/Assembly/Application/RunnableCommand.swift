@@ -20,7 +20,6 @@ extension RunnableCommand {
     SideEffects.printDebug = Assembler.writeStderr
     let cfg = try Assembler.configurator.configure(
       profile: clockwork.profile,
-      verbose: clockwork.logsubs,
       env: Assembler.environment
     )
     try Lossy(cfg)

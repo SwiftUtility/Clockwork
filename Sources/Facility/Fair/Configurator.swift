@@ -34,7 +34,6 @@ public final class Configurator {
   }
   public func configure(
     profile: String,
-    verbose: Bool,
     env: [String: String]
   ) throws -> Configuration {
     let profilePath = try Id(profile)
@@ -47,11 +46,11 @@ public final class Configurator {
       .joined(separator: "/")
     var git = try Id(repoPath)
       .map(Files.Absolute.init(value:))
-      .reduce(verbose, Git.resolveTopLevel(verbose:path:))
+      .map(Git.resolveTopLevel(path:))
       .map(execute)
       .map(Execute.parseText(reply:))
       .map(Files.Absolute.init(value:))
-      .map { try Git.init(verbose: verbose, env: env, root: $0) }
+      .map { try Git.init(env: env, root: $0) }
       .get()
     git.lfs = try Id(git.updateLfs)
       .map(execute)
@@ -77,7 +76,6 @@ public final class Configurator {
       .map(\.token)
       .reduce(env, parse(env:secret:))
     return try .make(
-      verbose: verbose,
       git: git,
       env: env,
       profile: profile,
@@ -100,19 +98,6 @@ public final class Configurator {
             .reduce(Json.GitlabUser.self, jsonDecoder.decode(success:reply:))
         ))
       )),
-//        .make { try profile.gitlabCi.get { throw Thrown("GitlabCi not configured") }}
-//        .map { gitlabCi in try .make(
-//          env: env,
-//          gitlabCi: gitlabCi,
-//          job: GitlabCi.getCurrentJob(env: env)
-//            .map(execute)
-//            .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
-//          user: .error(MayDay("tbd")),
-//          apiToken: GitlabCi.isProtected(env: env)
-//            .map { try parse(env: env, secret: gitlabCi.apiToken) },
-//          pushToken: GitlabCi.isProtected(env: env)
-//            .map { try parse(env: env, secret: gitlabCi.pushToken) }
-//        )},
       slack: Lossy(try profile.slack.get { throw Thrown("Slack not configured") })
         .map { slack in try .make(
           token: parse(env: env, secret: slack.token),
@@ -129,7 +114,6 @@ public final class Configurator {
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce(Yaml.Requisition.self, dialect.read(_:from:))
     .map { yaml in try Requisition.make(
-      verbose: query.cfg.verbose,
       env: query.cfg.env,
       yaml: yaml
     )}

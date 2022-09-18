@@ -371,7 +371,7 @@ public extension Configuration {
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
-    error: verbose.then(String(reflecting: error)).get(String(describing: error))
+    error: String(describing: error)
   ))}
   func reportUnownedCode(
     files: [String]

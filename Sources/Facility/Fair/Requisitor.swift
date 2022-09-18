@@ -213,7 +213,7 @@ public final class Requisitor {
     guard let names = try? listFileSystem(.init(include: .directories, path: specs)) else { return }
     for name in names {
       let path = try resolveAbsolute(specs.makeResolve(path: name))
-      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      let git = try Git(env: cfg.env, root: path)
       guard let url = try? Execute.parseText(reply: execute(git.getOriginUrl)) else { continue }
       for spec in cocoapods.specs {
         guard spec.url == url else { continue }
@@ -230,7 +230,7 @@ public final class Requisitor {
   ) throws {
     for spec in cocoapods.specs {
       let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
-      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      let git = try Git(env: cfg.env, root: path)
       guard case nil = try? Execute.parseText(reply: execute(git.getSha(ref: .head)))
       else { continue }
       try Execute.checkStatus(reply: execute(cfg.podAddSpec(name: spec.name, url: spec.url)))
@@ -243,7 +243,7 @@ public final class Requisitor {
   ) throws {
     for spec in cocoapods.specs {
       let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
-      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      let git = try Git(env: cfg.env, root: path)
       let sha = try Git.Sha(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
       guard sha != spec.sha else { continue }
       try Execute.checkStatus(reply: execute(cfg.podUpdateSpec(name: spec.name)))
@@ -260,7 +260,7 @@ public final class Requisitor {
     for var spec in cocoapods.specs {
       try Execute.checkStatus(reply: execute(cfg.podUpdateSpec(name: spec.name)))
       let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
-      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      let git = try Git(env: cfg.env, root: path)
       spec.sha = try .init(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
       result.specs.append(spec)
     }

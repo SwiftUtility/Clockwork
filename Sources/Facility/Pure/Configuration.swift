@@ -1,7 +1,6 @@
 import Foundation
 import Facility
 public struct Configuration {
-  public var verbose: Bool
   public var git: Git
   public var env: [String: String]
   public var profile: Profile
@@ -10,7 +9,6 @@ public struct Configuration {
   public var gitlabCi: Lossy<GitlabCi>
   public var slack: Lossy<Slack>
   public static func make(
-    verbose: Bool,
     git: Git,
     env: [String : String],
     profile: Configuration.Profile,
@@ -19,7 +17,6 @@ public struct Configuration {
     gitlabCi: Lossy<GitlabCi>,
     slack: Lossy<Slack>
   ) -> Self { .init(
-    verbose: verbose,
     git: git,
     env: env,
     profile: profile,
