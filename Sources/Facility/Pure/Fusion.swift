@@ -35,7 +35,7 @@ public struct Fusion {
         .map { yaml in try .init(
           title: .init(yaml: yaml.title),
           source: .init(yaml: yaml.source),
-          consistency: yaml.consistency
+          task: yaml.task
             .map { try NSRegularExpression(pattern: $0, options: [.anchorsMatchLines]) }
         )}
     ),
@@ -67,7 +67,7 @@ public struct Fusion {
     public struct Rule {
       public var title: Criteria
       public var source: Criteria
-      public var consistency: NSRegularExpression?
+      public var task: NSRegularExpression?
     }
   }
   public struct Replication {
@@ -196,32 +196,42 @@ public struct Fusion {
         .map(Configuration.Secret.make(yaml:))
     )}
     public struct Rules {
-      public var emergency: String
-      public var randoms: Randoms
+      public var emergency: String?
+      public var randoms: Randoms?
       public var teams: [String: Team]
       public var authorship: [String: [String]]
       public var sourceBranch: [String: Criteria]
       public var targetBranch: [String: Criteria]
       public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
         emergency: yaml.emergency,
-        randoms: .make(yaml: yaml.randoms),
-        teams: yaml.teams.mapValues(Team.make(yaml:)),
-        authorship: yaml.authorship.get([:]),
-        sourceBranch: yaml.sourceBranch.get([:]).mapValues(Criteria.init(yaml:)),
-        targetBranch: yaml.targetBranch.get([:]).mapValues(Criteria.init(yaml:))
+        randoms: yaml.randoms
+          .map(Randoms.make(yaml:)),
+        teams: yaml.teams
+          .get([:])
+          .mapValues(Team.make(yaml:)),
+        authorship: yaml.authorship
+          .get([:]),
+        sourceBranch: yaml.sourceBranch
+          .get([:])
+          .mapValues(Criteria.init(yaml:)),
+        targetBranch: yaml.targetBranch
+          .get([:])
+          .mapValues(Criteria.init(yaml:))
       )}
       public struct Team {
         public var quorum: Int
         public var advanceApproval: Bool
         public var selfApproval: Bool
+        public var ignoreAntagonism: Bool
         public var label: String?
         public var reserve: [String]
         public var optional: [String]
         public var required: [String]
         public static func make(yaml: Yaml.Fusion.Approval.Rules.Team) -> Self { .init(
           quorum: yaml.quorum,
-          advanceApproval: yaml.advanceApproval,
-          selfApproval: yaml.selfApproval,
+          advanceApproval: yaml.advanceApproval.get(false),
+          selfApproval: yaml.selfApproval.get(false),
+          ignoreAntagonism: yaml.ignoreAntagonism.get(false),
           label: yaml.label,
           reserve: yaml.reserve.get([]),
           optional: yaml.optional.get([]),

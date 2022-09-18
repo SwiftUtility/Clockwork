@@ -303,10 +303,10 @@ public final class Merger {
       if !target.protected { result.append(.badTarget) }
       guard let rule = rule else { throw MayDay("no proposition rule") }
       if !rule.title.isMet(ctx.review.title) { result.append(.badTitle) }
-      if let consistency = rule.consistency {
-        let source = try findMatches(in: ctx.review.sourceBranch, regexp: consistency)
-        let title = try findMatches(in: ctx.review.title, regexp: consistency)
-        if source.symmetricDifference(title).isEmpty { result.append(.titleInconsistency) }
+      if let task = rule.task {
+        let source = try findMatches(in: ctx.review.sourceBranch, regexp: task)
+        let title = try findMatches(in: ctx.review.title, regexp: task)
+        if source.symmetricDifference(title).isEmpty { result.append(.taskMismatch) }
       }
       try excludes = [.make(remote: .init(name: ctx.review.targetBranch))]
     case .replication(let merge), .integration(let merge):

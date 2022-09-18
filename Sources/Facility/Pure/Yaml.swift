@@ -121,7 +121,7 @@ public enum Yaml {
       public struct Rule: Decodable {
         public var title: Criteria
         public var source: Criteria
-        public var consistency: String?
+        public var task: String?
       }
     }
     public struct Replication: Decodable {
@@ -138,16 +138,17 @@ public enum Yaml {
       public var approvers: Asset
       public var antagonists: Secret?
       public struct Rules: Decodable {
-        public var emergency: String
-        public var randoms: Randoms
-        public var teams: [String: Team]
+        public var emergency: String?
+        public var randoms: Randoms?
+        public var teams: [String: Team]?
         public var authorship: [String: [String]]?
         public var sourceBranch: [String: Criteria]?
         public var targetBranch: [String: Criteria]?
         public struct Team: Decodable {
           public var quorum: Int
-          public var advanceApproval: Bool
-          public var selfApproval: Bool
+          public var advanceApproval: Bool?
+          public var selfApproval: Bool?
+          public var ignoreAntagonism: Bool?
           public var label: String?
           public var reserve: [String]?
           public var optional: [String]?
