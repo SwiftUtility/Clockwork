@@ -1,5 +1,8 @@
 import Foundation
 import Facility
+public struct Approval {
+  
+}
 //public struct AwardApproval {
 //  public var holdAward: String
 //  public var sanityGroup: String

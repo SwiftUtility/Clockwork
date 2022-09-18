@@ -8,7 +8,6 @@ struct Clockwork: ParsableCommand {
     version: Self.version,
     subcommands: [
       AcceptReview.self,
-      AcquireReview.self,
       AddReviewLabels.self,
       ApproveReview.self,
       CancelJobs.self,
@@ -28,6 +27,7 @@ struct Clockwork: ParsableCommand {
       ImportRequisites.self,
       ImportPkcs12.self,
       ImportProvisions.self,
+      OwnReview.self,
       PlayJobs.self,
       ReportCustom.self,
       ReportCustomRelease.self,
@@ -49,10 +49,6 @@ struct Clockwork: ParsableCommand {
   )
   struct AcceptReview: ClockworkCommand {
     static var abstract: String { "Accept parent review" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct AcquireReview: ClockworkCommand {
-    static var abstract: String { "Transmith authorship to user" }
     @OptionGroup var clockwork: Clockwork
   }
   struct AddReviewLabels: ClockworkCommand {
@@ -164,6 +160,10 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
     @Argument(help: "Requisites to install or all")
     var requisites: [String] = []
+  }
+  struct OwnReview: ClockworkCommand {
+    static var abstract: String { "Transmith authorship to user" }
+    @OptionGroup var clockwork: Clockwork
   }
   struct PlayJobs: ClockworkCommand {
     static var abstract: String { "Play job with matching names" }

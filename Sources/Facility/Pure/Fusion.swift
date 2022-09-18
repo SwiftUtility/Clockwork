@@ -183,23 +183,26 @@ public struct Fusion {
   }
   public struct Approval {
     public var sanity: String
-    public var approvers: Git.File
+    public var rules: Git.File
     public var statuses: Configuration.Asset
-    public var activity: Configuration.Asset
+    public var approvers: Configuration.Asset
+    public var antagonists: Configuration.Secret?
     public static func make(yaml: Yaml.Fusion.Approval) throws -> Self { try .init(
       sanity: yaml.sanity,
-      approvers: .make(preset: yaml.approvers),
+      rules: .make(preset: yaml.rules),
       statuses: .make(yaml: yaml.statuses),
-      activity: .make(yaml: yaml.activity)
+      approvers: .make(yaml: yaml.approvers),
+      antagonists: yaml.antagonists
+        .map(Configuration.Secret.make(yaml:))
     )}
-    public struct Approvers {
+    public struct Rules {
       public var emergency: String
       public var randoms: Randoms
       public var teams: [String: Team]
       public var authorship: [String: [String]]
       public var sourceBranch: [String: Criteria]
       public var targetBranch: [String: Criteria]
-      public static func make(yaml: Yaml.Fusion.Approval.Approvers) throws -> Self { try .init(
+      public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
         emergency: yaml.emergency,
         randoms: .make(yaml: yaml.randoms),
         teams: yaml.teams.mapValues(Team.make(yaml:)),
@@ -215,7 +218,7 @@ public struct Fusion {
         public var reserve: [String]
         public var optional: [String]
         public var required: [String]
-        public static func make(yaml: Yaml.Fusion.Approval.Approvers.Team) -> Self { .init(
+        public static func make(yaml: Yaml.Fusion.Approval.Rules.Team) -> Self { .init(
           quorum: yaml.quorum,
           advanceApproval: yaml.advanceApproval,
           selfApproval: yaml.selfApproval,
@@ -231,7 +234,7 @@ public struct Fusion {
         public var baseWeight: Int
         public var weights: [String: Int]
         public var advanceApproval: Bool
-        public static func make(yaml: Yaml.Fusion.Approval.Approvers.Randoms) -> Self { .init(
+        public static func make(yaml: Yaml.Fusion.Approval.Rules.Randoms) -> Self { .init(
           minQuorum: yaml.minQuorum,
           maxQuorum: yaml.maxQuorum,
           baseWeight: yaml.baseWeight,

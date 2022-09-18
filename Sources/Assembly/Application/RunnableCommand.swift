@@ -34,12 +34,6 @@ extension Clockwork.AcceptReview: RunnableCommand {
     try Assembler.merger.acceptReview(cfg: cfg)
   }
 }
-extension Clockwork.AcquireReview: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-  }
-}
 extension Clockwork.AddReviewLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.addReviewLabels(cfg: cfg, labels: labels)
@@ -141,6 +135,12 @@ extension Clockwork.ImportPkcs12: RunnableCommand {
 extension Clockwork.ImportProvisions: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.installProvisions(cfg: cfg, requisites: requisites)
+  }
+}
+extension Clockwork.OwnReview: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    #warning("tbd")
+    return false
   }
 }
 extension Clockwork.PlayJobs: RunnableCommand {

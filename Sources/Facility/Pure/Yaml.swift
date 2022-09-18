@@ -133,10 +133,11 @@ public enum Yaml {
     }
     public struct Approval: Decodable {
       public var sanity: String
-      public var activity: Asset
+      public var rules: Preset
       public var statuses: Asset
-      public var approvers: Preset
-      public struct Approvers: Decodable {
+      public var approvers: Asset
+      public var antagonists: Secret?
+      public struct Rules: Decodable {
         public var emergency: String
         public var randoms: Randoms
         public var teams: [String: Team]

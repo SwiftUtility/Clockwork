@@ -226,9 +226,9 @@ public final class Configurator {
       force: false
     )))
   }
-  public func resolveUserActivity(
+  public func resolveUsers(
     query: Configuration.ResolveUserActivity
-  ) throws -> Configuration.ResolveUserActivity.Reply { try Id(query.approval.activity)
+  ) throws -> Configuration.ResolveUserActivity.Reply { try Id(query.approval.approvers)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Bool].self, dialect.read(_:from:))
@@ -295,23 +295,23 @@ public final class Configurator {
       force: false
     )))
   }
-  public func persistUserActivity(
+  public func persistUsers(
     query: Configuration.PersistUserActivity
   ) throws -> Configuration.PersistUserActivity.Reply {
     var userActivity = query.userActivity
     userActivity[query.user] = query.active
     let message = try generate(query.cfg.createUserActivityCommitMessage(
-      asset: query.approval.activity,
+      asset: query.approval.approvers,
       user: query.user,
       active: query.active
     ))
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
       url: query.pushUrl,
-      branch: query.approval.activity.branch,
+      branch: query.approval.approvers.branch,
       sha: persist(
         git: query.cfg.git,
-        file: query.approval.activity.file,
-        branch: query.approval.activity.branch,
+        file: query.approval.approvers.file,
+        branch: query.approval.approvers.branch,
         yaml: userActivity
           .map { "'\($0.key)': \($0.value)\n" }
           .sorted()
