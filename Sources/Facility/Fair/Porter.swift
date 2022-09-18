@@ -27,7 +27,7 @@ public final class Porter {
     let result = queue.enqueue(review: ctx.review.iid, target: ctx.review.targetBranch)
     if queue.isChanged { try persistReviewQueue(.init(
       cfg: cfg,
-      pushUrl: ctx.gitlab.pushUrl.get(),
+      pushUrl: ctx.gitlab.protected.get().push,
       fusion: fusion,
       reviewQueue: queue,
       review: ctx.review,
@@ -45,7 +45,7 @@ public final class Porter {
     _ = queue.enqueue(review: ctx.review.iid, target: nil)
     if queue.isChanged { try persistReviewQueue(.init(
       cfg: cfg,
-      pushUrl: ctx.gitlab.pushUrl.get(),
+      pushUrl: ctx.gitlab.protected.get().push,
       fusion: fusion,
       reviewQueue: queue,
       review: ctx.review,

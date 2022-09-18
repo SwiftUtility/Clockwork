@@ -65,6 +65,17 @@ public final class Configurator {
       ref: .head,
       path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
     )))
+    let gitlab = Lossy(try profile.gitlabCi.get { throw Thrown("GitlabCi not configured") })
+    let gitlabEnv = gitlab
+      .map(\.trigger)
+      .reduce(env, GitlabCi.Env.make(env:trigger:))
+    let gitlabJob = gitlabEnv
+      .flatMap(\.getJob)
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
+    let gitlabToken = gitlab
+      .map(\.token)
+      .reduce(env, parse(env:secret:))
     return try .make(
       verbose: verbose,
       git: git,
@@ -75,23 +86,34 @@ public final class Configurator {
         .get([:]),
       context: profile.context
         .reduce(git, parse(git:yaml:)),
-      gitlabCi: Lossy
-        .make { try profile.gitlabCi.get { throw Thrown("GitlabCi not configured") }}
-        .map { gitlabCi in try .make(
-          verbose: verbose,
-          env: env,
-          gitlabCi: gitlabCi,
-          job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
+      gitlabCi: Lossy(try .make(
+        trigger: gitlab.get().trigger,
+        env: gitlabEnv.get(),
+        job: gitlabJob.get(),
+        protected: .init(try .make(
+          token: gitlabToken,
+          env: gitlabEnv,
+          job: gitlabJob,
+          user: gitlabEnv
+            .flatMap { try $0.getTokenUser(token: gitlabToken.get()) }
             .map(execute)
-            .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
-          botLogin: parse(env: env, secret: gitlabCi.botLogin),
-          apiToken: GitlabCi.isProtected(env: env)
-            .map { try parse(env: env, secret: gitlabCi.apiToken) },
-          pushToken: GitlabCi.isProtected(env: env)
-            .map { try parse(env: env, secret: gitlabCi.pushToken) }
-        )},
-      slack: GitlabCi.isProtected(env: env)
-        .map { try profile.slack.get { throw Thrown("Slack not configured") } }
+            .reduce(Json.GitlabUser.self, jsonDecoder.decode(success:reply:))
+        ))
+      )),
+//        .make { try profile.gitlabCi.get { throw Thrown("GitlabCi not configured") }}
+//        .map { gitlabCi in try .make(
+//          env: env,
+//          gitlabCi: gitlabCi,
+//          job: GitlabCi.getCurrentJob(env: env)
+//            .map(execute)
+//            .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
+//          user: .error(MayDay("tbd")),
+//          apiToken: GitlabCi.isProtected(env: env)
+//            .map { try parse(env: env, secret: gitlabCi.apiToken) },
+//          pushToken: GitlabCi.isProtected(env: env)
+//            .map { try parse(env: env, secret: gitlabCi.pushToken) }
+//        )},
+      slack: Lossy(try profile.slack.get { throw Thrown("Slack not configured") })
         .map { slack in try .make(
           token: parse(env: env, secret: slack.token),
           signals: dialect.read(
@@ -208,7 +230,7 @@ public final class Configurator {
       review: query.review
     ))
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.cfg.gitlabCi.flatMap(\.pushUrl).get(),
+      url: query.cfg.gitlabCi.flatMap(\.protected).get().push,
       branch: query.approval.statuses.branch,
       sha: persist(
         git: query.cfg.git,

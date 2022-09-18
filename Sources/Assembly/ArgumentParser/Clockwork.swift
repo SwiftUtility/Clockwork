@@ -1,8 +1,4 @@
 import ArgumentParser
-import Foundation
-import Facility
-import FacilityPure
-import InteractivityCommon
 struct Clockwork: ParsableCommand {
   static var version: String { "0.4.0" }
   @Option(help: "The path to the profile")
@@ -14,7 +10,7 @@ struct Clockwork: ParsableCommand {
     version: Self.version,
     subcommands: [
       AcceptReview.self,
-      ActivateApprover.self,
+      AcquireReview.self,
       AddReviewLabels.self,
       ApproveReview.self,
       CancelJobs.self,
@@ -25,7 +21,6 @@ struct Clockwork: ParsableCommand {
       CreateDeployTag.self,
       CreateHotfixBranch.self,
       CreateReleaseBranch.self,
-      DeactivateApprover.self,
       DequeueReview.self,
       EraseRequisites.self,
       ExportBuild.self,
@@ -50,6 +45,7 @@ struct Clockwork: ParsableCommand {
       StartReplication.self,
       StartIntegration.self,
       UpdatePodSpecs.self,
+      UpdateApprovers.self,
       UpdateReview.self,
     ]
   )
@@ -57,11 +53,9 @@ struct Clockwork: ParsableCommand {
     static var abstract: String { "Accept parent review" }
     @OptionGroup var clockwork: Clockwork
   }
-  struct ActivateApprover: ClockworkCommand {
-    static var abstract: String { "Change approver status to active" }
+  struct AcquireReview: ClockworkCommand {
+    static var abstract: String { "Transmith authorship to user" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "User login to be activated or current")
-    var login: String = ""
   }
   struct AddReviewLabels: ClockworkCommand {
     static var abstract: String { "Add labels to parent review" }
@@ -72,8 +66,22 @@ struct Clockwork: ParsableCommand {
   struct ApproveReview: ClockworkCommand {
     static var abstract: String { "Approve parent review" }
     @OptionGroup var clockwork: Clockwork
-    @Flag(help: "Should reset on commit")
-    var advance = false
+    enum Resolution: EnumerableFlag {
+      case block
+      case fragil
+      case advance
+      case emergent
+      static func help(for value: Self) -> ArgumentHelp? {
+        switch value {
+        case .block: return "Block review"
+        case .fragil: return "Approve current commit only"
+        case .advance: return "Approve review in advance"
+        case .emergent: return "Skip regular approval process"
+        }
+      }
+    }
+    @Flag(help: "Resolution for approval")
+    var resolution: Resolution
   }
   struct CancelJobs: ClockworkCommand {
     static var abstract: String { "Cancel job" }
@@ -100,8 +108,8 @@ struct Clockwork: ParsableCommand {
   struct CreateAccessoryBranch: ClockworkCommand {
     static var abstract: String { "Cut custom protected branch" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Name suffix of branch")
-    var suffix: String
+    @Option(help: "Name of the branch")
+    var name: String
   }
   struct CreateDeployTag: ClockworkCommand {
     static var abstract: String { "Create deploy tag on release branch" }
@@ -117,14 +125,8 @@ struct Clockwork: ParsableCommand {
     @Option(help: "Product name to make branch for")
     var product: String
   }
-  struct DeactivateApprover: ClockworkCommand {
-    static var abstract: String { "Set user status to inactive" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "User login to be deactivated or current")
-    var login: String = ""
-  }
   struct DequeueReview: ClockworkCommand {
-    static var abstract: String { "Dequeue parent review and trigger pipeline for new leaders" }
+    static var abstract: String { "Dequeue parent review" }
     @OptionGroup var clockwork: Clockwork
   }
   struct EraseRequisites: ClockworkCommand {
@@ -257,6 +259,10 @@ struct Clockwork: ParsableCommand {
   }
   struct UpdatePodSpecs: ClockworkCommand {
     static var abstract: String { "Update cocoapods specs and configured commist" }
+    @OptionGroup var clockwork: Clockwork
+  }
+  struct UpdateApprovers: ClockworkCommand {
+    static var abstract: String { "Update approver status" }
     @OptionGroup var clockwork: Clockwork
   }
   struct UpdateReview: ClockworkCommand {

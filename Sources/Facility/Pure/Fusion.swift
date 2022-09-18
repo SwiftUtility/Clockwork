@@ -261,27 +261,21 @@ public struct Fusion {
         result += "    channel: '\(value.thread.channel)'\n"
         result += "    ts: '\(value.thread.ts)'\n"
         result += "  target: '\(value.target)'\n"
-        result += "  authors: [\(value.authors.map { "'\($0)'" }.joined(separator: ", "))]\n"
+        result += "  authors: [\(value.authors.map { "'\($0)'" }.joined(separator: ","))]\n"
         guard let review = value.review else { continue }
         result += "  review:\n"
-        let randoms = review.randoms.sorted().map { "'\($0)'" }.joined(separator: ", ")
+        let randoms = review.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
         result += "    randoms: [\(randoms)]\n"
         result += "    teams:\(review.teams.isEmpty.then(" {}").get(""))\n"
         for (key, value) in review.teams.sorted(by: { $0.key.value < $1.key.value }) {
-          let teams = value.sorted().map { "'\($0)'" }.joined(separator: ", ")
+          let teams = value.sorted().map { "'\($0)'" }.joined(separator: ",")
           result += "      '\(key.value)': [\(teams)]\n"
         }
         result += "    approves:\(review.approves.isEmpty.then(" {}").get(""))\n"
         for (key, value) in review.approves.sorted(by: { $0.key < $1.key }) {
           result += "      '\(key)':\n"
           result += "        commit: '\(value.commit.value)'\n"
-          result += "        advance: \(value.advance.map { "\($0)" }.get("null"))\n"
-        }
-        result += "    emergent:\(review.emergent.isEmpty.then(" {}").get(""))\n"
-        for (key, value) in review.emergent.sorted(by: { $0.key < $1.key }) {
-          result += "      '\(key)':\n"
-          result += "        commit: '\(value.commit.value)'\n"
-          result += "        advance: \(value.advance.map { "\($0)" }.get("null"))\n"
+          result += "        resolution: \(value.resolution.rawValue)\n"
         }
       }
       return result.isEmpty.then("{}\n").get(result)
@@ -299,21 +293,18 @@ public struct Fusion {
       public var randoms: Set<String>
       public var teams: [Git.Sha: Set<String>]
       public var approves: [String: Approve]
-      public var emergent: [String: Approve]
       public static func make(yaml: Yaml.Fusion.Status.Review) throws -> Self { try .init(
         randoms: .init(yaml.randoms),
         teams: yaml.teams
           .reduce(into: [:]) { try $0[.init(value: $1.key)] = .init($1.value) },
         approves: yaml.approves
-          .mapValues(Approve.make(yaml:)),
-        emergent: yaml.emergent
           .mapValues(Approve.make(yaml:))
       )}
       public struct Approve {
         public var commit: Git.Sha
-        public var advance: Bool?
+        public var resolution: Yaml.Fusion.Status.Review.Approve.Resolution
         public static func make(yaml: Yaml.Fusion.Status.Review.Approve) throws -> Self {
-          try .init(commit: .init(value: yaml.commit), advance: yaml.advance)
+          try .init(commit: .init(value: yaml.commit), resolution: yaml.resolution)
         }
       }
     }

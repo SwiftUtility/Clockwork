@@ -15,7 +15,7 @@ public struct Processor {
       process.environment?[key] = value
     }
     process.standardOutput = pipe
-    if task.verbose { process.standardError = Pipe() }
+    process.standardError = log
   }
   private static func wire(pipe: Pipe, this: Self) -> Pipe {
     this.process.standardInput = pipe
@@ -25,10 +25,7 @@ public struct Processor {
     this.process.launch()
   }
   private static func wait(this: Self) throws -> Execute.Reply.Status {
-    let stderr = try this.process.standardError
-      .flatMap { $0 as? Pipe }
-      .map(\.fileHandleForReading)
-      .flatMap { try $0.readToEnd() }
+    let stderr = try this.log.fileHandleForReading.readToEnd()
     this.process.waitUntilExit()
     if this.process.terminationStatus != 0 && this.task.escalate {
       try FileHandle.standardError.write(contentsOf: Data((

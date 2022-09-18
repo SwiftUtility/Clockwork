@@ -14,9 +14,7 @@ public enum Yaml {
     public var context: Preset?
   }
   public struct GitlabCi: Decodable {
-    public var botLogin: Secret
-    public var apiToken: Secret
-    public var pushToken: Secret
+    public var token: Secret
     public var trigger: Trigger
     public struct Trigger: Decodable {
       public var jobId: String
@@ -78,7 +76,6 @@ public enum Yaml {
     }
     public struct AccessoryBranch: Decodable {
       public var nameMatch: Criteria
-      public var createName: Template
       public var adjustVersion: Template
     }
     public struct Build: Decodable {
@@ -173,10 +170,15 @@ public enum Yaml {
         public var randoms: [String]
         public var teams: [String: [String]]
         public var approves: [String: Approve]
-        public var emergent: [String: Approve]
         public struct Approve: Decodable {
           public var commit: String
-          public var advance: Bool?
+          public var resolution: Resolution
+          public enum Resolution: String, Decodable {
+            case block
+            case fragil
+            case advance
+            case emergent
+          }
         }
       }
     }

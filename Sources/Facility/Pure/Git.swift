@@ -221,7 +221,6 @@ public extension Git {
     path: Files.Absolute
   ) -> Execute { .init(tasks: [.init(
     environment: [:],
-    verbose: verbose,
     arguments: ["git", "-C", path.value, "rev-parse", "--show-toplevel"]
   )])}
   static func env(
@@ -251,7 +250,6 @@ extension Git {
     escalate: escalate,
     environment: self.env
       .merging(env, uniquingKeysWith: { $1 }),
-    verbose: verbose,
     arguments: ["git", "-C", root.value]
     + ["-c", "core.quotepath=false", "-c", "core.precomposeunicode=true"]
     + args

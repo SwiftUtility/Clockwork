@@ -35,11 +35,10 @@ extension Clockwork.AcceptReview: RunnableCommand {
     try Assembler.merger.acceptReview(cfg: cfg)
   }
 }
-extension Clockwork.ActivateApprover: RunnableCommand {
+extension Clockwork.AcquireReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     #warning("tbd")
     return false
-//    try Assembler.approver.updateUser(cfg: cfg, active: true, login: login)
   }
 }
 extension Clockwork.AddReviewLabels: RunnableCommand {
@@ -78,7 +77,7 @@ extension Clockwork.CheckUnownedCode: RunnableCommand {
 }
 extension Clockwork.CreateAccessoryBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.createAccessoryBranch(cfg: cfg, suffix: suffix)
+    try Assembler.producer.createAccessoryBranch(cfg: cfg, name: name)
   }
 }
 extension Clockwork.CreateDeployTag: RunnableCommand {
@@ -94,13 +93,6 @@ extension Clockwork.CreateHotfixBranch: RunnableCommand {
 extension Clockwork.CreateReleaseBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.createReleaseBranch(cfg: cfg, product: product)
-  }
-}
-extension Clockwork.DeactivateApprover: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-//    try Assembler.approver.updateUser(cfg: cfg, active: false, login: login)
   }
 }
 extension Clockwork.DequeueReview: RunnableCommand {
@@ -231,6 +223,12 @@ extension Clockwork.StartIntegration: RunnableCommand {
 extension Clockwork.UpdatePodSpecs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
+  }
+}
+extension Clockwork.UpdateApprovers: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    #warning("tbd")
+    return false
   }
 }
 extension Clockwork.UpdateReview: RunnableCommand {

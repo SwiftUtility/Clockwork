@@ -16,7 +16,7 @@ public final class Worker {
   }
   func resolveParentReview(cfg: Configuration) throws -> ParentReview {
     let gitlabCi = try cfg.gitlabCi.get()
-    let parent = try gitlabCi.parent.get()
+    let parent = try gitlabCi.env.parent.get()
     let job = try gitlabCi.getJob(id: parent.job)
       .map(execute)
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))

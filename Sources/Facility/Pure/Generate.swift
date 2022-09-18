@@ -114,13 +114,6 @@ public struct Generate: Query {
     public var product: String
     public var version: String
   }
-  public struct CreateAccessoryBranchName: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var suffix: String
-  }
   public struct AdjustAccessoryBranchVersion: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
@@ -386,20 +379,6 @@ public extension Configuration {
       info: try? gitlabCi.get().info,
       product: product.name,
       version: version
-    )
-  )}
-  func createAccessoryBranchName(
-    accessoryBranch: Production.AccessoryBranch,
-    suffix: String
-  ) -> Generate { .init(
-    allowEmpty: false,
-    template: accessoryBranch.createName,
-    templates: templates,
-    context: Generate.CreateAccessoryBranchName(
-      env: env,
-      ctx: context,
-      info: try? gitlabCi.get().info,
-      suffix: suffix
     )
   )}
   func adjustAccessoryBranchVersion(

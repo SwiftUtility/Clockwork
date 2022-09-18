@@ -86,5 +86,7 @@ public enum Json {
   }
   public struct GitlabProject: Codable {
     public var defaultBranch: String
+    public var httpUrlToRepo: String // http://example.com/diaspora/diaspora-project-site.git
+    public var webUrl: String // http://example.com/diaspora/diaspora-project-site
   }
 }

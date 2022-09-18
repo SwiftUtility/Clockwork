@@ -53,7 +53,7 @@ public final class Merger {
     guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
       if let sha = try rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
-          url: ctx.gitlab.pushUrl.get(),
+          url: ctx.gitlab.protected.get().push,
           branch: .init(name: ctx.review.sourceBranch),
           sha: sha,
           force: false
@@ -70,15 +70,15 @@ public final class Merger {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
-    let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, kind: kind)
-    guard blockers.isEmpty else {
+    if let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, kind: kind) {
       report(cfg.reportReviewBlocked(status: status, review: ctx.review, reasons: blockers))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
-//    guard try checkIsApproved() else {
-//      return false
-//    }
+    guard try checkIsApproved(cfg: cfg, ctx: ctx) else {
+      try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
+      return false
+    }
 //    guard try checkIsSquashed(cfg: cfg, ctx: ctx, kind: kind) else {
 //      let sha = try squashReview(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind)
 //      try pushReview(cfg: cfg, ctx: ctx, sha: sha)
@@ -249,7 +249,7 @@ public final class Merger {
     case .proposition(let rule):
       guard rule != nil else { return .noSourceRule }
     case .replication(let merge):
-      guard ctx.review.author.username == ctx.gitlab.botLogin else { return .authorNotBot }
+//      guard ctx.review.author.username == ctx.gitlab.botLogin else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
@@ -268,7 +268,7 @@ public final class Merger {
       let source = try worker.resolveBranch(cfg: cfg, name: merge.source.name)
       guard source.protected else { return .sourceNotProtected }
     case .integration(let merge):
-      guard ctx.review.author.username == ctx.gitlab.botLogin else { return .authorNotBot }
+//      guard ctx.review.author.username == ctx.gitlab.botLogin else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
@@ -288,7 +288,7 @@ public final class Merger {
     cfg: Configuration,
     ctx: Worker.ParentReview,
     kind: Fusion.Kind
-  ) throws -> [Report.ReviewBlocked.Reason] {
+  ) throws -> [Report.ReviewBlocked.Reason]? {
     var result: [Report.ReviewBlocked.Reason] = []
     if ctx.review.draft { result.append(.draft) }
     if ctx.review.workInProgress { result.append(.workInProgress) }
@@ -328,7 +328,7 @@ public final class Merger {
       result.append(.extraCommits)
       break
     }
-    return result
+    return result.isEmpty.else(result)
   }
   func checkIsRebased(
     cfg: Configuration,
@@ -363,8 +363,11 @@ public final class Merger {
       .get()
     return parents == [sha, target]
   }
-  func checkIsApproved() throws -> Bool {
-//    #error("tbd")
+  func checkIsApproved(
+    cfg: Configuration,
+    ctx: Worker.ParentReview
+  ) throws -> Bool {
+    #warning("tbd")
     return false
   }
   func listTrackingBranches(cfg: Configuration) throws -> [Git.Branch] {
@@ -391,7 +394,7 @@ public final class Merger {
     )
     if queue.isChanged { try persistReviewQueue(.init(
       cfg: cfg,
-      pushUrl: ctx.gitlab.pushUrl.get(),
+      pushUrl: ctx.gitlab.protected.get().push,
       fusion: fusion,
       reviewQueue: queue,
       review: ctx.review,
@@ -483,7 +486,7 @@ public final class Merger {
     fusion: Fusion,
     sha: Git.Sha
   ) throws {
-//    #error("tbd")
+    #warning("tbd")
   }
   func closeReview(cfg: Configuration, ctx: Worker.ParentReview) throws {
     try ctx.gitlab
@@ -493,7 +496,7 @@ public final class Merger {
       .get()
     try Id
       .make(cfg.git.push(
-        url: ctx.gitlab.pushUrl.get(),
+        url: ctx.gitlab.protected.get().push,
         delete: .init(name: ctx.review.sourceBranch)
       ))
       .map(execute)
@@ -584,7 +587,7 @@ public final class Merger {
     }
     try Id
       .make(cfg.git.push(
-        url: gitlab.pushUrl.get(),
+        url: gitlab.protected.get().push,
         branch: merge.supply,
         sha: merge.fork,
         force: false

@@ -96,32 +96,14 @@ public struct Configuration {
       ].compactMap(\.?.path.value)
     }
     public struct GitlabCi {
-      public var botLogin: Secret
-      public var apiToken: Secret
-      public var pushToken: Secret
-      public var trigger: Trigger
+      public var token: Secret
+      public var trigger: Yaml.GitlabCi.Trigger
       public static func make(
         yaml: Yaml.GitlabCi
       ) throws -> Self { try .init(
-        botLogin: .make(yaml: yaml.botLogin),
-        apiToken: .make(yaml: yaml.apiToken),
-        pushToken: .make(yaml: yaml.pushToken),
-        trigger: .make(yaml: yaml.trigger)
+        token: .make(yaml: yaml.token),
+        trigger: yaml.trigger
       )}
-      public struct Trigger {
-        public var jobId: String
-        public var jobName: String
-        public var profile: String
-        public var pipeline: String
-        public static func make(
-          yaml: Yaml.GitlabCi.Trigger
-        ) -> Self { .init(
-          jobId: yaml.jobId,
-          jobName: yaml.jobName,
-          profile: yaml.profile,
-          pipeline: yaml.pipeline
-        )}
-      }
     }
     public struct Slack {
       public var token: Secret

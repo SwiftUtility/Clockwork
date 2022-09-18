@@ -4,7 +4,6 @@ public struct Execute: Query {
   public var input: Data? = nil
   public var tasks: [Task]
   public static func makeCurl(
-    verbose: Bool,
     url: String,
     method: String = "GET",
     checkHttp: Bool = true,
@@ -25,7 +24,6 @@ public struct Execute: Query {
     return .init(tasks: [.init(
       escalate: checkHttp,
       environment: [:],
-      verbose: verbose,
       arguments: arguments
     )])
   }
@@ -33,7 +31,6 @@ public struct Execute: Query {
     public var launch: String = "/usr/bin/env"
     public var escalate: Bool = true
     public var environment: [String: String]
-    public var verbose: Bool
     public var arguments: [String]
   }
   public struct Reply {
@@ -87,23 +84,22 @@ public struct Execute: Query {
 }
 public extension Configuration {
   var systemTempFile: Execute { .init(tasks: [
-    .init(environment: env, verbose: verbose, arguments: ["mktemp"])
+    .init(environment: env, arguments: ["mktemp"])
   ])}
   func createDir(path: Files.Absolute) -> Execute { .init(tasks: [
-    .init(environment: env, verbose: verbose, arguments: ["mkdir", "-p", path.value])
+    .init(environment: env, arguments: ["mkdir", "-p", path.value])
   ])}
   func systemMove(file: Files.Absolute, location: Files.Absolute) -> Execute { .init(tasks: [
-    .init(environment: env, verbose: verbose, arguments: ["mv", "-f", file.value, location.value])
+    .init(environment: env, arguments: ["mv", "-f", file.value, location.value])
   ])}
   func systemDelete(path: Files.Absolute) -> Execute { .init(tasks: [
-    .init(escalate: false, environment: env, verbose: verbose, arguments: ["rm", "-rf", path.value])
+    .init(escalate: false, environment: env, arguments: ["rm", "-rf", path.value])
   ])}
   func systemWrite(file: Files.Absolute, execute: Execute) -> Execute { .init(
     input: execute.input,
-    tasks: execute.tasks + [.init(environment: env, verbose: verbose, arguments: ["tee", file.value])]
+    tasks: execute.tasks + [.init(environment: env, arguments: ["tee", file.value])]
   )}
   func curlSlack(token: String, method: String, body: String) throws -> Execute { try .makeCurl(
-    verbose: verbose,
     url: "https://slack.com/api/\(method)",
     method: "POST",
     retry: 2,
@@ -112,20 +108,18 @@ public extension Configuration {
   )}
   func write(file: Files.Absolute, execute: Execute) -> Execute {
     var execute = execute
-    execute.tasks.append(.init(environment: env, verbose: verbose, arguments: ["tee", file.value]))
+    execute.tasks.append(.init(environment: env, arguments: ["tee", file.value]))
     return execute
   }
   func podAddSpec(name: String, url: String) -> Execute { .init(tasks: [
     .init(
       environment: env,
-      verbose: verbose,
-      arguments: ["bundle", "exec", "pod", "repo", "add", name, url])
+        arguments: ["bundle", "exec", "pod", "repo", "add", name, url])
   ])}
   func podUpdateSpec(name: String) -> Execute { .init(tasks: [
     .init(
       environment: env,
-      verbose: verbose,
-      arguments: ["bundle", "exec", "pod", "repo", "update", name])
+        arguments: ["bundle", "exec", "pod", "repo", "update", name])
   ])}
 }
 public extension JSONDecoder {

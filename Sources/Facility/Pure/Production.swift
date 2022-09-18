@@ -60,7 +60,6 @@ public struct Production {
     accessoryBranch: yaml.accessoryBranch
       .map { yaml in try .init(
         nameMatch: .init(yaml: yaml.nameMatch),
-        createName: .make(yaml: yaml.createName),
         adjustVersion: .make(yaml: yaml.adjustVersion)
       )},
     maxBuildsCount: yaml.maxBuildsCount
@@ -88,7 +87,6 @@ public struct Production {
   }
   public struct AccessoryBranch {
     public var nameMatch: Criteria
-    public var createName: Configuration.Template
     public var adjustVersion: Configuration.Template
   }
   public enum Build {

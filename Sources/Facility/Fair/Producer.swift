@@ -112,7 +112,7 @@ public final class Producer {
     ))
     try persistBuilds(.init(
       cfg: cfg,
-      pushUrl: gitlabCi.pushUrl.get(),
+      pushUrl: gitlabCi.protected.get().push,
       production: production,
       builds: builds,
       build: .deploy(deploy)
@@ -143,7 +143,7 @@ public final class Producer {
     }
     try persistBuilds(.init(
       cfg: cfg,
-      pushUrl: ctx.gitlab.pushUrl.get(),
+      pushUrl: ctx.gitlab.protected.get().push,
       production: production,
       builds: builds,
       build: try builds.last
@@ -167,7 +167,7 @@ public final class Producer {
     }
     try persistBuilds(.init(
       cfg: cfg,
-      pushUrl: gitlabCi.pushUrl.get(),
+      pushUrl: gitlabCi.protected.get().push,
       production: production,
       builds: builds,
       build: try builds.last
@@ -205,7 +205,7 @@ public final class Producer {
     ))
     try persistVersions(.init(
       cfg: cfg,
-      pushUrl: gitlabCi.pushUrl.get(),
+      pushUrl: gitlabCi.protected.get().push,
       production: production,
       versions: versions,
       product: product,
@@ -245,16 +245,12 @@ public final class Producer {
   }
   public func createAccessoryBranch(
     cfg: Configuration,
-    suffix: String
+    name: String
   ) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
     let accessoryBranch = try resolveProduction(.init(cfg: cfg))
       .accessoryBranch
       .get { throw Thrown("accessoryBranch not configured") }
-    let name = try generate(cfg.createAccessoryBranchName(
-      accessoryBranch: accessoryBranch,
-      suffix: suffix
-    ))
     guard accessoryBranch.nameMatch.isMet(name)
     else { throw Thrown("\(name) does not meat accessory criteria") }
     try gitlabCi
