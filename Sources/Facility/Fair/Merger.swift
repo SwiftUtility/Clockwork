@@ -316,10 +316,10 @@ public final class Merger {
     }
     let head = try Git.Sha(value: ctx.job.pipeline.sha)
     for branch in try worker.resolveProtectedBranches(cfg: cfg) {
-      let base = try Execute.parseText(reply: execute(cfg.git.mergeBase(
+      guard let base = try? Execute.parseText(reply: execute(cfg.git.mergeBase(
         .make(remote: branch),
         .make(sha: head)
-      )))
+      ))) else { continue }
       let extras = try Execute.parseLines(reply: execute(cfg.git.listCommits(
         in: [.make(sha: .init(value: base))],
         notIn: excludes,
