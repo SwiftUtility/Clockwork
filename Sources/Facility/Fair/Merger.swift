@@ -249,7 +249,8 @@ public final class Merger {
     case .proposition(let rule):
       guard rule != nil else { return .noSourceRule }
     case .replication(let merge):
-//      guard ctx.review.author.username == ctx.gitlab.botLogin else { return .authorNotBot }
+      guard try ctx.review.author.username == ctx.gitlab.protected.get().user.username
+      else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
@@ -268,7 +269,8 @@ public final class Merger {
       let source = try worker.resolveBranch(cfg: cfg, name: merge.source.name)
       guard source.protected else { return .sourceNotProtected }
     case .integration(let merge):
-//      guard ctx.review.author.username == ctx.gitlab.botLogin else { return .authorNotBot }
+      guard try ctx.review.author.username == ctx.gitlab.protected.get().user.username
+      else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
