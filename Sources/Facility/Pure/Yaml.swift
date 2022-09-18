@@ -149,7 +149,7 @@ public enum Yaml {
           public var advanceApproval: Bool?
           public var selfApproval: Bool?
           public var ignoreAntagonism: Bool?
-          public var label: String?
+          public var labels: [String]?
           public var reserve: [String]?
           public var optional: [String]?
           public var required: [String]?

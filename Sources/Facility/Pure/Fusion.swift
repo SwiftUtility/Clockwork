@@ -223,7 +223,7 @@ public struct Fusion {
         public var advanceApproval: Bool
         public var selfApproval: Bool
         public var ignoreAntagonism: Bool
-        public var label: String?
+        public var labels: [String]
         public var reserve: [String]
         public var optional: [String]
         public var required: [String]
@@ -232,7 +232,7 @@ public struct Fusion {
           advanceApproval: yaml.advanceApproval.get(false),
           selfApproval: yaml.selfApproval.get(false),
           ignoreAntagonism: yaml.ignoreAntagonism.get(false),
-          label: yaml.label,
+          labels: yaml.labels.get([]),
           reserve: yaml.reserve.get([]),
           optional: yaml.optional.get([]),
           required: yaml.required.get([])
