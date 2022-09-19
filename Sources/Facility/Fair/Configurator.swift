@@ -200,7 +200,7 @@ public final class Configurator {
   ) throws -> Configuration.ResolveFusionStatuses.Reply { try Id(query.approval.statuses)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Yaml.Fusion.Status].self, dialect.read(_:from:))
+    .reduce([String: Yaml.Fusion.Approval.Status].self, dialect.read(_:from:))
     .get()
     .reduce(into: [:]) {
       try $0[UInt($1.key).get { throw Thrown("Bad approval asset") }] = .make(yaml: $1.value)
@@ -220,7 +220,7 @@ public final class Configurator {
         git: query.cfg.git,
         file: query.approval.statuses.file,
         branch: query.approval.statuses.branch,
-        yaml: Fusion.Status.yaml(statuses: query.statuses),
+        yaml: Fusion.Approval.Status.yaml(statuses: query.statuses),
         message: message
       ),
       force: false

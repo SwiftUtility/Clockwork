@@ -217,7 +217,7 @@ public final class Merger {
     ctx: Worker.ParentReview,
     fusion: Fusion,
     kind: Fusion.Kind
-  ) throws -> Fusion.Status {
+  ) throws -> Fusion.Approval.Status {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     if let status = statuses[ctx.review.iid] { return status }
     let authors = try worker.resolveParticipants(cfg: cfg, ctx: ctx, kind: kind)
@@ -226,7 +226,7 @@ public final class Merger {
       review: ctx.review,
       authors: authors
     ))
-    let result = Fusion.Status.make(
+    let result = Fusion.Approval.Status.make(
       thread: thread,
       target: ctx.review.targetBranch,
       authors: authors

@@ -162,26 +162,31 @@ public enum Yaml {
           public var advanceApproval: Bool
         }
       }
-    }
-    public struct Status: Decodable {
-      public var thread: Thread
-      public var target: String
-      public var authors: [String]
-      public var review: Review?
-      public struct Review: Decodable {
-        public var randoms: [String]
-        public var teams: [String: [String]]
-        public var approves: [String: Approve]
-        public struct Approve: Decodable {
-          public var commit: String
-          public var resolution: Resolution
-          public enum Resolution: String, Decodable {
-            case block
-            case fragil
-            case advance
-            case emergent
+      public struct Status: Decodable {
+        public var thread: Thread
+        public var target: String
+        public var authors: [String]
+        public var review: Review?
+        public struct Review: Decodable {
+          public var randoms: [String]
+          public var teams: [String: [String]]
+          public var approves: [String: Approve]
+          public struct Approve: Decodable {
+            public var commit: String
+            public var resolution: Resolution
+            public enum Resolution: String, Decodable {
+              case block
+              case fragil
+              case advance
+              case emergent
+            }
           }
         }
+      }
+      public struct Approver: Decodable {
+        public var active: Bool
+        public var slack: String
+        public var name: String
       }
     }
   }

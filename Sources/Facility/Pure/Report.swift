@@ -304,7 +304,7 @@ public extension Configuration {
     ))
   )}
   func reportReviewMergeConflicts(
-    status: Fusion.Status,
+    status: Fusion.Approval.Status,
     review: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
     env: env,
@@ -315,7 +315,7 @@ public extension Configuration {
     authors: status.authors
   ))}
   func reportReviewClosed(
-    status: Fusion.Status,
+    status: Fusion.Approval.Status,
     review: Json.GitlabReviewState,
     reason: Report.ReviewClosed.Reason
   ) -> Report { .init(cfg: self, context: Report.ReviewClosed(
@@ -328,7 +328,7 @@ public extension Configuration {
     reason: reason
   ))}
   func reportReviewBlocked(
-    status: Fusion.Status,
+    status: Fusion.Approval.Status,
     review: Json.GitlabReviewState,
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(

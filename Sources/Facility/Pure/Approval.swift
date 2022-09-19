@@ -1,7 +1,11 @@
 import Foundation
 import Facility
 public struct Approval {
-  
+  public var sanity: String
+  public var rules: Fusion.Approval.Rules
+  public var status: Fusion.Approval.Status
+  public var approvers: [String: Fusion.Approval.Approver]
+  public var antagonists: [String: [String]]
 }
 //public struct AwardApproval {
 //  public var holdAward: String
