@@ -5,9 +5,9 @@ public final class Merger {
   let execute: Try.Reply<Execute>
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
-  let persistFusionStatuses: Try.Reply<Configuration.PersistFusionStatuses>
   let resolveReviewQueue: Try.Reply<Fusion.Queue.Resolve>
-  let persistReviewQueue: Try.Reply<Fusion.Queue.Persist>
+  let resolveApprovers: Try.Reply<Configuration.ResolveApprovers>
+  let persistAsset: Try.Reply<Configuration.PersistAsset>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Act.Reply<Report>
@@ -19,9 +19,9 @@ public final class Merger {
     execute: @escaping Try.Reply<Execute>,
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
-    persistFusionStatuses: @escaping Try.Reply<Configuration.PersistFusionStatuses>,
     resolveReviewQueue: @escaping Try.Reply<Fusion.Queue.Resolve>,
-    persistReviewQueue: @escaping Try.Reply<Fusion.Queue.Persist>,
+    resolveApprovers: @escaping Try.Reply<Configuration.ResolveApprovers>,
+    persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Act.Reply<Report>,
@@ -33,9 +33,9 @@ public final class Merger {
     self.execute = execute
     self.resolveFusion = resolveFusion
     self.resolveFusionStatuses = resolveFusionStatuses
-    self.persistFusionStatuses = persistFusionStatuses
     self.resolveReviewQueue = resolveReviewQueue
-    self.persistReviewQueue = persistReviewQueue
+    self.resolveApprovers = resolveApprovers
+    self.persistAsset = persistAsset
     self.writeStdout = writeStdout
     self.generate = generate
     self.report = report
@@ -49,7 +49,14 @@ public final class Merger {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
     let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
-    let status = try resolveReviewStatus(cfg: cfg, ctx: ctx, fusion: fusion, kind: kind)
+    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    let status = try resolveReviewStatus(
+      cfg: cfg,
+      ctx: ctx,
+      fusion: fusion,
+      approvers: approvers,
+      kind: kind
+    )
     guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
       if let sha = try rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
@@ -59,19 +66,19 @@ public final class Merger {
           force: false
         )))
       } else {
-        report(cfg.reportReviewMergeConflicts(status: status, review: ctx.review))
+        report(cfg.reportReviewMergeConflicts(status: status, review: ctx.review, users: approvers))
         try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       }
       return false
     }
     if let reason = try checkReviewClosers(cfg: cfg, ctx: ctx, kind: kind) {
       try closeReview(cfg: cfg, ctx: ctx)
-      report(cfg.reportReviewClosed(status: status, review: ctx.review, reason: reason))
+      report(cfg.reportReviewClosed(status: status, review: ctx.review, users: approvers, reason: reason))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
     if let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, kind: kind) {
-      report(cfg.reportReviewBlocked(status: status, review: ctx.review, reasons: blockers))
+      report(cfg.reportReviewBlocked(status: status, review: ctx.review, users: approvers, reasons: blockers))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
@@ -212,33 +219,48 @@ public final class Merger {
     #warning("tbd")
     return true
   }
+  func checkUser(
+    cfg: Configuration,
+    user: String,
+    approvers: [String: Fusion.Approval.Approver]
+  ) throws {
+    guard try user != cfg.gitlabCi.flatMap(\.protected).get().user.username else { return }
+    guard approvers[user] != nil else { throw Thrown("Unknown user: \(user)") }
+  }
   func resolveReviewStatus(
     cfg: Configuration,
     ctx: Worker.ParentReview,
     fusion: Fusion,
+    approvers: [String: Fusion.Approval.Approver],
     kind: Fusion.Kind
   ) throws -> Fusion.Approval.Status {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     if let status = statuses[ctx.review.iid] { return status }
-    let authors = try worker.resolveParticipants(cfg: cfg, ctx: ctx, kind: kind)
+    let coauthors = try worker.resolveCoauthors(cfg: cfg, ctx: ctx, kind: kind)
     let thread = try createThread(cfg.reportReviewCreated(
       fusion: fusion,
       review: ctx.review,
-      authors: authors
+      users: approvers,
+      author: ctx.review.author.username,
+      coauthors: coauthors
     ))
     let result = Fusion.Approval.Status.make(
-      thread: thread,
+      thread: .make(yaml: thread),
       target: ctx.review.targetBranch,
-      authors: authors
+      author: ctx.review.author.username,
+      coauthors: coauthors
     )
     statuses[ctx.review.iid] = result
-    try persistFusionStatuses(.init(
+    _ = try persistAsset(.init(
       cfg: cfg,
-      approval: fusion.approval,
-      review: ctx.review,
-      statuses: statuses
+      asset: fusion.approval.statuses,
+      content: Fusion.Approval.Status.yaml(statuses: statuses),
+      message: generate(cfg.createFusionStatusesCommitMessage(
+        asset: fusion.approval.statuses,
+        review: ctx.review
+      ))
     ))
-    return .make(thread: thread, target: ctx.review.targetBranch, authors: authors)
+    return result
   }
   func checkReviewClosers(
     cfg: Configuration,
@@ -390,22 +412,25 @@ public final class Merger {
     enqueue: Bool
   ) throws -> Bool {
     var queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
-    let result = queue.enqueue(
+    let notifiables = queue.enqueue(
       review: ctx.review.iid,
       target: enqueue.then(ctx.review.targetBranch)
     )
-    if queue.isChanged { try persistReviewQueue(.init(
-      cfg: cfg,
-      pushUrl: ctx.gitlab.protected.get().push,
-      fusion: fusion,
-      reviewQueue: queue,
+    let message = try generate(cfg.createReviewQueueCommitMessage(
+      asset: fusion.queue,
       review: ctx.review,
-      queued: true
-    ))}
-    for notifiable in queue.notifiables {
+      queued: enqueue
+    ))
+    _ = try persistAsset(.init(
+      cfg: cfg,
+      asset: fusion.queue,
+      content: queue.yaml,
+      message: message
+    ))
+    for notifiable in notifiables {
       try Execute.checkStatus(reply: execute(ctx.gitlab.postMrPipelines(review: notifiable).get()))
     }
-    return result
+    return queue.isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
   }
   func rebaseReview(
     cfg: Configuration,

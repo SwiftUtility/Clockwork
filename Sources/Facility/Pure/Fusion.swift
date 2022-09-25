@@ -112,8 +112,6 @@ public struct Fusion {
   }
   public struct Queue {
     public private(set) var queue: [String: [UInt]]
-    public private(set) var isChanged: Bool = false
-    public private(set) var notifiables: Set<UInt> = []
     public var yaml: String {
       var result: String = ""
       for target in queue.keys.sorted() {
@@ -123,26 +121,23 @@ public struct Fusion {
       }
       return result.isEmpty.else(result).get("{}\n")
     }
-    public mutating func enqueue(review: UInt, target: String?) -> Bool {
+    public mutating func enqueue(review: UInt, target: String?) -> Set<UInt> {
+      var result: Set<UInt> = []
       for (key, value) in queue {
         if key == target {
           guard !value.contains(where: { $0 == review }) else { continue }
           queue[key] = value + [review]
-          isChanged = true
         } else {
           let targets = value.filter { $0 != review }
           guard value.count != targets.count else { continue }
           queue[key] = targets.isEmpty.else(targets)
-          isChanged = true
-          if let first = targets.first, first != value.first { notifiables.insert(first) }
+          if let first = targets.first, first != value.first { result.insert(first) }
         }
       }
-      if let target = target, queue[target] == nil {
-        queue[target] = [review]
-        isChanged = true
-      }
-      return target.flatMap { queue[$0] }?.first == review
+      if let target = target, queue[target] == nil { queue[target] = [review] }
+      return result
     }
+    public func isFirst(review: UInt, target: String) -> Bool { queue[target]?.first == review }
     public static func make(queue: [String: [UInt]]) -> Self { .init(queue: queue) }
     public struct Resolve: Query {
       public var cfg: Configuration
@@ -195,10 +190,15 @@ public struct Fusion {
       antagonists: yaml.antagonists
         .map(Configuration.Secret.make(yaml:))
     )}
-    public struct Approver: Decodable {
+    public struct Approver: Encodable {
       public var active: Bool
       public var slack: String
       public var name: String
+      public static func make(yaml: Yaml.Fusion.Approval.Approver) -> Self { .init(
+        active: yaml.active,
+        slack: yaml.slack,
+        name: yaml.name
+      )}
     }
     public struct Rules {
       public var emergency: String?
@@ -260,14 +260,16 @@ public struct Fusion {
       }
     }
     public struct Status {
-      public var thread: Yaml.Thread
+      public var thread: Configuration.Thread
       public var target: String
-      public var authors: [String]
+      public var author: String
+      public var coauthors: [String: String]
       public var review: Review?
       public static func make(yaml: Yaml.Fusion.Approval.Status) throws -> Self { try .init(
-        thread: yaml.thread,
+        thread: .make(yaml: yaml.thread),
         target: yaml.target,
-        authors: .init(yaml.authors),
+        author: .init(yaml.author),
+        coauthors: yaml.coauthors.get([:]),
         review: yaml.review.map(Review.make(yaml:))
       )}
       public static func yaml(statuses: [UInt: Self]) -> String {
@@ -278,33 +280,42 @@ public struct Fusion {
           result += "    channel: '\(value.thread.channel)'\n"
           result += "    ts: '\(value.thread.ts)'\n"
           result += "  target: '\(value.target)'\n"
-          result += "  authors: [\(value.authors.map { "'\($0)'" }.joined(separator: ","))]\n"
-          guard let review = value.review else { continue }
-          result += "  review:\n"
-          let randoms = review.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
-          result += "    randoms: [\(randoms)]\n"
-          result += "    teams:\(review.teams.isEmpty.then(" {}").get(""))\n"
-          for (key, value) in review.teams.sorted(by: { $0.key.value < $1.key.value }) {
-            let teams = value.sorted().map { "'\($0)'" }.joined(separator: ",")
-            result += "      '\(key.value)': [\(teams)]\n"
+          result += "  author: '\(value.author)'\n"
+          if !value.coauthors.isEmpty {
+            result += "  coauthors:\n"
+            for (key, value) in value.coauthors.sorted(by: { $0.key < $1.key }) {
+              result += "    '\(key)': '\(value)'\n"
+            }
           }
-          result += "    approves:\(review.approves.isEmpty.then(" {}").get(""))\n"
-          for (key, value) in review.approves.sorted(by: { $0.key < $1.key }) {
-            result += "      '\(key)':\n"
-            result += "        commit: '\(value.commit.value)'\n"
-            result += "        resolution: \(value.resolution.rawValue)\n"
+          if let review = value.review {
+            result += "  review:\n"
+            let randoms = review.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
+            result += "    randoms: [\(randoms)]\n"
+            result += "    teams:\(review.teams.isEmpty.then(" {}").get(""))\n"
+            for (key, value) in review.teams.sorted(by: { $0.key.value < $1.key.value }) {
+              let teams = value.sorted().map { "'\($0)'" }.joined(separator: ",")
+              result += "      '\(key.value)': [\(teams)]\n"
+            }
+            result += "    approves:\(review.approves.isEmpty.then(" {}").get(""))\n"
+            for (key, value) in review.approves.sorted(by: { $0.key < $1.key }) {
+              result += "      '\(key)':\n"
+              result += "        commit: '\(value.commit.value)'\n"
+              result += "        resolution: \(value.resolution.rawValue)\n"
+            }
           }
         }
         return result.isEmpty.then("{}\n").get(result)
       }
       public static func make(
-        thread: Yaml.Thread,
+        thread: Configuration.Thread,
         target: String,
-        authors: [String]
+        author: String,
+        coauthors: [String: String]
       ) -> Self { .init(
         thread: thread,
         target: target,
-        authors: authors
+        author: author,
+        coauthors: coauthors
       )}
       public struct Review {
         public var randoms: Set<String>

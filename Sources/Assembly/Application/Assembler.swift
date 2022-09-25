@@ -50,26 +50,13 @@ enum Assembler {
     getTime: Date.init,
     plistDecoder: .init()
   )
-//  static let approver = Approver(
-//    execute: execute,
-//    resolveProfile: configurator.resolveProfile(query:),
-//    resolveAwardApproval: configurator.resolveAwardApproval(query:),
-//    resolveUserActivity: configurator.resolveUserActivity(query:),
-//    resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
-//    persistUserActivity: configurator.persistUserActivity(query:),
-//    resolveFusion: configurator.resolveFusion(query:),
-//    report: reporter.report(query:),
-//    logMessage: logger.logMessage(query:),
-//    worker: worker,
-//    jsonDecoder: jsonDecoder
-//  )
   static let merger = Merger(
     execute: execute,
     resolveFusion: configurator.resolveFusion(query:),
     resolveFusionStatuses: configurator.resolveFusionStatuses(query:),
-    persistFusionStatuses: configurator.persistFusionStatuses(query:),
     resolveReviewQueue: configurator.resolveReviewQueue(query:),
-    persistReviewQueue: configurator.persistReviewQueue(query:),
+    resolveApprovers: configurator.resolveApprovers(query:),
+    persistAsset: configurator.persistAsset(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
@@ -91,20 +78,12 @@ enum Assembler {
     resolveProduction: configurator.resolveProduction(query:),
     resolveProductionVersions: configurator.resolveProductionVersions(query:),
     resolveProductionBuilds: configurator.resolveProductionBuilds(query:),
-    persistBuilds: configurator.persistBuilds(query:),
-    persistVersions: configurator.persistVersions(query:),
+    persistAsset: configurator.persistAsset(query:),
     report: reporter.report(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
     worker: worker,
     jsonDecoder: jsonDecoder
-  )
-  static let porter = Porter(
-    execute: execute,
-    resolveReviewQueue: configurator.resolveReviewQueue(query:),
-    persistReviewQueue: configurator.persistReviewQueue(query:),
-    logMessage: logger.logMessage(query:),
-    worker: worker
   )
   static let worker = Worker(
     execute: execute,

@@ -139,6 +139,7 @@ public enum Yaml {
       public var antagonists: Secret?
       public struct Rules: Decodable {
         public var emergency: String?
+        public var botMention: String
         public var randoms: Randoms?
         public var teams: [String: Team]?
         public var authorship: [String: [String]]?
@@ -165,8 +166,9 @@ public enum Yaml {
       public struct Status: Decodable {
         public var thread: Thread
         public var target: String
-        public var authors: [String]
+        public var author: String
         public var review: Review?
+        public var coauthors: [String: String]?
         public struct Review: Decodable {
           public var randoms: [String]
           public var teams: [String: [String]]
@@ -181,6 +183,10 @@ public enum Yaml {
               case emergent
             }
           }
+        }
+        public struct Content: Decodable {
+          public var author: String
+          public var message: String
         }
       }
       public struct Approver: Decodable {
@@ -208,7 +214,7 @@ public enum Yaml {
     var include: [String]?
     var exclude: [String]?
   }
-  public struct Thread: Codable {
+  public struct Thread: Decodable {
     public var channel: String
     public var ts: String
   }

@@ -56,10 +56,7 @@ public final class Configurator {
       .map(execute)
       .map(Execute.parseSuccess(reply:))
       .get()
-    try Id(git.fetch)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
+    try Execute.checkStatus(reply: execute(git.fetch))
     let profile = try resolveProfile(query: .init(git: git, file: .init(
       ref: .head,
       path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
@@ -206,33 +203,34 @@ public final class Configurator {
       try $0[UInt($1.key).get { throw Thrown("Bad approval asset") }] = .make(yaml: $1.value)
     }
   }
-  public func persistFusionStatuses(
-    query: Configuration.PersistFusionStatuses
-  ) throws -> Configuration.PersistFusionStatuses.Reply {
-    let message = try generate(query.cfg.createFusionStatusesCommitMessage(
-      asset: query.approval.statuses,
-      review: query.review
-    ))
-    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.cfg.gitlabCi.flatMap(\.protected).get().push,
-      branch: query.approval.statuses.branch,
-      sha: persist(
-        git: query.cfg.git,
-        file: query.approval.statuses.file,
-        branch: query.approval.statuses.branch,
-        yaml: Fusion.Approval.Status.yaml(statuses: query.statuses),
-        message: message
-      ),
-      force: false
-    )))
-  }
-  public func resolveUsers(
-    query: Configuration.ResolveUserActivity
-  ) throws -> Configuration.ResolveUserActivity.Reply { try Id(query.approval.approvers)
+//  public func persistFusionStatuses(
+//    query: Configuration.PersistFusionStatuses
+//  ) throws -> Configuration.PersistFusionStatuses.Reply {
+//    let message = try generate(query.cfg.createFusionStatusesCommitMessage(
+//      asset: query.approval.statuses,
+//      review: query.review
+//    ))
+//    try Execute.checkStatus(reply: execute(query.cfg.git.push(
+//      url: query.cfg.gitlabCi.flatMap(\.protected).get().push,
+//      branch: query.approval.statuses.branch,
+//      sha: persist(
+//        git: query.cfg.git,
+//        file: query.approval.statuses.file,
+//        branch: query.approval.statuses.branch,
+//        yaml: Fusion.Approval.Status.yaml(statuses: query.statuses),
+//        message: message
+//      ),
+//      force: false
+//    )))
+//  }
+  public func resolveApprovers(
+    query: Configuration.ResolveApprovers
+  ) throws -> Configuration.ResolveApprovers.Reply { try Id(query.approval.approvers)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Bool].self, dialect.read(_:from:))
+    .reduce([String: Yaml.Fusion.Approval.Approver].self, dialect.read(_:from:))
     .get()
+    .mapValues(Fusion.Approval.Approver.make(yaml:))
   }
   public func resolveReviewQueue(
     query: Fusion.Queue.Resolve
@@ -243,105 +241,97 @@ public final class Configurator {
     .map(Fusion.Queue.make(queue:))
     .get()
   }
-  public func persistVersions(
-    query: Configuration.PersistVersions
-  ) throws -> Configuration.PersistVersions.Reply {
-    var versions = query.versions
-    versions[query.product.name] = query.version
-    let message = try generate(query.cfg.createVersionCommitMessage(
-      asset: query.production.versions,
-      product: query.product,
-      version: query.version
-    ))
+//  public func persistVersions(
+//    query: Configuration.PersistVersions
+//  ) throws -> Configuration.PersistVersions.Reply {
+//    var versions = query.versions
+//    versions[query.product.name] = query.version
+//    let message = try generate(query.cfg.createVersionCommitMessage(
+//      asset: query.production.versions,
+//      product: query.product,
+//      version: query.version
+//    ))
+//    try Execute.checkStatus(reply: execute(query.cfg.git.push(
+//      url: query.pushUrl,
+//      branch: query.production.versions.branch,
+//      sha: persist(
+//        git: query.cfg.git,
+//        file: query.production.versions.file,
+//        branch: query.production.versions.branch,
+//        yaml: versions
+//          .map { "'\($0.key)': '\($0.value)'\n" }
+//          .sorted()
+//          .joined(),
+//        message: message
+//      ),
+//      force: false
+//    )))
+//  }
+//  public func persistBuilds(
+//    query: Configuration.PersistBuilds
+//  ) throws -> Configuration.PersistBuilds.Reply {
+//    let builds = query.builds + [query.build]
+//    let message = try generate(query.cfg.createBuildCommitMessage(
+//      asset: query.production.builds,
+//      build: query.build.build
+//    ))
+//    try Execute.checkStatus(reply: execute(query.cfg.git.push(
+//      url: query.pushUrl,
+//      branch: query.production.builds.branch,
+//      sha: persist(
+//        git: query.cfg.git,
+//        file: query.production.builds.file,
+//        branch: query.production.builds.branch,
+//        yaml: query.production.maxBuildsCount
+//          .map(builds.suffix(_:))
+//          .get(builds)
+//          .map(\.yaml)
+//          .flatMap(makeYaml(build:))
+//          .joined(),
+//        message: message
+//      ),
+//      force: false
+//    )))
+//  }
+  public func persistAsset(
+    query: Configuration.PersistAsset
+  ) throws -> Configuration.PersistAsset.Reply {
+    guard let sha = try persist(
+      git: query.cfg.git,
+      asset: query.asset,
+      yaml: query.content,
+      message: query.message
+    ) else { return false }
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.pushUrl,
-      branch: query.production.versions.branch,
-      sha: persist(
-        git: query.cfg.git,
-        file: query.production.versions.file,
-        branch: query.production.versions.branch,
-        yaml: versions
-          .map { "'\($0.key)': '\($0.value)'\n" }
-          .sorted()
-          .joined(),
-        message: message
-      ),
+      url: query.cfg.gitlabCi.flatMap(\.protected).get().push,
+      branch: query.asset.branch,
+      sha: sha,
       force: false
     )))
+    try Execute.checkStatus(reply: execute(query.cfg.git.fetch))
+    return true
   }
-  public func persistBuilds(
-    query: Configuration.PersistBuilds
-  ) throws -> Configuration.PersistBuilds.Reply {
-    let builds = query.builds + [query.build]
-    let message = try generate(query.cfg.createBuildCommitMessage(
-      asset: query.production.builds,
-      build: query.build.build
-    ))
-    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.pushUrl,
-      branch: query.production.builds.branch,
-      sha: persist(
-        git: query.cfg.git,
-        file: query.production.builds.file,
-        branch: query.production.builds.branch,
-        yaml: query.production.maxBuildsCount
-          .map(builds.suffix(_:))
-          .get(builds)
-          .map(\.yaml)
-          .flatMap(makeYaml(build:))
-          .joined(),
-        message: message
-      ),
-      force: false
-    )))
-  }
-  public func persistUsers(
-    query: Configuration.PersistUserActivity
-  ) throws -> Configuration.PersistUserActivity.Reply {
-    var userActivity = query.userActivity
-    userActivity[query.user] = query.active
-    let message = try generate(query.cfg.createUserActivityCommitMessage(
-      asset: query.approval.approvers,
-      user: query.user,
-      active: query.active
-    ))
-    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.pushUrl,
-      branch: query.approval.approvers.branch,
-      sha: persist(
-        git: query.cfg.git,
-        file: query.approval.approvers.file,
-        branch: query.approval.approvers.branch,
-        yaml: userActivity
-          .map { "'\($0.key)': \($0.value)\n" }
-          .sorted()
-          .joined(),
-        message: message
-      ),
-      force: false
-    )))
-  }
-  public func persistReviewQueue(
-    query: Fusion.Queue.Persist
-  ) throws -> Fusion.Queue.Persist.Reply {
-    let message = try generate(query.cfg.createReviewQueueCommitMessage(
-      asset: query.fusion.queue,
-      review: query.review,
-      queued: query.queued
-    ))
-    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.pushUrl,
-      branch: query.fusion.queue.branch,
-      sha: persist(
-        git: query.cfg.git,
-        file: query.fusion.queue.file,
-        branch: query.fusion.queue.branch,
-        yaml: query.reviewQueue.yaml,
-        message: message
-      ),
-      force: false
-    )))
-  }
+//  public func persistReviewQueue(
+//    query: Fusion.Queue.Persist
+//  ) throws -> Fusion.Queue.Persist.Reply {
+//    let message = try generate(query.cfg.createReviewQueueCommitMessage(
+//      asset: query.fusion.queue,
+//      review: query.review,
+//      queued: query.queued
+//    ))
+//    try Execute.checkStatus(reply: execute(query.cfg.git.push(
+//      url: query.pushUrl,
+//      branch: query.fusion.queue.branch,
+//      sha: persist(
+//        git: query.cfg.git,
+//        file: query.fusion.queue.file,
+//        branch: query.fusion.queue.branch,
+//        yaml: query.reviewQueue.yaml,
+//        message: message
+//      ),
+//      force: false
+//    )))
+//  }
   public func resolveSecret(
     query: Configuration.ResolveSecret
   ) throws -> Configuration.ResolveSecret.Reply {
@@ -351,11 +341,10 @@ public final class Configurator {
 extension Configurator {
   func persist(
     git: Git,
-    file: Files.Relative,
-    branch: Git.Branch,
+    asset: Configuration.Asset,
     yaml: String,
     message: String
-  ) throws -> Git.Sha {
+  ) throws -> Git.Sha? {
     let initial = try Id(.head)
       .map(git.getSha(ref:))
       .map(execute)
@@ -363,21 +352,22 @@ extension Configurator {
       .map(Git.Sha.init(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    try Execute.checkStatus(reply: execute(git.detach(ref: .make(remote: branch))))
+    try Execute.checkStatus(reply: execute(git.detach(ref: .make(remote: asset.branch))))
     try Execute.checkStatus(reply: execute(git.clean))
     try writeFile(.init(
-      file: .init(value: "\(git.root.value)/\(file.value)"),
+      file: .init(value: "\(git.root.value)/\(asset.file.value)"),
       data: .init(yaml.utf8)
     ))
-    try Execute.checkStatus(reply: execute(git.addAll))
-    try Execute.checkStatus(reply: execute(git.commit(message: message)))
-    let result = try Id(.head)
-      .map(git.getSha(ref:))
-      .map(execute)
-      .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
-      .get()
+    let result: Git.Sha?
+    if try !Execute.parseSuccess(reply: execute(git.notCommited)) {
+      try Execute.checkStatus(reply: execute(git.addAll))
+      try Execute.checkStatus(reply: execute(git.commit(message: message)))
+      result = try .init(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+    } else {
+      result = nil
+    }
     try Execute.checkStatus(reply: execute(git.detach(ref: initial)))
+    try Execute.checkStatus(reply: execute(git.clean))
     return result
   }
   func parse(git: Git, yaml: Git.File) throws -> AnyCodable { try Id

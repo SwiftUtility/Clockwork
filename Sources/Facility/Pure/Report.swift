@@ -21,25 +21,31 @@ public struct Report: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
-    public var authors: [String]
+    public var users: [String: Fusion.Approval.Approver]
+    public var author: String
+    public var coauthors: [String: String]?
   }
   public struct ReviewMergeConflicts: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var thread: Yaml.Thread
+    public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
-    public var authors: [String]
+    public var users: [String: Fusion.Approval.Approver]
+    public var author: String
+    public var coauthors: [String: String]?
   }
   public struct ReviewClosed: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var thread: Yaml.Thread
+    public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
-    public var authors: [String]
+    public var users: [String: Fusion.Approval.Approver]
+    public var author: String
+    public var coauthors: [String: String]?
     public var reason: Reason
     public enum Reason: String, Encodable {
       case noSourceRule
@@ -57,9 +63,11 @@ public struct Report: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var thread: Yaml.Thread
+    public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
-    public var authors: [String]
+    public var users: [String: Fusion.Approval.Approver]
+    public var author: String
+    public var coauthors: [String: String]?
     public var reasons: [Reason]
     public enum Reason: String, Encodable {
       case draft
@@ -292,7 +300,9 @@ public extension Configuration {
   func reportReviewCreated(
     fusion: Fusion,
     review: Json.GitlabReviewState,
-    authors: [String]
+    users: [String: Fusion.Approval.Approver],
+    author: String,
+    coauthors: [String: String]
   ) -> Report.CreateThread { .init(
     template: fusion.createThread,
     report: .init(cfg: self, context: Report.ReviewCreated(
@@ -300,23 +310,29 @@ public extension Configuration {
       ctx: context,
       info: try? gitlabCi.get().info,
       review: review,
-      authors: authors
+      users: users,
+      author: author,
+      coauthors: coauthors.isEmpty.else(coauthors)
     ))
   )}
   func reportReviewMergeConflicts(
     status: Fusion.Approval.Status,
-    review: Json.GitlabReviewState
+    review: Json.GitlabReviewState,
+    users: [String: Fusion.Approval.Approver]
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
     thread: status.thread,
     review: review,
-    authors: status.authors
+    users: users,
+    author: status.author,
+    coauthors: status.coauthors.isEmpty.else(status.coauthors)
   ))}
   func reportReviewClosed(
     status: Fusion.Approval.Status,
     review: Json.GitlabReviewState,
+    users: [String: Fusion.Approval.Approver],
     reason: Report.ReviewClosed.Reason
   ) -> Report { .init(cfg: self, context: Report.ReviewClosed(
     env: env,
@@ -324,12 +340,15 @@ public extension Configuration {
     info: try? gitlabCi.get().info,
     thread: status.thread,
     review: review,
-    authors: status.authors,
+    users: users,
+    author: status.author,
+    coauthors: status.coauthors.isEmpty.else(status.coauthors),
     reason: reason
   ))}
   func reportReviewBlocked(
     status: Fusion.Approval.Status,
     review: Json.GitlabReviewState,
+    users: [String: Fusion.Approval.Approver],
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(
     env: env,
@@ -337,7 +356,9 @@ public extension Configuration {
     info: try? gitlabCi.get().info,
     thread: status.thread,
     review: review,
-    authors: status.authors,
+    users: users,
+    author: status.author,
+    coauthors: status.coauthors.isEmpty.else(status.coauthors),
     reasons: reasons
   ))}
   func reportCustom(

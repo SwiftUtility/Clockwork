@@ -93,25 +93,12 @@ public struct Production {
     case review(Review)
     case branch(Branch)
     case deploy(Deploy)
-    public var yaml: Yaml.Production.Build {
+    public var yaml: String {
       switch self {
-      case .review(let review): return .init(
-        build: review.build,
-        sha: review.sha,
-        review: review.review,
-        target: review.target
-      )
-      case .branch(let branch): return .init(
-        build: branch.build,
-        sha: branch.sha,
-        branch: branch.branch
-      )
-      case .deploy(let deploy): return .init(
-        build: deploy.build,
-        sha: deploy.sha,
-        product: deploy.product,
-        version: deploy.version
-      )}
+      case .review(let review): return review.yaml.joined()
+      case .branch(let branch): return branch.yaml.joined()
+      case .deploy(let deploy): return deploy.yaml.joined()
+      }
     }
     public var build: String {
       switch self {
@@ -135,6 +122,12 @@ public struct Production {
       public var sha: String
       public var review: UInt
       public var target: String
+      public var yaml: [String] { [
+        "- build: '\(build)'\n",
+        "  sha: '\(sha)'\n",
+        "  review: \(review)\n",
+        "  target: \(target)\n",
+      ]}
       public static func make(yaml: Yaml.Production.Build) throws -> Self {
         guard yaml.branch == nil, yaml.product == nil, yaml.version == nil else { throw Thrown() }
         return try .init(
@@ -160,6 +153,11 @@ public struct Production {
       public var build: String
       public var sha: String
       public var branch: String
+      public var yaml: [String] { [
+        "- build: '\(build)'\n",
+        "  sha: '\(sha)'\n",
+        "  branch: \(branch)\n",
+      ]}
       public static func make(yaml: Yaml.Production.Build) throws -> Self {
         guard yaml.review == nil, yaml.product == nil, yaml.version == nil else { throw Thrown() }
         return try .init(build: yaml.build, sha: yaml.sha, branch: ?!yaml.branch)
@@ -170,6 +168,12 @@ public struct Production {
       public var sha: String
       public var product: String
       public var version: String
+      public var yaml: [String] { [
+        "- build: '\(build)'\n",
+        "  sha: '\(sha)'\n",
+        "  product: \(product)\n",
+        "  version: \(version)\n",
+      ]}
       public static func make(yaml: Yaml.Production.Build) throws -> Self {
         guard yaml.review == nil, yaml.branch == nil else { throw Thrown() }
         return try .init(

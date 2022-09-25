@@ -150,6 +150,14 @@ public struct Configuration {
       else { throw Thrown("No values in secret") }
     }
   }
+  public struct Thread: Encodable {
+    public var channel: String
+    public var ts: String
+    public static func make(yaml: Yaml.Thread) -> Self { .init(
+      channel: yaml.channel,
+      ts: yaml.ts
+    )}
+  }
   public struct ResolveProfile: Query {
     public var git: Git
     public var file: Git.File
@@ -231,14 +239,14 @@ public struct Configuration {
     }
     public typealias Reply = Void
   }
-  public struct ResolveUserActivity: Query {
+  public struct ResolveApprovers: Query {
     public var cfg: Configuration
     public var approval: Fusion.Approval
     public init(cfg: Configuration, approval: Fusion.Approval) {
       self.cfg = cfg
       self.approval = approval
     }
-    public typealias Reply = [String: Bool]
+    public typealias Reply = [String: Fusion.Approval.Approver]
   }
   public struct ResolveRequisition: Query {
     public var cfg: Configuration
@@ -324,28 +332,40 @@ public struct Configuration {
     }
     public typealias Reply = Void
   }
-  public struct PersistUserActivity: Query {
+  public struct PersistApprovers: Query {
     public var cfg: Configuration
-    public var pushUrl: String
     public var approval: Fusion.Approval
-    public var userActivity: [String: Bool]
-    public var user: String
-    public var active: Bool
+    public var approvers: [String: Fusion.Approval.Approver]
+    public var message: String
     public init(
       cfg: Configuration,
-      pushUrl: String,
       approval: Fusion.Approval,
-      userActivity: [String: Bool],
-      user: String,
-      active: Bool
+      approvers: [String: Fusion.Approval.Approver],
+      message: String
     ) {
       self.cfg = cfg
-      self.pushUrl = pushUrl
       self.approval = approval
-      self.userActivity = userActivity
-      self.user = user
-      self.active = active
+      self.approvers = approvers
+      self.message = message
     }
     public typealias Reply = Void
+  }
+  public struct PersistAsset: Query {
+    public var cfg: Configuration
+    public var asset: Configuration.Asset
+    public var content: String
+    public var message: String
+    public init(
+      cfg: Configuration,
+      asset: Configuration.Asset,
+      content: String,
+      message: String
+    ) {
+      self.cfg = cfg
+      self.asset = asset
+      self.content = content
+      self.message = message
+    }
+    public typealias Reply = Bool
   }
 }

@@ -65,32 +65,31 @@ public final class Worker {
       page += 1
     }
   }
-  func resolveParticipants(
+  func resolveCoauthors(
     cfg: Configuration,
     ctx: ParentReview,
     kind: Fusion.Kind
-  ) throws -> [String] {
-    guard let merge = kind.merge else { return [ctx.review.author.username] }
+  ) throws -> [String: String] {
+    let bot = try ctx.gitlab.protected.get().user.username
+    guard let merge = kind.merge else { return [:] }
     let commits = try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [.make(sha: merge.fork)],
       notIn: [.make(remote: merge.target)],
       noMerges: true,
       firstParents: false
     )))
-    var result: Set<String> = [ctx.review.author.username]
-    for commit in commits {
-      let authors = try ctx.gitlab
-        .listShaMergeRequests(sha: .init(value: commit))
-        .map(execute)
-        .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
-        .get()
-        .filter { $0.squashCommitSha == commit }
-        .map(\.author.username)
-      result = result.union(authors)
+    var result: [String: String] = [:]
+    for commit in commits { try ctx.gitlab
+      .listShaMergeRequests(sha: .init(value: commit))
+      .map(execute)
+      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
+      .get()
+      .filter { $0.projectId == ctx.gitlab.job.pipeline.projectId }
+      .filter { $0.squashCommitSha == commit }
+      .filter { $0.author.username != bot }
+      .forEach { result["\($0.iid)"] = $0.author.username }
     }
-    return [ctx.review.author.username] + result
-      .subtracting([ctx.review.author.username])
-      .sorted()
+    return result
   }
   func isLastPipe(ctx: ParentReview) -> Bool {
     guard ctx.job.pipeline.id == ctx.review.pipeline.id else {

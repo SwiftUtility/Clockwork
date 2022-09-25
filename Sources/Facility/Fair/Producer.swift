@@ -8,8 +8,7 @@ public final class Producer {
   let resolveProduction: Try.Reply<Configuration.ResolveProduction>
   let resolveProductionVersions: Try.Reply<Configuration.ResolveProductionVersions>
   let resolveProductionBuilds: Try.Reply<Configuration.ResolveProductionBuilds>
-  let persistBuilds: Try.Reply<Configuration.PersistBuilds>
-  let persistVersions: Try.Reply<Configuration.PersistVersions>
+  let persistAsset: Try.Reply<Configuration.PersistAsset>
   let report: Act.Reply<Report>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
@@ -22,8 +21,7 @@ public final class Producer {
     resolveProduction: @escaping Try.Reply<Configuration.ResolveProduction>,
     resolveProductionVersions: @escaping Try.Reply<Configuration.ResolveProductionVersions>,
     resolveProductionBuilds: @escaping Try.Reply<Configuration.ResolveProductionBuilds>,
-    persistBuilds: @escaping Try.Reply<Configuration.PersistBuilds>,
-    persistVersions: @escaping Try.Reply<Configuration.PersistVersions>,
+    persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     report: @escaping Act.Reply<Report>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
@@ -36,8 +34,7 @@ public final class Producer {
     self.resolveProduction = resolveProduction
     self.resolveProductionVersions = resolveProductionVersions
     self.resolveProductionBuilds = resolveProductionBuilds
-    self.persistBuilds = persistBuilds
-    self.persistVersions = persistVersions
+    self.persistAsset = persistAsset
     self.report = report
     self.logMessage = logMessage
     self.writeStdout = writeStdout
@@ -110,13 +107,12 @@ public final class Producer {
       version: version,
       build: deploy.build
     ))
-    try persistBuilds(.init(
+    try persistBuilds(
       cfg: cfg,
-      pushUrl: gitlabCi.protected.get().push,
       production: production,
       builds: builds,
       build: .deploy(deploy)
-    ))
+    )
     try gitlabCi
       .postTags(name: name, ref: gitlabCi.job.pipeline.sha, message: annotation)
       .map(execute)
@@ -141,9 +137,8 @@ public final class Producer {
       logMessage(.init(message: "Build already exists"))
       return true
     }
-    try persistBuilds(.init(
+    try persistBuilds(
       cfg: cfg,
-      pushUrl: ctx.gitlab.protected.get().push,
       production: production,
       builds: builds,
       build: try builds.last
@@ -152,7 +147,7 @@ public final class Producer {
         .map(generate)
         .map(ctx.makeBuild(build:))
         .get { throw Thrown("Push first build number manually") }
-    ))
+    )
     return true
   }
   public func reserveProtectedBuild(cfg: Configuration) throws -> Bool {
@@ -165,9 +160,8 @@ public final class Producer {
       logMessage(.init(message: "Build already exists"))
       return true
     }
-    try persistBuilds(.init(
+    try persistBuilds(
       cfg: cfg,
-      pushUrl: gitlabCi.protected.get().push,
       production: production,
       builds: builds,
       build: try builds.last
@@ -176,14 +170,14 @@ public final class Producer {
         .map(generate)
         .map(gitlabCi.job.makeBranchBuild(build:))
         .get { throw Thrown("Push first build number manually") }
-    ))
+    )
     return true
   }
   public func createReleaseBranch(cfg: Configuration, product: String) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     let product = try production.productMatching(name: product)
-    let versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
+    var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     let version = try versions[product.name]
       .get { throw Thrown("No version for \(product.name)") }
     let name = try generate(cfg.createReleaseBranchName(
@@ -203,13 +197,19 @@ public final class Producer {
       product: product,
       version: version
     ))
-    try persistVersions(.init(
+    versions[product.name] = next
+    _ = try persistAsset(.init(
       cfg: cfg,
-      pushUrl: gitlabCi.protected.get().push,
-      production: production,
-      versions: versions,
-      product: product,
-      version: next
+      asset: production.versions,
+      content: versions
+        .map { "'\($0.key)': '\($0.value)'\n" }
+        .sorted()
+        .joined(),
+      message: try generate(cfg.createVersionCommitMessage(
+        asset: production.versions,
+        product: product,
+        version: next
+      ))
     ))
     report(cfg.reportVersionBumped(product: product.name, version: next))
     return true
@@ -347,5 +347,26 @@ public final class Producer {
       .map(Report.DeployTagCreated.Commit.make(sha:msg:))
       .sorted { dates[$0.sha].get(0) < dates[$1.sha].get(0) }
       .reversed()
+  }
+  func persistBuilds(
+    cfg: Configuration,
+    production: Production,
+    builds: [Production.Build],
+    build: Production.Build
+  ) throws {
+    let builds = builds + [build]
+    _ = try persistAsset(.init(
+      cfg: cfg,
+      asset: production.builds,
+      content: production.maxBuildsCount
+        .map(builds.suffix(_:))
+        .get(builds)
+        .map(\.yaml)
+        .joined(),
+      message: generate(cfg.createBuildCommitMessage(
+        asset: production.builds,
+        build: build.build
+      ))
+    ))
   }
 }

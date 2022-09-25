@@ -6,6 +6,19 @@ public struct Approval {
   public var status: Fusion.Approval.Status
   public var approvers: [String: Fusion.Approval.Approver]
   public var antagonists: [String: [String]]
+  public static func make(
+    sanity: String,
+    rules: Fusion.Approval.Rules,
+    status: Fusion.Approval.Status,
+    approvers: [String: Fusion.Approval.Approver],
+    antagonists: [String: [String]]
+  ) throws -> Self { .init(
+    sanity: sanity,
+    rules: rules,
+    status: status,
+    approvers: approvers,
+    antagonists: antagonists
+  )}
 }
 //public struct AwardApproval {
 //  public var holdAward: String
