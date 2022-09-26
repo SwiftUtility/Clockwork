@@ -7,6 +7,8 @@ public final class Merger {
   let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
   let resolveReviewQueue: Try.Reply<Fusion.Queue.Resolve>
   let resolveApprovers: Try.Reply<Configuration.ResolveApprovers>
+  let parseApprovalRules: Try.Reply<Configuration.ParseYamlFile<Yaml.Fusion.Approval.Rules>>
+  let parseAntagonists: Try.Reply<Configuration.ParseYamlSecret<[String: [String]]>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
@@ -21,6 +23,8 @@ public final class Merger {
     resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
     resolveReviewQueue: @escaping Try.Reply<Fusion.Queue.Resolve>,
     resolveApprovers: @escaping Try.Reply<Configuration.ResolveApprovers>,
+    parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Fusion.Approval.Rules>>,
+    parseAntagonists: @escaping Try.Reply<Configuration.ParseYamlSecret<[String: [String]]>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
@@ -35,6 +39,8 @@ public final class Merger {
     self.resolveFusionStatuses = resolveFusionStatuses
     self.resolveReviewQueue = resolveReviewQueue
     self.resolveApprovers = resolveApprovers
+    self.parseApprovalRules = parseApprovalRules
+    self.parseAntagonists = parseAntagonists
     self.persistAsset = persistAsset
     self.writeStdout = writeStdout
     self.generate = generate
@@ -48,15 +54,18 @@ public final class Merger {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
-    let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
-    let status = try resolveReviewStatus(
+    try checkUser(cfg: cfg, user: ctx.review.author.username, approvers: approvers)
+    let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
+    let statuses = try resolveReviewStatus(
       cfg: cfg,
       ctx: ctx,
       fusion: fusion,
       approvers: approvers,
       kind: kind
     )
+    let status = try statuses[ctx.review.iid].get { throw MayDay("No status") }
+    try checkUser(cfg: cfg, user: status.author, approvers: approvers)
     guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
       if let sha = try rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
@@ -82,7 +91,14 @@ public final class Merger {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
-    guard try checkIsApproved(cfg: cfg, ctx: ctx) else {
+    guard try checkIsApproved(
+      cfg: cfg,
+      ctx: ctx,
+      fusion: fusion,
+      kind: kind,
+      statuses: statuses,
+      approvers: approvers
+    ) else {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
@@ -233,9 +249,9 @@ public final class Merger {
     fusion: Fusion,
     approvers: [String: Fusion.Approval.Approver],
     kind: Fusion.Kind
-  ) throws -> Fusion.Approval.Status {
+  ) throws -> [UInt: Fusion.Approval.Status] {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    if let status = statuses[ctx.review.iid] { return status }
+    guard statuses[ctx.review.iid] == nil else { return statuses }
     let coauthors = try worker.resolveCoauthors(cfg: cfg, ctx: ctx, kind: kind)
     let thread = try createThread(cfg.reportReviewCreated(
       fusion: fusion,
@@ -244,13 +260,12 @@ public final class Merger {
       author: ctx.review.author.username,
       coauthors: coauthors
     ))
-    let result = Fusion.Approval.Status.make(
+    statuses[ctx.review.iid] = Fusion.Approval.Status.make(
       thread: .make(yaml: thread),
       target: ctx.review.targetBranch,
       author: ctx.review.author.username,
       coauthors: coauthors
     )
-    statuses[ctx.review.iid] = result
     _ = try persistAsset(.init(
       cfg: cfg,
       asset: fusion.approval.statuses,
@@ -260,7 +275,7 @@ public final class Merger {
         review: ctx.review
       ))
     ))
-    return result
+    return statuses
   }
   func checkReviewClosers(
     cfg: Configuration,
@@ -389,9 +404,28 @@ public final class Merger {
   }
   func checkIsApproved(
     cfg: Configuration,
-    ctx: Worker.ParentReview
+    ctx: Worker.ParentReview,
+    fusion: Fusion,
+    kind: Fusion.Kind,
+    statuses: [UInt: Fusion.Approval.Status],
+    approvers: [String: Fusion.Approval.Approver]
   ) throws -> Bool {
-    #warning("tbd")
+    var approval = try Approval.make(
+      sanity: fusion.approval.sanity,
+      rules: parseApprovalRules(.init(git: cfg.git, file: fusion.approval.rules)),
+      status: statuses[ctx.review.iid]
+        .get { throw MayDay("No status") },
+      approvers: approvers,
+      antagonists: fusion.approval.antagonists
+        .reduce(cfg, Configuration.ParseYamlSecret.init(cfg:secret:))
+        .map(parseAntagonists)
+        .get([:])
+    )
+
+
+
+
+#warning("tbd")
     return false
   }
   func listTrackingBranches(cfg: Configuration) throws -> [Git.Branch] {

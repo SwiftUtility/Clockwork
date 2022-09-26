@@ -221,24 +221,6 @@ public struct Configuration {
     }
     public typealias Reply = [UInt: Fusion.Approval.Status]
   }
-  public struct PersistFusionStatuses: Query {
-    public var cfg: Configuration
-    public var approval: Fusion.Approval
-    public var review: Json.GitlabReviewState
-    public var statuses: [UInt : Fusion.Approval.Status]
-    public init(
-      cfg: Configuration,
-      approval: Fusion.Approval,
-      review: Json.GitlabReviewState,
-      statuses: [UInt : Fusion.Approval.Status]
-    ) {
-      self.cfg = cfg
-      self.approval = approval
-      self.review = review
-      self.statuses = statuses
-    }
-    public typealias Reply = Void
-  }
   public struct ResolveApprovers: Query {
     public var cfg: Configuration
     public var approval: Fusion.Approval
@@ -287,68 +269,29 @@ public struct Configuration {
     }
     public typealias Reply = [String: String]
   }
-  public struct PersistBuilds: Query {
-    public var cfg: Configuration
-    public var pushUrl: String
-    public var production: Production
-    public var builds: [Production.Build]
-    public var build: Production.Build
+  public struct ParseYamlFile<T: Decodable>: Query {
+    public var git: Git
+    public var file: Git.File
     public init(
-      cfg: Configuration,
-      pushUrl: String,
-      production: Production,
-      builds: [Production.Build],
-      build: Production.Build
+      git: Git,
+      file: Git.File
     ) {
-      self.cfg = cfg
-      self.pushUrl = pushUrl
-      self.production = production
-      self.builds = builds
-      self.build = build
+      self.git = git
+      self.file = file
     }
-    public typealias Reply = Void
+    public typealias Reply = T
   }
-  public struct PersistVersions: Query {
+  public struct ParseYamlSecret<T: Decodable>: Query {
     public var cfg: Configuration
-    public var pushUrl: String
-    public var production: Production
-    public var versions: [String: String]
-    public var product: Production.Product
-    public var version: String
+    public var secret: Configuration.Secret
     public init(
       cfg: Configuration,
-      pushUrl: String,
-      production: Production,
-      versions: [String: String],
-      product: Production.Product,
-      version: String
+      secret: Configuration.Secret
     ) {
       self.cfg = cfg
-      self.pushUrl = pushUrl
-      self.production = production
-      self.versions = versions
-      self.product = product
-      self.version = version
+      self.secret = secret
     }
-    public typealias Reply = Void
-  }
-  public struct PersistApprovers: Query {
-    public var cfg: Configuration
-    public var approval: Fusion.Approval
-    public var approvers: [String: Fusion.Approval.Approver]
-    public var message: String
-    public init(
-      cfg: Configuration,
-      approval: Fusion.Approval,
-      approvers: [String: Fusion.Approval.Approver],
-      message: String
-    ) {
-      self.cfg = cfg
-      self.approval = approval
-      self.approvers = approvers
-      self.message = message
-    }
-    public typealias Reply = Void
+    public typealias Reply = T
   }
   public struct PersistAsset: Query {
     public var cfg: Configuration

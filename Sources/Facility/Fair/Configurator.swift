@@ -203,26 +203,6 @@ public final class Configurator {
       try $0[UInt($1.key).get { throw Thrown("Bad approval asset") }] = .make(yaml: $1.value)
     }
   }
-//  public func persistFusionStatuses(
-//    query: Configuration.PersistFusionStatuses
-//  ) throws -> Configuration.PersistFusionStatuses.Reply {
-//    let message = try generate(query.cfg.createFusionStatusesCommitMessage(
-//      asset: query.approval.statuses,
-//      review: query.review
-//    ))
-//    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-//      url: query.cfg.gitlabCi.flatMap(\.protected).get().push,
-//      branch: query.approval.statuses.branch,
-//      sha: persist(
-//        git: query.cfg.git,
-//        file: query.approval.statuses.file,
-//        branch: query.approval.statuses.branch,
-//        yaml: Fusion.Approval.Status.yaml(statuses: query.statuses),
-//        message: message
-//      ),
-//      force: false
-//    )))
-//  }
   public func resolveApprovers(
     query: Configuration.ResolveApprovers
   ) throws -> Configuration.ResolveApprovers.Reply { try Id(query.approval.approvers)
@@ -241,58 +221,22 @@ public final class Configurator {
     .map(Fusion.Queue.make(queue:))
     .get()
   }
-//  public func persistVersions(
-//    query: Configuration.PersistVersions
-//  ) throws -> Configuration.PersistVersions.Reply {
-//    var versions = query.versions
-//    versions[query.product.name] = query.version
-//    let message = try generate(query.cfg.createVersionCommitMessage(
-//      asset: query.production.versions,
-//      product: query.product,
-//      version: query.version
-//    ))
-//    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-//      url: query.pushUrl,
-//      branch: query.production.versions.branch,
-//      sha: persist(
-//        git: query.cfg.git,
-//        file: query.production.versions.file,
-//        branch: query.production.versions.branch,
-//        yaml: versions
-//          .map { "'\($0.key)': '\($0.value)'\n" }
-//          .sorted()
-//          .joined(),
-//        message: message
-//      ),
-//      force: false
-//    )))
-//  }
-//  public func persistBuilds(
-//    query: Configuration.PersistBuilds
-//  ) throws -> Configuration.PersistBuilds.Reply {
-//    let builds = query.builds + [query.build]
-//    let message = try generate(query.cfg.createBuildCommitMessage(
-//      asset: query.production.builds,
-//      build: query.build.build
-//    ))
-//    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-//      url: query.pushUrl,
-//      branch: query.production.builds.branch,
-//      sha: persist(
-//        git: query.cfg.git,
-//        file: query.production.builds.file,
-//        branch: query.production.builds.branch,
-//        yaml: query.production.maxBuildsCount
-//          .map(builds.suffix(_:))
-//          .get(builds)
-//          .map(\.yaml)
-//          .flatMap(makeYaml(build:))
-//          .joined(),
-//        message: message
-//      ),
-//      force: false
-//    )))
-//  }
+  public func parseYamlFile<T: Decodable>(
+    query: Configuration.ParseYamlFile<T>
+  ) throws -> T { try Id(query.file)
+    .reduce(query.git, parse(git:yaml:))
+    .reduce(T.self, dialect.read(_:from:))
+    .get()
+  }
+  public func parseYamlSecret<T: Decodable>(
+    query: Configuration.ParseYamlSecret<T>
+  ) throws -> T { try Id(query.secret)
+    .reduce(query.cfg.env, parse(env:secret:))
+    .map(Yaml.Decode.init(content:))
+    .map(decodeYaml)
+    .reduce(T.self, dialect.read(_:from:))
+    .get()
+  }
   public func persistAsset(
     query: Configuration.PersistAsset
   ) throws -> Configuration.PersistAsset.Reply {
@@ -311,27 +255,6 @@ public final class Configurator {
     try Execute.checkStatus(reply: execute(query.cfg.git.fetch))
     return true
   }
-//  public func persistReviewQueue(
-//    query: Fusion.Queue.Persist
-//  ) throws -> Fusion.Queue.Persist.Reply {
-//    let message = try generate(query.cfg.createReviewQueueCommitMessage(
-//      asset: query.fusion.queue,
-//      review: query.review,
-//      queued: query.queued
-//    ))
-//    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-//      url: query.pushUrl,
-//      branch: query.fusion.queue.branch,
-//      sha: persist(
-//        git: query.cfg.git,
-//        file: query.fusion.queue.file,
-//        branch: query.fusion.queue.branch,
-//        yaml: query.reviewQueue.yaml,
-//        message: message
-//      ),
-//      force: false
-//    )))
-//  }
   public func resolveSecret(
     query: Configuration.ResolveSecret
   ) throws -> Configuration.ResolveSecret.Reply {
@@ -416,13 +339,5 @@ extension Configurator {
         .get()
     }
     return result
-  }
-  func makeYaml(build: Yaml.Production.Build) -> [String] {
-    ["- build: '\(build.build)'\n", "  sha: '\(build.sha)'\n"]
-    + build.branch.map { "  branch: '\($0)'\n" }.array
-    + build.review.map { "  review: \($0)\n" }.array
-    + build.target.map { "  target: '\($0)'\n" }.array
-    + build.product.map { "  product: '\($0)'\n" }.array
-    + build.version.map { "  version: '\($0)'\n" }.array
   }
 }

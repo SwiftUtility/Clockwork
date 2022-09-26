@@ -56,6 +56,8 @@ enum Assembler {
     resolveFusionStatuses: configurator.resolveFusionStatuses(query:),
     resolveReviewQueue: configurator.resolveReviewQueue(query:),
     resolveApprovers: configurator.resolveApprovers(query:),
+    parseApprovalRules: configurator.parseYamlFile(query:),
+    parseAntagonists: configurator.parseYamlSecret(query:),
     persistAsset: configurator.persistAsset(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),

@@ -8,13 +8,13 @@ public struct Approval {
   public var antagonists: [String: [String]]
   public static func make(
     sanity: String,
-    rules: Fusion.Approval.Rules,
+    rules: Yaml.Fusion.Approval.Rules,
     status: Fusion.Approval.Status,
     approvers: [String: Fusion.Approval.Approver],
     antagonists: [String: [String]]
-  ) throws -> Self { .init(
+  ) throws -> Self { try .init(
     sanity: sanity,
-    rules: rules,
+    rules: .make(yaml: rules),
     status: status,
     approvers: approvers,
     antagonists: antagonists
