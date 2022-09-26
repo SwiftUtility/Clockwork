@@ -124,7 +124,6 @@ public final class Merger {
   ) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
     let integration = try resolveFusion(.init(cfg: cfg)).integration.get()
-    guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
     let merge = try integration.makeMerge(target: target, source: source, fork: fork)
     guard integration.rules.contains(where: { rule in
       rule.target.isMet(merge.target.name) && rule.source.isMet(merge.source.name)
