@@ -10,9 +10,9 @@ public struct Configuration {
   public var slack: Lossy<Slack>
   public static func make(
     git: Git,
-    env: [String : String],
+    env: [String: String],
     profile: Configuration.Profile,
-    templates: [String : String],
+    templates: [String: String],
     context: AnyCodable? = nil,
     gitlabCi: Lossy<GitlabCi>,
     slack: Lossy<Slack>

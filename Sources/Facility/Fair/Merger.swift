@@ -8,6 +8,8 @@ public final class Merger {
   let resolveReviewQueue: Try.Reply<Fusion.Queue.Resolve>
   let resolveApprovers: Try.Reply<Configuration.ResolveApprovers>
   let parseApprovalRules: Try.Reply<Configuration.ParseYamlFile<Yaml.Fusion.Approval.Rules>>
+  let parseCodeOwnage: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>
+  let parseProfile: Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>
   let parseAntagonists: Try.Reply<Configuration.ParseYamlSecret<[String: [String]]>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let writeStdout: Act.Of<String>.Go
@@ -24,6 +26,8 @@ public final class Merger {
     resolveReviewQueue: @escaping Try.Reply<Fusion.Queue.Resolve>,
     resolveApprovers: @escaping Try.Reply<Configuration.ResolveApprovers>,
     parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Fusion.Approval.Rules>>,
+    parseCodeOwnage: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>,
+    parseProfile: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>,
     parseAntagonists: @escaping Try.Reply<Configuration.ParseYamlSecret<[String: [String]]>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     writeStdout: @escaping Act.Of<String>.Go,
@@ -40,6 +44,8 @@ public final class Merger {
     self.resolveReviewQueue = resolveReviewQueue
     self.resolveApprovers = resolveApprovers
     self.parseApprovalRules = parseApprovalRules
+    self.parseCodeOwnage = parseCodeOwnage
+    self.parseProfile = parseProfile
     self.parseAntagonists = parseAntagonists
     self.persistAsset = persistAsset
     self.writeStdout = writeStdout
@@ -55,6 +61,19 @@ public final class Merger {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+//    let profile = parseProfile(.init(git: cfg.git, file: <#T##Git.File#>))
+    let ownage = try ctx.gitlab.env.parent
+      .map(\.profile)
+      .reduce(.make(sha: .init(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
+      .map { file in try Configuration.Profile.make(
+        profile: file,
+        yaml: parseProfile(.init(git: cfg.git, file: file))
+      )}
+      .flatMap(\.codeOwnage)
+      .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
+      .map(parseCodeOwnage)
+      .get()
+      .mapValues(Criteria.init(yaml:))
     try checkUser(cfg: cfg, user: ctx.review.author.username, approvers: approvers)
     let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
     let statuses = try resolveReviewStatus(
@@ -332,6 +351,7 @@ public final class Merger {
     if ctx.review.draft { result.append(.draft) }
     if ctx.review.workInProgress { result.append(.workInProgress) }
     if !ctx.review.blockingDiscussionsResolved { result.append(.blockingDiscussions) }
+    #warning("check sanity")
     let excludes: [Git.Ref]
     switch kind {
     case .proposition(let rule):
@@ -421,7 +441,20 @@ public final class Merger {
         .map(parseAntagonists)
         .get([:])
     )
+    let fork = kind.merge
+      .map(\.fork)
+      .map(Git.Ref.make(sha:))
+    let shas = try Execute.parseLines(reply: execute(cfg.git.listCommits(
+      in: [.make(sha: .init(value: ctx.review.pipeline.sha))],
+      notIn: [.make(remote: .init(name: ctx.review.targetBranch))] + fork.array,
+      noMerges: false,
+      firstParents: false
+    )))
+    let known = approval.status.review.map(\.teams.keys).map(Set.init(_:)).get([])
+    for sha in try shas.map(Git.Sha.init(value:)) {
+      guard !known.contains(sha) else { continue }
 
+    }
 
 
 
