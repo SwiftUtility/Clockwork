@@ -56,6 +56,7 @@ public struct Report: Query {
       case forkInTarget
       case forkParentNotInTarget
       case forkNotInSource
+      case forkNotInSupply
     }
   }
   public struct ReviewBlocked: GenerationContext {

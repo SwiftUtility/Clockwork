@@ -8,6 +8,8 @@ public struct Approval {
   public var approvers: [String: Fusion.Approval.Approver]
   public var antagonists: [String: [String]]
   public let review: Json.GitlabReviewState
+  public var changes: [Git.Sha: Set<String>] = [:]
+  public var breakers: [Git.Sha: Set<Git.Sha>] = [:]
   public static func make(
     ownage: [String: Criteria],
     rules: Yaml.Fusion.Approval.Rules,
@@ -24,6 +26,16 @@ public struct Approval {
     antagonists: antagonists,
     review: review
   )}
+  public mutating func addChanges(sha: Git.Sha, files: [String]) {
+    var groups: Set<String> = []
+    for (group, criteria) in ownage {
+      if files.contains(where: criteria.isMet(_:)) { groups.insert(group) }
+    }
+    changes[sha] = groups
+  }
+  public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
+    breakers[sha] = try Set(commits.map(Git.Sha.init(value:)))
+  }
 }
 //public struct AwardApproval {
 //  public var holdAward: String

@@ -12,7 +12,7 @@ public struct Execute: Query {
     urlencode: [String] = [],
     form: [String] = [],
     headers: [String] = []
-  ) throws -> Self {
+  ) -> Self {
     var arguments = ["curl", "--url", url]
     arguments += checkHttp.then(["--fail"]).get([])
     arguments += (retry > 0).then(["--retry", "\(retry)"]).get([])
@@ -106,7 +106,7 @@ public extension Configuration {
     input: execute.input,
     tasks: execute.tasks + [.init(environment: env, arguments: ["tee", file.value])]
   )}
-  func curlSlack(token: String, method: String, body: String) throws -> Execute { try .makeCurl(
+  func curlSlack(token: String, method: String, body: String) throws -> Execute { .makeCurl(
     url: "https://slack.com/api/\(method)",
     method: "POST",
     retry: 2,

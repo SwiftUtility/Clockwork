@@ -183,7 +183,7 @@ public extension Git {
   )}
   var clean: Execute { proc(args: ["clean", "-fdx"]) }
   func merge(
-    ref: Ref,
+    refs: [Ref],
     message: String?,
     noFf: Bool,
     env: [String: String] = [:],
@@ -192,7 +192,7 @@ public extension Git {
     args: ["merge"]
     + message.map { ["-m", $0] }.get(["--no-commit"])
     + noFf.then(["--no-ff"]).get([])
-    + [ref.value],
+    + refs.map(\.value),
     env: env,
     escalate: escalate
   )}

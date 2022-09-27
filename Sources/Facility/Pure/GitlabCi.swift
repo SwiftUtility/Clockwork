@@ -79,12 +79,12 @@ public struct GitlabCi {
       "\(scheme)://\(user):\(pass)@\(host):\(port)/\(path).git"
     }
     public var getJob: Lossy<Execute> {
-      return .init(try .makeCurl(
+      return .init(.makeCurl(
         url: "\(api)/job",
         headers: ["Authorization: Bearer \(token)"]
       ))
     }
-    public func getTokenUser(token: String) -> Lossy<Execute> { .init(try .makeCurl(
+    public func getTokenUser(token: String) -> Lossy<Execute> { .init(.makeCurl(
       url: "\(api)/user",
       headers: ["Authorization: Bearer \(token)"]
     ))}

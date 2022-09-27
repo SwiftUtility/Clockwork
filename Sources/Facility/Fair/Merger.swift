@@ -333,6 +333,10 @@ public final class Merger {
         child: .make(remote: merge.source),
         parent: .make(sha: merge.fork)
       ))) else { return .forkNotInSource }
+      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+        child: .make(remote: merge.supply),
+        parent: .make(sha: merge.fork)
+      ))) else { return .forkNotInSupply }
       let target = try worker.resolveBranch(cfg: cfg, name: merge.target.name)
       guard target.protected else { return .targetNotProtected }
       guard target.default else { return .targetNotDefault }
@@ -349,6 +353,10 @@ public final class Merger {
         child: .make(remote: merge.source),
         parent: .make(sha: merge.fork)
       ))) else { return .forkNotInSource }
+      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+        child: .make(remote: merge.supply),
+        parent: .make(sha: merge.fork)
+      ))) else { return .forkNotInSupply }
       let target = try worker.resolveBranch(cfg: cfg, name: merge.target.name)
       guard target.protected else { return .targetNotProtected }
       let source = try worker.resolveBranch(cfg: cfg, name: merge.source.name)
@@ -450,22 +458,70 @@ public final class Merger {
     let fork = kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))
+    let current = try Git.Ref.make(sha: .init(value: ctx.review.pipeline.sha))
+    let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
     let shas = try Execute.parseLines(reply: execute(cfg.git.listCommits(
-      in: [.make(sha: .init(value: ctx.review.pipeline.sha))],
-      notIn: [.make(remote: .init(name: ctx.review.targetBranch))] + fork.array,
+      in: [current],
+      notIn: [target] + fork.array,
       noMerges: false,
       firstParents: false
     )))
-    let known = approval.status.review.map(\.teams.keys).map(Set.init(_:)).get([])
+    let known = approval.status.review
+      .map { Set($0.teams.keys) }
+      .get([])
     for sha in try shas.map(Git.Sha.init(value:)) {
       guard !known.contains(sha) else { continue }
-
+      try approval.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, ctx: ctx, sha: sha))
+    }
+    for sha in approval.status.review?.approves.values.map(\.commit) ?? [] {
+      try approval.addBreakers(
+        sha: sha,
+        commits: Execute.parseLines(reply: execute(cfg.git.listCommits(
+          in: [current],
+          notIn: [target, .make(sha: sha)] + fork.array,
+          noMerges: false,
+          firstParents: false
+        )))
+      )
     }
 
 
 
-#warning("tbd")
+    #warning("tbd")
     return false
+  }
+  func listChangedFiles(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    sha: Git.Sha
+  ) throws -> [String] {
+    let sha = Git.Ref.make(sha: sha)
+    let parents = try Execute.parseLines(reply: execute(cfg.git.listParents(ref: sha)))
+      .map(Git.Sha.init(value:))
+    guard parents.count > 1 else {
+      return try Execute.parseLines(reply: execute(cfg.git.listChangedFiles(
+        source: sha,
+        target: sha.make(parent: 1)
+      )))
+    }
+    let initial = try Execute.parseText(reply: execute(cfg.git.getSha(ref: .head)))
+    try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: sha.make(parent: 1))))
+    try Execute.checkStatus(reply: execute(cfg.git.clean))
+    try Execute.checkStatus(reply: execute(cfg.git.merge(
+      refs: parents[1..<parents.endIndex].map(Git.Ref.make(sha:)),
+      message: nil,
+      noFf: true,
+      escalate: false
+    )))
+    try Execute.checkStatus(reply: execute(cfg.git.quitMerge))
+    try Execute.checkStatus(reply: execute(cfg.git.addAll))
+    try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: sha)))
+    let result = try Execute.parseLines(reply: execute(cfg.git.listLocalChanges))
+    try Execute.checkStatus(reply: execute(cfg.git.resetHard(
+      ref: .make(sha: .init(value: initial))
+    )))
+    try Execute.checkStatus(reply: execute(cfg.git.clean))
+    return result
   }
   func listTrackingBranches(cfg: Configuration) throws -> [Git.Branch] {
     var result: [Git.Branch] = []
@@ -528,7 +584,7 @@ public final class Merger {
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     do {
       try Execute.checkStatus(reply: execute(cfg.git.merge(
-        ref: .make(remote: .init(name: ctx.review.targetBranch)),
+        refs: [.make(remote: .init(name: ctx.review.targetBranch))],
         message: message,
         noFf: true,
         env: Git.env(
