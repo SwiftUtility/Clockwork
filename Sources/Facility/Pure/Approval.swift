@@ -1,6 +1,7 @@
 import Foundation
 import Facility
 public struct Approval {
+  public var bot: String
   public var ownage: [String: Criteria]
   public var rules: Fusion.Approval.Rules
   public var statuses: [UInt: Fusion.Approval.Status]
@@ -8,10 +9,12 @@ public struct Approval {
   public var approvers: [String: Fusion.Approval.Approver]
   public var antagonists: [String: [String]]
   public let review: Json.GitlabReviewState
-  public var involved: Set<String>
+  public var involvedGroups: Set<String>
+  public var diffGroups: Set<String>
   public var changes: [Git.Sha: Set<String>] = [:]
   public var breakers: [Git.Sha: Set<Git.Sha>] = [:]
   public init(
+    bot: String,
     ownage: [String: Criteria],
     rules: Yaml.Fusion.Approval.Rules,
     statuses: [UInt: Fusion.Approval.Status],
@@ -19,6 +22,7 @@ public struct Approval {
     antagonists: [String: [String]],
     review: Json.GitlabReviewState
   ) throws {
+    self.bot = bot
     self.ownage = ownage
     self.rules = try .make(yaml: rules)
     self.statuses = statuses
@@ -26,28 +30,45 @@ public struct Approval {
     self.approvers = approvers
     self.antagonists = antagonists
     self.review = review
-    self.involved = []
+    self.involvedGroups = []
+    self.diffGroups = []
     self.changes = [:]
     self.breakers = [:]
     for (group, criteria) in self.rules.sourceBranch {
-      if criteria.isMet(review.sourceBranch) { involved.insert(group) }
+      if criteria.isMet(review.sourceBranch) { involvedGroups.insert(group) }
     }
     for (group, criteria) in self.rules.targetBranch {
-      if criteria.isMet(review.targetBranch) { involved.insert(group) }
+      if criteria.isMet(review.targetBranch) { involvedGroups.insert(group) }
     }
     for (group, authors) in self.rules.authorship {
-      if authors.contains(status.author) { involved.insert(group) }
+      if authors.contains(status.author) { involvedGroups.insert(group) }
+    }
+  }
+  public mutating func addDiff(files: [String]) {
+    for (group, criteria) in ownage {
+      if files.contains(where: criteria.isMet(_:)) { diffGroups.insert(group) }
     }
   }
   public mutating func addChanges(sha: Git.Sha, files: [String]) {
-    var groups: Set<String> = []
+    var groups = involvedGroups
     for (group, criteria) in ownage {
       if files.contains(where: criteria.isMet(_:)) { groups.insert(group) }
     }
-    changes[sha] = groups.union(involved)
+    changes[sha] = groups
   }
   public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
     breakers[sha] = try Set(commits.map(Git.Sha.init(value:)))
+  }
+  public mutating func update() -> State {
+    var state = State()
+    for (login, approver) in approvers {
+      if approver.active { state.activeApprovers.insert(login) }
+    }
+    return state
+  }
+  public struct State {
+    public var activeApprovers: Set<String> = []
+    public var diffs: [String: [String]] = [:]
   }
 }
 //public struct AwardApproval {

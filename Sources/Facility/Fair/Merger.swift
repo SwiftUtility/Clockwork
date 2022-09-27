@@ -93,6 +93,7 @@ public final class Merger {
       return false
     }
     let approval = try Approval(
+      bot: ctx.gitlab.protected.get().user.username,
       ownage: ctx.gitlab.env.parent
         .map(\.profile)
         .reduce(.make(sha: .init(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
@@ -469,6 +470,7 @@ public final class Merger {
     let known = approval.status.review
       .map { Set($0.teams.keys) }
       .get([])
+    try approval.addDiff(files: listAllChanges(cfg: cfg, ctx: ctx, kind: kind))
     for sha in try shas.map(Git.Sha.init(value:)) {
       guard !known.contains(sha) else { continue }
       try approval.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, ctx: ctx, sha: sha))
@@ -490,6 +492,22 @@ public final class Merger {
     #warning("tbd")
     return false
   }
+  func listAllChanges(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    kind: Fusion.Kind
+  ) throws -> [String] {
+    let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
+    let current = try Git.Ref.make(sha: .init(value: ctx.job.pipeline.sha))
+    if let fork = kind.merge?.fork {
+      return try listMergeChanges(cfg: cfg, ref: current, parents: [target, .make(sha: fork)])
+    } else {
+      return try Execute.parseLines(reply: execute(cfg.git.listChangedFiles(
+        source: current,
+        target: target
+      )))
+    }
+  }
   func listChangedFiles(
     cfg: Configuration,
     ctx: Worker.ParentReview,
@@ -497,25 +515,39 @@ public final class Merger {
   ) throws -> [String] {
     let sha = Git.Ref.make(sha: sha)
     let parents = try Execute.parseLines(reply: execute(cfg.git.listParents(ref: sha)))
-      .map(Git.Sha.init(value:))
-    guard parents.count > 1 else {
+    if parents.count > 1 {
+      return try listMergeChanges(
+        cfg: cfg,
+        ref: sha,
+        parents: parents
+          .map(Git.Sha.init(value:))
+          .map(Git.Ref.make(sha:))
+      )
+    } else {
       return try Execute.parseLines(reply: execute(cfg.git.listChangedFiles(
         source: sha,
         target: sha.make(parent: 1)
       )))
     }
+  }
+  func listMergeChanges(
+    cfg: Configuration,
+    ref: Git.Ref,
+    parents: [Git.Ref]
+  ) throws -> [String] {
+    guard parents.count > 1 else { throw MayDay("not a merge") }
     let initial = try Execute.parseText(reply: execute(cfg.git.getSha(ref: .head)))
-    try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: sha.make(parent: 1))))
+    try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: parents[0])))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     try Execute.checkStatus(reply: execute(cfg.git.merge(
-      refs: parents[1..<parents.endIndex].map(Git.Ref.make(sha:)),
+      refs: .init(parents[1..<parents.endIndex]),
       message: nil,
       noFf: true,
       escalate: false
     )))
     try Execute.checkStatus(reply: execute(cfg.git.quitMerge))
     try Execute.checkStatus(reply: execute(cfg.git.addAll))
-    try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: sha)))
+    try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: ref)))
     let result = try Execute.parseLines(reply: execute(cfg.git.listLocalChanges))
     try Execute.checkStatus(reply: execute(cfg.git.resetHard(
       ref: .make(sha: .init(value: initial))

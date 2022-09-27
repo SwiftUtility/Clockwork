@@ -244,7 +244,11 @@ public final class Configurator {
       sha: sha,
       force: false
     )))
-    try Execute.checkStatus(reply: execute(query.cfg.git.fetch))
+    try Execute.checkStatus(reply: execute(query.cfg.git.fetchBranch(query.asset.branch)))
+    let fetched = try Execute.parseText(reply: execute(query.cfg.git.getSha(
+      ref: .make(remote: query.asset.branch)
+    )))
+    guard sha.value == fetched else { throw Thrown("Fetch sha mismatch") }
     return true
   }
   public func resolveSecret(

@@ -170,6 +170,9 @@ public extension Git {
   var fetch: Execute { proc(
     args: ["fetch", "origin", "--prune", "--prune-tags", "--tags", "--force"]
   )}
+  func fetchBranch(_ branch: Branch) -> Execute { proc(
+    args: ["fetch", "origin", branch.name, "--no-tags"]
+  )}
   func cat(file: File) throws -> Execute {
     var result = proc(args: ["show", "\(file.ref.value):\(file.path.value)"])
     result.tasks += lfs.then(proc(args: ["lfs", "smudge"])).map(\.tasks).get([])
