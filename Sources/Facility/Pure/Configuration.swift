@@ -80,7 +80,11 @@ public struct Configuration {
         .map(Lossy.value(_:))
         .get(.error(Thrown("requisition not configured")))
     )}
-    public var sanityFiles: [String] { [profile.path.value] + codeOwnage.map(\.path.value).array }
+    public func checkSanity(criteria: Criteria?) -> Bool {
+      guard let criteria = criteria else { return false }
+      guard let codeOwnage = codeOwnage else { return false }
+      return criteria.isMet(profile.path.value) && criteria.isMet(codeOwnage.path.value)
+    }
     public struct GitlabCi {
       public var token: Secret
       public var trigger: Yaml.GitlabCi.Trigger

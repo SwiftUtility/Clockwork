@@ -1,23 +1,28 @@
 import Foundation
 import Facility
 public struct Approval {
-  public var sanity: String?
+  public var ownage: [String: Criteria]
   public var rules: Fusion.Approval.Rules
+  public var statuses: [UInt: Fusion.Approval.Status]
   public var status: Fusion.Approval.Status
   public var approvers: [String: Fusion.Approval.Approver]
   public var antagonists: [String: [String]]
+  public let review: Json.GitlabReviewState
   public static func make(
-    sanity: String?,
+    ownage: [String: Criteria],
     rules: Yaml.Fusion.Approval.Rules,
-    status: Fusion.Approval.Status,
+    statuses: [UInt: Fusion.Approval.Status],
     approvers: [String: Fusion.Approval.Approver],
-    antagonists: [String: [String]]
+    antagonists: [String: [String]],
+    review: Json.GitlabReviewState
   ) throws -> Self { try .init(
-    sanity: sanity,
+    ownage: ownage,
     rules: .make(yaml: rules),
-    status: status,
+    statuses: statuses,
+    status: statuses[review.iid].get { throw MayDay("No Status") },
     approvers: approvers,
-    antagonists: antagonists
+    antagonists: antagonists,
+    review: review
   )}
 }
 //public struct AwardApproval {

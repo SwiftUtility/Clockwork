@@ -177,13 +177,11 @@ public struct Fusion {
     }
   }
   public struct Approval {
-    public var sanity: String?
     public var rules: Git.File
     public var statuses: Configuration.Asset
     public var approvers: Configuration.Asset
     public var antagonists: Configuration.Secret?
     public static func make(yaml: Yaml.Fusion.Approval) throws -> Self { try .init(
-      sanity: yaml.sanity,
       rules: .make(preset: yaml.rules),
       statuses: .make(yaml: yaml.statuses),
       approvers: .make(yaml: yaml.approvers),
@@ -201,6 +199,7 @@ public struct Fusion {
       )}
     }
     public struct Rules {
+      public var sanity: String?
       public var emergency: String?
       public var randoms: Randoms?
       public var teams: [String: Team]
@@ -208,6 +207,7 @@ public struct Fusion {
       public var sourceBranch: [String: Criteria]
       public var targetBranch: [String: Criteria]
       public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
+        sanity: yaml.sanity,
         emergency: yaml.emergency,
         randoms: yaml.randoms
           .map(Randoms.make(yaml:)),

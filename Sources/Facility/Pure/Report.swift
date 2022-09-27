@@ -78,6 +78,7 @@ public struct Report: Query {
       case badTitle
       case extraCommits
       case taskMismatch
+      case sanity
     }
   }
 

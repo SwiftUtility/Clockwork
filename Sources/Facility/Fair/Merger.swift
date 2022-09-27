@@ -61,19 +61,6 @@ public final class Merger {
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
-//    let profile = parseProfile(.init(git: cfg.git, file: <#T##Git.File#>))
-    let ownage = try ctx.gitlab.env.parent
-      .map(\.profile)
-      .reduce(.make(sha: .init(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
-      .map { file in try Configuration.Profile.make(
-        profile: file,
-        yaml: parseProfile(.init(git: cfg.git, file: file))
-      )}
-      .map(\.codeOwnage)
-      .get()
-      .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
-      .map(parseCodeOwnage)?
-      .mapValues(Criteria.init(yaml:))
     try checkUser(cfg: cfg, user: ctx.review.author.username, approvers: approvers)
     let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
     let statuses = try resolveReviewStatus(
@@ -105,7 +92,36 @@ public final class Merger {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
-    if let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, kind: kind) {
+    let approval = try Approval.make(
+      ownage: ctx.gitlab.env.parent
+        .map(\.profile)
+        .reduce(.make(sha: .init(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
+        .map { file in try Configuration.Profile.make(
+          profile: file,
+          yaml: parseProfile(.init(git: cfg.git, file: file))
+        )}
+        .map(\.codeOwnage)
+        .get()
+        .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
+        .map(parseCodeOwnage)
+        .get([:])
+        .mapValues(Criteria.init(yaml:)),
+      rules: parseApprovalRules(.init(git: cfg.git, file: fusion.approval.rules)),
+      statuses: resolveReviewStatus(
+        cfg: cfg,
+        ctx: ctx,
+        fusion: fusion,
+        approvers: approvers,
+        kind: kind
+      ),
+      approvers: approvers,
+      antagonists: fusion.approval.antagonists
+        .reduce(cfg, Configuration.ParseYamlSecret.init(cfg:secret:))
+        .map(parseAntagonists)
+        .get([:]),
+      review: ctx.review
+    )
+    if let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, kind: kind, approval: approval) {
       report(cfg.reportReviewBlocked(status: status, review: ctx.review, users: approvers, reasons: blockers))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
@@ -113,10 +129,8 @@ public final class Merger {
     guard try checkIsApproved(
       cfg: cfg,
       ctx: ctx,
-      fusion: fusion,
       kind: kind,
-      statuses: statuses,
-      approvers: approvers
+      approval: approval
     ) else {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
@@ -345,13 +359,17 @@ public final class Merger {
   func checkReviewBlockers(
     cfg: Configuration,
     ctx: Worker.ParentReview,
-    kind: Fusion.Kind
+    kind: Fusion.Kind,
+    approval: Approval
   ) throws -> [Report.ReviewBlocked.Reason]? {
     var result: [Report.ReviewBlocked.Reason] = []
     if ctx.review.draft { result.append(.draft) }
     if ctx.review.workInProgress { result.append(.workInProgress) }
     if !ctx.review.blockingDiscussionsResolved { result.append(.blockingDiscussions) }
-    #warning("check sanity")
+    if
+      let sanity = approval.rules.sanity,
+      !cfg.profile.checkSanity(criteria: approval.ownage[sanity])
+    { result.append(.sanity) }
     let excludes: [Git.Ref]
     switch kind {
     case .proposition(let rule):
@@ -425,22 +443,10 @@ public final class Merger {
   func checkIsApproved(
     cfg: Configuration,
     ctx: Worker.ParentReview,
-    fusion: Fusion,
     kind: Fusion.Kind,
-    statuses: [UInt: Fusion.Approval.Status],
-    approvers: [String: Fusion.Approval.Approver]
+    approval: Approval
   ) throws -> Bool {
-    var approval = try Approval.make(
-      sanity: fusion.approval.sanity,
-      rules: parseApprovalRules(.init(git: cfg.git, file: fusion.approval.rules)),
-      status: statuses[ctx.review.iid]
-        .get { throw MayDay("No status") },
-      approvers: approvers,
-      antagonists: fusion.approval.antagonists
-        .reduce(cfg, Configuration.ParseYamlSecret.init(cfg:secret:))
-        .map(parseAntagonists)
-        .get([:])
-    )
+    var approval = approval
     let fork = kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))

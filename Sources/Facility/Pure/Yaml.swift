@@ -132,14 +132,13 @@ public enum Yaml {
       public var exportAvailableTargets: Template
     }
     public struct Approval: Decodable {
-      public var sanity: String?
       public var rules: Preset
       public var statuses: Asset
       public var approvers: Asset
       public var antagonists: Secret?
       public struct Rules: Decodable {
+        public var sanity: String?
         public var emergency: String?
-        public var botMention: String
         public var randoms: Randoms?
         public var teams: [String: Team]?
         public var authorship: [String: [String]]?
