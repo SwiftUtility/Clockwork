@@ -32,7 +32,7 @@ enum Assembler {
   static let environment = ProcessInfo.processInfo.environment
   static let validator = Validator(
     execute: execute,
-    resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
+    parseCodeOwnage: configurator.parseYamlFile(query:),
     resolveFileTaboos: configurator.resolveFileTaboos(query:),
     listFileLines: FileLiner.listFileLines(query:),
     logMessage: logger.logMessage(query:),

@@ -157,14 +157,6 @@ public final class Configurator {
     .reduce(query.file, Configuration.Profile.make(profile:yaml:))
     .get()
   }
-  public func resolveCodeOwnage(
-    query: Configuration.ResolveCodeOwnage
-  ) throws -> Configuration.ResolveCodeOwnage.Reply { try query.profile.codeOwnage
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Yaml.Criteria].self, dialect.read(_:from:))
-    .get()
-    .mapValues(Criteria.init(yaml:))
-  }
   public func resolveFileTaboos(
     query: Configuration.ResolveFileTaboos
   ) throws -> Configuration.ResolveFileTaboos.Reply { try query.profile.fileTaboos

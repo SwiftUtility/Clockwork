@@ -3,21 +3,21 @@ import Facility
 import FacilityPure
 public final class Validator {
   let execute: Try.Reply<Execute>
-  let resolveCodeOwnage: Try.Reply<Configuration.ResolveCodeOwnage>
+  let parseCodeOwnage: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>
   let resolveFileTaboos: Try.Reply<Configuration.ResolveFileTaboos>
   let listFileLines: Try.Reply<Files.ListFileLines>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    resolveCodeOwnage: @escaping Try.Reply<Configuration.ResolveCodeOwnage>,
+    parseCodeOwnage: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>,
     resolveFileTaboos: @escaping Try.Reply<Configuration.ResolveFileTaboos>,
     listFileLines: @escaping Try.Reply<Files.ListFileLines>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
-    self.resolveCodeOwnage = resolveCodeOwnage
+    self.parseCodeOwnage = parseCodeOwnage
     self.resolveFileTaboos = resolveFileTaboos
     self.listFileLines = listFileLines
     self.logMessage = logMessage
@@ -26,7 +26,12 @@ public final class Validator {
   public func validateUnownedCode(cfg: Configuration) throws -> Bool {
     guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
     else { throw Thrown("Git is dirty") }
-    let approvals = try resolveCodeOwnage(.init(cfg: cfg, profile: cfg.profile)).values
+    let approvals = try cfg.profile.codeOwnage
+      .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
+      .map(parseCodeOwnage)
+      .get { throw Thrown("No codeOwnage in profile") }
+      .values
+      .map(Criteria.init(yaml:))
     var result = true
     for file in try Execute.parseLines(reply: execute(cfg.git.listAllTrackedFiles(ref: .head))) {
       guard !approvals.contains(where: file.isMet(criteria:)) else { continue }

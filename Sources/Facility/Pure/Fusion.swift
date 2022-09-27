@@ -177,7 +177,7 @@ public struct Fusion {
     }
   }
   public struct Approval {
-    public var sanity: String
+    public var sanity: String?
     public var rules: Git.File
     public var statuses: Configuration.Asset
     public var approvers: Configuration.Asset

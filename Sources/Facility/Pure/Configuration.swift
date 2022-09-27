@@ -32,7 +32,7 @@ public struct Configuration {
     public var context: Git.File?
     public var templates: Git.Dir?
     public var fusion: Lossy<Git.File>
-    public var codeOwnage: Lossy<Git.File>
+    public var codeOwnage: Git.File?
     public var fileTaboos: Lossy<Git.File>
     public var cocoapods: Lossy<Git.File>
     public var production: Lossy<Git.File>
@@ -58,9 +58,7 @@ public struct Configuration {
         .get(.error(Thrown("fusion not configured"))),
       codeOwnage: yaml.codeOwnage
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("codeOwnage not configured"))),
+        .reduce(profile.ref, Git.File.init(ref:path:)),
       fileTaboos: yaml.fileTaboos
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:))
@@ -82,16 +80,7 @@ public struct Configuration {
         .map(Lossy.value(_:))
         .get(.error(Thrown("requisition not configured")))
     )}
-    public var sanityFiles: [String] {
-      [
-        profile,
-        try? codeOwnage.get(),
-        try? fileTaboos.get(),
-        try? production.get(),
-        try? requisition.get(),
-        try? fusion.get(),
-      ].compactMap(\.?.path.value)
-    }
+    public var sanityFiles: [String] { [profile.path.value] + codeOwnage.map(\.path.value).array }
     public struct GitlabCi {
       public var token: Secret
       public var trigger: Yaml.GitlabCi.Trigger

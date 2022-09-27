@@ -69,10 +69,10 @@ public final class Merger {
         profile: file,
         yaml: parseProfile(.init(git: cfg.git, file: file))
       )}
-      .flatMap(\.codeOwnage)
-      .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
-      .map(parseCodeOwnage)
+      .map(\.codeOwnage)
       .get()
+      .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
+      .map(parseCodeOwnage)?
       .mapValues(Criteria.init(yaml:))
     try checkUser(cfg: cfg, user: ctx.review.author.username, approvers: approvers)
     let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)

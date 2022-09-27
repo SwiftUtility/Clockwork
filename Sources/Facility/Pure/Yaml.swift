@@ -132,7 +132,7 @@ public enum Yaml {
       public var exportAvailableTargets: Template
     }
     public struct Approval: Decodable {
-      public var sanity: String
+      public var sanity: String?
       public var rules: Preset
       public var statuses: Asset
       public var approvers: Asset
