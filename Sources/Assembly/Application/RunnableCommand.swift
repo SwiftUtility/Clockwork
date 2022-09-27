@@ -55,17 +55,17 @@ extension Clockwork.CancelJobs: RunnableCommand {
 }
 extension Clockwork.CheckConflictMarkers: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateReviewConflictMarkers(cfg: cfg, base: base)
+    try Assembler.validator.validateReviewConflictMarkers(cfg: cfg, base: base, json: json)
   }
 }
 extension Clockwork.CheckFileTaboos: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateFileTaboos(cfg: cfg)
+    try Assembler.validator.validateFileTaboos(cfg: cfg, json: json)
   }
 }
 extension Clockwork.CheckUnownedCode: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateUnownedCode(cfg: cfg)
+    try Assembler.validator.validateUnownedCode(cfg: cfg, json: json)
   }
 }
 extension Clockwork.CreateAccessoryBranch: RunnableCommand {

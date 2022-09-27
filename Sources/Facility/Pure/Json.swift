@@ -91,4 +91,21 @@ public enum Json {
     public var httpUrlToRepo: String // http://example.com/diaspora/diaspora-project-site.git
     public var webUrl: String // http://example.com/diaspora/diaspora-project-site
   }
+  public struct FileTaboo: Codable {
+    public var rule: String
+    public var file: String
+    public var line: Int?
+    public var logMessage: LogMessage {
+      .init(message: "\(file):\(line.map { "\($0):" }.get("")) \(rule)")
+    }
+    public static func make(
+      rule: String,
+      file: String,
+      line: Int? = nil
+    ) -> Self { .init(
+      rule: rule,
+      file: file,
+      line: line
+    )}
+  }
 }

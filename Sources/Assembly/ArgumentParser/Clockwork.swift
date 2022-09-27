@@ -90,14 +90,20 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
     @Option(help: "The commit sha to diff with")
     var base: String
+    @Flag(help: "Should render json to stdout")
+    var json = false
   }
   struct CheckFileTaboos: ClockworkCommand {
     static var abstract: String { "Ensure files match defined rules" }
     @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should render json to stdout")
+    var json = false
   }
   struct CheckUnownedCode: ClockworkCommand {
     static var abstract: String { "Ensure no unowned files" }
     @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should render json to stdout")
+    var json = false
   }
   struct CreateAccessoryBranch: ClockworkCommand {
     static var abstract: String { "Cut custom protected branch" }

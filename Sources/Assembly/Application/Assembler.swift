@@ -36,6 +36,7 @@ enum Assembler {
     resolveFileTaboos: configurator.resolveFileTaboos(query:),
     listFileLines: FileLiner.listFileLines(query:),
     logMessage: logger.logMessage(query:),
+    stdoutData: stdoutData,
     jsonDecoder: jsonDecoder
   )
   static let requisitor = Requisitor(
@@ -101,6 +102,7 @@ enum Assembler {
     return result
   }()
   static let writeStdout = FileHandle.standardOutput.write(message:)
+  static let stdoutData = FileHandle.standardOutput.write(data:)
   static let writeStderr = FileHandle.standardError.write(message:)
   static let readStdin = FileHandle.readStdin
   static let execute = Processor.execute(query:)

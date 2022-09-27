@@ -165,15 +165,6 @@ public struct Configuration {
     }
     public typealias Reply = String
   }
-  public struct ResolveCodeOwnage: Query {
-    public var cfg: Configuration
-    public var profile: Configuration.Profile
-    public init(cfg: Configuration, profile: Configuration.Profile) {
-      self.cfg = cfg
-      self.profile = profile
-    }
-    public typealias Reply = [String: Criteria]
-  }
   public struct ResolveFileTaboos: Query {
     public var cfg: Configuration
     public var profile: Configuration.Profile
