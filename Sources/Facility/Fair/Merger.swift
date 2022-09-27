@@ -92,7 +92,7 @@ public final class Merger {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
-    let approval = try Approval.make(
+    let approval = try Approval(
       ownage: ctx.gitlab.env.parent
         .map(\.profile)
         .reduce(.make(sha: .init(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))

@@ -8,30 +8,43 @@ public struct Approval {
   public var approvers: [String: Fusion.Approval.Approver]
   public var antagonists: [String: [String]]
   public let review: Json.GitlabReviewState
+  public var involved: Set<String>
   public var changes: [Git.Sha: Set<String>] = [:]
   public var breakers: [Git.Sha: Set<Git.Sha>] = [:]
-  public static func make(
+  public init(
     ownage: [String: Criteria],
     rules: Yaml.Fusion.Approval.Rules,
     statuses: [UInt: Fusion.Approval.Status],
     approvers: [String: Fusion.Approval.Approver],
     antagonists: [String: [String]],
     review: Json.GitlabReviewState
-  ) throws -> Self { try .init(
-    ownage: ownage,
-    rules: .make(yaml: rules),
-    statuses: statuses,
-    status: statuses[review.iid].get { throw MayDay("No Status") },
-    approvers: approvers,
-    antagonists: antagonists,
-    review: review
-  )}
+  ) throws {
+    self.ownage = ownage
+    self.rules = try .make(yaml: rules)
+    self.statuses = statuses
+    self.status = try statuses[review.iid].get { throw MayDay("No Status") }
+    self.approvers = approvers
+    self.antagonists = antagonists
+    self.review = review
+    self.involved = []
+    self.changes = [:]
+    self.breakers = [:]
+    for (group, criteria) in self.rules.sourceBranch {
+      if criteria.isMet(review.sourceBranch) { involved.insert(group) }
+    }
+    for (group, criteria) in self.rules.targetBranch {
+      if criteria.isMet(review.targetBranch) { involved.insert(group) }
+    }
+    for (group, authors) in self.rules.authorship {
+      if authors.contains(status.author) { involved.insert(group) }
+    }
+  }
   public mutating func addChanges(sha: Git.Sha, files: [String]) {
     var groups: Set<String> = []
     for (group, criteria) in ownage {
       if files.contains(where: criteria.isMet(_:)) { groups.insert(group) }
     }
-    changes[sha] = groups
+    changes[sha] = groups.union(involved)
   }
   public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
     breakers[sha] = try Set(commits.map(Git.Sha.init(value:)))
