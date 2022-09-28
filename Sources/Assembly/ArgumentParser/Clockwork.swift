@@ -40,6 +40,7 @@ struct Clockwork: ParsableCommand {
       RemoveReviewLabels.self,
       TriggerPipeline.self,
       TriggerReviewPipeline.self,
+      StartProposition.self,
       StartReplication.self,
       StartIntegration.self,
       UpdatePodSpecs.self,
@@ -245,6 +246,10 @@ struct Clockwork: ParsableCommand {
   }
   struct TriggerReviewPipeline: ClockworkCommand {
     static var abstract: String { "Create new pipeline for parent review" }
+    @OptionGroup var clockwork: Clockwork
+  }
+  struct StartProposition: ClockworkCommand {
+    static var abstract: String { "Create proposition review" }
     @OptionGroup var clockwork: Clockwork
   }
   struct StartReplication: ClockworkCommand {

@@ -1,18 +1,14 @@
 import Foundation
 import Facility
 public struct Approval {
-  public var bot: String
-  public var ownage: [String: Criteria]
-  public var rules: Fusion.Approval.Rules
-  public var statuses: [UInt: Fusion.Approval.Status]
-  public var status: Fusion.Approval.Status
-  public var approvers: [String: Fusion.Approval.Approver]
-  public var antagonists: [String: [String]]
+  public let bot: String
+  public let ownage: [String: Criteria]
+  public let rules: Fusion.Approval.Rules
+  public let statuses: [UInt: Fusion.Approval.Status]
+  public let approvers: [String: Fusion.Approval.Approver]
+  public let antagonists: [String: [String]]
   public let review: Json.GitlabReviewState
-  public var involvedGroups: Set<String>
-  public var diffGroups: Set<String>
-  public var changes: [Git.Sha: Set<String>] = [:]
-  public var breakers: [Git.Sha: Set<Git.Sha>] = [:]
+  public var state: State
   public init(
     bot: String,
     ownage: [String: Criteria],
@@ -26,49 +22,55 @@ public struct Approval {
     self.ownage = ownage
     self.rules = try .make(yaml: rules)
     self.statuses = statuses
-    self.status = try statuses[review.iid].get { throw MayDay("No Status") }
     self.approvers = approvers
     self.antagonists = antagonists
     self.review = review
-    self.involvedGroups = []
-    self.diffGroups = []
-    self.changes = [:]
-    self.breakers = [:]
+    self.state = try .init(status: statuses[review.iid])
     for (group, criteria) in self.rules.sourceBranch {
-      if criteria.isMet(review.sourceBranch) { involvedGroups.insert(group) }
+      if criteria.isMet(review.sourceBranch) { state.involvedGroups.insert(group) }
     }
     for (group, criteria) in self.rules.targetBranch {
-      if criteria.isMet(review.targetBranch) { involvedGroups.insert(group) }
+      if criteria.isMet(review.targetBranch) { state.involvedGroups.insert(group) }
     }
     for (group, authors) in self.rules.authorship {
-      if authors.contains(status.author) { involvedGroups.insert(group) }
+      if authors.contains(state.status.author) { state.involvedGroups.insert(group) }
     }
-  }
-  public mutating func addDiff(files: [String]) {
-    for (group, criteria) in ownage {
-      if files.contains(where: criteria.isMet(_:)) { diffGroups.insert(group) }
-    }
-  }
-  public mutating func addChanges(sha: Git.Sha, files: [String]) {
-    var groups = involvedGroups
-    for (group, criteria) in ownage {
-      if files.contains(where: criteria.isMet(_:)) { groups.insert(group) }
-    }
-    changes[sha] = groups
-  }
-  public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
-    breakers[sha] = try Set(commits.map(Git.Sha.init(value:)))
-  }
-  public mutating func update() -> State {
-    var state = State()
     for (login, approver) in approvers {
       if approver.active { state.activeApprovers.insert(login) }
     }
+    state.antagonistApprovers = .init(antagonists[state.status.author].get([]))
+  }
+  public mutating func addDiff(files: [String]) {
+    for (group, criteria) in ownage {
+      if files.contains(where: criteria.isMet(_:)) { state.diffGroups.insert(group) }
+    }
+  }
+  public mutating func addChanges(sha: Git.Sha, files: [String]) {
+    var groups = state.involvedGroups
+    for (group, criteria) in ownage {
+      if files.contains(where: criteria.isMet(_:)) { groups.insert(group) }
+    }
+    state.changes[sha] = groups
+  }
+  public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
+    state.breakers[sha] = try Set(commits.map(Git.Sha.init(value:)))
+  }
+  public mutating func update() -> State {
     return state
   }
   public struct State {
+    public var status: Fusion.Approval.Status
+    public var diffGroups: Set<String> = []
+    public var changes: [Git.Sha: Set<String>] = [:]
+    public var breakers: [Git.Sha: Set<Git.Sha>] = [:]
     public var activeApprovers: Set<String> = []
+    public var antagonistApprovers: Set<String> = []
+    public var involvedGroups: Set<String> = []
     public var diffs: [String: [String]] = [:]
+    public var isApproved: Bool = false
+    init(status: Fusion.Approval.Status?) throws {
+      self.status = try status.get { throw MayDay("No Status") }
+    }
   }
 }
 //public struct AwardApproval {

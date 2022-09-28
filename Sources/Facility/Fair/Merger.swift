@@ -56,6 +56,39 @@ public final class Merger {
     self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
+  public func startProposition(cfg: Configuration) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
+    let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
+    guard case .proposition = kind else { throw Thrown("Wrong review kind") }
+    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    try checkUser(cfg: cfg, user: ctx.review.author.username, approvers: approvers)
+    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    guard statuses[ctx.review.iid] == nil else { return true }
+    let thread = try createThread(cfg.reportReviewCreated(
+      fusion: fusion,
+      review: ctx.review,
+      users: approvers,
+      author: ctx.review.author.username,
+      coauthors: [:]
+    ))
+    statuses[ctx.review.iid] = Fusion.Approval.Status.make(
+      thread: .make(yaml: thread),
+      target: ctx.review.targetBranch,
+      author: ctx.review.author.username,
+      coauthors: [:]
+    )
+    return try persistAsset(.init(
+      cfg: cfg,
+      asset: fusion.approval.statuses,
+      content: Fusion.Approval.Status.yaml(statuses: statuses),
+      message: generate(cfg.createFusionStatusesCommitMessage(
+        asset: fusion.approval.statuses,
+        review: ctx.review
+      ))
+    ))
+  }
   public func updateReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
@@ -63,14 +96,8 @@ public final class Merger {
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
     try checkUser(cfg: cfg, user: ctx.review.author.username, approvers: approvers)
     let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
-    let statuses = try resolveReviewStatus(
-      cfg: cfg,
-      ctx: ctx,
-      fusion: fusion,
-      approvers: approvers,
-      kind: kind
-    )
-    let status = try statuses[ctx.review.iid].get { throw MayDay("No status") }
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    let status = try statuses[ctx.review.iid].get { throw Thrown("No status") }
     try checkUser(cfg: cfg, user: status.author, approvers: approvers)
     guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
       if let sha = try rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion) {
@@ -81,49 +108,40 @@ public final class Merger {
           force: false
         )))
       } else {
-        report(cfg.reportReviewMergeConflicts(status: status, review: ctx.review, users: approvers))
+        report(cfg.reportReviewMergeConflicts(
+          status: status,
+          review: ctx.review,
+          users: approvers
+        ))
         try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       }
       return false
     }
     if let reason = try checkReviewClosers(cfg: cfg, ctx: ctx, kind: kind) {
       try closeReview(cfg: cfg, ctx: ctx)
-      report(cfg.reportReviewClosed(status: status, review: ctx.review, users: approvers, reason: reason))
+      report(cfg.reportReviewClosed(
+        status: status,
+        review: ctx.review,
+        users: approvers,
+        reason: reason
+      ))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
-    let approval = try Approval(
-      bot: ctx.gitlab.protected.get().user.username,
-      ownage: ctx.gitlab.env.parent
-        .map(\.profile)
-        .reduce(.make(sha: .init(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
-        .map { file in try Configuration.Profile.make(
-          profile: file,
-          yaml: parseProfile(.init(git: cfg.git, file: file))
-        )}
-        .map(\.codeOwnage)
-        .get()
-        .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
-        .map(parseCodeOwnage)
-        .get([:])
-        .mapValues(Criteria.init(yaml:)),
-      rules: parseApprovalRules(.init(git: cfg.git, file: fusion.approval.rules)),
-      statuses: resolveReviewStatus(
-        cfg: cfg,
-        ctx: ctx,
-        fusion: fusion,
-        approvers: approvers,
-        kind: kind
-      ),
-      approvers: approvers,
-      antagonists: fusion.approval.antagonists
-        .reduce(cfg, Configuration.ParseYamlSecret.init(cfg:secret:))
-        .map(parseAntagonists)
-        .get([:]),
-      review: ctx.review
+    let approval = try resolveApproval(
+      cfg: cfg,
+      ctx: ctx,
+      fusion: fusion,
+      statuses: statuses,
+      approvers: approvers
     )
     if let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, kind: kind, approval: approval) {
-      report(cfg.reportReviewBlocked(status: status, review: ctx.review, users: approvers, reasons: blockers))
+      report(cfg.reportReviewBlocked(
+        status: status,
+        review: ctx.review,
+        users: approvers,
+        reasons: blockers
+      ))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
@@ -274,7 +292,6 @@ public final class Merger {
     user: String,
     approvers: [String: Fusion.Approval.Approver]
   ) throws {
-    guard try user != cfg.gitlabCi.flatMap(\.protected).get().user.username else { return }
     guard approvers[user] != nil else { throw Thrown("Unknown user: \(user)") }
   }
   func resolveReviewStatus(
@@ -286,12 +303,13 @@ public final class Merger {
   ) throws -> [UInt: Fusion.Approval.Status] {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     guard statuses[ctx.review.iid] == nil else { return statuses }
+    let author = try worker.resolveAuauthor(cfg: cfg, ctx: ctx, kind: kind)
     let coauthors = try worker.resolveCoauthors(cfg: cfg, ctx: ctx, kind: kind)
     let thread = try createThread(cfg.reportReviewCreated(
       fusion: fusion,
       review: ctx.review,
       users: approvers,
-      author: ctx.review.author.username,
+      author: author,
       coauthors: coauthors
     ))
     statuses[ctx.review.iid] = Fusion.Approval.Status.make(
@@ -310,6 +328,38 @@ public final class Merger {
       ))
     ))
     return statuses
+  }
+  func resolveApproval(
+    cfg: Configuration,
+    ctx: Worker.ParentReview,
+    fusion: Fusion,
+    statuses: [UInt: Fusion.Approval.Status],
+    approvers: [String: Fusion.Approval.Approver]
+  ) throws -> Approval { try .init(
+    bot: ctx.gitlab.protected.get().user.username,
+    ownage: ctx.gitlab.env.parent
+      .map(\.profile)
+      .reduce(.make(sha: .init(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
+      .map { file in try Configuration.Profile.make(
+        profile: file,
+        yaml: parseProfile(.init(git: cfg.git, file: file))
+      )}
+      .map(\.codeOwnage)
+      .get()
+      .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
+      .map(parseCodeOwnage)
+      .get([:])
+      .mapValues(Criteria.init(yaml:)),
+    rules: parseApprovalRules(.init(git: cfg.git, file: fusion.approval.rules)),
+    statuses: statuses,
+    approvers: approvers,
+    antagonists: fusion.approval.antagonists
+      .reduce(cfg, Configuration.ParseYamlSecret.init(cfg:secret:))
+      .map(parseAntagonists)
+      .get([:]),
+    review: ctx.review
+  )
+
   }
   func checkReviewClosers(
     cfg: Configuration,
@@ -461,21 +511,21 @@ public final class Merger {
       .map(Git.Ref.make(sha:))
     let current = try Git.Ref.make(sha: .init(value: ctx.review.pipeline.sha))
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
-    let shas = try Execute.parseLines(reply: execute(cfg.git.listCommits(
+    try approval.addDiff(files: listAllChanges(cfg: cfg, ctx: ctx, kind: kind))
+    let known = approval.state.status.review
+      .map { Set($0.teams.keys) }
+      .get([])
+    for sha in try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [current],
       notIn: [target] + fork.array,
       noMerges: false,
       firstParents: false
-    )))
-    let known = approval.status.review
-      .map { Set($0.teams.keys) }
-      .get([])
-    try approval.addDiff(files: listAllChanges(cfg: cfg, ctx: ctx, kind: kind))
-    for sha in try shas.map(Git.Sha.init(value:)) {
+    ))) {
+      let sha = try Git.Sha(value: sha)
       guard !known.contains(sha) else { continue }
       try approval.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, ctx: ctx, sha: sha))
     }
-    for sha in approval.status.review?.approves.values.map(\.commit) ?? [] {
+    for sha in approval.state.status.review?.approves.values.map(\.commit) ?? [] {
       try approval.addBreakers(
         sha: sha,
         commits: Execute.parseLines(reply: execute(cfg.git.listCommits(

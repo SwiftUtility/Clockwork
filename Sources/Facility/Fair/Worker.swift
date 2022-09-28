@@ -65,6 +65,39 @@ public final class Worker {
       page += 1
     }
   }
+  func resolveAuauthor(
+    cfg: Configuration,
+    ctx: ParentReview,
+    kind: Fusion.Kind
+  ) throws -> String {
+    guard kind.merge != nil else { return ctx.review.author.username }
+    let bot = try ctx.gitlab.protected.get().user.username
+    let sha = try findFirstProposition(
+      cfg: cfg,
+      ref: .make(sha: .init(value: ctx.job.pipeline.sha))
+    )
+    return try ctx.gitlab
+      .listShaMergeRequests(sha: sha)
+      .map(execute)
+      .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
+      .get()
+      .filter { $0.projectId == ctx.gitlab.job.pipeline.projectId }
+      .filter { $0.squashCommitSha == sha.value }
+      .filter { $0.author.username != bot }
+      .first
+      .map(\.author.username)
+      .get { throw Thrown("No author for \(sha.value)") }
+  }
+  func findFirstProposition(
+    cfg: Configuration,
+    ref: Git.Ref
+  ) throws -> Git.Sha {
+    let parents = try Execute.parseLines(reply: execute(cfg.git.listParents(ref: ref)))
+    guard parents.count > 1 else {
+      return try .init(value: Execute.parseText(reply: execute(cfg.git.getSha(ref: ref))))
+    }
+    return try findFirstProposition(cfg: cfg, ref: ref.make(parent: 2))
+  }
   func resolveCoauthors(
     cfg: Configuration,
     ctx: ParentReview,
