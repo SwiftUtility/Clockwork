@@ -82,6 +82,19 @@ public struct Report: Query {
       case sanity
     }
   }
+  public struct ReviewUnapprovable: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var review: Json.GitlabReviewState
+    public var users: [String: Fusion.Approval.Approver]
+    public var author: String
+    public var coauthors: [String: String]?
+    public var unapprovableTeams: [String]?
+    public var authorInactive: Bool
+  }
 
 
 
@@ -318,51 +331,63 @@ public extension Configuration {
     ))
   )}
   func reportReviewMergeConflicts(
-    status: Fusion.Approval.Status,
-    review: Json.GitlabReviewState,
-    users: [String: Fusion.Approval.Approver]
+    review: Review
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
-    thread: status.thread,
-    review: review,
-    users: users,
-    author: status.author,
-    coauthors: status.coauthors.isEmpty.else(status.coauthors)
+    thread: review.status.thread,
+    review: review.state,
+    users: review.approvers,
+    author: review.status.author,
+    coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors)
   ))}
   func reportReviewClosed(
-    status: Fusion.Approval.Status,
-    review: Json.GitlabReviewState,
-    users: [String: Fusion.Approval.Approver],
+    review: Review,
     reason: Report.ReviewClosed.Reason
   ) -> Report { .init(cfg: self, context: Report.ReviewClosed(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
-    thread: status.thread,
-    review: review,
-    users: users,
-    author: status.author,
-    coauthors: status.coauthors.isEmpty.else(status.coauthors),
+    thread: review.status.thread,
+    review: review.state,
+    users: review.approvers,
+    author: review.status.author,
+    coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors),
     reason: reason
   ))}
   func reportReviewBlocked(
-    status: Fusion.Approval.Status,
-    review: Json.GitlabReviewState,
-    users: [String: Fusion.Approval.Approver],
+    review: Review,
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
-    thread: status.thread,
-    review: review,
-    users: users,
-    author: status.author,
-    coauthors: status.coauthors.isEmpty.else(status.coauthors),
+    thread: review.status.thread,
+    review: review.state,
+    users: review.approvers,
+    author: review.status.author,
+    coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors),
     reasons: reasons
   ))}
+  func reportReviewUnapprovable(
+    review: Review,
+    unapprovable: Review.Unapprovable
+  ) -> Report { .init(cfg: self, context: Report.ReviewUnapprovable(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: review.status.thread,
+    review: review.state,
+    users: review.approvers,
+    author: review.status.author,
+    coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors),
+    unapprovableTeams: unapprovable.teams,
+    authorInactive: unapprovable.author
+  ))}
+
+
+
   func reportCustom(
     event: String,
     stdin: [String]

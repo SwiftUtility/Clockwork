@@ -65,7 +65,7 @@ public final class Worker {
       page += 1
     }
   }
-  func resolveAuauthor(
+  func resolveAuthor(
     cfg: Configuration,
     ctx: ParentReview,
     kind: Fusion.Kind

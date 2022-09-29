@@ -164,8 +164,8 @@ public enum Yaml {
       }
       public struct Status: Decodable {
         public var thread: Thread
-        public var target: String
         public var author: String
+        public var target: String
         public var review: Review?
         public var coauthors: [String: String]?
         public struct Review: Decodable {
@@ -180,6 +180,13 @@ public enum Yaml {
               case fragil
               case advance
               case emergent
+              case outdated
+              public var approved: Bool {
+                switch self {
+                case .fragil, .advance, .emergent: return true
+                case .block, .outdated: return false
+                }
+              }
             }
           }
         }

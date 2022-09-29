@@ -230,18 +230,18 @@ public struct Fusion {
         public var selfApproval: Bool
         public var ignoreAntagonism: Bool
         public var labels: [String]
-        public var reserve: [String]
-        public var optional: [String]
-        public var required: [String]
+        public var reserve: Set<String>
+        public var optional: Set<String>
+        public var required: Set<String>
         public static func make(yaml: Yaml.Fusion.Approval.Rules.Team) -> Self { .init(
           quorum: yaml.quorum,
           advanceApproval: yaml.advanceApproval.get(false),
           selfApproval: yaml.selfApproval.get(false),
           ignoreAntagonism: yaml.ignoreAntagonism.get(false),
           labels: yaml.labels.get([]),
-          reserve: yaml.reserve.get([]),
-          optional: yaml.optional.get([]),
-          required: yaml.required.get([])
+          reserve: yaml.reserve.map(Set.init(_:)).get([]),
+          optional: yaml.optional.map(Set.init(_:)).get([]),
+          required: yaml.required.map(Set.init(_:)).get([])
         )}
       }
       public struct Randoms {
@@ -261,15 +261,15 @@ public struct Fusion {
       }
     }
     public struct Status {
-      public var thread: Configuration.Thread
-      public var target: String
       public var author: String
+      public var target: String
+      public var thread: Configuration.Thread
       public var coauthors: [String: String]
       public var review: Review?
       public static func make(yaml: Yaml.Fusion.Approval.Status) throws -> Self { try .init(
-        thread: .make(yaml: yaml.thread),
+        author: yaml.author,
         target: yaml.target,
-        author: .init(yaml.author),
+        thread: .make(yaml: yaml.thread),
         coauthors: yaml.coauthors.get([:]),
         review: yaml.review.map(Review.make(yaml:))
       )}
@@ -277,11 +277,11 @@ public struct Fusion {
         var result = ""
         for (key, value) in statuses.sorted(by: { $0.key < $1.key }) {
           result += "'\(key)':\n"
+          result += "  author: '\(value.author)'\n"
+          result += "  target: '\(value.target)'\n"
           result += "  thread:\n"
           result += "    channel: '\(value.thread.channel)'\n"
           result += "    ts: '\(value.thread.ts)'\n"
-          result += "  target: '\(value.target)'\n"
-          result += "  author: '\(value.author)'\n"
           if !value.coauthors.isEmpty {
             result += "  coauthors:\n"
             for (key, value) in value.coauthors.sorted(by: { $0.key < $1.key }) {
@@ -308,14 +308,14 @@ public struct Fusion {
         return result.isEmpty.then("{}\n").get(result)
       }
       public static func make(
-        thread: Configuration.Thread,
-        target: String,
         author: String,
+        target: String,
+        thread: Configuration.Thread,
         coauthors: [String: String]
       ) -> Self { .init(
-        thread: thread,
-        target: target,
         author: author,
+        target: target,
+        thread: thread,
         coauthors: coauthors
       )}
       public struct Review {

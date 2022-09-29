@@ -1,76 +1,133 @@
 import Foundation
 import Facility
-public struct Approval {
+public struct Review {
   public let bot: String
+  public let statuses: [UInt: Fusion.Approval.Status]
+  public let state: Json.GitlabReviewState
+  public let approvers: [String: Fusion.Approval.Approver]
+  public let activeApprovers: Set<String>
+  public let kind: Fusion.Kind
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
-  public let statuses: [UInt: Fusion.Approval.Status]
-  public let approvers: [String: Fusion.Approval.Approver]
   public let antagonists: [String: [String]]
-  public let review: Json.GitlabReviewState
-  public var state: State
+  public private(set) var status: Fusion.Approval.Status
+  public private(set) var diffTeams: Set<String> = []
+  public private(set) var changes: [Git.Sha: Set<String>] = [:]
+  public private(set) var breakers: [Git.Sha: Set<Git.Sha>] = [:]
+  public private(set) var antagonistApprovers: Set<String> = []
+  public private(set) var utilityTeams: Set<String> = []
+  public private(set) var newTeams: Set<String> = []
+  public private(set) var diffs: [String: [String]] = [:]
+  public private(set) var isApproved: Bool = false
+  public private(set) var presentTeams: [String: Fusion.Approval.Rules.Team] = [:]
+  public struct Unapprovable {
+    public var author: Bool = false
+    public var teams: [String]? = nil
+  }
+  public var unapprovable: Unapprovable? {
+    var result = Unapprovable()
+    if status.review?.approves[status.author]?.resolution.approved != true {
+      result.author = !activeApprovers.contains(status.author)
+    }
+    var teams: Set<String> = []
+    let approvers = activeApprovers
+      .union(status.review.map(\.approves).get([:]).filter(\.value.resolution.approved).keys)
+    for name in diffTeams.union(utilityTeams).union(rules.emergency.array) {
+      guard let team = rules.teams[name] else {
+        teams.insert(name)
+        continue
+      }
+      var unapprovers: Set<String> = []
+      if !team.selfApproval { unapprovers = unapprovers.union([status.author]) }
+      if !team.ignoreAntagonism { unapprovers = unapprovers.union(antagonistApprovers) }
+      if team.quorum > team.required
+        .union(team.optional)
+        .union(team.reserve)
+        .subtracting(unapprovers)
+        .intersection(approvers)
+        .count
+      { teams.insert(name) }
+    }
+    result.teams = teams.isEmpty.else(teams.sorted())
+    guard result.author || result.teams != nil else { return nil }
+    return result
+  }
   public init(
-    bot: String,
-    ownage: [String: Criteria],
-    rules: Yaml.Fusion.Approval.Rules,
+    gitlabCi: GitlabCi,
     statuses: [UInt: Fusion.Approval.Status],
     approvers: [String: Fusion.Approval.Approver],
-    antagonists: [String: [String]],
-    review: Json.GitlabReviewState
+    review: Json.GitlabReviewState,
+    kind: Fusion.Kind,
+    ownage: [String: Criteria],
+    rules: Fusion.Approval.Rules,
+    antagonists: [String: [String]]
   ) throws {
-    self.bot = bot
-    self.ownage = ownage
-    self.rules = try .make(yaml: rules)
+    self.bot = try gitlabCi.protected.get().user.username
+    self.state = review
     self.statuses = statuses
+    self.status = try statuses[review.iid].get { throw Thrown("No Status") }
     self.approvers = approvers
+    self.activeApprovers = .init(approvers.filter(\.value.active).keys)
+    self.kind = kind
+    self.ownage = ownage
+    self.rules = rules
     self.antagonists = antagonists
-    self.review = review
-    self.state = try .init(status: statuses[review.iid])
-    for (group, criteria) in self.rules.sourceBranch {
-      if criteria.isMet(review.sourceBranch) { state.involvedGroups.insert(group) }
-    }
-    for (group, criteria) in self.rules.targetBranch {
-      if criteria.isMet(review.targetBranch) { state.involvedGroups.insert(group) }
-    }
-    for (group, authors) in self.rules.authorship {
-      if authors.contains(state.status.author) { state.involvedGroups.insert(group) }
-    }
-    for (login, approver) in approvers {
-      if approver.active { state.activeApprovers.insert(login) }
-    }
-    state.antagonistApprovers = .init(antagonists[state.status.author].get([]))
+    self.antagonistApprovers = .init(antagonists[status.author].get([]))
   }
   public mutating func addDiff(files: [String]) {
     for (group, criteria) in ownage {
-      if files.contains(where: criteria.isMet(_:)) { state.diffGroups.insert(group) }
+      if files.contains(where: criteria.isMet(_:)) { diffTeams.insert(group) }
     }
   }
   public mutating func addChanges(sha: Git.Sha, files: [String]) {
-    var groups = state.involvedGroups
+    var groups: Set<String> = []
     for (group, criteria) in ownage {
       if files.contains(where: criteria.isMet(_:)) { groups.insert(group) }
     }
-    state.changes[sha] = groups
+    changes[sha] = groups
   }
   public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
-    state.breakers[sha] = try Set(commits.map(Git.Sha.init(value:)))
+    breakers[sha] = try Set(commits.map(Git.Sha.init(value:)))
   }
-  public mutating func update() -> State {
-    return state
+  public mutating func setAuthor(user: String) throws {
+    status.author = user
+    antagonistApprovers = .init(antagonists[status.author].get([]))
+    #warning("invalidate approvas")
   }
-  public struct State {
-    public var status: Fusion.Approval.Status
-    public var diffGroups: Set<String> = []
-    public var changes: [Git.Sha: Set<String>] = [:]
-    public var breakers: [Git.Sha: Set<Git.Sha>] = [:]
-    public var activeApprovers: Set<String> = []
-    public var antagonistApprovers: Set<String> = []
-    public var involvedGroups: Set<String> = []
-    public var diffs: [String: [String]] = [:]
-    public var isApproved: Bool = false
-    init(status: Fusion.Approval.Status?) throws {
-      self.status = try status.get { throw MayDay("No Status") }
+  public mutating func update(kind: Fusion.Kind) {
+    #warning("tbd")
+//    var review = state.status.review.get(.init(
+//      randoms: randoms,
+//      teams: state.changes.mapValues { $0.union(state.utilityTeams) },
+//      approves: [:]
+//    ))
+//    return state
+//    for (team, criteria) in self.rules.sourceBranch {
+//      if criteria.isMet(review.sourceBranch) { utilityTeams.insert(team) }
+//    }
+//    for (team, criteria) in self.rules.targetBranch {
+//      if criteria.isMet(review.targetBranch) { utilityTeams.insert(team) }
+//    }
+//    for (team, authors) in self.rules.authorship {
+//      if authors.contains(status.author) { utilityTeams.insert(team) }
+//    }
+  }
+
+  var randoms: Set<String> {
+    #warning("tbd")
+    var involved: Set<String> = []
+    var count: Int = 0
+    for team in diffTeams.union(utilityTeams).compactMap(team(_:)) {
+
+      team.required.subtracting(involved)
     }
+    return []
+  }
+  func team(_ name: String) -> Fusion.Approval.Rules.Team? {
+    rules.teams[name]!
+  }
+  public struct Team {
+    
   }
 }
 //public struct AwardApproval {
