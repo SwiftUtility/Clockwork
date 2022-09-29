@@ -32,7 +32,7 @@ public struct Review {
     self.bot = try gitlabCi.protected.get().user.username
     self.state = review
     self.statuses = statuses
-    self.status = try statuses[review.iid].get { throw Thrown("No Status") }
+    self.status = try statuses[review.iid].get { throw Thrown("No review status in asset") }
     self.approvers = approvers
     self.activeApprovers = .init(approvers.filter(\.value.active).keys)
     self.kind = kind
@@ -40,33 +40,14 @@ public struct Review {
     self.rules = rules
     self.antagonists = antagonists
     self.antagonistApprovers = .init(antagonists[status.author].get([]))
-    let teams = Set(rules.emergency.array + rules.sanity.array)
+    let unknownTeams = Set(rules.emergency.array + rules.sanity.array)
       .union(ownage.keys)
       .union(rules.targetBranch.keys)
       .union(rules.sourceBranch.keys)
       .union(rules.authorship.keys)
-    let unknownTeams = teams
       .filter { rules.teams[$0] == nil }
       .joined(separator: ", ")
     guard unknownTeams.isEmpty else { throw Thrown("Unknown teams: \(unknownTeams)") }
-    let negativeTeams = teams
-      .filter({ rules.teams[$0].map(\.quorum).get(0) < 0 })
-      .joined(separator: ", ")
-    guard negativeTeams.isEmpty else { throw Thrown("Negative quorum teams: \(negativeTeams)") }
-    let unknownUsers = rules.teams.values
-      .reduce(Set()) { $0.union($1.reserve).union($1.optional).union($1.reserve) }
-      .union(antagonists.keys)
-      .union(antagonists.flatMap(\.value))
-      .union(rules.authorship.flatMap(\.value))
-      .filter { approvers[$0] == nil }
-      .joined(separator: ", ")
-    guard unknownUsers.isEmpty else { throw Thrown("Unknown users: \(unknownUsers)") }
-    if let randoms = rules.randoms {
-      guard randoms.quorum > 0 else { throw Thrown("Not positive randoms quorum") }
-      if randoms.baseWeight < 0 { throw Thrown("Negative randoms baseWeight") }
-      if randoms.weights.contains(where: { $0.value < 0 })
-      { throw Thrown("Negative randoms weights") }
-    }
   }
   public mutating func addDiff(files: [String]) {
     for (team, criteria) in ownage {
@@ -84,32 +65,20 @@ public struct Review {
     guard status.author != user else { return }
     status.author = user
     antagonistApprovers = .init(antagonists[status.author].get([]))
-    guard var review = status.review else { return }
-    let users = rules.authorship
+    status.review?.invalidate(users: rules.authorship
       .filter { $0.value.contains(status.author) }
       .compactMap { rules.teams[$0.key] }
       .reduce(Set()) { $0.union($1.reserve).union($1.optional).union($1.reserve) }
-    review.approves
-      .filter(\.value.resolution.approved)
-      .keys
-      .filter(users.contains(_:))
-      .forEach { review.approves[$0]?.resolution = .outdated }
-    status.review = review
+    )
   }
   public mutating func updateTarget() {
     guard status.target != state.targetBranch else { return }
     status.target = state.targetBranch
-    guard var review = status.review else { return }
-    let users = rules.targetBranch
+    status.review?.invalidate(users: rules.targetBranch
       .filter { $0.value.isMet(status.target) }
       .compactMap { rules.teams[$0.key] }
-      .reduce(Set()) { $0.union($1.reserve).union($1.optional).union($1.reserve) }
-    review.approves
-      .filter(\.value.resolution.approved)
-      .keys
-      .filter(users.contains(_:))
-      .forEach { review.approves[$0]?.resolution = .outdated }
-    status.review = review
+      .reduce(Set()) { $0.union($1.approvers) }
+    )
   }
   public mutating func updateApproval() -> Approval {
     var approval = Approval()
@@ -121,7 +90,7 @@ public struct Review {
       .compactMap({ rules.teams[$0] })
       .reduce(Set(), { $0.union($1.required) })
     antagonistApprovers = antagonistApprovers.subtracting(requiredUsers)
-    approval.unapprovable = unapprovable(teams: allTeams)
+    approval.troubles = troubles(teams: allTeams)
     var review = status.review.get(.init(
       randoms: randoms(teams: allTeams),
       teams: changes,
@@ -133,18 +102,20 @@ public struct Review {
       .subtracting(oldDiffTeams)
       .compactMap { rules.teams[$0] }
       .reduce(Set()) { $0.union($1.approvers) }
-    review.approves
-      .filter(\.value.resolution.approved)
-      .keys
-      .filter(freshTeamUsers.contains(_:))
-      .forEach { review.approves[$0]?.resolution = .outdated }
+    review.invalidate(users: freshTeamUsers)
+    status.review = review
+    approval.statuses = statuses
+    approval.statuses[state.iid] = status
+
+
+
+    #warning("calc update")
     return approval
-    #warning("tbd")
   }
-  func unapprovable(teams: Set<String>) -> Approval.Unapprovable? {
-    var result = Approval.Unapprovable()
+  func troubles(teams: Set<String>) -> Approval.Troubles? {
+    var result = Approval.Troubles()
     if status.review?.approves[status.author]?.resolution.approved != true {
-      result.author = !activeApprovers.contains(status.author)
+      result.inactiveAuthors = !activeApprovers.contains(status.author)
     }
     var teams: Set<String> = []
     let approvers = activeApprovers
@@ -158,9 +129,15 @@ public struct Review {
         .count
       { teams.insert(name) }
     }
-    result.teams = teams.isEmpty.else(teams.sorted())
-    guard result.author || result.teams != nil else { return nil }
-    return result
+    result.unapprovalbeTeams = teams.isEmpty.else(teams.sorted())
+    let unknownUsers = rules.teams.values
+      .reduce(Set()) { $0.union($1.reserve).union($1.optional).union($1.reserve) }
+      .union(antagonists.keys)
+      .union(antagonists.flatMap(\.value))
+      .union(rules.authorship.flatMap(\.value))
+      .filter { self.approvers[$0] == nil }
+    result.unknownUsers = unknownUsers.isEmpty.else(unknownUsers.sorted())
+    return result.isEmpty.else(result)
   }
   func randoms(teams: Set<String>) -> Set<String> {
     guard let randoms = rules.randoms else { return [] }
@@ -206,10 +183,14 @@ public struct Review {
   public struct Approval {
     public var update: Update = .init()
     public var statuses: [UInt: Fusion.Approval.Status] = [:]
-    public var unapprovable: Unapprovable? = nil
-    public struct Unapprovable {
-      public var author: Bool = false
-      public var teams: [String]? = nil
+    public var troubles: Troubles? = nil
+    public struct Troubles {
+      public var inactiveAuthors: Bool = false
+      public var unapprovalbeTeams: [String]? = nil
+      public var unknownUsers: [String]? = nil
+      public var isEmpty: Bool {
+        inactiveAuthors || unapprovalbeTeams != nil || unknownUsers != nil
+      }
     }
     public struct Update {
       public var isApproved: Bool = false

@@ -319,6 +319,12 @@ public struct Fusion {
         public var randoms: Set<String>
         public var teams: [Git.Sha: Set<String>]
         public var approves: [String: Approve]
+        mutating func invalidate(users: Set<String>) { approves
+          .filter(\.value.resolution.approved)
+          .keys
+          .filter(users.contains(_:))
+          .forEach { approves[$0]?.resolution = .outdated }
+        }
         public static func make(yaml: Yaml.Fusion.Approval.Status.Review) throws -> Self { try .init(
           randoms: .init(yaml.randoms),
           teams: yaml.teams

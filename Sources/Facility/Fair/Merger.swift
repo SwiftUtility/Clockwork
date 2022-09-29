@@ -121,10 +121,10 @@ public final class Merger {
       return false
     }
     let approval = try updateApproval(cfg: cfg, ctx: ctx, fusion: fusion, review: &review)
+    if let troubles = approval.troubles {
+      report(cfg.reportReviewTroubles(review: review, troubles: troubles))
+    }
     guard approval.update.isApproved else {
-      if let unapprovable = approval.unapprovable {
-        report(cfg.reportReviewUnapprovable(review: review, unapprovable: unapprovable))
-      }
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
@@ -336,10 +336,7 @@ public final class Merger {
         )))
       )
     }
-    let approval = review.updateApproval()
-    return approval
-
-    #warning("tbd")
+    return review.updateApproval()
   }
   func checkReviewClosers(
     cfg: Configuration,

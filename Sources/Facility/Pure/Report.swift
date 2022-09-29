@@ -82,7 +82,7 @@ public struct Report: Query {
       case sanity
     }
   }
-  public struct ReviewUnapprovable: GenerationContext {
+  public struct ReviewTroubles: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -92,8 +92,9 @@ public struct Report: Query {
     public var users: [String: Fusion.Approval.Approver]
     public var author: String
     public var coauthors: [String: String]?
+    public var inactiveAuthors: Bool
+    public var unknownUsers: [String]?
     public var unapprovableTeams: [String]?
-    public var authorInactive: Bool
   }
 
 
@@ -370,10 +371,10 @@ public extension Configuration {
     coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors),
     reasons: reasons
   ))}
-  func reportReviewUnapprovable(
+  func reportReviewTroubles(
     review: Review,
-    unapprovable: Review.Approval.Unapprovable
-  ) -> Report { .init(cfg: self, context: Report.ReviewUnapprovable(
+    troubles: Review.Approval.Troubles
+  ) -> Report { .init(cfg: self, context: Report.ReviewTroubles(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
@@ -382,8 +383,9 @@ public extension Configuration {
     users: review.approvers,
     author: review.status.author,
     coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors),
-    unapprovableTeams: unapprovable.teams,
-    authorInactive: unapprovable.author
+    inactiveAuthors: troubles.inactiveAuthors,
+    unknownUsers: troubles.unknownUsers,
+    unapprovableTeams: troubles.unapprovalbeTeams
   ))}
 
 
