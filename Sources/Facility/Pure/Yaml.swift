@@ -148,15 +148,13 @@ public enum Yaml {
           public var quorum: Int
           public var advanceApproval: Bool?
           public var selfApproval: Bool?
-          public var ignoreAntagonism: Bool?
           public var labels: [String]?
           public var reserve: [String]?
           public var optional: [String]?
           public var required: [String]?
         }
         public struct Randoms: Decodable {
-          public var minQuorum: Int
-          public var maxQuorum: Int
+          public var quorum: Int
           public var baseWeight: Int
           public var weights: [String: Int]?
           public var advanceApproval: Bool
@@ -185,6 +183,18 @@ public enum Yaml {
                 switch self {
                 case .fragil, .advance, .emergent: return true
                 case .block, .outdated: return false
+                }
+              }
+              public var flagil: Bool {
+                switch self {
+                case .fragil: return true
+                case .block, .advance, .emergent, .outdated: return false
+                }
+              }
+              public var emergent: Bool {
+                switch self {
+                case .emergent: return true
+                case .block, .fragil, .advance, .outdated: return false
                 }
               }
             }

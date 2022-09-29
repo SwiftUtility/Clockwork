@@ -120,9 +120,9 @@ public final class Merger {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
-    try updateApproval(cfg: cfg, ctx: ctx, fusion: fusion, review: &review)
-    guard review.isApproved else {
-      if let unapprovable = review.unapprovable {
+    let approval = try updateApproval(cfg: cfg, ctx: ctx, fusion: fusion, review: &review)
+    guard approval.update.isApproved else {
+      if let unapprovable = approval.unapprovable {
         report(cfg.reportReviewUnapprovable(review: review, unapprovable: unapprovable))
       }
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
@@ -298,7 +298,8 @@ public final class Merger {
     ctx: Worker.ParentReview,
     fusion: Fusion,
     review: inout Review
-  ) throws {
+  ) throws -> Review.Approval {
+    review.updateTarget()
     let fork = review.kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))
@@ -323,7 +324,7 @@ public final class Merger {
       .get([:])
       .values
       .filter(\.resolution.approved)
-      .map(\.commit)
+      .reduce(into: Set(), { $0.insert($1.commit) })
     {
       try review.addBreakers(
         sha: sha,
@@ -335,8 +336,8 @@ public final class Merger {
         )))
       )
     }
-
-
+    let approval = review.updateApproval()
+    return approval
 
     #warning("tbd")
   }

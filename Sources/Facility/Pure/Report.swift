@@ -372,7 +372,7 @@ public extension Configuration {
   ))}
   func reportReviewUnapprovable(
     review: Review,
-    unapprovable: Review.Unapprovable
+    unapprovable: Review.Approval.Unapprovable
   ) -> Report { .init(cfg: self, context: Report.ReviewUnapprovable(
     env: env,
     ctx: context,

@@ -228,16 +228,15 @@ public struct Fusion {
         public var quorum: Int
         public var advanceApproval: Bool
         public var selfApproval: Bool
-        public var ignoreAntagonism: Bool
         public var labels: [String]
         public var reserve: Set<String>
         public var optional: Set<String>
         public var required: Set<String>
+        public var approvers: Set<String> { reserve.union(optional).union(required) }
         public static func make(yaml: Yaml.Fusion.Approval.Rules.Team) -> Self { .init(
           quorum: yaml.quorum,
           advanceApproval: yaml.advanceApproval.get(false),
           selfApproval: yaml.selfApproval.get(false),
-          ignoreAntagonism: yaml.ignoreAntagonism.get(false),
           labels: yaml.labels.get([]),
           reserve: yaml.reserve.map(Set.init(_:)).get([]),
           optional: yaml.optional.map(Set.init(_:)).get([]),
@@ -245,14 +244,12 @@ public struct Fusion {
         )}
       }
       public struct Randoms {
-        public var minQuorum: Int
-        public var maxQuorum: Int
+        public var quorum: Int
         public var baseWeight: Int
         public var weights: [String: Int]
         public var advanceApproval: Bool
         public static func make(yaml: Yaml.Fusion.Approval.Rules.Randoms) -> Self { .init(
-          minQuorum: yaml.minQuorum,
-          maxQuorum: yaml.maxQuorum,
+          quorum: yaml.quorum,
           baseWeight: yaml.baseWeight,
           weights: yaml.weights
             .get([:]),
