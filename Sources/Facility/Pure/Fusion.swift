@@ -201,7 +201,7 @@ public struct Fusion {
     public struct Rules {
       public var sanity: String?
       public var emergency: String?
-      public var randoms: Randoms?
+      public var randoms: Randoms
       public var teams: [String: Team]
       public var authorship: [String: Set<String>]
       public var sourceBranch: [String: Criteria]
@@ -209,8 +209,7 @@ public struct Fusion {
       public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
         sanity: yaml.sanity,
         emergency: yaml.emergency,
-        randoms: yaml.randoms
-          .map(Randoms.make(yaml:)),
+        randoms: .make(yaml: yaml.randoms),
         teams: yaml.teams
           .get([:])
           .mapValues(Team.make(yaml:)),
@@ -227,7 +226,6 @@ public struct Fusion {
       public struct Team {
         public var quorum: Int
         public var advanceApproval: Bool
-        public var selfApproval: Bool
         public var labels: [String]
         public var reserve: Set<String>
         public var optional: Set<String>
@@ -236,7 +234,6 @@ public struct Fusion {
         public static func make(yaml: Yaml.Fusion.Approval.Rules.Team) -> Self { .init(
           quorum: yaml.quorum,
           advanceApproval: yaml.advanceApproval.get(false),
-          selfApproval: yaml.selfApproval.get(false),
           labels: yaml.labels.get([]),
           reserve: yaml.reserve.map(Set.init(_:)).get([]),
           optional: yaml.optional.map(Set.init(_:)).get([]),
@@ -261,38 +258,51 @@ public struct Fusion {
       public var target: String
       public var authors: Set<String>
       public var thread: Configuration.Thread
-      public var review: Review?
+      public var participants: Set<String>
+      public var approves: [String: Approve]
+      public var changes: [Git.Sha: Set<String>]
+      mutating func invalidate(users: Set<String>) { approves
+        .filter(\.value.resolution.approved)
+        .keys
+        .filter(users.contains(_:))
+        .forEach { approves[$0]?.resolution = .outdated }
+      }
       public static func make(yaml: Yaml.Fusion.Approval.Status) throws -> Self { try .init(
         target: yaml.target,
         authors: .init(yaml.authors),
         thread: .make(yaml: yaml.thread),
-        review: yaml.review.map(Review.make(yaml:))
+        participants: yaml.participants,
+        approves: yaml.approves
+          .mapValues(Approve.make(yaml:)),
+        changes: yaml.changes
+          .reduce(into: [:]) { try $0[.init(value: $1.key)] = .init($1.value) }
       )}
       public static func yaml(statuses: [UInt: Self]) -> String {
         var result = ""
-        for (key, value) in statuses.sorted(by: { $0.key < $1.key }) {
-          result += "'\(key)':\n"
-          result += "  target: '\(value.target)'\n"
-          let authors = value.authors.sorted().map({ "'\($0)'" }).joined(separator: ",")
+        for (review, status) in statuses.sorted(by: { $0.key < $1.key }) {
+          result += "'\(review)':\n"
+          result += "  target: '\(status.target)'\n"
+          let authors = status.authors
+            .sorted()
+            .map({ "'\($0)'" })
+            .joined(separator: ",")
           result += "  authors: [\(authors)]\n"
-          result += "  thread:\n"
-          result += "    channel: '\(value.thread.channel)'\n"
-          result += "    ts: '\(value.thread.ts)'\n"
-          if let review = value.review {
-            result += "  review:\n"
-            let randoms = review.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
-            result += "    randoms: [\(randoms)]\n"
-            result += "    teams:\(review.teams.isEmpty.then(" {}").get(""))\n"
-            for (key, value) in review.teams.sorted(by: { $0.key.value < $1.key.value }) {
-              let teams = value.sorted().map { "'\($0)'" }.joined(separator: ",")
-              result += "      '\(key.value)': [\(teams)]\n"
-            }
-            result += "    approves:\(review.approves.isEmpty.then(" {}").get(""))\n"
-            for (key, value) in review.approves.sorted(by: { $0.key < $1.key }) {
-              result += "      '\(key)':\n"
-              result += "        commit: '\(value.commit.value)'\n"
-              result += "        resolution: \(value.resolution.rawValue)\n"
-            }
+          result += "  thread: {channel: '\(status.thread.channel)', ts: '\(status.thread.ts)'}\n"
+          let participants = status.participants
+            .sorted()
+            .map { "'\($0)'" }
+            .joined(separator: ",")
+          result += "  participants: [\(participants)]\n"
+          result += "  changes:\(status.changes.isEmpty.then(" {}").get(""))\n"
+          for (sha, teams) in status.changes.sorted(by: { $0.key.value < $1.key.value }) {
+            let teams = teams.sorted().map { "'\($0)'" }.joined(separator: ",")
+            result += "    '\(sha.value)': [\(teams)]\n"
+          }
+          result += "  approves:\(status.approves.isEmpty.then(" {}").get(""))\n"
+          for (user, approve) in status.approves.sorted(by: { $0.key < $1.key }) {
+            let commit = "commit: '\(approve.commit.value)'"
+            let resulution = "resolution: \(approve.resolution.rawValue)"
+            result += "    '\(user)': {\(commit)', \(resulution)}\n"
           }
         }
         return result.isEmpty.then("{}\n").get(result)
@@ -300,35 +310,25 @@ public struct Fusion {
       public static func make(
         target: String,
         authors: Set<String>,
-        thread: Configuration.Thread
-      ) -> Self { .init(
-        target: target,
-        authors: authors,
-        thread: thread
-      )}
-      public struct Review {
-        public var randoms: Set<String>
-        public var teams: [Git.Sha: Set<String>]
-        public var approves: [String: Approve]
-        mutating func invalidate(users: Set<String>) { approves
-          .filter(\.value.resolution.approved)
-          .keys
-          .filter(users.contains(_:))
-          .forEach { approves[$0]?.resolution = .outdated }
-        }
-        public static func make(yaml: Yaml.Fusion.Approval.Status.Review) throws -> Self { try .init(
-          randoms: .init(yaml.randoms),
-          teams: yaml.teams
-            .reduce(into: [:]) { try $0[.init(value: $1.key)] = .init($1.value) },
-          approves: yaml.approves
-            .mapValues(Approve.make(yaml:))
-        )}
-        public struct Approve {
-          public var commit: Git.Sha
-          public var resolution: Yaml.Fusion.Approval.Status.Review.Approve.Resolution
-          public static func make(yaml: Yaml.Fusion.Approval.Status.Review.Approve) throws -> Self {
-            try .init(commit: .init(value: yaml.commit), resolution: yaml.resolution)
-          }
+        thread: Configuration.Thread,
+        fork: Git.Sha?
+      ) -> Self {
+        let approve = try? Approve(commit: ?!fork, resolution: .fragil)
+        return .init(
+          target: target,
+          authors: authors,
+          thread: thread,
+          participants: [],
+          approves: authors.reduce(into: [:], { $0[$1] = approve }),
+          changes: [:]
+        )
+
+      }
+      public struct Approve {
+        public var commit: Git.Sha
+        public var resolution: Yaml.Fusion.Approval.Status.Approve.Resolution
+        public static func make(yaml: Yaml.Fusion.Approval.Status.Approve) throws -> Self {
+          try .init(commit: .init(value: yaml.commit), resolution: yaml.resolution)
         }
       }
     }

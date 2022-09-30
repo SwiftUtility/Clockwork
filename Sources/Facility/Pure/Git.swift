@@ -122,9 +122,11 @@ public extension Git {
     in include: [Ref],
     notIn exclude: [Ref],
     noMerges: Bool,
-    firstParents: Bool
+    firstParents: Bool,
+    boundary: Bool = false
   ) -> Execute { proc(
     args: ["log", "--format=%H"]
+    + boundary.then(["--boundary"]).get([])
     + firstParents.then(["--first-parent"]).get([])
     + noMerges.then(["--no-merges"]).get([])
     + include.map(\.value)

@@ -139,7 +139,7 @@ public enum Yaml {
       public struct Rules: Decodable {
         public var sanity: String?
         public var emergency: String?
-        public var randoms: Randoms?
+        public var randoms: Randoms
         public var teams: [String: Team]?
         public var authorship: [String: [String]]?
         public var sourceBranch: [String: Criteria]?
@@ -147,7 +147,6 @@ public enum Yaml {
         public struct Team: Decodable {
           public var quorum: Int
           public var advanceApproval: Bool?
-          public var selfApproval: Bool?
           public var labels: [String]?
           public var reserve: [String]?
           public var optional: [String]?
@@ -164,44 +163,37 @@ public enum Yaml {
         public var thread: Thread
         public var authors: [String]
         public var target: String
-        public var review: Review?
-        public struct Review: Decodable {
-          public var randoms: [String]
-          public var teams: [String: [String]]
-          public var approves: [String: Approve]
-          public struct Approve: Decodable {
-            public var commit: String
-            public var resolution: Resolution
-            public enum Resolution: String, Decodable {
-              case block
-              case fragil
-              case advance
-              case emergent
-              case outdated
-              public var approved: Bool {
-                switch self {
-                case .fragil, .advance, .emergent: return true
-                case .block, .outdated: return false
-                }
+        public var participants: Set<String>
+        public var approves: [String: Approve]
+        public var changes: [String: Set<String>]
+        public struct Approve: Decodable {
+          public var commit: String
+          public var resolution: Resolution
+          public enum Resolution: String, Decodable {
+            case block
+            case fragil
+            case advance
+            case emergent
+            case outdated
+            public var approved: Bool {
+              switch self {
+              case .fragil, .advance, .emergent: return true
+              case .block, .outdated: return false
               }
-              public var flagil: Bool {
-                switch self {
-                case .fragil: return true
-                case .block, .advance, .emergent, .outdated: return false
-                }
+            }
+            public var flagil: Bool {
+              switch self {
+              case .fragil: return true
+              case .block, .advance, .emergent, .outdated: return false
               }
-              public var emergent: Bool {
-                switch self {
-                case .emergent: return true
-                case .block, .fragil, .advance, .outdated: return false
-                }
+            }
+            public var emergent: Bool {
+              switch self {
+              case .emergent: return true
+              case .block, .fragil, .advance, .outdated: return false
               }
             }
           }
-        }
-        public struct Content: Decodable {
-          public var author: String
-          public var message: String
         }
       }
       public struct Approver: Decodable {

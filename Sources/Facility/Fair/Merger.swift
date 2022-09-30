@@ -76,7 +76,8 @@ public final class Merger {
     statuses[ctx.review.iid] = Fusion.Approval.Status.make(
       target: ctx.review.targetBranch,
       authors: authors,
-      thread: .make(yaml: thread)
+      thread: .make(yaml: thread),
+      fork: nil
     )
     return try persistAsset(.init(
       cfg: cfg,
@@ -304,9 +305,7 @@ public final class Merger {
     let current = try Git.Ref.make(sha: .init(value: ctx.review.pipeline.sha))
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
     try review.addDiff(files: listAllChanges(cfg: cfg, ctx: ctx, kind: review.kind))
-    let known = review.status.review
-      .map { Set($0.teams.keys) }
-      .get([])
+    let known = Set(review.status.changes.keys)
     for sha in try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [current],
       notIn: [target] + fork.array,
@@ -317,14 +316,10 @@ public final class Merger {
       guard !known.contains(sha) else { continue }
       try review.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, ctx: ctx, sha: sha))
     }
-    for sha in review.status.review
-      .map(\.approves)
-      .get([:])
-      .values
+    try review.status.approves.values
       .filter(\.resolution.approved)
       .reduce(into: Set(), { $0.insert($1.commit) })
-    {
-      try review.addBreakers(
+      .forEach { sha in try review.addBreakers(
         sha: sha,
         commits: Execute.parseLines(reply: execute(cfg.git.listCommits(
           in: [current],
@@ -332,8 +327,7 @@ public final class Merger {
           noMerges: false,
           firstParents: false
         )))
-      )
-    }
+      )}
     return review.updateApproval()
   }
   func checkReviewClosers(
