@@ -144,9 +144,6 @@ public enum Yaml {
         public var authorship: [String: [String]]?
         public var sourceBranch: [String: Criteria]?
         public var targetBranch: [String: Criteria]?
-        public var authorsApproveProposition: Bool?
-        public var authorsApproveReplication: Bool?
-        public var authorsApproveIntegration: Bool?
         public struct Team: Decodable {
           public var quorum: Int
           public var advanceApproval: Bool?

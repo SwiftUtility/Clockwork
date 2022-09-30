@@ -122,9 +122,7 @@ public struct Review {
     var result = Approval.Troubles()
     let approvers = activeApprovers
       .union(status.review.map(\.approves).get([:]).filter(\.value.resolution.approved).keys)
-    if kind.authorsApprove(rules: rules) {
-      result.inactiveAuthors = status.authors.subtracting(approvers)
-    }
+    result.inactiveAuthors = status.authors.subtracting(approvers)
     for name in teams {
       guard let team = rules.teams[name] else { continue }
       if team.quorum > team.approvers

@@ -60,14 +60,6 @@ public struct Fusion {
       case .replication(let merge), .integration(let merge): return merge
       }
     }
-    public func authorsApprove(rules: Approval.Rules) -> Bool {
-      switch self {
-      case .proposition: return rules.authorsApproveProposition
-      case .replication: return rules.authorsApproveReplication
-      case .integration: return rules.authorsApproveIntegration
-
-      }
-    }
   }
   public struct Proposition {
     public var createCommitMessage: Configuration.Template
@@ -214,9 +206,6 @@ public struct Fusion {
       public var authorship: [String: Set<String>]
       public var sourceBranch: [String: Criteria]
       public var targetBranch: [String: Criteria]
-      public var authorsApproveProposition: Bool
-      public var authorsApproveReplication: Bool
-      public var authorsApproveIntegration: Bool
       public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
         sanity: yaml.sanity,
         emergency: yaml.emergency,
@@ -233,10 +222,7 @@ public struct Fusion {
           .mapValues(Criteria.init(yaml:)),
         targetBranch: yaml.targetBranch
           .get([:])
-          .mapValues(Criteria.init(yaml:)),
-        authorsApproveProposition: yaml.authorsApproveProposition.get(false),
-        authorsApproveReplication: yaml.authorsApproveReplication.get(false),
-        authorsApproveIntegration: yaml.authorsApproveIntegration.get(false)
+          .mapValues(Criteria.init(yaml:))
       )}
       public struct Team {
         public var quorum: Int
