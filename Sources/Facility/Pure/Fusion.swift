@@ -60,6 +60,14 @@ public struct Fusion {
       case .replication(let merge), .integration(let merge): return merge
       }
     }
+    public func authorsApprove(rules: Approval.Rules) -> Bool {
+      switch self {
+      case .proposition: return rules.authorsApproveProposition
+      case .replication: return rules.authorsApproveReplication
+      case .integration: return rules.authorsApproveIntegration
+
+      }
+    }
   }
   public struct Proposition {
     public var createCommitMessage: Configuration.Template
@@ -206,6 +214,9 @@ public struct Fusion {
       public var authorship: [String: Set<String>]
       public var sourceBranch: [String: Criteria]
       public var targetBranch: [String: Criteria]
+      public var authorsApproveProposition: Bool
+      public var authorsApproveReplication: Bool
+      public var authorsApproveIntegration: Bool
       public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
         sanity: yaml.sanity,
         emergency: yaml.emergency,
@@ -222,7 +233,10 @@ public struct Fusion {
           .mapValues(Criteria.init(yaml:)),
         targetBranch: yaml.targetBranch
           .get([:])
-          .mapValues(Criteria.init(yaml:))
+          .mapValues(Criteria.init(yaml:)),
+        authorsApproveProposition: yaml.authorsApproveProposition.get(false),
+        authorsApproveReplication: yaml.authorsApproveReplication.get(false),
+        authorsApproveIntegration: yaml.authorsApproveIntegration.get(false)
       )}
       public struct Team {
         public var quorum: Int
@@ -258,33 +272,26 @@ public struct Fusion {
       }
     }
     public struct Status {
-      public var author: String
       public var target: String
+      public var authors: Set<String>
       public var thread: Configuration.Thread
-      public var coauthors: [String: String]
       public var review: Review?
       public static func make(yaml: Yaml.Fusion.Approval.Status) throws -> Self { try .init(
-        author: yaml.author,
         target: yaml.target,
+        authors: .init(yaml.authors),
         thread: .make(yaml: yaml.thread),
-        coauthors: yaml.coauthors.get([:]),
         review: yaml.review.map(Review.make(yaml:))
       )}
       public static func yaml(statuses: [UInt: Self]) -> String {
         var result = ""
         for (key, value) in statuses.sorted(by: { $0.key < $1.key }) {
           result += "'\(key)':\n"
-          result += "  author: '\(value.author)'\n"
           result += "  target: '\(value.target)'\n"
+          let authors = value.authors.sorted().map({ "'\($0)'" }).joined(separator: ",")
+          result += "  authors: [\(authors)]\n"
           result += "  thread:\n"
           result += "    channel: '\(value.thread.channel)'\n"
           result += "    ts: '\(value.thread.ts)'\n"
-          if !value.coauthors.isEmpty {
-            result += "  coauthors:\n"
-            for (key, value) in value.coauthors.sorted(by: { $0.key < $1.key }) {
-              result += "    '\(key)': '\(value)'\n"
-            }
-          }
           if let review = value.review {
             result += "  review:\n"
             let randoms = review.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
@@ -305,15 +312,13 @@ public struct Fusion {
         return result.isEmpty.then("{}\n").get(result)
       }
       public static func make(
-        author: String,
         target: String,
-        thread: Configuration.Thread,
-        coauthors: [String: String]
+        authors: Set<String>,
+        thread: Configuration.Thread
       ) -> Self { .init(
-        author: author,
         target: target,
-        thread: thread,
-        coauthors: coauthors
+        authors: authors,
+        thread: thread
       )}
       public struct Review {
         public var randoms: Set<String>

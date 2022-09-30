@@ -144,6 +144,9 @@ public enum Yaml {
         public var authorship: [String: [String]]?
         public var sourceBranch: [String: Criteria]?
         public var targetBranch: [String: Criteria]?
+        public var authorsApproveProposition: Bool?
+        public var authorsApproveReplication: Bool?
+        public var authorsApproveIntegration: Bool?
         public struct Team: Decodable {
           public var quorum: Int
           public var advanceApproval: Bool?
@@ -162,10 +165,9 @@ public enum Yaml {
       }
       public struct Status: Decodable {
         public var thread: Thread
-        public var author: String
+        public var authors: [String]
         public var target: String
         public var review: Review?
-        public var coauthors: [String: String]?
         public struct Review: Decodable {
           public var randoms: [String]
           public var teams: [String: [String]]

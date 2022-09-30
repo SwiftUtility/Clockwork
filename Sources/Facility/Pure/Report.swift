@@ -22,8 +22,7 @@ public struct Report: Query {
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
-    public var author: String
-    public var coauthors: [String: String]?
+    public var authors: [String]
   }
   public struct ReviewMergeConflicts: GenerationContext {
     public var event: String = Self.event
@@ -33,8 +32,7 @@ public struct Report: Query {
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
-    public var author: String
-    public var coauthors: [String: String]?
+    public var authors: [String]
   }
   public struct ReviewClosed: GenerationContext {
     public var event: String = Self.event
@@ -44,8 +42,7 @@ public struct Report: Query {
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
-    public var author: String
-    public var coauthors: [String: String]?
+    public var authors: [String]
     public var reason: Reason
     public enum Reason: String, Encodable {
       case noSourceRule
@@ -67,8 +64,7 @@ public struct Report: Query {
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
-    public var author: String
-    public var coauthors: [String: String]?
+    public var authors: [String]
     public var reasons: [Reason]
     public enum Reason: String, Encodable {
       case draft
@@ -90,9 +86,8 @@ public struct Report: Query {
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
-    public var author: String
-    public var coauthors: [String: String]?
-    public var inactiveAuthors: Bool
+    public var authors: [String]
+    public var inactiveAuthors: [String]?
     public var unknownUsers: [String]?
     public var unapprovableTeams: [String]?
   }
@@ -317,7 +312,7 @@ public extension Configuration {
     fusion: Fusion,
     review: Json.GitlabReviewState,
     users: [String: Fusion.Approval.Approver],
-    author: String,
+    authors: Set<String>,
     coauthors: [String: String]
   ) -> Report.CreateThread { .init(
     template: fusion.createThread,
@@ -327,8 +322,7 @@ public extension Configuration {
       info: try? gitlabCi.get().info,
       review: review,
       users: users,
-      author: author,
-      coauthors: coauthors.isEmpty.else(coauthors)
+      authors: authors.sorted()
     ))
   )}
   func reportReviewMergeConflicts(
@@ -340,8 +334,7 @@ public extension Configuration {
     thread: review.status.thread,
     review: review.state,
     users: review.approvers,
-    author: review.status.author,
-    coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors)
+    authors: review.status.authors.sorted()
   ))}
   func reportReviewClosed(
     review: Review,
@@ -353,8 +346,7 @@ public extension Configuration {
     thread: review.status.thread,
     review: review.state,
     users: review.approvers,
-    author: review.status.author,
-    coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors),
+    authors: review.status.authors.sorted(),
     reason: reason
   ))}
   func reportReviewBlocked(
@@ -367,8 +359,7 @@ public extension Configuration {
     thread: review.status.thread,
     review: review.state,
     users: review.approvers,
-    author: review.status.author,
-    coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors),
+    authors: review.status.authors.sorted(),
     reasons: reasons
   ))}
   func reportReviewTroubles(
@@ -381,11 +372,10 @@ public extension Configuration {
     thread: review.status.thread,
     review: review.state,
     users: review.approvers,
-    author: review.status.author,
-    coauthors: review.status.coauthors.isEmpty.else(review.status.coauthors),
-    inactiveAuthors: troubles.inactiveAuthors,
-    unknownUsers: troubles.unknownUsers,
-    unapprovableTeams: troubles.unapprovalbeTeams
+    authors: review.status.authors.sorted(),
+    inactiveAuthors: troubles.inactiveAuthors.sorted(),
+    unknownUsers: troubles.unknownUsers.sorted(),
+    unapprovableTeams: troubles.unapprovalbeTeams.sorted()
   ))}
 
 

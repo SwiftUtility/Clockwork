@@ -10,7 +10,7 @@ public final class Merger {
   let parseApprovalRules: Try.Reply<Configuration.ParseYamlFile<Yaml.Fusion.Approval.Rules>>
   let parseCodeOwnage: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>
   let parseProfile: Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>
-  let parseAntagonists: Try.Reply<Configuration.ParseYamlSecret<[String: [String]]>>
+  let parseAntagonists: Try.Reply<Configuration.ParseYamlSecret<[String: Set<String>]>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
@@ -28,7 +28,7 @@ public final class Merger {
     parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Fusion.Approval.Rules>>,
     parseCodeOwnage: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>,
     parseProfile: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>,
-    parseAntagonists: @escaping Try.Reply<Configuration.ParseYamlSecret<[String: [String]]>>,
+    parseAntagonists: @escaping Try.Reply<Configuration.ParseYamlSecret<[String: Set<String>]>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
@@ -65,20 +65,18 @@ public final class Merger {
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     guard statuses[ctx.review.iid] == nil else { return true }
-    let author = try worker.resolveAuthor(cfg: cfg, ctx: ctx, kind: kind)
-    guard approvers[author] != nil else { throw Thrown("Unknown user: \(author)") }
+    let authors = try worker.resolveAuthors(cfg: cfg, ctx: ctx, kind: kind)
     let thread = try createThread(cfg.reportReviewCreated(
       fusion: fusion,
       review: ctx.review,
       users: approvers,
-      author: author,
+      authors: authors,
       coauthors: [:]
     ))
     statuses[ctx.review.iid] = Fusion.Approval.Status.make(
-      author: author,
       target: ctx.review.targetBranch,
-      thread: .make(yaml: thread),
-      coauthors: [:]
+      authors: authors,
+      thread: .make(yaml: thread)
     )
     return try persistAsset(.init(
       cfg: cfg,
