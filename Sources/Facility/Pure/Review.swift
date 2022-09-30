@@ -100,7 +100,7 @@ public struct Review {
     var review = status.review.get(.init(
       randoms: randoms(teams: allTeams),
       teams: changes,
-      approves: [:]
+      approves: approves()
     ))
     let oldDiffTeams = review.teams.values.reduce(Set(), { $0.union($1) })
     review.teams.merge(changes, uniquingKeysWith: { $0.union($1) })
@@ -183,6 +183,11 @@ public struct Review {
       result.formUnion(user.array)
     }
     return result
+  }
+  func approves() -> [String: Fusion.Approval.Status.Review.Approve] {
+    guard let merge = kind.merge else { return [:] }
+    let approve = Fusion.Approval.Status.Review.Approve(commit: merge.fork, resolution: .fragil)
+    return status.authors.reduce(into: [:]) { $0[$1] = approve }
   }
   public struct Approval {
     public var update: Update = .init()
