@@ -286,7 +286,7 @@ public final class Merger {
       git: cfg.git,
       file: fusion.approval.rules
     ))),
-    antagonists: fusion.approval.antagonists
+    haters: fusion.approval.haters
       .reduce(cfg, Configuration.ParseYamlSecret.init(cfg:secret:))
       .map(parseAntagonists)
       .get([:])

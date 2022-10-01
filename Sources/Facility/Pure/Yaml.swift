@@ -135,7 +135,7 @@ public enum Yaml {
       public var rules: Preset
       public var statuses: Asset
       public var approvers: Asset
-      public var antagonists: Secret?
+      public var haters: Secret?
       public struct Rules: Decodable {
         public var sanity: String?
         public var emergency: String?
@@ -165,6 +165,7 @@ public enum Yaml {
         public var authors: [String]
         public var target: String
         public var participants: Set<String>
+        public var randoms: Set<String>
         public var approves: [String: [String: Resolution]]
         public enum Resolution: String, Decodable {
           case block

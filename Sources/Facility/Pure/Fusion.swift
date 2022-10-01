@@ -180,12 +180,12 @@ public struct Fusion {
     public var rules: Git.File
     public var statuses: Configuration.Asset
     public var approvers: Configuration.Asset
-    public var antagonists: Configuration.Secret?
+    public var haters: Configuration.Secret?
     public static func make(yaml: Yaml.Fusion.Approval) throws -> Self { try .init(
       rules: .make(preset: yaml.rules),
       statuses: .make(yaml: yaml.statuses),
       approvers: .make(yaml: yaml.approvers),
-      antagonists: yaml.antagonists
+      haters: yaml.haters
         .map(Configuration.Secret.make(yaml:))
     )}
     public struct Approver: Encodable {
@@ -259,22 +259,28 @@ public struct Fusion {
     public struct Status {
       public var target: String
       public var authors: Set<String>
-      public var thread: Configuration.Thread
+      public var randoms: Set<String>
       public var participants: Set<String>
       public var approves: [String: Approve]
+      public var thread: Configuration.Thread
       mutating func invalidate(users: Set<String>) { approves
         .filter(\.value.resolution.approved)
         .keys
         .filter(users.contains(_:))
         .forEach { approves[$0]?.resolution = .outdated }
       }
+      func makeAntagonitsts(kind: Kind, haters: [String: Set<String>]) -> Set<String> {
+        guard kind.merge == nil else { return [] }
+        return .init(haters.filter({ $0.value.intersection(authors).isEmpty.not }).keys)
+      }
       public static func make(yaml: Yaml.Fusion.Approval.Status) throws -> Self { try .init(
         target: yaml.target,
         authors: .init(yaml.authors),
-        thread: .make(yaml: yaml.thread),
+        randoms: yaml.randoms,
         participants: yaml.participants,
         approves: yaml.approves
-          .mapValues(Approve.make(yaml:))
+          .mapValues(Approve.make(yaml:)),
+        thread: .make(yaml: yaml.thread)
       )}
       public static func yaml(statuses: [UInt: Self]) -> String {
         var result = ""
@@ -286,7 +292,11 @@ public struct Fusion {
             .map({ "'\($0)'" })
             .joined(separator: ",")
           result += "  authors: [\(authors)]\n"
-          result += "  thread: {channel: '\(status.thread.channel)', ts: '\(status.thread.ts)'}\n"
+          let randoms = status.randoms
+            .sorted()
+            .map { "'\($0)'" }
+            .joined(separator: ",")
+          result += "  randoms: [\(randoms)]\n"
           let participants = status.participants
             .sorted()
             .map { "'\($0)'" }
@@ -296,6 +306,7 @@ public struct Fusion {
           for (user, approve) in status.approves.sorted(by: { $0.key < $1.key }) {
             result += "    '\(user)': {'\(approve.commit.value)': \(approve.resolution.rawValue)}\n"
           }
+          result += "  thread: {channel: '\(status.thread.channel)', ts: '\(status.thread.ts)'}\n"
         }
         return result.isEmpty.then("{}\n").get(result)
       }
@@ -309,9 +320,10 @@ public struct Fusion {
         return .init(
           target: target,
           authors: authors,
-          thread: thread,
+          randoms: [],
           participants: [],
-          approves: authors.reduce(into: [:], { $0[$1] = approve })
+          approves: authors.reduce(into: [:], { $0[$1] = approve }),
+          thread: thread
         )
       }
       public struct Approve {

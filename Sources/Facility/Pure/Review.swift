@@ -9,17 +9,13 @@ public struct Review {
   public let kind: Fusion.Kind
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
-  public let antagonists: [String: Set<String>]
+  public let haters: [String: Set<String>]
   public let utilityTeams: Set<String>
-  public private(set) var changes: [Git.Sha: Set<String>] = [:]
+  public private(set) var changedTeams: [Git.Sha: Set<String>] = [:]
   public private(set) var status: Fusion.Approval.Status
-  public private(set) var teams: Set<String> = []
-  public private(set) var breakers: [Git.Sha: Set<Git.Sha>] = [:]
-  public private(set) var antagonistApprovers: Set<String> = []
-  public private(set) var newTeams: Set<String> = []
-  public private(set) var diffs: [String: [String]] = [:]
-  public private(set) var isApproved: Bool = false
-  public private(set) var presentTeams: [String: Fusion.Approval.Rules.Team] = [:]
+  public private(set) var diffTeams: Set<String> = []
+  public private(set) var childCommits: [Git.Sha: Set<Git.Sha>] = [:]
+  public private(set) var antagonists: Set<String> = []
   public init(
     gitlabCi: GitlabCi,
     statuses: [UInt: Fusion.Approval.Status],
@@ -28,7 +24,7 @@ public struct Review {
     kind: Fusion.Kind,
     ownage: [String: Criteria],
     rules: Fusion.Approval.Rules,
-    antagonists: [String: Set<String>]
+    haters: [String: Set<String>]
   ) throws {
     let unknownTeams = Set(rules.emergency.array + rules.sanity.array)
       .union(ownage.keys)
@@ -48,10 +44,8 @@ public struct Review {
     self.kind = kind
     self.ownage = ownage
     self.rules = rules
-    self.antagonists = antagonists
-    self.antagonistApprovers = (kind.merge == nil).then(status.authors).get([])
-      .compactMap({ antagonists[$0] })
-      .reduce([], { $0.union($1) })
+    self.haters = haters
+    self.antagonists = status.makeAntagonitsts(kind: kind, haters: haters)
     self.utilityTeams = (kind.merge == nil).then(rules.authorship).get([:])
       .filter({ !$0.value.intersection(status.authors).isEmpty })
       .reduce(into: Set(), { $0.insert($1.key) })
@@ -68,24 +62,22 @@ public struct Review {
   }
   public mutating func addDiff(files: [String]) {
     for (team, criteria) in ownage {
-      if files.contains(where: criteria.isMet(_:)) { teams.insert(team) }
+      if files.contains(where: criteria.isMet(_:)) { diffTeams.insert(team) }
     }
   }
   public mutating func addBreakers(sha: Git.Sha, commits: [String]?) throws {
-    if let commits = commits { breakers[sha] = try Set(commits.map(Git.Sha.init(value:))) }
+    if let commits = commits { childCommits[sha] = try Set(commits.map(Git.Sha.init(value:))) }
     else { status.invalidate(users: Set(status.approves.filter({ $0.value.commit == sha }).keys)) }
   }
   public mutating func addChanges(sha: Git.Sha, files: [String]) {
-    changes[sha] = teams
+    changedTeams[sha] = diffTeams
       .intersection(ownage.filter({ files.contains(where: $0.value.isMet(_:)) }).keys)
   }
   public mutating func setAuthor(user: String) throws {
     guard !status.authors.contains(user) else { return }
     status.authors = [user]
     guard kind.merge == nil else { return }
-    antagonistApprovers = status.authors
-      .compactMap({ antagonists[$0] })
-      .reduce(into: [], { $0.formUnion($1) })
+    antagonists = status.makeAntagonitsts(kind: kind, haters: haters)
     status.invalidate(users: rules.authorship
       .filter({ $0.value.contains(user) })
       .compactMap({ rules.teams[$0.key] })
@@ -94,14 +86,15 @@ public struct Review {
   }
   public mutating func updateApproval() -> Approval {
     var approval = Approval(statuses: statuses)
-    invalidateApproves()
+    let approves = resolveApproves()
     updateParticipants()
-    approval.troubles = troubles()
+    approval.troubles = resolveTroubles()
     #warning("calc update")
     approval.statuses[state.iid] = status
     return approval
   }
-  mutating func invalidateApproves() {
+  func resolveApproves() -> [String: Yaml.Fusion.Approval.Status.Resolution] {
+    var result: [String: Yaml.Fusion.Approval.Status.Resolution] = [:]
     let cheaters = Set(status.approves.filter(\.value.resolution.emergent).keys)
     let fragilUtilityTeamUsers = rules.teams
       .filter({ utilityTeams.contains($0.key) })
@@ -120,48 +113,52 @@ public struct Review {
       .union(status.approves.filter(\.value.resolution.fragil).keys)
       .union(status.authors)
       .union(fragilUtilityTeamUsers)
-    let fragilDiffTeams = teams
+    let fragilDiffTeams = diffTeams
         .compactMap({ rules.teams[$0]?.advanceApproval.else($0) })
-    let advanceDiffTeams = Set(teams.compactMap({ rules.teams[$0]?.advanceApproval.then($0) }))
-    for (sha, commits) in breakers {
-      let brokens = commits
-        .compactMap({ changes[$0] })
+    let advanceDiffTeams = Set(diffTeams.compactMap({ rules.teams[$0]?.advanceApproval.then($0) }))
+    for (sha, childs) in childCommits {
+      let brokenTeams = childs
+        .compactMap({ changedTeams[$0] })
         .reduce(into: Set(), { $0.formUnion($1) })
-      guard brokens.isEmpty.not else { continue }
-      let approvers = Set(status.approves.filter({ $0.value.commit == sha }).keys)
-      status.invalidate(users: approvers.intersection(fragilUsers))
-      let invalidatable = changes
-        .compactMap({ commits.contains($0.key).else($0.value) })
+      let invalids: Set<String>
+      if brokenTeams.isEmpty { invalids = [] }
+      else { invalids = changedTeams
+        .compactMap({ childs.contains($0.key).not.then($0.value) })
         .reduce(advanceDiffTeams, { $0.subtracting($1) })
         .union(fragilDiffTeams)
-        .intersection(brokens)
+        .intersection(brokenTeams)
         .reduce(into: Set(), { $0.formUnion(rules.teams[$1]?.approvers ?? []) })
         .subtracting(cheaters)
         .union(fragilUsers)
-      status.invalidate(users: approvers.intersection(invalidatable))
+      }
+      result = status.approves
+        .filter({ $0.value.commit == sha })
+        .filter({ invalids.contains($0.key).not })
+        .reduce(into: result, { $0[$1.key] = $1.value.resolution })
     }
+    return result
   }
   mutating func updateParticipants() {
-    let requiredUsers = teams
+    let requiredUsers = diffTeams
       .union(utilityTeams)
       .compactMap({ rules.teams[$0] })
       .reduce(Set(), { $0.union($1.required) })
-    antagonistApprovers = antagonistApprovers
+    antagonists = antagonists
       .subtracting(requiredUsers)
     status.participants = status.participants
       .union(status.approves.map(\.key))
-      .subtracting(antagonistApprovers)
+      .subtracting(antagonists)
 
   }
-  func troubles() -> Approval.Troubles? {
+  func resolveTroubles() -> Approval.Troubles? {
     var result = Approval.Troubles()
     let approvers = activeApprovers
       .union(status.approves.filter(\.value.resolution.approved).keys)
     result.inactiveAuthors = status.authors.subtracting(approvers)
-    for name in teams.union(utilityTeams) {
+    for name in diffTeams.union(utilityTeams) {
       guard let team = rules.teams[name] else { continue }
       if team.quorum > team.approvers
-        .subtracting(antagonistApprovers)
+        .subtracting(antagonists)
         .subtracting(status.authors)
         .intersection(approvers)
         .count
@@ -169,8 +166,8 @@ public struct Review {
     }
     result.unknownUsers = rules.teams.values
       .reduce(Set()) { $0.union($1.approvers) }
-      .union(antagonists.keys)
-      .union(antagonists.flatMap(\.value))
+      .union(haters.keys)
+      .union(haters.flatMap(\.value))
       .union(rules.authorship.flatMap(\.value))
       .union(status.authors)
       .filter { self.approvers[$0] == nil }
