@@ -225,19 +225,21 @@ public struct Fusion {
       )}
       public struct Team {
         public var quorum: Int
-        public var advanceApproval: Bool
         public var labels: [String]
+        public var notifiers: [String]
         public var reserve: Set<String>
         public var optional: Set<String>
         public var required: Set<String>
+        public var advanceApproval: Bool
         public var approvers: Set<String> { reserve.union(optional).union(required) }
         public static func make(yaml: Yaml.Fusion.Approval.Rules.Team) -> Self { .init(
           quorum: yaml.quorum,
-          advanceApproval: yaml.advanceApproval.get(false),
           labels: yaml.labels.get([]),
+          notifiers: yaml.notifiers.get([]),
           reserve: yaml.reserve.map(Set.init(_:)).get([]),
           optional: yaml.optional.map(Set.init(_:)).get([]),
-          required: yaml.required.map(Set.init(_:)).get([])
+          required: yaml.required.map(Set.init(_:)).get([]),
+          advanceApproval: yaml.advanceApproval.get(false)
         )}
       }
       public struct Randoms {
@@ -260,7 +262,6 @@ public struct Fusion {
       public var thread: Configuration.Thread
       public var participants: Set<String>
       public var approves: [String: Approve]
-      public var changes: [Git.Sha: Set<String>]
       mutating func invalidate(users: Set<String>) { approves
         .filter(\.value.resolution.approved)
         .keys
@@ -273,9 +274,7 @@ public struct Fusion {
         thread: .make(yaml: yaml.thread),
         participants: yaml.participants,
         approves: yaml.approves
-          .mapValues(Approve.make(yaml:)),
-        changes: yaml.changes
-          .reduce(into: [:]) { try $0[.init(value: $1.key)] = .init($1.value) }
+          .mapValues(Approve.make(yaml:))
       )}
       public static func yaml(statuses: [UInt: Self]) -> String {
         var result = ""
@@ -293,16 +292,9 @@ public struct Fusion {
             .map { "'\($0)'" }
             .joined(separator: ",")
           result += "  participants: [\(participants)]\n"
-          result += "  changes:\(status.changes.isEmpty.then(" {}").get(""))\n"
-          for (sha, teams) in status.changes.sorted(by: { $0.key.value < $1.key.value }) {
-            let teams = teams.sorted().map { "'\($0)'" }.joined(separator: ",")
-            result += "    '\(sha.value)': [\(teams)]\n"
-          }
           result += "  approves:\(status.approves.isEmpty.then(" {}").get(""))\n"
           for (user, approve) in status.approves.sorted(by: { $0.key < $1.key }) {
-            let commit = "commit: '\(approve.commit.value)'"
-            let resulution = "resolution: \(approve.resolution.rawValue)"
-            result += "    '\(user)': {\(commit)', \(resulution)}\n"
+            result += "    '\(user)': {'\(approve.commit.value)': \(approve.resolution.rawValue)}\n"
           }
         }
         return result.isEmpty.then("{}\n").get(result)
@@ -319,16 +311,18 @@ public struct Fusion {
           authors: authors,
           thread: thread,
           participants: [],
-          approves: authors.reduce(into: [:], { $0[$1] = approve }),
-          changes: [:]
+          approves: authors.reduce(into: [:], { $0[$1] = approve })
         )
-
       }
       public struct Approve {
         public var commit: Git.Sha
-        public var resolution: Yaml.Fusion.Approval.Status.Approve.Resolution
-        public static func make(yaml: Yaml.Fusion.Approval.Status.Approve) throws -> Self {
-          try .init(commit: .init(value: yaml.commit), resolution: yaml.resolution)
+        public var resolution: Yaml.Fusion.Approval.Status.Resolution
+        public static func make(
+          yaml: [String: Yaml.Fusion.Approval.Status.Resolution]
+        ) throws -> Self {
+          guard yaml.count == 1, let (commit, resolution) = yaml.first
+          else { throw Thrown("Bad approve format") }
+          return try .init(commit: .init(value: commit), resolution: resolution)
         }
       }
     }

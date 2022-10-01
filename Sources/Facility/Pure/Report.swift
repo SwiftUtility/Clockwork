@@ -312,8 +312,7 @@ public extension Configuration {
     fusion: Fusion,
     review: Json.GitlabReviewState,
     users: [String: Fusion.Approval.Approver],
-    authors: Set<String>,
-    coauthors: [String: String]
+    authors: Set<String>
   ) -> Report.CreateThread { .init(
     template: fusion.createThread,
     report: .init(cfg: self, context: Report.ReviewCreated(

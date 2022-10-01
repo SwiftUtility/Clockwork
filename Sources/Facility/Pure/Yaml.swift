@@ -148,6 +148,7 @@ public enum Yaml {
           public var quorum: Int
           public var advanceApproval: Bool?
           public var labels: [String]?
+          public var notifiers: [String]?
           public var reserve: [String]?
           public var optional: [String]?
           public var required: [String]?
@@ -164,34 +165,29 @@ public enum Yaml {
         public var authors: [String]
         public var target: String
         public var participants: Set<String>
-        public var approves: [String: Approve]
-        public var changes: [String: Set<String>]
-        public struct Approve: Decodable {
-          public var commit: String
-          public var resolution: Resolution
-          public enum Resolution: String, Decodable {
-            case block
-            case fragil
-            case advance
-            case emergent
-            case outdated
-            public var approved: Bool {
-              switch self {
-              case .fragil, .advance, .emergent: return true
-              case .block, .outdated: return false
-              }
+        public var approves: [String: [String: Resolution]]
+        public enum Resolution: String, Decodable {
+          case block
+          case fragil
+          case advance
+          case emergent
+          case outdated
+          public var approved: Bool {
+            switch self {
+            case .fragil, .advance, .emergent: return true
+            case .block, .outdated: return false
             }
-            public var flagil: Bool {
-              switch self {
-              case .fragil: return true
-              case .block, .advance, .emergent, .outdated: return false
-              }
+          }
+          public var fragil: Bool {
+            switch self {
+            case .fragil: return true
+            case .block, .advance, .emergent, .outdated: return false
             }
-            public var emergent: Bool {
-              switch self {
-              case .emergent: return true
-              case .block, .fragil, .advance, .outdated: return false
-              }
+          }
+          public var emergent: Bool {
+            switch self {
+            case .emergent: return true
+            case .block, .fragil, .advance, .outdated: return false
             }
           }
         }

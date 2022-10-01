@@ -10,9 +10,10 @@ public struct Review {
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
   public let antagonists: [String: Set<String>]
-  public let oldTeams: Set<String>
+  public let utilityTeams: Set<String>
+  public private(set) var changes: [Git.Sha: Set<String>] = [:]
   public private(set) var status: Fusion.Approval.Status
-  public private(set) var diffTeams: Set<String> = []
+  public private(set) var teams: Set<String> = []
   public private(set) var breakers: [Git.Sha: Set<Git.Sha>] = [:]
   public private(set) var antagonistApprovers: Set<String> = []
   public private(set) var newTeams: Set<String> = []
@@ -29,20 +30,6 @@ public struct Review {
     rules: Fusion.Approval.Rules,
     antagonists: [String: Set<String>]
   ) throws {
-    self.bot = try gitlabCi.protected.get().user.username
-    self.state = review
-    self.statuses = statuses
-    self.status = try statuses[review.iid].get { throw Thrown("No review status in asset") }
-    self.approvers = approvers
-    self.activeApprovers = .init(approvers.filter(\.value.active).keys)
-    self.kind = kind
-    self.ownage = ownage
-    self.rules = rules
-    self.antagonists = antagonists
-    self.antagonistApprovers = (kind.merge == nil).then(status.authors).get([])
-      .compactMap({ antagonists[$0] })
-      .reduce([], { $0.union($1) })
-    self.oldTeams = status.changes.values.reduce([], { $0.union($1) })
     let unknownTeams = Set(rules.emergency.array + rules.sanity.array)
       .union(ownage.keys)
       .union(rules.targetBranch.keys)
@@ -51,70 +38,127 @@ public struct Review {
       .filter { rules.teams[$0] == nil }
       .joined(separator: ", ")
     guard unknownTeams.isEmpty else { throw Thrown("Unknown teams: \(unknownTeams)") }
+    let status = try statuses[review.iid].get { throw Thrown("No review status in asset") }
+    self.bot = try gitlabCi.protected.get().user.username
+    self.state = review
+    self.statuses = statuses
+    self.approvers = approvers
+    self.status = status
+    self.activeApprovers = .init(approvers.filter(\.value.active).keys)
+    self.kind = kind
+    self.ownage = ownage
+    self.rules = rules
+    self.antagonists = antagonists
+    self.antagonistApprovers = (kind.merge == nil).then(status.authors).get([])
+      .compactMap({ antagonists[$0] })
+      .reduce([], { $0.union($1) })
+    self.utilityTeams = (kind.merge == nil).then(rules.authorship).get([:])
+      .filter({ !$0.value.intersection(status.authors).isEmpty })
+      .reduce(into: Set(), { $0.insert($1.key) })
+      .union(rules.sourceBranch.filter({ $0.value.isMet(review.sourceBranch) }).keys)
+      .union(rules.targetBranch.filter({ $0.value.isMet(review.targetBranch) }).keys)
+    if status.target != review.targetBranch {
+      self.status.invalidate(users: rules.targetBranch
+        .filter { $0.value.isMet(status.target) }
+        .compactMap { rules.teams[$0.key] }
+        .reduce(Set()) { $0.union($1.approvers) }
+      )
+    }
+    self.status.target = review.targetBranch
   }
   public mutating func addDiff(files: [String]) {
     for (team, criteria) in ownage {
-      if files.contains(where: criteria.isMet(_:)) { diffTeams.insert(team) }
+      if files.contains(where: criteria.isMet(_:)) { teams.insert(team) }
     }
   }
-  public mutating func addChanges(sha: Git.Sha, files: [String]) {
-    status.changes[sha] = .init(ownage.filter({ files.contains(where: $0.value.isMet(_:)) }).keys)
+  public mutating func addBreakers(sha: Git.Sha, commits: [String]?) throws {
+    if let commits = commits { breakers[sha] = try Set(commits.map(Git.Sha.init(value:))) }
+    else { status.invalidate(users: Set(status.approves.filter({ $0.value.commit == sha }).keys)) }
   }
-  public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
-    breakers[sha] = try Set(commits.map(Git.Sha.init(value:)))
+  public mutating func addChanges(sha: Git.Sha, files: [String]) {
+    changes[sha] = teams
+      .intersection(ownage.filter({ files.contains(where: $0.value.isMet(_:)) }).keys)
   }
   public mutating func setAuthor(user: String) throws {
     guard !status.authors.contains(user) else { return }
     status.authors = [user]
-    antagonistApprovers = (kind.merge == nil).then(status.authors).get([])
+    guard kind.merge == nil else { return }
+    antagonistApprovers = status.authors
       .compactMap({ antagonists[$0] })
-      .reduce([], { $0.union($1) })
+      .reduce(into: [], { $0.formUnion($1) })
     status.invalidate(users: rules.authorship
-      .filter { $0.value.contains(user) }
-      .compactMap { rules.teams[$0.key] }
-      .reduce(Set()) { $0.union($1.reserve).union($1.optional).union($1.reserve) }
-    )
-  }
-  public mutating func updateTarget() {
-    guard status.target != state.targetBranch else { return }
-    status.target = state.targetBranch
-    status.invalidate(users: rules.targetBranch
-      .filter { $0.value.isMet(status.target) }
-      .compactMap { rules.teams[$0.key] }
-      .reduce(Set()) { $0.union($1.approvers) }
+      .filter({ $0.value.contains(user) })
+      .compactMap({ rules.teams[$0.key] })
+      .reduce(into: [], { $0.formUnion($1.approvers) })
     )
   }
   public mutating func updateApproval() -> Approval {
     var approval = Approval(statuses: statuses)
-    let utilityTeams = (kind.merge == nil).then(rules.authorship).get([:])
-      .filter({ !$0.value.intersection(status.authors).isEmpty })
-      .reduce(into: Set(), { $0.insert($1.key) })
-      .union(rules.sourceBranch.filter({ $0.value.isMet(state.sourceBranch) }).keys)
-      .union(rules.targetBranch.filter({ $0.value.isMet(state.targetBranch) }).keys)
-    let allTeams = utilityTeams.union(diffTeams)
-    let requiredUsers = allTeams
-      .compactMap({ rules.teams[$0] })
-      .reduce(Set(), { $0.union($1.required) })
-    antagonistApprovers = antagonistApprovers.subtracting(requiredUsers)
-    approval.troubles = troubles(teams: allTeams)
-    let freshTeamUsers = diffTeams
-      .subtracting(oldTeams)
-      .compactMap { rules.teams[$0] }
-      .reduce(Set()) { $0.union($1.approvers) }
-    status.invalidate(users: freshTeamUsers)
-    approval.statuses[state.iid] = status
-//    for
-
-
+    invalidateApproves()
+    updateParticipants()
+    approval.troubles = troubles()
     #warning("calc update")
+    approval.statuses[state.iid] = status
     return approval
   }
-  func troubles(teams: Set<String>) -> Approval.Troubles? {
+  mutating func invalidateApproves() {
+    let cheaters = Set(status.approves.filter(\.value.resolution.emergent).keys)
+    let fragilUtilityTeamUsers = rules.teams
+      .filter({ utilityTeams.contains($0.key) })
+      .filter(\.value.advanceApproval.not)
+      .reduce(into: Set(), { $0.formUnion($1.value.approvers) })
+      .subtracting(cheaters)
+    let fragilUsers = cheaters.isEmpty
+      .else(make: { rules.emergency
+        .flatMap({ rules.teams[$0] })
+        .filter(isIncluded: \.advanceApproval.not)
+        .map(\.approvers)
+        .get([])
+        .intersection(cheaters)
+      })
+      .get([])
+      .union(status.approves.filter(\.value.resolution.fragil).keys)
+      .union(status.authors)
+      .union(fragilUtilityTeamUsers)
+    let fragilDiffTeams = teams
+        .compactMap({ rules.teams[$0]?.advanceApproval.else($0) })
+    let advanceDiffTeams = Set(teams.compactMap({ rules.teams[$0]?.advanceApproval.then($0) }))
+    for (sha, commits) in breakers {
+      let brokens = commits
+        .compactMap({ changes[$0] })
+        .reduce(into: Set(), { $0.formUnion($1) })
+      guard brokens.isEmpty.not else { continue }
+      let approvers = Set(status.approves.filter({ $0.value.commit == sha }).keys)
+      status.invalidate(users: approvers.intersection(fragilUsers))
+      let invalidatable = changes
+        .compactMap({ commits.contains($0.key).else($0.value) })
+        .reduce(advanceDiffTeams, { $0.subtracting($1) })
+        .union(fragilDiffTeams)
+        .intersection(brokens)
+        .reduce(into: Set(), { $0.formUnion(rules.teams[$1]?.approvers ?? []) })
+        .subtracting(cheaters)
+        .union(fragilUsers)
+      status.invalidate(users: approvers.intersection(invalidatable))
+    }
+  }
+  mutating func updateParticipants() {
+    let requiredUsers = teams
+      .union(utilityTeams)
+      .compactMap({ rules.teams[$0] })
+      .reduce(Set(), { $0.union($1.required) })
+    antagonistApprovers = antagonistApprovers
+      .subtracting(requiredUsers)
+    status.participants = status.participants
+      .union(status.approves.map(\.key))
+      .subtracting(antagonistApprovers)
+
+  }
+  func troubles() -> Approval.Troubles? {
     var result = Approval.Troubles()
     let approvers = activeApprovers
       .union(status.approves.filter(\.value.resolution.approved).keys)
     result.inactiveAuthors = status.authors.subtracting(approvers)
-    for name in teams {
+    for name in teams.union(utilityTeams) {
       guard let team = rules.teams[name] else { continue }
       if team.quorum > team.approvers
         .subtracting(antagonistApprovers)
@@ -217,8 +261,31 @@ public struct Review {
         inactiveAuthors.isEmpty && unapprovalbeTeams.isEmpty && unknownUsers.isEmpty
       }
     }
-    public struct Update {
-      public var isApproved: Bool = false
+    public struct Update: Equatable {
+      public var teams: Set<String> = []
+      public var addLabels: Set<String> = []
+      public var delLabels: Set<String> = []
+      public var blockers: Set<String> = []
+      public var slackers: Set<String> = []
+      public var approvers: Set<String> = []
+      public var watchers: Set<String> = []
+      public var notifiers: Set<String> = []
+      public var cheaters: Set<String> = []
+      public var outdaters: [String: Set<String>] = [:]
+      public var state: State = .waitingSlackers
+      public enum State: String {
+        case emergent
+        case approved
+        case waitingAuthors
+        case waitingHolders
+        case waitingSlackers
+        public var isApproved: Bool {
+          switch self {
+          case .emergent, .approved: return true
+          case .waitingAuthors, .waitingHolders, .waitingSlackers: return false
+          }
+        }
+      }
     }
   }
 }

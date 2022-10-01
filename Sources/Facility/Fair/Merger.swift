@@ -70,8 +70,7 @@ public final class Merger {
       fusion: fusion,
       review: ctx.review,
       users: approvers,
-      authors: authors,
-      coauthors: [:]
+      authors: authors
     ))
     statuses[ctx.review.iid] = Fusion.Approval.Status.make(
       target: ctx.review.targetBranch,
@@ -123,7 +122,7 @@ public final class Merger {
     if let troubles = approval.troubles {
       report(cfg.reportReviewTroubles(review: review, troubles: troubles))
     }
-    guard approval.update.isApproved else {
+    guard approval.update.state.isApproved else {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
@@ -298,14 +297,24 @@ public final class Merger {
     fusion: Fusion,
     review: inout Review
   ) throws -> Review.Approval {
-    review.updateTarget()
     let fork = review.kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))
     let current = try Git.Ref.make(sha: .init(value: ctx.review.pipeline.sha))
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
     try review.addDiff(files: listAllChanges(cfg: cfg, ctx: ctx, kind: review.kind))
-    let known = Set(review.status.changes.keys)
+    try review.status.approves.values
+      .filter(\.resolution.approved)
+      .reduce(into: Set(), { $0.insert($1.commit) })
+      .forEach { sha in try review.addBreakers(
+        sha: sha,
+        commits: try? Execute.parseLines(reply: execute(cfg.git.listCommits(
+          in: [current],
+          notIn: [target, .make(sha: sha)] + fork.array,
+          noMerges: false,
+          firstParents: false
+        )))
+      )}
     for sha in try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [current],
       notIn: [target] + fork.array,
@@ -313,21 +322,8 @@ public final class Merger {
       firstParents: false
     ))) {
       let sha = try Git.Sha(value: sha)
-      guard !known.contains(sha) else { continue }
       try review.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, ctx: ctx, sha: sha))
     }
-    try review.status.approves.values
-      .filter(\.resolution.approved)
-      .reduce(into: Set(), { $0.insert($1.commit) })
-      .forEach { sha in try review.addBreakers(
-        sha: sha,
-        commits: Execute.parseLines(reply: execute(cfg.git.listCommits(
-          in: [current],
-          notIn: [target, .make(sha: sha)] + fork.array,
-          noMerges: false,
-          firstParents: false
-        )))
-      )}
     return review.updateApproval()
   }
   func checkReviewClosers(
