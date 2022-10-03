@@ -212,7 +212,7 @@ public struct Fusion {
         randoms: .make(yaml: yaml.randoms),
         teams: yaml.teams
           .get([:])
-          .mapValues(Team.make(yaml:)),
+          .mapValues(Team.init(yaml:)),
         authorship: yaml.authorship
           .get([:])
           .mapValues(Set.init(_:)),
@@ -232,15 +232,23 @@ public struct Fusion {
         public var required: Set<String>
         public var advanceApproval: Bool
         public var approvers: Set<String> { reserve.union(optional).union(required) }
-        public static func make(yaml: Yaml.Fusion.Approval.Rules.Team) -> Self { .init(
-          quorum: yaml.quorum,
-          labels: yaml.labels.get([]),
-          notifiers: yaml.notifiers.get([]),
-          reserve: yaml.reserve.map(Set.init(_:)).get([]),
-          optional: yaml.optional.map(Set.init(_:)).get([]),
-          required: yaml.required.map(Set.init(_:)).get([]),
-          advanceApproval: yaml.advanceApproval.get(false)
-        )}
+        public init(yaml: Yaml.Fusion.Approval.Rules.Team) {
+          self.quorum = yaml.quorum
+          self.labels = yaml.labels.get([])
+          self.notifiers = yaml.notifiers.get([])
+          self.required = yaml.required
+            .map(Set.init(_:))
+            .get([])
+          self.optional = yaml.optional
+            .map(Set.init(_:))
+            .get([])
+            .subtracting(required)
+          self.reserve = yaml.reserve
+            .map(Set.init(_:))
+            .get([])
+            .subtracting(optional)
+          self.advanceApproval = yaml.advanceApproval.get(false)
+        }
       }
       public struct Randoms {
         public var quorum: Int
