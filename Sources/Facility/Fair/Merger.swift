@@ -92,7 +92,8 @@ public final class Merger {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
     guard worker.isLastPipe(ctx: ctx) else { return false }
-    var review = try resolveReview(cfg: cfg, ctx: ctx, fusion: fusion)
+    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    var review = try resolveReview(cfg: cfg, ctx: ctx, fusion: fusion, statuses: statuses)
     guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
       if let sha = try rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
@@ -262,10 +263,11 @@ public final class Merger {
   func resolveReview(
     cfg: Configuration,
     ctx: Worker.ParentReview,
-    fusion: Fusion
+    fusion: Fusion,
+    statuses: [UInt: Fusion.Approval.Status]
   ) throws -> Review { try .make(
     gitlabCi: ctx.gitlab,
-    statuses: resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval)),
+    statuses: statuses,
     approvers: resolveApprovers(.init(cfg: cfg, approval: fusion.approval)),
     review: ctx.review,
     kind: fusion.makeKind(supply: ctx.review.sourceBranch),

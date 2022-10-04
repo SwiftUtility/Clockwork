@@ -1,5 +1,4 @@
 import XCTest
-@testable import InteractivityStencil
 @testable import Facility
 @testable import FacilityPure
 final class ReviewTests: XCTestCase {
@@ -13,7 +12,6 @@ final class ReviewTests: XCTestCase {
   )]
   let review = try! Review(
     bot: "bot",
-    statuses: statuses,
     approvers: [
       "u1": .init(active: true, slack: "1", name: "u1"),
       "u2": .init(active: true, slack: "2", name: "u2"),
