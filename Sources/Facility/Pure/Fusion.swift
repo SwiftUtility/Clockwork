@@ -60,6 +60,12 @@ public struct Fusion {
       case .replication(let merge), .integration(let merge): return merge
       }
     }
+    public var proposition: Bool {
+      switch self {
+      case .proposition: return true
+      case .replication, .integration: return false
+      }
+    }
   }
   public struct Proposition {
     public var createCommitMessage: Configuration.Template
@@ -212,7 +218,7 @@ public struct Fusion {
         randoms: .make(yaml: yaml.randoms),
         teams: yaml.teams
           .get([:])
-          .mapValues(Team.init(yaml:)),
+          .mapValues(Team.make(yaml:)),
         authorship: yaml.authorship
           .get([:])
           .mapValues(Set.init(_:)),
@@ -226,29 +232,85 @@ public struct Fusion {
       public struct Team {
         public var quorum: Int
         public var labels: [String]
-        public var notifiers: [String]
+        public var mentions: [String]
         public var reserve: Set<String>
         public var optional: Set<String>
         public var required: Set<String>
         public var advanceApproval: Bool
         public var approvers: Set<String> { reserve.union(optional).union(required) }
-        public init(yaml: Yaml.Fusion.Approval.Rules.Team) {
-          self.quorum = yaml.quorum
-          self.labels = yaml.labels.get([])
-          self.notifiers = yaml.notifiers.get([])
-          self.required = yaml.required
-            .map(Set.init(_:))
-            .get([])
-          self.optional = yaml.optional
-            .map(Set.init(_:))
-            .get([])
-            .subtracting(required)
-          self.reserve = yaml.reserve
-            .map(Set.init(_:))
-            .get([])
-            .subtracting(optional)
-          self.advanceApproval = yaml.advanceApproval.get(false)
+        public static func make(yaml: Yaml.Fusion.Approval.Rules.Team) -> Self { .init(
+          quorum: yaml.quorum,
+          labels: yaml.labels.get([]),
+          mentions: yaml.mentions.get([]),
+          reserve: Set(yaml.reserve.get([])),
+          optional: Set(yaml.optional.get([])),
+          required: Set(yaml.required.get([])),
+          advanceApproval: yaml.advanceApproval.get(false)
+        )}
+        public mutating func update(active: Set<String>) {
+          required = required.intersection(active)
+          optional = optional.intersection(active)
+          reserve = reserve.intersection(active)
         }
+        public mutating func update(involved: Set<String>) {
+          quorum -= involved.intersection(approvers).count
+          update(exclude: involved)
+        }
+        public mutating func update(exclude: Set<String>) {
+          required = required.subtracting(exclude)
+          optional = optional.subtracting(exclude)
+          reserve = reserve.subtracting(exclude)
+        }
+        public mutating func update(optional involved: Set<String>) {
+          let involved = reserve.intersection(involved)
+          optional = optional.union(involved)
+          reserve = reserve.subtracting(involved)
+        }
+        public var necessary: Set<String> {
+          let optional = optional.union(required)
+          let reserve = reserve.union(optional)
+          guard reserve.count > quorum else { return reserve }
+          guard optional.count > quorum else { return optional }
+          return []
+        }
+//        public var reserveRandom: Set<String> {
+//          guard optional.isEmpty, quorum > 0 else { return [] }
+//          return reserve
+//        }
+//        public var optionalRandom: Set<String> {
+//          guard optional.isEmpty.not, quorum > 0 else { return [] }
+//          return optional
+//        }
+//        public mutating func update(random: Set<String>) {
+//          let random = random.intersection(approvers)
+//          quorum -= random.intersection(approvers).count
+//          required = required.subtracting(involved)
+//          optional = optional.subtracting(involved)
+//          reserve = reserve.subtracting(involved)
+//        }
+//
+//          if optional.union(<#T##other: Sequence##Sequence#>)
+//
+//          let optional = optional.union(required)
+//          let reserve = reserve.union(optional)
+//          if reserve.count < quorum { return reserve }
+//          else if optional.count < quorum { return optional }
+//          else { return [] }
+//        }
+//        public func getRandoms(
+//          active: Set<String>,
+//          haters: Set<String>,
+//          involved: Set<String>
+//        ) -> Set<String> {
+//          guard approvers.intersection(involved) >= quorum else { return [] }
+//          let optional =
+//          guard required.union(optional).intersection(involved)
+//          if required.union(optional).intersection(active).count < quorum {
+//            return reserve.intersection(active)
+//          } else {
+//            return optional.intersection(active)
+//          }
+//        }
       }
       public struct Randoms {
         public var quorum: Int
@@ -278,7 +340,7 @@ public struct Fusion {
         .forEach { approves[$0]?.resolution = .outdated }
       }
       func makeAntagonitsts(kind: Kind, haters: [String: Set<String>]) -> Set<String> {
-        guard kind.merge == nil else { return [] }
+        guard kind.proposition else { return [] }
         return .init(haters.filter({ $0.value.intersection(authors).isEmpty.not }).keys)
       }
       public static func make(yaml: Yaml.Fusion.Approval.Status) throws -> Self { try .init(

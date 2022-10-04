@@ -131,6 +131,10 @@ public enum Yaml {
       public var createCommitMessage: Template
       public var exportAvailableTargets: Template
     }
+    public struct Imitation: Decodable {
+      public var createCommitMessage: Template
+      public var exportAvailableTargets: Template
+    }
     public struct Approval: Decodable {
       public var rules: Preset
       public var statuses: Asset
@@ -148,7 +152,7 @@ public enum Yaml {
           public var quorum: Int
           public var advanceApproval: Bool?
           public var labels: [String]?
-          public var notifiers: [String]?
+          public var mentions: [String]?
           public var reserve: [String]?
           public var optional: [String]?
           public var required: [String]?

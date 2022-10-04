@@ -42,7 +42,7 @@ public struct Review {
     self.ownage = ownage
     self.rules = rules
     self.haters = haters
-    self.utilityTeams = (kind.merge == nil).then(rules.authorship).get([:])
+    self.utilityTeams = kind.proposition.then(rules.authorship).get([:])
       .filter({ !$0.value.intersection(status.authors).isEmpty })
       .reduce(into: Set(), { $0.insert($1.key) })
       .union(rules.sourceBranch.filter({ $0.value.isMet(review.sourceBranch) }).keys)
@@ -72,7 +72,7 @@ public struct Review {
   public mutating func setAuthor(user: String) throws {
     guard !status.authors.contains(user) else { return }
     status.authors = [user]
-    guard kind.merge == nil else { return }
+    guard kind.proposition else { return }
     status.invalidate(users: rules.authorship
       .filter({ $0.value.contains(user) })
       .compactMap({ rules.teams[$0.key] })
@@ -134,36 +134,47 @@ public struct Review {
   mutating func updateParticipants(
     approves: [String: Yaml.Fusion.Approval.Status.Resolution]
   ) {
-    var teams = diffTeams.union(utilityTeams).compactMap({ rules.teams[$0] })
-    let required = teams.reduce(into: Set(), { $0.formUnion($1.required) })
-    let antagonitsts = status.makeAntagonitsts(kind: kind, haters: haters)
-    let inactive = Set(approvers.filter(\.value.active.not).keys)
-    let yetActive = inactive.intersection(approves.filter(\.value.approved).keys)
-
-//    let activeApprovers = Set(approvers.filter(\.value.active).keys)
-//    let antagonists = status.makeAntagonitsts(kind: kind, haters: haters)
-//    let inactive = antagonists
-//      .subtracting(required)
-//      .union(status.authors)
-//      .union(<#T##other: Sequence##Sequence#>)
-//    status.participants = status.participants
-//      .union(status.approves.keys)
-//      .subtracting(status.randoms)
-//      .subtracting(inactive)
-//      .union(required)
-//    involved = involved.
-//      .union(status.participants)
-//      .union(status.approves.map(\.key))
-//    involved.subtracting(inactive)
-
-//    let requiredUsers = diffTeams
-//      .union(utilityTeams)
-//      .compactMap({ rules.teams[$0] })
-//      .reduce(Set(), { $0.union($1.required) })
-//    status.participants = status.participants
-//      .union(status.approves.map(\.key))
-//      .subtracting(antagonists)
-
+    let active = Set(approvers.filter(\.value.active).keys)
+      .union(approves.filter(\.value.approved).keys)
+    status.participants = status.participants.intersection(active)
+    status.participants = status.participants.subtracting(status.authors)
+    var teams = diffTeams.union(utilityTeams)
+      .reduce(into: [:], { $0[$1] = rules.teams[$1] })
+    teams = teams.reduce(into: teams, { $0[$1.key]?.update(active: active) })
+    let required = teams.values.reduce(Set(), { $0.union($1.required) })
+    if kind.proposition {
+      let exclude = Set(haters.filter({ $0.value.intersection(status.authors).isEmpty.not }).keys)
+        .subtracting(required)
+        .union(status.authors)
+      teams = teams.reduce(into: teams, { $0[$1.key]?.update(exclude: exclude) })
+    } else {
+      teams = teams.reduce(into: teams, { $0[$1.key]?.update(involved: status.authors) })
+    }
+    status.participants = status.participants
+      .union(required)
+      .subtracting(status.authors)
+    teams = teams.reduce(into: teams, { $0[$1.key]?.update(involved: status.participants) })
+    let optional = teams.values.reduce(into: Set(), { $0.formUnion($1.optional) })
+    teams = teams.reduce(into: teams, { $0[$1.key]?.update(optional: optional) })
+    let necessary = teams.reduce(into: Set(), { $0.formUnion($1.value.necessary) })
+    teams = teams
+      .reduce(into: teams, { $0[$1.key]?.update(involved: necessary) })
+      .filter(\.value.approvers.isEmpty.not)
+    let reserveTeams = teams.filter({ $0.value.optional.isEmpty && $0.value.quorum > 0 })
+    let reserveRandom = selectUsers(
+      teams: reserveTeams,
+      users: reserveTeams.values.reduce(into: Set(), { $0.formUnion($1.reserve) })
+    )
+    teams = teams.reduce(into: teams, { $0[$1.key]?.update(involved: reserveRandom) })
+    let optionalTeams = teams.filter({ $0.value.optional.isEmpty.not && $0.value.quorum > 0 })
+    let optionalRandom = selectUsers(
+      teams: optionalTeams,
+      users: optionalTeams.values.reduce(into: Set(), { $0.formUnion($1.optional) })
+    )
+    status.participants = status.participants
+      .union(optionalRandom)
+      .union(reserveRandom)
+      .union(necessary)
   }
   func resolveTroubles() -> Approval.Troubles? {
     var result = Approval.Troubles()
@@ -185,6 +196,29 @@ public struct Review {
       .union(rules.teams.flatMap(\.value.approvers))
       .subtracting(approvers.keys)
     return result.isEmpty.else(result)
+  }
+  func selectUsers(teams: [String: Fusion.Approval.Rules.Team], users: Set<String>) -> Set<String> {
+    var left = users
+    var teams = teams.filter({ $0.value.optional.isEmpty })
+    while true {
+      let counts = teams
+        .filter({ $0.value.quorum > 0 })
+        .reduce(into: [:], { $0.merge(
+          .init(uniqueKeysWithValues: $1.value.approvers
+            .intersection(left)
+            .map({ ($0, 1) })
+          ),
+          uniquingKeysWith: { $0 + $1 }
+        )})
+        .reduce(into: [:], { $0.merge(
+          [$1.value: Set([$1.key])],
+          uniquingKeysWith: { $0.union($1) })
+        })
+      let user = Set(random(users: counts.keys.max().flatMap({ counts[$0] }).get([])).array)
+      guard user.isEmpty.not else { return users.subtracting(left) }
+      left = left.subtracting(user)
+      teams = teams.reduce(into: teams, { $0[$1.key]?.update(involved: user) })
+    }
   }
   func random(users: Set<String>) -> String? {
     guard users.count > 1 else { return users.first }
