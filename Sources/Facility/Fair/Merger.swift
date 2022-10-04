@@ -102,25 +102,25 @@ public final class Merger {
           force: false
         )))
       } else {
-        report(cfg.reportReviewMergeConflicts(review: review))
+        report(cfg.reportReviewMergeConflicts(review: review, state: ctx.review))
         try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       }
       return false
     }
     if let reason = try checkReviewClosers(cfg: cfg, ctx: ctx, kind: review.kind) {
       try closeReview(cfg: cfg, ctx: ctx)
-      report(cfg.reportReviewClosed(review: review, reason: reason))
+      report(cfg.reportReviewClosed(review: review, state: ctx.review, reason: reason))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
     if let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, review: review) {
-      report(cfg.reportReviewBlocked(review: review, reasons: blockers))
+      report(cfg.reportReviewBlocked(review: review, state: ctx.review, reasons: blockers))
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
       return false
     }
     let approval = try updateApproval(cfg: cfg, ctx: ctx, fusion: fusion, review: &review)
     if let troubles = approval.troubles {
-      report(cfg.reportReviewTroubles(review: review, troubles: troubles))
+      report(cfg.reportReviewTroubles(review: review, state: ctx.review, troubles: troubles))
     }
     guard approval.update.state.isApproved else {
       try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
@@ -263,7 +263,7 @@ public final class Merger {
     cfg: Configuration,
     ctx: Worker.ParentReview,
     fusion: Fusion
-  ) throws -> Review { try .init(
+  ) throws -> Review { try .make(
     gitlabCi: ctx.gitlab,
     statuses: resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval)),
     approvers: resolveApprovers(.init(cfg: cfg, approval: fusion.approval)),

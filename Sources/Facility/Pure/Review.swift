@@ -3,18 +3,17 @@ import Facility
 public struct Review {
   public let bot: String
   public let statuses: [UInt: Fusion.Approval.Status]
-  public let state: Json.GitlabReviewState
   public let approvers: [String: Fusion.Approval.Approver]
   public let kind: Fusion.Kind
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
   public let haters: [String: Set<String>]
-  public let utilityTeams: Set<String>
-  public private(set) var changedTeams: [Git.Sha: Set<String>] = [:]
-  public private(set) var status: Fusion.Approval.Status
-  public private(set) var diffTeams: Set<String> = []
-  public private(set) var childCommits: [Git.Sha: Set<Git.Sha>] = [:]
-  public init(
+  public internal(set) var status: Fusion.Approval.Status
+  public internal(set) var utilityTeams: Set<String> = []
+  public internal(set) var changedTeams: [Git.Sha: Set<String>] = [:]
+  public internal(set) var diffTeams: Set<String> = []
+  public internal(set) var childCommits: [Git.Sha: Set<Git.Sha>] = [:]
+  public static func make(
     gitlabCi: GitlabCi,
     statuses: [UInt: Fusion.Approval.Status],
     approvers: [String: Fusion.Approval.Approver],
@@ -23,7 +22,7 @@ public struct Review {
     ownage: [String: Criteria],
     rules: Fusion.Approval.Rules,
     haters: [String: Set<String>]
-  ) throws {
+  ) throws -> Self {
     let unknownTeams = Set(rules.emergency.array + rules.sanity.array)
       .union(ownage.keys)
       .union(rules.targetBranch.keys)
@@ -33,28 +32,30 @@ public struct Review {
       .joined(separator: ", ")
     guard unknownTeams.isEmpty else { throw Thrown("Unknown teams: \(unknownTeams)") }
     let status = try statuses[review.iid].get { throw Thrown("No review status in asset") }
-    self.bot = try gitlabCi.protected.get().user.username
-    self.state = review
-    self.statuses = statuses
-    self.approvers = approvers
-    self.status = status
-    self.kind = kind
-    self.ownage = ownage
-    self.rules = rules
-    self.haters = haters
-    self.utilityTeams = kind.proposition.then(rules.authorship).get([:])
+    var result = try Self(
+      bot: gitlabCi.protected.get().user.username,
+      statuses: statuses,
+      approvers: approvers,
+      kind: kind,
+      ownage: ownage,
+      rules: rules,
+      haters: haters,
+      status: status
+    )
+    let targetTeams = Set(rules.targetBranch.filter({ $0.value.isMet(review.targetBranch) }).keys)
+    if result.status.target != review.targetBranch {
+      result.status.invalidate(users: targetTeams
+        .compactMap({ rules.teams[$0] })
+        .reduce(Set(), { $0.union($1.approvers) })
+      )
+    }
+    result.utilityTeams = kind.proposition.then(rules.authorship).get([:])
       .filter({ !$0.value.intersection(status.authors).isEmpty })
       .reduce(into: Set(), { $0.insert($1.key) })
       .union(rules.sourceBranch.filter({ $0.value.isMet(review.sourceBranch) }).keys)
-      .union(rules.targetBranch.filter({ $0.value.isMet(review.targetBranch) }).keys)
-    if status.target != review.targetBranch {
-      self.status.invalidate(users: rules.targetBranch
-        .filter { $0.value.isMet(status.target) }
-        .compactMap { rules.teams[$0.key] }
-        .reduce(Set()) { $0.union($1.approvers) }
-      )
-    }
-    self.status.target = review.targetBranch
+      .union(targetTeams)
+    result.status.target = review.targetBranch
+    return result
   }
   public mutating func addDiff(files: [String]) {
     for (team, criteria) in ownage {
@@ -80,12 +81,11 @@ public struct Review {
     )
   }
   public mutating func updateApproval() -> Approval {
-    var approval = Approval(statuses: statuses)
+    var approval = Approval()
     let approves = resolveApproves()
     updateParticipants(approves: approves)
     approval.troubles = resolveTroubles()
     #warning("calc update")
-    approval.statuses[state.iid] = status
     return approval
   }
   func resolveApproves() -> [String: Yaml.Fusion.Approval.Status.Resolution] {
@@ -295,7 +295,6 @@ public struct Review {
 //  }
   public struct Approval {
     public var update: Update = .init()
-    public var statuses: [UInt: Fusion.Approval.Status] = [:]
     public var troubles: Troubles? = nil
     public struct Troubles {
       public var inactiveAuthors: Set<String> = []

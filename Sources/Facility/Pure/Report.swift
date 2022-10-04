@@ -325,51 +325,55 @@ public extension Configuration {
     ))
   )}
   func reportReviewMergeConflicts(
-    review: Review
+    review: Review,
+    state: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
     thread: review.status.thread,
-    review: review.state,
+    review: state,
     users: review.approvers,
     authors: review.status.authors.sorted()
   ))}
   func reportReviewClosed(
     review: Review,
+    state: Json.GitlabReviewState,
     reason: Report.ReviewClosed.Reason
   ) -> Report { .init(cfg: self, context: Report.ReviewClosed(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
     thread: review.status.thread,
-    review: review.state,
+    review: state,
     users: review.approvers,
     authors: review.status.authors.sorted(),
     reason: reason
   ))}
   func reportReviewBlocked(
     review: Review,
+    state: Json.GitlabReviewState,
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
     thread: review.status.thread,
-    review: review.state,
+    review: state,
     users: review.approvers,
     authors: review.status.authors.sorted(),
     reasons: reasons
   ))}
   func reportReviewTroubles(
     review: Review,
+    state: Json.GitlabReviewState,
     troubles: Review.Approval.Troubles
   ) -> Report { .init(cfg: self, context: Report.ReviewTroubles(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
     thread: review.status.thread,
-    review: review.state,
+    review: state,
     users: review.approvers,
     authors: review.status.authors.sorted(),
     inactiveAuthors: troubles.inactiveAuthors.sorted(),
