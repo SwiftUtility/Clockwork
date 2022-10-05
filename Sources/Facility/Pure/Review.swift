@@ -79,58 +79,8 @@ public struct Review {
     )
   }
   public mutating func updateApproval() -> Approval {
-    return .init(
-      update: updateParticipants(approves: resolveApproves()),
-      troubles: resolveTroubles()
-    )
-  }
-  func resolveApproves() -> [String: Yaml.Fusion.Approval.Status.Resolution] {
-    var result = status.approves
-      .reduce(into: [:], { $0[$1.key] = $1.value.resolution })
-    let cheaters = Set(status.approves.filter(\.value.resolution.emergent).keys)
-    let fragilUtilityTeamUsers = rules.teams
-      .filter({ utilityTeams.contains($0.key) })
-      .filter(\.value.advanceApproval.not)
-      .reduce(into: Set(), { $0.formUnion($1.value.approvers) })
-      .subtracting(cheaters)
-    let fragilUsers = cheaters.isEmpty
-      .else(make: { rules.emergency
-        .flatMap({ rules.teams[$0] })
-        .filter(isIncluded: \.advanceApproval.not)
-        .map(\.approvers)
-        .get([])
-        .intersection(cheaters)
-      })
-      .get([])
-      .union(status.approves.filter(\.value.resolution.fragil).keys)
-      .union(status.authors)
-      .union(fragilUtilityTeamUsers)
-    let fragilDiffTeams = diffTeams
-        .compactMap({ rules.teams[$0]?.advanceApproval.else($0) })
-    let advanceDiffTeams = Set(diffTeams.compactMap({ rules.teams[$0]?.advanceApproval.then($0) }))
-    for (sha, childs) in childCommits {
-      let brokenTeams = childs
-        .compactMap({ changedTeams[$0] })
-        .reduce(into: Set(), { $0.formUnion($1) })
-      let invalids: Set<String> = brokenTeams.isEmpty.then([]) ?? changedTeams
-        .compactMap({ childs.contains($0.key).not.then($0.value) })
-        .reduce(advanceDiffTeams, { $0.subtracting($1) })
-        .union(fragilDiffTeams)
-        .intersection(brokenTeams)
-        .reduce(into: Set(), { $0.formUnion(rules.teams[$1]?.approvers ?? []) })
-        .subtracting(cheaters)
-        .union(fragilUsers)
-      result = status.approves
-        .filter({ $0.value.commit == sha })
-        .filter({ invalids.contains($0.key) })
-        .reduce(into: result, { $0[$1.key] = $1.value.resolution })
-    }
-    return result
-  }
-  mutating func updateParticipants(
-    approves: [String: Yaml.Fusion.Approval.Status.Resolution]
-  ) -> Approval.Update {
-    var result = Approval.Update()
+    let approves = resolveApproves()
+    var update = Approval.Update()
     var teams = diffTeams.union(utilityTeams)
       .reduce(into: [:], { $0[$1] = rules.teams[$1] })
     let active = Set(approvers.filter(\.value.active).keys)
@@ -140,12 +90,12 @@ public struct Review {
     teams = teams.reduce(into: teams, { $0[$1.key]?.update(active: yetActive) })
     status.participants = status.participants
       .intersection(teams.reduce(into: [], { $0.formUnion($1.value.approvers) }))
-    result.teams.formUnion(teams.keys)
-    result.addLabels.formUnion(teams.values.reduce(into: Set(), { $0.formUnion($1.labels) }))
-    result.delLabels = rules.teams.values
+    update.teams.formUnion(teams.keys)
+    update.addLabels.formUnion(teams.values.reduce(into: Set(), { $0.formUnion($1.labels) }))
+    update.delLabels = rules.teams.values
       .reduce(into: Set(), { $0.formUnion($1.labels) })
-      .subtracting(result.addLabels)
-    result.mentions.formUnion(teams.values.reduce(into: Set(), { $0.formUnion($1.mentions) }))
+      .subtracting(update.addLabels)
+    update.mentions.formUnion(teams.values.reduce(into: Set(), { $0.formUnion($1.mentions) }))
     let required = teams.values
       .reduce(into: Set(), { $0.formUnion($1.required) })
       .subtracting(status.authors)
@@ -188,21 +138,67 @@ public struct Review {
       .union(necessary)
       .union(optionalRandom)
       .union(reserveRandom)
-    result.watchers = optional.subtracting(status.participants)
-    result.blockers = status.authors
+    update.watchers = optional.subtracting(status.participants)
+    update.blockers = status.authors
       .subtracting(approved)
       .union(approves.filter(\.value.block).keys)
-    result.slackers = status.participants.union(status.randoms)
-    result.approvers = status.participants.intersection(approved)
-    result.outdaters = status.participants
+    update.slackers = status.participants.union(status.randoms)
+    update.approvers = status.participants.intersection(approved)
+    update.outdaters = status.participants
       .union(status.randoms)
       .filter({ approves[$0].get(.outdated) == .outdated })
       .compactMap({ try? [?!status.approves[$0]?.commit.value: Set([$0])] })
       .reduce(into: [:], { $0.merge($1, uniquingKeysWith: { $0.union($1) }) })
-    result.update(authors: status.authors)
+    update.update(authors: status.authors)
+    let troubles = resolveTroubles()
     if let emergency = rules.emergency.flatMap({ rules.teams[$0] }) {
-      result.cheaters = emergency.approvers.intersection(approves.filter(\.value.emergent).keys)
-      if result.cheaters.count >= emergency.quorum { result.state = .emergent }
+      update.cheaters = emergency.approvers.intersection(approves.filter(\.value.emergent).keys)
+      if update.cheaters.count >= emergency.quorum { update.state = .emergent }
+    } else if let troubles = troubles , troubles.unapprovalbeTeams.isEmpty.not {
+      update.state = .unapprovable
+    }
+    return .init(update: update, troubles: troubles)
+  }
+  func resolveApproves() -> [String: Yaml.Fusion.Approval.Status.Resolution] {
+    var result = status.approves
+      .reduce(into: [:], { $0[$1.key] = $1.value.resolution })
+    let cheaters = Set(status.approves.filter(\.value.resolution.emergent).keys)
+    let fragilUtilityTeamUsers = rules.teams
+      .filter({ utilityTeams.contains($0.key) })
+      .filter(\.value.advanceApproval.not)
+      .reduce(into: Set(), { $0.formUnion($1.value.approvers) })
+      .subtracting(cheaters)
+    let fragilUsers = cheaters.isEmpty
+      .else(make: { rules.emergency
+        .flatMap({ rules.teams[$0] })
+        .filter(isIncluded: \.advanceApproval.not)
+        .map(\.approvers)
+        .get([])
+        .intersection(cheaters)
+      })
+      .get([])
+      .union(status.approves.filter(\.value.resolution.fragil).keys)
+      .union(status.authors)
+      .union(fragilUtilityTeamUsers)
+    let fragilDiffTeams = diffTeams
+        .compactMap({ rules.teams[$0]?.advanceApproval.else($0) })
+    let advanceDiffTeams = Set(diffTeams.compactMap({ rules.teams[$0]?.advanceApproval.then($0) }))
+    for (sha, childs) in childCommits {
+      let brokenTeams = childs
+        .compactMap({ changedTeams[$0] })
+        .reduce(into: Set(), { $0.formUnion($1) })
+      let invalids: Set<String> = brokenTeams.isEmpty.then([]) ?? changedTeams
+        .compactMap({ childs.contains($0.key).not.then($0.value) })
+        .reduce(advanceDiffTeams, { $0.subtracting($1) })
+        .union(fragilDiffTeams)
+        .intersection(brokenTeams)
+        .reduce(into: Set(), { $0.formUnion(rules.teams[$1]?.approvers ?? []) })
+        .subtracting(cheaters)
+        .union(fragilUsers)
+      result = status.approves
+        .filter({ $0.value.commit == sha })
+        .filter({ invalids.contains($0.key) })
+        .reduce(into: result, { $0[$1.key] = $1.value.resolution })
     }
     return result
   }
@@ -291,7 +287,7 @@ public struct Review {
       public var approvers: Set<String> = []
       public var cheaters: Set<String> = []
       public var outdaters: [String: Set<String>] = [:]
-      public var state: State = .waitingSlackers
+      public var state: State = .unapprovable
       mutating func update(authors: Set<String>) {
         if slackers.isEmpty.not { state = .waitingSlackers }
         else if outdaters.isEmpty.not { state = .waitingOutdaters }
@@ -302,6 +298,7 @@ public struct Review {
       public enum State: String {
         case emergent
         case approved
+        case unapprovable
         case waitingAuthors
         case waitingHolders
         case waitingOutdaters
@@ -309,7 +306,7 @@ public struct Review {
         public var isApproved: Bool {
           switch self {
           case .emergent, .approved: return true
-          case .waitingAuthors, .waitingHolders, .waitingOutdaters, .waitingSlackers: return false
+          default: return false
           }
         }
       }
