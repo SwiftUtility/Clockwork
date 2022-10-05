@@ -173,6 +173,7 @@ public struct Review {
       .union(optionalRandom)
       .union(reserveRandom)
       .union(necessary)
+    
   }
   func resolveTroubles() -> Approval.Troubles? {
     var result = Approval.Troubles()
