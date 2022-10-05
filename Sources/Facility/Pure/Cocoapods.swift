@@ -27,7 +27,7 @@ public struct Cocoapods {
     public static func make(yaml: Yaml.Cocoapods.Spec) throws -> Self { try .init(
       name: yaml.name,
       url: yaml.url,
-      sha: .init(value: yaml.sha)
+      sha: .make(value: yaml.sha)
     )}
   }
 }

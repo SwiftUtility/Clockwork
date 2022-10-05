@@ -195,6 +195,12 @@ public enum Yaml {
             case .block, .fragil, .advance, .outdated: return false
             }
           }
+          public var block: Bool {
+            switch self {
+            case .block: return true
+            case .block, .fragil, .advance, .emergent, .outdated: return false
+            }
+          }
         }
       }
       public struct Approver: Decodable {

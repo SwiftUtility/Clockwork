@@ -2,12 +2,12 @@ import XCTest
 @testable import Facility
 @testable import FacilityPure
 final class ReviewTests: XCTestCase {
-  let statuses: [UInt: Fusion.Approval.Status] = try! [1: .init(
+  let statuses: [UInt: Fusion.Approval.Status] = [1: .init(
     target: "develop",
     authors: ["u1"],
     randoms: [],
     participants: ["u2"],
-    approves: ["u2": .init(commit: .init(value: "0000000000000000000000000000000000000001"), resolution: .fragil)],
+    approves: ["u2": .init(commit: .init(value: "1"), resolution: .fragil)],
     thread: .init(channel: "channel", ts: "1123123.1231231")
   )]
   let approvers: [String: Fusion.Approval.Approver] = [

@@ -108,7 +108,7 @@ public struct Fusion {
       let components = supply.components(separatedBy: "/-/")
       guard components.count == 4 else { return nil }
       return try .init(
-        fork: .init(value: components[3]),
+        fork: .make(value: components[3]),
         prefix: components[0],
         source: .init(name: components[2]),
         target: .init(name: components[1]),
@@ -404,7 +404,7 @@ public struct Fusion {
         ) throws -> Self {
           guard yaml.count == 1, let (commit, resolution) = yaml.first
           else { throw Thrown("Bad approve format") }
-          return try .init(commit: .init(value: commit), resolution: resolution)
+          return try .init(commit: .make(value: commit), resolution: resolution)
         }
       }
     }

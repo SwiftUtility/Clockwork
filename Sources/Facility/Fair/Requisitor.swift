@@ -244,7 +244,7 @@ public final class Requisitor {
     for spec in cocoapods.specs {
       let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
       let git = try Git(env: cfg.env, root: path)
-      let sha = try Git.Sha(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+      let sha = try Git.Sha.make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
       guard sha != spec.sha else { continue }
       try Execute.checkStatus(reply: execute(cfg.podUpdateSpec(name: spec.name)))
       try Execute.checkStatus(reply: execute(git.resetHard(ref: .make(sha: spec.sha))))
@@ -261,7 +261,7 @@ public final class Requisitor {
       try Execute.checkStatus(reply: execute(cfg.podUpdateSpec(name: spec.name)))
       let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
       let git = try Git(env: cfg.env, root: path)
-      spec.sha = try .init(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+      spec.sha = try .make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
       result.specs.append(spec)
     }
     return result

@@ -53,13 +53,13 @@ public final class Producer {
       ref: gitlabCi.job.pipeline.ref
     ))
     let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-    let head = try Git.Sha(value: gitlabCi.job.pipeline.sha)
+    let head = try Git.Sha.make(value: gitlabCi.job.pipeline.sha)
     var uniq: Set<Git.Sha>? = nil
     var heir: Set<Git.Sha>? = nil
     var lack: Set<Git.Sha> = []
     for build in builds.reversed() {
       guard case .deploy(let deploy) = build, deploy.product == product.name else { continue }
-      let sha = try Git.Sha(value: deploy.sha)
+      let sha = try Git.Sha.make(value: deploy.sha)
       try Id
         .make(cfg.git.listCommits(
           in: [.make(sha: sha)],
@@ -70,7 +70,7 @@ public final class Producer {
         .map(execute)
         .map(Execute.parseLines(reply:))
         .get()
-        .map(Git.Sha.init(value:))
+        .map(Git.Sha.make(value:))
         .forEach { lack.insert($0) }
       let shas = try Id
         .make(cfg.git.listCommits(
@@ -82,7 +82,7 @@ public final class Producer {
         .map(execute)
         .map(Execute.parseLines(reply:))
         .get()
-        .map(Git.Sha.init(value:))
+        .map(Git.Sha.make(value:))
       uniq = uniq.get(Set(shas)).intersection(shas)
       if deploy.version != version { heir = heir.get(Set(shas)).intersection(shas) }
     }

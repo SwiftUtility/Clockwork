@@ -80,7 +80,7 @@ public final class Worker {
     )))
     var result: Set<String> = []
     for commit in commits { try ctx.gitlab
-      .listShaMergeRequests(sha: .init(value: commit))
+      .listShaMergeRequests(sha: .make(value: commit))
       .map(execute)
       .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
       .get()

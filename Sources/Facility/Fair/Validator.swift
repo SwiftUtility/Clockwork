@@ -76,10 +76,10 @@ public final class Validator {
     guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
     else { throw Thrown("Git is dirty") }
     let initial = try Execute.parseText(reply: execute(cfg.git.getSha(ref: .head)))
-    try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: .make(sha: .init(value: base)))))
+    try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: .make(sha: .make(value: base)))))
     let result = try Execute.parseLines(reply: execute(cfg.git.listConflictMarkers))
     try Execute.checkStatus(reply: execute(cfg.git.resetHard(
-      ref: .make(sha: .init(value: initial))
+      ref: .make(sha: .make(value: initial))
     )))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     if json { try stdoutData(JSONEncoder().encode(result)) }

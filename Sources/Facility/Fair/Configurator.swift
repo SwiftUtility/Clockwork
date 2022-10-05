@@ -268,7 +268,7 @@ extension Configurator {
       .map(git.getSha(ref:))
       .map(execute)
       .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
+      .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .get()
     try Execute.checkStatus(reply: execute(git.detach(ref: .make(remote: asset.branch))))
@@ -281,7 +281,7 @@ extension Configurator {
     if try !Execute.parseSuccess(reply: execute(git.notCommited)) {
       try Execute.checkStatus(reply: execute(git.addAll))
       try Execute.checkStatus(reply: execute(git.commit(message: message)))
-      result = try .init(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+      result = try .make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
     } else {
       result = nil
     }

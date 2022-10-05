@@ -56,11 +56,11 @@ public struct Git {
   }
   public struct Sha: Hashable {
     public let value: String
-    public init(value: String) throws {
+    public static func make(value: String) throws -> Self {
       guard value.count == 40, value.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
         throw Thrown("not sha: \(value)")
       }
-      self.value = value
+      return .init(value: value)
     }
   }
   public struct Tree {
@@ -69,7 +69,7 @@ public struct Git {
       self.value = "\(ref.value)^{tree}"
     }
     public init(sha: String) throws {
-      self.value = try Sha(value: sha).value
+      self.value = try Sha.make(value: sha).value
     }
   }
   public struct Branch {

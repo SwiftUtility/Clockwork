@@ -273,7 +273,7 @@ public final class Merger {
     kind: fusion.makeKind(supply: ctx.review.sourceBranch),
     ownage: ctx.gitlab.env.parent
       .map(\.profile)
-      .reduce(.make(sha: .init(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
+      .reduce(.make(sha: .make(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
       .map { file in try Configuration.Profile.make(
         profile: file,
         yaml: parseProfile(.init(git: cfg.git, file: file))
@@ -302,7 +302,7 @@ public final class Merger {
     let fork = review.kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))
-    let current = try Git.Ref.make(sha: .init(value: ctx.review.pipeline.sha))
+    let current = try Git.Ref.make(sha: .make(value: ctx.review.pipeline.sha))
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
     try review.addDiff(files: listAllChanges(cfg: cfg, ctx: ctx, kind: review.kind))
     try review.status.approves.values
@@ -323,7 +323,7 @@ public final class Merger {
       noMerges: false,
       firstParents: false
     ))) {
-      let sha = try Git.Sha(value: sha)
+      let sha = try Git.Sha.make(value: sha)
       try review.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, ctx: ctx, sha: sha))
     }
     return review.updateApproval()
@@ -414,14 +414,14 @@ public final class Merger {
       if ctx.review.targetBranch != merge.target.name { result.append(.badTarget) }
       excludes = [.make(remote: merge.target), .make(sha: merge.fork)]
     }
-    let head = try Git.Sha(value: ctx.job.pipeline.sha)
+    let head = try Git.Sha.make(value: ctx.job.pipeline.sha)
     for branch in try worker.resolveProtectedBranches(cfg: cfg) {
       guard let base = try? Execute.parseText(reply: execute(cfg.git.mergeBase(
         .make(remote: branch),
         .make(sha: head)
       ))) else { continue }
       let extras = try Execute.parseLines(reply: execute(cfg.git.listCommits(
-        in: [.make(sha: .init(value: base))],
+        in: [.make(sha: .make(value: base))],
         notIn: excludes,
         noMerges: false,
         firstParents: false
@@ -437,7 +437,7 @@ public final class Merger {
     ctx: Worker.ParentReview
   ) throws -> Bool {
     try Execute.parseSuccess(reply: execute(cfg.git.check(
-      child: .make(sha: .init(value: ctx.review.pipeline.sha)),
+      child: .make(sha: .make(value: ctx.review.pipeline.sha)),
       parent: .make(remote: .init(name: ctx.review.targetBranch))
     )))
   }
@@ -448,20 +448,20 @@ public final class Merger {
   ) throws -> Bool {
     guard let sha = kind.merge?.fork else { return true }
     let parents = try Id(ctx.review.pipeline.sha)
-      .map(Git.Sha.init(value:))
+      .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .map(cfg.git.listParents(ref:))
       .map(execute)
       .map(Execute.parseLines(reply:))
       .get()
-      .map(Git.Sha.init(value:))
+      .map(Git.Sha.make(value:))
     let target = try Id(ctx.review.targetBranch)
       .map(Git.Branch.init(name:))
       .map(Git.Ref.make(remote:))
       .map(cfg.git.getSha(ref:))
       .map(execute)
       .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
+      .map(Git.Sha.make(value:))
       .get()
     return parents == [sha, target]
   }
@@ -471,7 +471,7 @@ public final class Merger {
     kind: Fusion.Kind
   ) throws -> [String] {
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
-    let current = try Git.Ref.make(sha: .init(value: ctx.job.pipeline.sha))
+    let current = try Git.Ref.make(sha: .make(value: ctx.job.pipeline.sha))
     if let fork = kind.merge?.fork {
       return try listMergeChanges(cfg: cfg, ref: current, parents: [target, .make(sha: fork)])
     } else {
@@ -493,7 +493,7 @@ public final class Merger {
         cfg: cfg,
         ref: sha,
         parents: parents
-          .map(Git.Sha.init(value:))
+          .map(Git.Sha.make(value:))
           .map(Git.Ref.make(sha:))
       )
     } else {
@@ -523,7 +523,7 @@ public final class Merger {
     try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: ref)))
     let result = try Execute.parseLines(reply: execute(cfg.git.listLocalChanges))
     try Execute.checkStatus(reply: execute(cfg.git.resetHard(
-      ref: .make(sha: .init(value: initial))
+      ref: .make(sha: .make(value: initial))
     )))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     return result
@@ -575,10 +575,10 @@ public final class Merger {
       .map(cfg.git.getSha(ref:))
       .map(execute)
       .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
+      .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    let sha = try Git.Ref.make(sha: .init(value: ctx.review.pipeline.sha))
+    let sha = try Git.Ref.make(sha: .make(value: ctx.review.pipeline.sha))
     let message = try generate(cfg.createFusionMergeCommitMessage(
       fusion: fusion,
       review: ctx.review
@@ -610,7 +610,7 @@ public final class Merger {
       .map(cfg.git.getSha(ref:))
       .map(execute)
       .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
+      .map(Git.Sha.make(value:))
       .get()
     try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: initial)))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
@@ -626,8 +626,8 @@ public final class Merger {
     let fork = Git.Ref.make(sha: merge.fork)
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: fork)))
     let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: fork)))
-    return try Git.Sha(value: Execute.parseText(reply: execute(cfg.git.commitTree(
-      tree: .init(ref: .make(sha: .init(value: ctx.job.pipeline.sha))),
+    return try Git.Sha.make(value: Execute.parseText(reply: execute(cfg.git.commitTree(
+      tree: .init(ref: .make(sha: .make(value: ctx.job.pipeline.sha))),
       message: generate(cfg.createFusionMergeCommitMessage(
         fusion: fusion,
         review: ctx.review
@@ -730,7 +730,7 @@ public final class Merger {
       .map(Execute.parseLines(reply:))
       .get()
       .last
-      .map(Git.Sha.init(value:))
+      .map(Git.Sha.make(value:))
     guard let fork = fork else { return nil }
     return try .make(fork: fork, source: merge.source, target: merge.target, isReplication: true)
   }
