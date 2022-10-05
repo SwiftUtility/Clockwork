@@ -13,26 +13,17 @@ public struct Review {
   public internal(set) var diffTeams: Set<String> = []
   public internal(set) var childCommits: [Git.Sha: Set<Git.Sha>] = [:]
   public static func make(
-    gitlabCi: GitlabCi,
-    statuses: [UInt: Fusion.Approval.Status],
+    bot: String,
+    status: Fusion.Approval.Status,
     approvers: [String: Fusion.Approval.Approver],
     review: Json.GitlabReviewState,
     kind: Fusion.Kind,
     ownage: [String: Criteria],
     rules: Fusion.Approval.Rules,
     haters: [String: Set<String>]
-  ) throws -> Self {
-    let unknownTeams = Set(rules.emergency.array + rules.sanity.array)
-      .union(ownage.keys)
-      .union(rules.targetBranch.keys)
-      .union(rules.sourceBranch.keys)
-      .union(rules.authorship.keys)
-      .filter { rules.teams[$0] == nil }
-      .joined(separator: ", ")
-    guard unknownTeams.isEmpty else { throw Thrown("Unknown teams: \(unknownTeams)") }
-    let status = try statuses[review.iid].get { throw Thrown("No review status in asset") }
-    var result = try Self(
-      bot: gitlabCi.protected.get().user.username,
+  ) -> Self {
+    var result = Self(
+      bot: bot,
       approvers: approvers,
       kind: kind,
       ownage: ownage,
@@ -48,7 +39,7 @@ public struct Review {
       )
     }
     result.utilityTeams = kind.proposition.then(rules.authorship).get([:])
-      .filter({ !$0.value.intersection(status.authors).isEmpty })
+      .filter({ $0.value.intersection(status.authors).isEmpty.not })
       .reduce(into: Set(), { $0.insert($1.key) })
       .union(rules.sourceBranch.filter({ $0.value.isMet(review.sourceBranch) }).keys)
       .union(targetTeams)
@@ -69,14 +60,16 @@ public struct Review {
       .intersection(ownage.filter({ files.contains(where: $0.value.isMet(_:)) }).keys)
   }
   public mutating func setAuthor(user: String) throws {
-    guard !status.authors.contains(user) else { return }
-    status.authors = [user]
+    status.authors.insert(user)
     guard kind.proposition else { return }
     status.invalidate(users: rules.authorship
       .filter({ $0.value.contains(user) })
       .compactMap({ rules.teams[$0.key] })
       .reduce(into: [], { $0.formUnion($1.approvers) })
     )
+  }
+  public mutating func squashApproves(sha: Git.Sha) {
+    for user in status.approves.keys { status.approves[user]?.commit = sha }
   }
   public mutating func updateApproval() -> Approval {
     let approves = resolveApproves()
@@ -151,11 +144,10 @@ public struct Review {
       .reduce(into: [:], { $0.merge($1, uniquingKeysWith: { $0.union($1) }) })
     update.update(authors: status.authors)
     let troubles = resolveTroubles()
+    if troubles != nil { update.state = .unapprovable }
     if let emergency = rules.emergency.flatMap({ rules.teams[$0] }) {
       update.cheaters = emergency.approvers.intersection(approves.filter(\.value.emergent).keys)
       if update.cheaters.count >= emergency.quorum { update.state = .emergent }
-    } else if let troubles = troubles , troubles.unapprovalbeTeams.isEmpty.not {
-      update.state = .unapprovable
     }
     return .init(update: update, troubles: troubles)
   }
@@ -221,6 +213,12 @@ public struct Review {
       .union(rules.authorship.flatMap(\.value))
       .union(rules.teams.flatMap(\.value.approvers))
       .subtracting(approvers.keys)
+    result.unknownTeams = Set(rules.emergency.array + rules.sanity.array)
+      .union(ownage.keys)
+      .union(rules.targetBranch.keys)
+      .union(rules.sourceBranch.keys)
+      .union(rules.authorship.keys)
+      .filter { rules.teams[$0] == nil }
     return result.isEmpty.else(result)
   }
   func selectUsers(teams: [String: Fusion.Approval.Rules.Team], users: Set<String>) -> Set<String> {
@@ -268,12 +266,22 @@ public struct Review {
   public struct Approval {
     public var update: Update = .init()
     public var troubles: Troubles? = nil
+    public var isApproved: Bool {
+      switch update.state {
+      case .emergent, .approved: return true
+      default: return false
+      }
+    }
     public struct Troubles {
       public var inactiveAuthors: Set<String> = []
       public var unapprovalbeTeams: Set<String> = []
       public var unknownUsers: Set<String> = []
+      public var unknownTeams: Set<String> = []
       public var isEmpty: Bool {
-        inactiveAuthors.isEmpty && unapprovalbeTeams.isEmpty && unknownUsers.isEmpty
+        inactiveAuthors.isEmpty
+        && unapprovalbeTeams.isEmpty
+        && unknownUsers.isEmpty
+        && unknownTeams.isEmpty
       }
     }
     public struct Update: Equatable {
@@ -295,7 +303,7 @@ public struct Review {
         else if blockers.subtracting(authors).isEmpty { state = .waitingAuthors }
         else { state = .waitingHolders }
       }
-      public enum State: String {
+      public enum State: String, Codable {
         case emergent
         case approved
         case unapprovable
@@ -303,12 +311,6 @@ public struct Review {
         case waitingHolders
         case waitingOutdaters
         case waitingSlackers
-        public var isApproved: Bool {
-          switch self {
-          case .emergent, .approved: return true
-          default: return false
-          }
-        }
       }
     }
   }

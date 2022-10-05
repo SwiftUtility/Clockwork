@@ -90,8 +90,48 @@ public struct Report: Query {
     public var inactiveAuthors: [String]?
     public var unknownUsers: [String]?
     public var unapprovableTeams: [String]?
+    public var unknownTeams: [String]?
   }
-
+  public struct ReviewUpdate: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var review: Json.GitlabReviewState
+    public var users: [String: Fusion.Approval.Approver]
+    public var authors: [String]
+    public var teams: [String]?
+    public var mentions: [String]?
+    public var watchers: [String]?
+    public var blockers: [String]?
+    public var slackers: [String]?
+    public var approvers: [String]?
+    public var cheaters: [String]?
+    public var outdaters: [String: [String]]?
+    public var state: Review.Approval.Update.State
+  }
+  public struct ReviewMerged: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var review: Json.GitlabReviewState
+    public var users: [String: Fusion.Approval.Approver]
+    public var authors: [String]
+  }
+  public struct ReviewMergeError: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var review: Json.GitlabReviewState
+    public var users: [String: Fusion.Approval.Approver]
+    public var authors: [String]
+    public var error: String
+  }
 
 
   public struct Custom: GenerationContext {
@@ -153,23 +193,6 @@ public struct Report: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var markers: [String]
-  }
-  public struct ReviewMerged: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-  }
-  public struct ReviewMergeError: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
-    public var error: String
   }
 //  public struct EmergencyAwardApproval: GenerationContext {
 //    public var event: String = Self.event
@@ -376,9 +399,58 @@ public extension Configuration {
     review: state,
     users: review.approvers,
     authors: review.status.authors.sorted(),
-    inactiveAuthors: troubles.inactiveAuthors.sorted(),
-    unknownUsers: troubles.unknownUsers.sorted(),
-    unapprovableTeams: troubles.unapprovalbeTeams.sorted()
+    inactiveAuthors: troubles.inactiveAuthors.isEmpty.else(troubles.inactiveAuthors.sorted()),
+    unknownUsers: troubles.unknownUsers.isEmpty.else(troubles.unknownUsers.sorted()),
+    unapprovableTeams: troubles.unapprovalbeTeams.isEmpty.else(troubles.unapprovalbeTeams.sorted()),
+    unknownTeams: troubles.unknownTeams.isEmpty.else(troubles.unknownTeams.sorted())
+  ))}
+  func reportReviewUpdate(
+    review: Review,
+    state: Json.GitlabReviewState,
+    update: Review.Approval.Update
+  ) -> Report { .init(cfg: self, context: Report.ReviewUpdate(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: review.status.thread,
+    review: state,
+    users: review.approvers,
+    authors: review.status.authors.sorted(),
+    teams: update.teams.isEmpty.else(update.teams.sorted()),
+    mentions: update.mentions.isEmpty.else(update.mentions.sorted()),
+    watchers: update.watchers.isEmpty.else(update.watchers.sorted()),
+    blockers: update.blockers.isEmpty.else(update.blockers.sorted()),
+    slackers: update.slackers.isEmpty.else(update.slackers.sorted()),
+    approvers: update.approvers.isEmpty.else(update.approvers.sorted()),
+    cheaters: update.cheaters.isEmpty.else(update.cheaters.sorted()),
+    outdaters: update.outdaters.isEmpty.else(update.outdaters.mapValues({ $0.sorted() })),
+    state: update.state
+  ))}
+  func reportReviewMerged(
+    review: Review,
+    state: Json.GitlabReviewState
+  ) -> Report { .init(cfg: self, context: Report.ReviewMerged(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: review.status.thread,
+    review: state,
+    users: review.approvers,
+    authors: review.status.authors.sorted()
+  ))}
+  func reportReviewMergeError(
+    review: Review,
+    state: Json.GitlabReviewState,
+    error: String
+  ) -> Report { .init(cfg: self, context: Report.ReviewMergeError(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: review.status.thread,
+    review: state,
+    users: review.approvers,
+    authors: review.status.authors.sorted(),
+    error: error
   ))}
 
 
@@ -455,30 +527,6 @@ public extension Configuration {
     ctx: context,
     info: try? gitlabCi.get().info,
     markers: markers
-  ))}
-  func reportReviewMerged(
-    review: Json.GitlabReviewState,
-    users: [String]
-  ) -> Report { .init(cfg: self, context: Report.ReviewMerged(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: .init(users)
-      .union([review.author.username])
-  ))}
-  func reportReviewMergeError(
-    review: Json.GitlabReviewState,
-    users: [String],
-    error: String
-  ) -> Report { .init(cfg: self, context: Report.ReviewMergeError(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: .init(users)
-      .union([review.author.username]),
-    error: error
   ))}
 //  func reportEmergencyAwardApproval(
 //    review: Json.GitlabReviewState,
