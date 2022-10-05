@@ -56,38 +56,6 @@ public final class Merger {
     self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
-  public func startProposition(cfg: Configuration) throws -> Bool {
-    let fusion = try resolveFusion(.init(cfg: cfg))
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
-    let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
-    guard kind.proposition else { throw Thrown("Wrong review kind") }
-    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
-    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    guard statuses[ctx.review.iid] == nil else { return true }
-    let authors = try worker.resolveAuthors(cfg: cfg, ctx: ctx, kind: kind)
-    let thread = try createThread(cfg.reportReviewCreated(
-      fusion: fusion,
-      review: ctx.review,
-      users: approvers,
-      authors: authors
-    ))
-    statuses[ctx.review.iid] = Fusion.Approval.Status.make(
-      target: ctx.review.targetBranch,
-      authors: authors,
-      thread: .make(yaml: thread),
-      fork: nil
-    )
-    return try persistAsset(.init(
-      cfg: cfg,
-      asset: fusion.approval.statuses,
-      content: Fusion.Approval.Status.yaml(statuses: statuses),
-      message: generate(cfg.createFusionStatusesCommitMessage(
-        asset: fusion.approval.statuses,
-        review: ctx.review
-      ))
-    ))
-  }
   public func startReplication(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let gitlabCi = try cfg.gitlabCi.get()
