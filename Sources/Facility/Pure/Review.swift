@@ -46,6 +46,19 @@ public struct Review {
     result.status.target = review.targetBranch
     return result
   }
+  public mutating func approve(
+    job: Json.GitlabJob,
+    resolution: Yaml.Fusion.Approval.Status.Resolution
+  ) throws {
+    let user = try getUser(job: job)
+    if case .emergent = resolution {
+      guard let team = rules.emergency.flatMap({ rules.teams[$0] })
+      else { throw Thrown("Emergency team not configured") }
+      guard team.approvers.contains(user)
+      else { throw Thrown("Not emergency approver: \(user)") }
+    }
+    try status.approves[getUser(job: job)] = .init(commit: .make(job: job), resolution: resolution)
+  }
   public mutating func addDiff(files: [String]) {
     for (team, criteria) in ownage {
       if files.contains(where: criteria.isMet(_:)) { diffTeams.insert(team) }
@@ -59,7 +72,8 @@ public struct Review {
     changedTeams[sha] = diffTeams
       .intersection(ownage.filter({ files.contains(where: $0.value.isMet(_:)) }).keys)
   }
-  public mutating func setAuthor(user: String) throws {
+  public mutating func setAuthor(job: Json.GitlabJob) throws {
+    let user = try getUser(job: job)
     status.authors.insert(user)
     guard kind.proposition else { return }
     status.invalidate(users: rules.authorship
@@ -150,6 +164,12 @@ public struct Review {
       if update.cheaters.count >= emergency.quorum { update.state = .emergent }
     }
     return .init(update: update, troubles: troubles)
+  }
+  func getUser(job: Json.GitlabJob) throws -> String {
+    let user = job.user.username
+    guard let approver = approvers[user] else { throw Thrown("Unknown user: \(user)") }
+    guard approver.active else { throw Thrown("Inactive approver: \(user)") }
+    return user
   }
   func resolveApproves() -> [String: Yaml.Fusion.Approval.Status.Resolution] {
     var result = status.approves

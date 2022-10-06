@@ -265,10 +265,10 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
     @Flag(help: "Is approver active")
     var active = true
-    @Option(help: "Approver slack id")
-    var slack: String
-    @Option(help: "Approver gitlab login")
-    var gitlab: String
+    @Option(help: "Approver slack id or current")
+    var slack: String = ""
+    @Option(help: "Approver gitlab login or current")
+    var gitlab: String = ""
   }
   struct UpdateReview: ClockworkCommand {
     static var abstract: String { "Update parent review state" }

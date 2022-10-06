@@ -51,7 +51,7 @@ enum Assembler {
     getTime: Date.init,
     plistDecoder: .init()
   )
-  static let merger = Merger(
+  static let reviewer = Reviewer(
     execute: execute,
     resolveFusion: configurator.resolveFusion(query:),
     resolveFusionStatuses: configurator.resolveFusionStatuses(query:),

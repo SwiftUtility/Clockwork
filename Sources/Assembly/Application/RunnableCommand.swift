@@ -31,7 +31,7 @@ extension RunnableCommand {
 }
 extension Clockwork.AcceptReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.acceptReview(cfg: cfg)
+    try Assembler.reviewer.acceptReview(cfg: cfg)
   }
 }
 extension Clockwork.AddReviewLabels: RunnableCommand {
@@ -41,9 +41,17 @@ extension Clockwork.AddReviewLabels: RunnableCommand {
 }
 extension Clockwork.ApproveReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-//    try Assembler.mediator.addReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.reviewer.approveReview(cfg: cfg, resolution: resolution.status)
+  }
+}
+extension Clockwork.ApproveReview.Resolution {
+  var status: Yaml.Fusion.Approval.Status.Resolution {
+    switch self {
+    case .emergent: return .emergent
+    case .fragil: return .fragil
+    case .advance: return .advance
+    case .block: return .block
+    }
   }
 }
 extension Clockwork.CancelJobs: RunnableCommand {
@@ -90,9 +98,7 @@ extension Clockwork.CreateReleaseBranch: RunnableCommand {
 }
 extension Clockwork.DequeueReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-//    try Assembler.porter.dequeueReview(cfg: cfg)
+    try Assembler.reviewer.dequeueReview(cfg: cfg)
   }
 }
 extension Clockwork.EraseRequisites: RunnableCommand {
@@ -107,7 +113,7 @@ extension Clockwork.ExportBuild: RunnableCommand {
 }
 extension Clockwork.ExportIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.renderIntegration(cfg: cfg)
+    try Assembler.reviewer.renderIntegration(cfg: cfg)
   }
 }
 extension Clockwork.ExportVersions: RunnableCommand {
@@ -132,8 +138,7 @@ extension Clockwork.ImportProvisions: RunnableCommand {
 }
 extension Clockwork.OwnReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
+    try Assembler.reviewer.ownReview(cfg: cfg)
   }
 }
 extension Clockwork.PlayJobs: RunnableCommand {
@@ -204,12 +209,12 @@ extension Clockwork.TriggerReviewPipeline: RunnableCommand {
 }
 extension Clockwork.StartReplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.startReplication(cfg: cfg)
+    try Assembler.reviewer.startReplication(cfg: cfg)
   }
 }
 extension Clockwork.StartIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.startIntegration(cfg: cfg, source: source, target: target, fork: fork)
+    try Assembler.reviewer.startIntegration(cfg: cfg, source: source, target: target, fork: fork)
   }
 }
 extension Clockwork.UpdatePodSpecs: RunnableCommand {
@@ -225,6 +230,6 @@ extension Clockwork.UpdateApprover: RunnableCommand {
 }
 extension Clockwork.UpdateReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.merger.updateReview(cfg: cfg)
+    try Assembler.reviewer.updateReview(cfg: cfg)
   }
 }

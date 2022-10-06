@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public final class Merger {
+public final class Reviewer {
   let execute: Try.Reply<Execute>
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
@@ -56,9 +56,56 @@ public final class Merger {
     self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
-//  public func approveReview(cfg: Configuration) throws -> Bool {
-//
-//  }
+  public func approveReview(
+    cfg: Configuration,
+    resolution: Yaml.Fusion.Approval.Status.Resolution
+  ) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard worker.isLastPipe(ctx: ctx) else { return false }
+    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    var review = try resolveReview(cfg: cfg, ctx: ctx, fusion: fusion, statuses: &statuses)
+    try review.approve(job: ctx.job, resolution: resolution)
+    statuses[ctx.review.iid] = review.status
+    guard try persistAsset(.init(
+      cfg: cfg,
+      asset: fusion.approval.statuses,
+      content: Fusion.Approval.Status.yaml(statuses: statuses),
+      message: generate(cfg.createFusionStatusesCommitMessage(
+        asset: fusion.approval.statuses,
+        review: ctx.review
+      ))
+    )) else { return false }
+    return try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
+      .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
+      .not
+  }
+  public func dequeueReview(cfg: Configuration) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
+    return true
+  }
+  public func ownReview(cfg: Configuration) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
+      .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
+      .not
+    else { return false }
+    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    var review = try resolveReview(cfg: cfg, ctx: ctx, fusion: fusion, statuses: &statuses)
+    try review.setAuthor(job: ctx.job)
+    return try persistAsset(.init(
+      cfg: cfg,
+      asset: fusion.approval.statuses,
+      content: Fusion.Approval.Status.yaml(statuses: statuses),
+      message: generate(cfg.createFusionStatusesCommitMessage(
+        asset: fusion.approval.statuses,
+        review: ctx.review
+      ))
+    ))
+  }
   public func startReplication(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let gitlabCi = try cfg.gitlabCi.get()
