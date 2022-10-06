@@ -56,6 +56,9 @@ public final class Merger {
     self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
+//  public func approveReview(cfg: Configuration) throws -> Bool {
+//
+//  }
   public func startReplication(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let gitlabCi = try cfg.gitlabCi.get()
@@ -78,6 +81,60 @@ public final class Merger {
         merge: merge
       ))
     )
+    return true
+  }
+  public func startIntegration(
+    cfg: Configuration,
+    source: String,
+    target: String,
+    fork: String
+  ) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let merge = try Fusion.Merge.make(
+      fork: .make(value: fork),
+      source: .init(name: source),
+      target: .init(name: target),
+      isReplication: false
+    )
+    try createReview(
+      cfg: cfg,
+      gitlab: cfg.gitlabCi.get(),
+      merge: merge,
+      title: generate(cfg.createIntegrationCommitMessage(
+        integration: fusion.integration,
+        merge: merge
+      ))
+    )
+    return true
+  }
+  public func renderIntegration(cfg: Configuration) throws -> Bool {
+    let gitlabCi = try cfg.gitlabCi.get()
+    let parent = try gitlabCi.env.parent.get()
+    let job = try gitlabCi.getJob(id: parent.job)
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
+      .get()
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let fork = try Git.Sha.make(job: job)
+    let source = try Git.Branch.make(job: job)
+    let targets = try worker
+      .resolveProtectedBranches(cfg: cfg)
+      .filter({ try Execute.parseSuccess(
+        reply: execute(cfg.git.mergeBase(.make(remote: $0), .make(sha: fork)))
+      )})
+      .filter({ try !Execute.parseSuccess(
+        reply: execute(cfg.git.check(child: .make(remote: $0), parent: .make(sha: fork)))
+      )})
+    guard targets.isEmpty.not else {
+      logMessage(.init(message: "No branches suitable for integration"))
+      return false
+    }
+    try writeStdout(generate(cfg.exportIntegrationTargets(
+      integration: fusion.integration,
+      fork: fork,
+      source: source.name,
+      targets: targets.map(\.name)
+    )))
     return true
   }
   public func updateReview(cfg: Configuration) throws -> Bool {
@@ -215,63 +272,6 @@ public final class Merger {
     }
     return true
   }
-  public func startIntegration(
-    cfg: Configuration,
-    source: String,
-    target: String,
-    fork: String
-  ) throws -> Bool {
-//    let fusion = try resolveFusion(.init(cfg: cfg))
-//    let merge = try fusion.integration.makeMerge(target: target, source: source, fork: fork)
-//    if let error = try checkFusionErrors(cfg: cfg, fusion: fusion, kind: .integration(merge)) {
-//      logMessage(.init(message: error))
-//      return false
-//    }
-//    try createReview(
-//      cfg: cfg,
-//      gitlab: cfg.gitlabCi.get(),
-//      merge: merge,
-//      title: generate(cfg.createIntegrationCommitMessage(
-//        integration: fusion.integration,
-//        merge: merge
-//      ))
-//    )
-    #warning("tbd")
-    return true
-  }
-  public func renderIntegration(cfg: Configuration) throws -> Bool {
-//    let gitlabCi = try cfg.gitlabCi.get()
-//    let parent = try gitlabCi.parent.get()
-//    let job = try gitlabCi.getJob(id: parent.job)
-//      .map(execute)
-//      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-//      .get()
-//    let fusion = try resolveFusion(.init(cfg: cfg))
-//    let fork = try Git.Sha(value: job.pipeline.sha)
-//    let source = try Git.Branch(name: job.pipeline.ref)
-//    let rules = try fusion.integration.rules
-//      .filter { $0.source.isMet(source.name) }
-//      .mapEmpty { throw Thrown("Integration for \(source.name) not configured") }
-//    var targets: [String] = []
-//    for target in try listTrackingBranches(cfg: cfg) {
-//      guard fusion.targets.isMet(target.name) else { continue }
-//      guard rules.contains(where: { $0.target.isMet(target.name) }) else { continue }
-//      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
-//        child: .make(remote: target),
-//        parent: .make(sha: fork)
-//      ))) else { continue }
-//      targets.append(target.name)
-//    }
-//    guard !targets.isEmpty else { throw Thrown("No branches suitable for integration") }
-//    try writeStdout(generate(cfg.exportIntegrationTargets(
-//      integration: fusion.integration,
-//      fork: fork,
-//      source: source.name,
-//      targets: targets
-//    )))
-    #warning("tbd")
-    return true
-  }
   func resolveReview(
     cfg: Configuration,
     ctx: Worker.ParentReview,
@@ -346,7 +346,19 @@ public final class Merger {
       .map(Git.Ref.make(sha:))
     let current = try Git.Ref.make(sha: .make(value: ctx.review.pipeline.sha))
     let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
-    try review.addDiff(files: listAllChanges(cfg: cfg, ctx: ctx, kind: review.kind))
+
+    if let fork = review.kind.merge?.fork {
+      try review.addDiff(files: listMergeChanges(
+        cfg: cfg,
+        ref: current,
+        parents: [target, .make(sha: fork)]
+      ))
+    } else {
+      try review.addDiff(files: Execute.parseLines(reply: execute(cfg.git.listChangedFiles(
+        source: current,
+        target: target
+      ))))
+    }
     try review.status.approves.values
       .filter(\.resolution.approved)
       .reduce(into: Set(), { $0.insert($1.commit) })
@@ -507,22 +519,6 @@ public final class Merger {
       .get()
     return parents == [fork, target]
   }
-  func listAllChanges(
-    cfg: Configuration,
-    ctx: Worker.ParentReview,
-    kind: Fusion.Kind
-  ) throws -> [String] {
-    let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
-    let current = try Git.Ref.make(sha: .make(value: ctx.job.pipeline.sha))
-    if let fork = kind.merge?.fork {
-      return try listMergeChanges(cfg: cfg, ref: current, parents: [target, .make(sha: fork)])
-    } else {
-      return try Execute.parseLines(reply: execute(cfg.git.listChangedFiles(
-        source: current,
-        target: target
-      )))
-    }
-  }
   func listChangedFiles(
     cfg: Configuration,
     ctx: Worker.ParentReview,
@@ -568,16 +564,6 @@ public final class Merger {
       ref: .make(sha: .make(value: initial))
     )))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
-    return result
-  }
-  func listTrackingBranches(cfg: Configuration) throws -> [Git.Branch] {
-    var result: [Git.Branch] = []
-    for line in try Execute.parseLines(reply: execute(cfg.git.listAllRefs)) {
-      let pair = line.components(separatedBy: .whitespaces)
-      guard pair.count == 2 else { throw MayDay("bad git reply") }
-      guard let name = try? pair[1].dropPrefix("refs/remotes/origin/") else { continue }
-      try result.append(.init(name: name))
-    }
     return result
   }
   @discardableResult

@@ -57,10 +57,17 @@ public struct Git {
   public struct Sha: Hashable {
     public let value: String
     public static func make(value: String) throws -> Self {
-      guard value.count == 40, value.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
-        throw Thrown("not sha: \(value)")
-      }
+      try validate(sha: value)
       return .init(value: value)
+    }
+    public static func make(job: Json.GitlabJob) throws -> Self {
+      try validate(sha: job.pipeline.sha)
+      return .init(value: job.pipeline.sha)
+    }
+    static func validate(sha: String) throws {
+      guard sha.count == 40, sha.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
+        throw Thrown("Not sha: \(sha)")
+      }
     }
   }
   public struct Tree {
@@ -82,6 +89,10 @@ public struct Git {
         !name.contains(" ")
       else { throw Thrown("invalid branch name") }
       self.name = name
+    }
+    public static func make(job: Json.GitlabJob) throws -> Self {
+      guard job.tag.not else { throw Thrown("Not branch job \(job.webUrl)") }
+      return try .init(name: job.pipeline.ref)
     }
   }
 }
@@ -173,7 +184,7 @@ public extension Git {
     args: ["fetch", "origin", "--prune", "--prune-tags", "--tags", "--force"]
   )}
   func fetchBranch(_ branch: Branch) -> Execute { proc(
-    args: ["fetch", "origin", branch.name, "--no-tags"]
+    args: ["fetch", "origin", Ref.make(local: branch).value, "--no-tags"]
   )}
   func cat(file: File) throws -> Execute {
     var result = proc(args: ["show", "\(file.ref.value):\(file.path.value)"])

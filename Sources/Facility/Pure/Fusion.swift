@@ -117,7 +117,7 @@ public struct Fusion {
     }
   }
   public struct Queue {
-    public private(set) var queue: [String: [UInt]]
+    public internal(set) var queue: [String: [UInt]]
     public var yaml: String {
       var result: String = ""
       for target in queue.keys.sorted() {

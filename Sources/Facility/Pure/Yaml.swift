@@ -186,19 +186,19 @@ public enum Yaml {
           public var fragil: Bool {
             switch self {
             case .fragil: return true
-            case .block, .advance, .emergent, .outdated: return false
+            default: return false
             }
           }
           public var emergent: Bool {
             switch self {
             case .emergent: return true
-            case .block, .fragil, .advance, .outdated: return false
+            default: return false
             }
           }
           public var block: Bool {
             switch self {
             case .block: return true
-            case .block, .fragil, .advance, .emergent, .outdated: return false
+            default: return false
             }
           }
         }
