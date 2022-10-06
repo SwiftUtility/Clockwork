@@ -144,8 +144,6 @@ public struct Report: Query {
     public var authors: [String]
     public var stdin: [String]?
   }
-
-
   public struct Custom: GenerationContext {
     public var event: String = Self.event
     public var subevent: String
@@ -363,9 +361,6 @@ public extension Configuration {
     authors: status.authors.sorted(),
     stdin: stdin.isEmpty.else(stdin)
   ))}
-
-
-
   func reportCustom(
     event: String,
     stdin: [String]

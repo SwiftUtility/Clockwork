@@ -281,44 +281,6 @@ public struct Fusion {
           guard optional.count > quorum else { return optional }
           return []
         }
-//        public var reserveRandom: Set<String> {
-//          guard optional.isEmpty, quorum > 0 else { return [] }
-//          return reserve
-//        }
-//        public var optionalRandom: Set<String> {
-//          guard optional.isEmpty.not, quorum > 0 else { return [] }
-//          return optional
-//        }
-//        public mutating func update(random: Set<String>) {
-//          let random = random.intersection(approvers)
-//          quorum -= random.intersection(approvers).count
-//          required = required.subtracting(involved)
-//          optional = optional.subtracting(involved)
-//          reserve = reserve.subtracting(involved)
-//        }
-//
-//          if optional.union(<#T##other: Sequence##Sequence#>)
-//
-//          let optional = optional.union(required)
-//          let reserve = reserve.union(optional)
-//          if reserve.count < quorum { return reserve }
-//          else if optional.count < quorum { return optional }
-//          else { return [] }
-//        }
-//        public func getRandoms(
-//          active: Set<String>,
-//          haters: Set<String>,
-//          involved: Set<String>
-//        ) -> Set<String> {
-//          guard approvers.intersection(involved) >= quorum else { return [] }
-//          let optional =
-//          guard required.union(optional).intersection(involved)
-//          if required.union(optional).intersection(active).count < quorum {
-//            return reserve.intersection(active)
-//          } else {
-//            return optional.intersection(active)
-//          }
-//        }
       }
       public struct Randoms {
         public var quorum: Int
