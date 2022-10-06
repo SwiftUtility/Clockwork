@@ -97,43 +97,33 @@ public final class Mediator {
     logMessage(.init(message: "Labels removed"))
     return true
   }
-  public func affectParentJob(
+  public func affectJobs(
     configuration cfg: Configuration,
+    pipeline: String,
+    names: [String],
     action: GitlabCi.JobAction
   ) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
-    let parent = try gitlabCi.env.parent.get()
-    let job = try gitlabCi.getJob(id: parent.job)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    try gitlabCi
-      .postJobsAction(job: job.id, action: action)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    return true
-  }
-  public func affectNeighborJob(
-    configuration cfg: Configuration,
-    name: String,
-    action: GitlabCi.JobAction
-  ) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let job = try gitlabCi
-      .getJobs(action: action, pipeline: gitlabCi.job.pipeline.id)
-      .map(execute)
-      .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
-      .get()
-      .filter { $0.name == name }
-      .sorted { $0.id < $1.id }
-      .last
-      .get { throw Thrown("Job \(name) not found") }
-    try gitlabCi
-      .postJobsAction(job: job.id, action: action)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
+    let pipeline = try pipeline.getUInt()
+    var page = 1
+    var jobs: [Json.GitlabJob] = []
+    while true {
+      jobs += try gitlabCi
+        .getJobs(action: action, pipeline: pipeline, page: page, count: 100)
+        .map(execute)
+        .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
+        .get()
+      if jobs.count == page * 100 { page += 1 } else { break }
+    }
+    let names = Set(names)
+    let ids = jobs
+      .filter({ names.contains($0.name) })
+      .reduce(into: [:], { $0[$1.name] = max($0[$1.name].get($1.id), $1.id) })
+      .values
+    guard ids.count == names.count else { return false }
+    for id in ids { try Execute.checkStatus(
+      reply: execute(gitlabCi.postJobsAction(job: id, action: action).get())
+    )}
     return true
   }
 }

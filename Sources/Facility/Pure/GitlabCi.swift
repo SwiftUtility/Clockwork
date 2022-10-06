@@ -208,12 +208,13 @@ public extension GitlabCi {
   func getJobs(
     action: JobAction,
     pipeline: UInt,
-    page: Int = 0
+    page: Int,
+    count: Int
   ) -> Lossy<Execute> {
     let query = [
       "include_retried=true",
       "page=\(page)",
-      "per_page=\(100)",
+      "per_page=\(count)",
     ] + action.scope.map { "scope[]=\($0)" }
     return .init(try .makeCurl(
         url: "\(protected.get().project)/pipelines/\(pipeline)/jobs?\(query.joined(separator: "&"))",

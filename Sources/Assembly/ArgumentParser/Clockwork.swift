@@ -79,8 +79,8 @@ struct Clockwork: ParsableCommand {
   struct CancelJobs: ClockworkCommand {
     static var abstract: String { "Cancel job" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Id of jobs pipeline or current")
-    var pipeline: String = ""
+    @Option(help: "Jobs pipeline id")
+    var pipeline: String
     @Argument(help: "Job names to cancel")
     var names: [String]
   }
@@ -169,8 +169,8 @@ struct Clockwork: ParsableCommand {
   struct PlayJobs: ClockworkCommand {
     static var abstract: String { "Play job with matching names" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Id of jobs pipeline or current")
-    var pipeline: String = ""
+    @Option(help: "Jobs pipeline id")
+    var pipeline: String
     @Argument(help: "Job names to paly")
     var names: [String]
   }
@@ -219,8 +219,8 @@ struct Clockwork: ParsableCommand {
   struct RetryJobs: ClockworkCommand {
     static var abstract: String { "Retry current pipeline's job with matching name" }
     @OptionGroup var clockwork: Clockwork
-    @Option(help: "Id of jobs pipeline or current")
-    var pipeline: String = ""
+    @Option(help: "Jobs pipeline id")
+    var pipeline: String
     @Argument(help: "Job names to retry")
     var names: [String]
   }

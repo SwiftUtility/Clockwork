@@ -71,9 +71,7 @@ public final class Reporter {
     let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     guard let status = statuses[ctx.review.iid] else { throw Thrown("No review thread") }
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
-    #warning("tbc")
-    return false
-    try report(query: cfg.reportReviewCustom(
+    report(query: cfg.reportReviewCustom(
       event: event,
       status: status,
       approvers: approvers,

@@ -56,9 +56,12 @@ extension Clockwork.ApproveReview.Resolution {
 }
 extension Clockwork.CancelJobs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-//    try Assembler.mediator.affectParentJob(configuration: cfg, action: .cancel)
+    try Assembler.mediator.affectJobs(
+      configuration: cfg,
+      pipeline: pipeline,
+      names: names,
+      action: .cancel
+    )
   }
 }
 extension Clockwork.CheckConflictMarkers: RunnableCommand {
@@ -143,9 +146,12 @@ extension Clockwork.OwnReview: RunnableCommand {
 }
 extension Clockwork.PlayJobs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-//    try Assembler.mediator.affectParentJob(configuration: cfg, action: .play)
+    try Assembler.mediator.affectJobs(
+      configuration: cfg,
+      pipeline: pipeline,
+      names: names,
+      action: .play
+    )
   }
 }
 extension Clockwork.ReportCustom: RunnableCommand {
@@ -187,9 +193,12 @@ extension Clockwork.ResetPodSpecs: RunnableCommand {
 }
 extension Clockwork.RetryJobs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-//    try Assembler.mediator.affectParentJob(configuration: cfg, action: .retry)
+    try Assembler.mediator.affectJobs(
+      configuration: cfg,
+      pipeline: pipeline,
+      names: names,
+      action: .retry
+    )
   }
 }
 extension Clockwork.RemoveReviewLabels: RunnableCommand {
