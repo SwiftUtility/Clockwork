@@ -224,8 +224,7 @@ extension Clockwork.UpdatePodSpecs: RunnableCommand {
 }
 extension Clockwork.UpdateApprover: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
+    try Assembler.reviewer.updateApprover(cfg: cfg, active: active, slack: slack, gitlab: gitlab)
   }
 }
 extension Clockwork.UpdateReview: RunnableCommand {

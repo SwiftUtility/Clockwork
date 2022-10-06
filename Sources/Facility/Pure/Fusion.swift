@@ -119,13 +119,11 @@ public struct Fusion {
   public struct Queue {
     public internal(set) var queue: [String: [UInt]]
     public var yaml: String {
-      var result: String = ""
-      for target in queue.keys.sorted() {
-        guard let reviews = queue[target], !reviews.isEmpty else { continue }
-        result += "'\(target)':\n"
-        for review in reviews { result += "- \(review)\n" }
-      }
-      return result.isEmpty.else(result).get("{}\n")
+      guard queue.isEmpty.not else { return "{}\n" }
+      return queue
+        .sorted(by: { $0.key < $1.key })
+        .map({ "'\($0.key)': [\($0.value.map(String.init(_:)).joined(separator: ", "))]\n" })
+        .joined()
     }
     public mutating func enqueue(review: UInt, target: String?) -> Set<UInt> {
       var result: Set<UInt> = []
@@ -197,12 +195,22 @@ public struct Fusion {
     public struct Approver: Encodable {
       public var active: Bool
       public var slack: String
-      public var name: String
+      var yaml: String { "{active: \(active), slack: '\(slack)}" }
       public static func make(yaml: Yaml.Fusion.Approval.Approver) -> Self { .init(
         active: yaml.active,
-        slack: yaml.slack,
-        name: yaml.name
+        slack: yaml.slack
       )}
+      public static func make(active: Bool, slack: String) -> Self { .init(
+        active: active,
+        slack: slack
+      )}
+      public static func yaml(approvers: [String: Self]) -> String {
+        guard approvers.isEmpty.not else { return "{}\n" }
+        return approvers
+          .sorted(by: { $0.key < $1.key })
+          .map({ "'\($0.key)': \($0.value.yaml)\n" })
+          .joined()
+      }
     }
     public struct Rules {
       public var sanity: String?

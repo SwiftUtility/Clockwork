@@ -6,6 +6,9 @@ public final class Reporter {
   let writeStdout: Act.Of<String>.Go
   let readStdin: Try.Do<Execute.Reply>
   let generate: Try.Reply<Generate>
+  let resolveFusion: Try.Reply<Configuration.ResolveFusion>
+  let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
+  let resolveApprovers: Try.Reply<Configuration.ResolveApprovers>
   let logMessage: Act.Reply<LogMessage>
   let worker: Worker
   let jsonDecoder: JSONDecoder
@@ -14,6 +17,9 @@ public final class Reporter {
     writeStdout: @escaping Act.Of<String>.Go,
     readStdin: @escaping Try.Do<Execute.Reply>,
     generate: @escaping Try.Reply<Generate>,
+    resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
+    resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
+    resolveApprovers: @escaping Try.Reply<Configuration.ResolveApprovers>,
     logMessage: @escaping Act.Reply<LogMessage>,
     worker: Worker,
     jsonDecoder: JSONDecoder
@@ -22,6 +28,9 @@ public final class Reporter {
     self.writeStdout = writeStdout
     self.readStdin = readStdin
     self.generate = generate
+    self.resolveFusion = resolveFusion
+    self.resolveFusionStatuses = resolveFusionStatuses
+    self.resolveApprovers = resolveApprovers
     self.logMessage = logMessage
     self.worker = worker
     self.jsonDecoder = jsonDecoder
@@ -53,24 +62,25 @@ public final class Reporter {
     return true
   }
   public func reportReviewCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    let stdin = try stdin
+      .then(readStdin())
+      .map(Execute.parseLines(reply:))
+      .get([])
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    guard let status = statuses[ctx.review.iid] else { throw Thrown("No review thread") }
+    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
     #warning("tbc")
     return false
-//    let stdin = try stdin
-//      .then(readStdin())
-//      .map(Execute.parseLines(reply:))
-//      .get([])
-//    let ctx = try worker.resolveParentReview(cfg: cfg)
-//    try report(query: cfg.reportReviewCustom(
-//      event: event,
-//      review: ctx.review,
-//      users: worker.resolveParticipants(
-//        cfg: cfg,
-//        gitlabCi: ctx.gitlab,
-//        source: .make(sha: .init(value: ctx.job.pipeline.sha)),
-//        target: .make(remote: .init(name: ctx.review.targetBranch))
-//      ),
-//      stdin: stdin))
-//    return true
+    try report(query: cfg.reportReviewCustom(
+      event: event,
+      status: status,
+      approvers: approvers,
+      state: ctx.review,
+      stdin: stdin
+    ))
+    return true
   }
   public func report(query: Report) -> Report.Reply {
     let slack: Slack

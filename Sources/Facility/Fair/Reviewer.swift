@@ -56,6 +56,38 @@ public final class Reviewer {
     self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
+  public func updateApprover(
+    cfg: Configuration,
+    active: Bool,
+    slack: String,
+    gitlab: String
+  ) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    var approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    let user = try gitlab.isEmpty
+      .else(gitlab)
+      .get(cfg.gitlabCi.get().job.user.username)
+    let slack = try slack.isEmpty
+      .else(slack)
+      .flatMapNil(approvers[user]?.slack)
+      .get { throw Thrown("No slack id for user: \(user)") }
+    let clones = approvers
+      .filter({ $0.key != user && $0.value.slack == slack })
+      .keys
+      .joined(separator: ", ")
+    guard clones.isEmpty else { throw Thrown("Same slack as: \(clones)") }
+    approvers[user] = .make(active: active, slack: slack)
+    return try persistAsset(.init(
+      cfg: cfg,
+      asset: fusion.approval.approvers,
+      content: Fusion.Approval.Approver.yaml(approvers: approvers),
+      message: generate(cfg.createUserActivityCommitMessage(
+        asset: fusion.approval.approvers,
+        user: user,
+        active: active
+      ))
+    ))
+  }
   public func approveReview(
     cfg: Configuration,
     resolution: Yaml.Fusion.Approval.Status.Resolution

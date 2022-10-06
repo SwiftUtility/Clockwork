@@ -132,6 +132,18 @@ public struct Report: Query {
     public var authors: [String]
     public var error: String
   }
+  public struct ReviewCustom: GenerationContext {
+    public var event: String = Self.event
+    public var subevent: String
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var review: Json.GitlabReviewState
+    public var users: [String: Fusion.Approval.Approver]
+    public var authors: [String]
+    public var stdin: [String]?
+  }
 
 
   public struct Custom: GenerationContext {
@@ -140,16 +152,6 @@ public struct Report: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var stdin: [String]?
-  }
-  public struct ReviewCustom: GenerationContext {
-    public var event: String = Self.event
-    public var subevent: String
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-    public var users: Set<String>
     public var stdin: [String]?
   }
   public struct Unexpected: GenerationContext {
@@ -452,6 +454,23 @@ public extension Configuration {
     authors: review.status.authors.sorted(),
     error: error
   ))}
+  func reportReviewCustom(
+    event: String,
+    status: Fusion.Approval.Status,
+    approvers: [String: Fusion.Approval.Approver],
+    state: Json.GitlabReviewState,
+    stdin: [String]
+  ) -> Report { .init(cfg: self, context: Report.ReviewCustom(
+    subevent: event,
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: status.thread,
+    review: state,
+    users: approvers,
+    authors: status.authors.sorted(),
+    stdin: stdin.isEmpty.else(stdin)
+  ))}
 
 
 
@@ -463,21 +482,6 @@ public extension Configuration {
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
-    stdin: stdin.isEmpty.else(stdin)
-  ))}
-  func reportReviewCustom(
-    event: String,
-    review: Json.GitlabReviewState,
-    users: [String],
-    stdin: [String]
-  ) -> Report { .init(cfg: self, context: Report.ReviewCustom(
-    subevent: event,
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    review: review,
-    users: .init(users)
-      .union([review.author.username]),
     stdin: stdin.isEmpty.else(stdin)
   ))}
   func reportUnexpected(

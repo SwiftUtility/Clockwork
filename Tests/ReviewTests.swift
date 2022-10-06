@@ -11,9 +11,9 @@ final class ReviewTests: XCTestCase {
     thread: .init(channel: "channel", ts: "1123123.1231231")
   )]
   let approvers: [String: Fusion.Approval.Approver] = [
-    "u1": .init(active: true, slack: "1", name: "u1"),
-    "u2": .init(active: true, slack: "2", name: "u2"),
-    "u3": .init(active: true, slack: "3", name: "u3"),
+    "u1": .init(active: true, slack: "1"),
+    "u2": .init(active: true, slack: "2"),
+    "u3": .init(active: true, slack: "3"),
   ]
   let haters: [String : Set<String>] = [:]
   let rules: Fusion.Approval.Rules = try! .init(

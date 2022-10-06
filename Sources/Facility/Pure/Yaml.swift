@@ -206,7 +206,6 @@ public enum Yaml {
       public struct Approver: Decodable {
         public var active: Bool
         public var slack: String
-        public var name: String
       }
     }
   }
