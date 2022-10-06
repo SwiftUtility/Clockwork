@@ -211,7 +211,6 @@ public final class Producer {
         version: next
       ))
     ))
-    report(cfg.reportVersionBumped(product: product.name, version: next))
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
