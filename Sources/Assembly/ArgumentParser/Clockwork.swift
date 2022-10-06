@@ -23,7 +23,6 @@ struct Clockwork: ParsableCommand {
       ExportBuild.self,
       ExportIntegration.self,
       ExportVersions.self,
-      ForbidReview.self,
       ImportRequisites.self,
       ImportPkcs12.self,
       ImportProvisions.self,
@@ -43,7 +42,7 @@ struct Clockwork: ParsableCommand {
       StartReplication.self,
       StartIntegration.self,
       UpdatePodSpecs.self,
-      UpdateApprovers.self,
+      UpdateApprover.self,
       UpdateReview.self,
     ]
   )
@@ -143,10 +142,6 @@ struct Clockwork: ParsableCommand {
   }
   struct ExportVersions: ClockworkCommand {
     static var abstract: String { "Render current next versions to stdout" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct ForbidReview: ClockworkCommand {
-    static var abstract: String { "Prevent parent review merge by active users" }
     @OptionGroup var clockwork: Clockwork
   }
   struct ImportRequisites: ClockworkCommand {
@@ -265,9 +260,15 @@ struct Clockwork: ParsableCommand {
     static var abstract: String { "Update cocoapods specs and configured commist" }
     @OptionGroup var clockwork: Clockwork
   }
-  struct UpdateApprovers: ClockworkCommand {
+  struct UpdateApprover: ClockworkCommand {
     static var abstract: String { "Update approver status" }
     @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Is approver active")
+    var active = true
+    @Option(help: "Approver slack id")
+    var slack: String
+    @Option(help: "Approver gitlab login")
+    var gitlab: String
   }
   struct UpdateReview: ClockworkCommand {
     static var abstract: String { "Update parent review state" }

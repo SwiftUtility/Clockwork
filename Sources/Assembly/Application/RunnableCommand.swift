@@ -115,13 +115,6 @@ extension Clockwork.ExportVersions: RunnableCommand {
     try Assembler.producer.renderVersions(cfg: cfg)
   }
 }
-extension Clockwork.ForbidReview: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-//    try Assembler.producer.renderVersions(cfg: cfg)
-  }
-}
 extension Clockwork.ImportRequisites: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.installRequisite(cfg: cfg, requisites: requisites)
@@ -224,7 +217,7 @@ extension Clockwork.UpdatePodSpecs: RunnableCommand {
     try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
   }
 }
-extension Clockwork.UpdateApprovers: RunnableCommand {
+extension Clockwork.UpdateApprover: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     #warning("tbd")
     return false
