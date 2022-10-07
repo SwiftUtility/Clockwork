@@ -8,8 +8,10 @@ public final class Producer {
   let resolveProduction: Try.Reply<Configuration.ResolveProduction>
   let resolveProductionVersions: Try.Reply<Configuration.ResolveProductionVersions>
   let resolveProductionBuilds: Try.Reply<Configuration.ResolveProductionBuilds>
+  let parseDeliveries: Try.Reply<Configuration.ParseYamlFile<Deliveries>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let report: Act.Reply<Report>
+  let createThread: Try.Reply<Report.CreateThread>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
   let worker: Worker
@@ -21,8 +23,10 @@ public final class Producer {
     resolveProduction: @escaping Try.Reply<Configuration.ResolveProduction>,
     resolveProductionVersions: @escaping Try.Reply<Configuration.ResolveProductionVersions>,
     resolveProductionBuilds: @escaping Try.Reply<Configuration.ResolveProductionBuilds>,
+    parseDeliveries: @escaping Try.Reply<Configuration.ParseYamlFile<Deliveries>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     report: @escaping Act.Reply<Report>,
+    createThread: @escaping Try.Reply<Report.CreateThread>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
     worker: Worker,
@@ -34,8 +38,10 @@ public final class Producer {
     self.resolveProduction = resolveProduction
     self.resolveProductionVersions = resolveProductionVersions
     self.resolveProductionBuilds = resolveProductionBuilds
+    self.parseDeliveries = parseDeliveries
     self.persistAsset = persistAsset
     self.report = report
+    self.createThread = createThread
     self.logMessage = logMessage
     self.writeStdout = writeStdout
     self.worker = worker
@@ -180,6 +186,12 @@ public final class Producer {
     var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
     let version = try versions[product.name]
       .get { throw Thrown("No version for \(product.name)") }
+    var deliveries = try loadDeliveries(cfg: cfg, production: production)
+    guard Production.Delivery.shipment(
+      deliveries: deliveries,
+      product: product.name,
+      version: version
+    ) == nil else { throw Thrown("Release \(product) \(version) already exists") }
     let name = try generate(cfg.createReleaseBranchName(
       production: production,
       product: product,
@@ -192,7 +204,28 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    report(cfg.reportReleaseBranchCreated(ref: name, product: product.name, version: version))
+    try Production.Delivery.record(
+      deliveries: &deliveries,
+      product: product.name,
+      release: version,
+      start: .make(job: gitlabCi.job),
+      thread: createThread(cfg.reportReleaseBranchCreated(
+        production: production,
+        ref: name,
+        product: product.name,
+        version: version
+      ))
+    )
+    _ = try persistAsset(.init(
+      cfg: cfg,
+      asset: production.deliveries,
+      content: Production.Delivery.serialize(deliveries: deliveries),
+      message: try generate(cfg.createDeliveryCommitMessage(
+        production: production,
+        product: product,
+        version: version
+      ))
+    ))
     let next = try generate(cfg.bumpCurrentVersion(
       product: product,
       version: version
@@ -206,11 +239,13 @@ public final class Producer {
         .sorted()
         .joined(),
       message: try generate(cfg.createVersionCommitMessage(
-        asset: production.versions,
+        production: production,
         product: product,
         version: next
       ))
     ))
+    #warning("tbd")
+    //    report(cfg.reportReleaseBranchCreated(ref: name, product: product.name, version: version))
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
@@ -239,7 +274,8 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    report(cfg.reportHotfixBranchCreated(ref: name, product: product.name, version: hotfix))
+    #warning("tbd")
+//    report(cfg.reportHotfixBranchCreated(ref: name, product: product.name, version: hotfix))
     return true
   }
   public func createAccessoryBranch(
@@ -363,9 +399,19 @@ public final class Producer {
         .map(\.yaml)
         .joined(),
       message: generate(cfg.createBuildCommitMessage(
-        asset: production.builds,
+        production: production,
         build: build.build
       ))
     ))
   }
+  func loadDeliveries(
+    cfg: Configuration,
+    production: Production
+  ) throws -> Production.Deliveries { try Id
+    .make(.init(git: cfg.git, file: .make(asset: production.deliveries)))
+    .map(parseDeliveries)
+    .get()
+    .mapValues({ try $0.map(Production.Delivery.make(yaml:)) })
+  }
+  public typealias Deliveries = [String: [Yaml.Production.Delivery]]
 }

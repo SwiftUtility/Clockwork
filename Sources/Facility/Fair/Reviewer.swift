@@ -81,8 +81,8 @@ public final class Reviewer {
       cfg: cfg,
       asset: fusion.approval.approvers,
       content: Fusion.Approval.Approver.yaml(approvers: approvers),
-      message: generate(cfg.createUserActivityCommitMessage(
-        asset: fusion.approval.approvers,
+      message: generate(cfg.createApproversCommitMessage(
+        fusion: fusion,
         user: user,
         active: active
       ))
@@ -104,7 +104,7 @@ public final class Reviewer {
       asset: fusion.approval.statuses,
       content: Fusion.Approval.Status.yaml(statuses: statuses),
       message: generate(cfg.createFusionStatusesCommitMessage(
-        asset: fusion.approval.statuses,
+        fusion: fusion,
         review: ctx.review
       ))
     )) else { return false }
@@ -133,7 +133,7 @@ public final class Reviewer {
       asset: fusion.approval.statuses,
       content: Fusion.Approval.Status.yaml(statuses: statuses),
       message: generate(cfg.createFusionStatusesCommitMessage(
-        asset: fusion.approval.statuses,
+        fusion: fusion,
         review: ctx.review
       ))
     ))
@@ -257,7 +257,7 @@ public final class Reviewer {
       asset: fusion.approval.statuses,
       content: Fusion.Approval.Status.yaml(statuses: statuses),
       message: generate(cfg.createFusionStatusesCommitMessage(
-        asset: fusion.approval.statuses,
+        fusion: fusion,
         review: ctx.review
       ))
     ))
@@ -280,7 +280,7 @@ public final class Reviewer {
         asset: fusion.approval.statuses,
         content: Fusion.Approval.Status.yaml(statuses: statuses),
         message: generate(cfg.createFusionStatusesCommitMessage(
-          asset: fusion.approval.statuses,
+          fusion: fusion,
           review: ctx.review
         ))
       ))
@@ -379,7 +379,7 @@ public final class Reviewer {
         asset: fusion.approval.statuses,
         content: Fusion.Approval.Status.yaml(statuses: statuses),
         message: generate(cfg.createFusionStatusesCommitMessage(
-          asset: fusion.approval.statuses,
+          fusion: fusion,
           review: ctx.review
         ))
       ))
@@ -658,7 +658,7 @@ public final class Reviewer {
       target: enqueue.then(ctx.review.targetBranch)
     )
     let message = try generate(cfg.createReviewQueueCommitMessage(
-      asset: fusion.queue,
+      fusion: fusion,
       review: ctx.review,
       queued: enqueue
     ))

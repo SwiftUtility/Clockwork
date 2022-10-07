@@ -380,29 +380,37 @@ public extension Configuration {
     error: String(describing: error)
   ))}
   func reportReleaseBranchCreated(
+    production: Production,
     ref: String,
     product: String,
     version: String
-  ) -> Report { .init(cfg: self, context: Report.ReleaseBranchCreated(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    ref: ref,
-    product: product,
-    version: version
-  ))}
+  ) -> Report.CreateThread { .init(
+    template: production.createReleaseThread,
+    report: .init(cfg: self, context: Report.ReleaseBranchCreated(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      ref: ref,
+      product: product,
+      version: version
+    ))
+  )}
   func reportHotfixBranchCreated(
+    production: Production,
     ref: String,
     product: String,
     version: String
-  ) -> Report { .init(cfg: self, context: Report.HotfixBranchCreated(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    ref: ref,
-    product: product,
-    version: version
-  ))}
+  ) -> Report.CreateThread { .init(
+    template: production.createHotfixThread,
+    report: .init(cfg: self, context: Report.HotfixBranchCreated(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      ref: ref,
+      product: product,
+      version: version
+    ))
+  )}
   func reportDeployTagCreated(
     ref: String,
     product: Production.Product,

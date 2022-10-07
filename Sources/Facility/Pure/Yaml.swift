@@ -47,10 +47,12 @@ public enum Yaml {
   public struct Production: Decodable {
     public var builds: Asset
     public var versions: Asset
-    public var releases: Asset
+    public var deliveries: Asset
     public var bumpBuildNumber: Template
     public var exportBuild: Template
     public var exportVersions: Template
+    public var createReleaseThread: Template
+    public var createHotfixThread: Template
     public var deployTag: DeployTag
     public var releaseBranch: ReleaseBranch
     public var products: [String: Product]
@@ -70,7 +72,6 @@ public enum Yaml {
       public var createAnnotation: Template
     }
     public struct ReleaseBranch: Decodable {
-      public var createThread: Template
       public var createName: Template
       public var parseVersion: Template
     }
@@ -87,10 +88,15 @@ public enum Yaml {
       public var product: String?
       public var version: String?
     }
-    public struct Release: Decodable {
-      public var thread: Thread
-      public var product: String
-      public var version: String
+    public struct Delivery: Decodable {
+      public var release: Shipment
+      public var hotfixes: [Shipment]?
+      public struct Shipment: Decodable {
+        public var start: String
+        public var thread: Thread
+        public var version: String
+        public var deploys: [String]?
+      }
     }
   }
   public struct Requisition: Decodable {
@@ -222,6 +228,12 @@ public enum Yaml {
     public var value: String?
     public var envVar: String?
     public var envFile: String?
+    public var sysFile: String?
+    public var gitFile: GitFile?
+    public struct GitFile: Decodable {
+      public var path: String
+      public var branch: String
+    }
   }
   public struct Criteria: Decodable {
     var include: [String]?

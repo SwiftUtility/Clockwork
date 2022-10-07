@@ -122,6 +122,14 @@ public struct Generate: Query {
     public var product: String
     public var version: String
   }
+  public struct CreateDeliveryCommitMessage: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var product: String
+    public var version: String
+  }
   public struct CreateVersionCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
@@ -137,7 +145,7 @@ public struct Generate: Query {
     public var info: GitlabCi.Info?
     public var build: String
   }
-  public struct CreateUserActivityCommitMessage: GenerationContext {
+  public struct CreateApproversCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -398,13 +406,29 @@ public extension Configuration {
       version: version
     )
   )}
-  func createVersionCommitMessage(
-    asset: Asset,
+  func createDeliveryCommitMessage(
+    production: Production,
     product: Production.Product,
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: asset.createCommitMessage,
+    template: production.deliveries.createCommitMessage,
+    templates: templates,
+    context: Generate.CreateVersionCommitMessage(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      product: product.name,
+      version: version
+    )
+  )}
+  func createVersionCommitMessage(
+    production: Production,
+    product: Production.Product,
+    version: String
+  ) -> Generate { .init(
+    allowEmpty: false,
+    template: production.versions.createCommitMessage,
     templates: templates,
     context: Generate.CreateVersionCommitMessage(
       env: env,
@@ -415,11 +439,11 @@ public extension Configuration {
     )
   )}
   func createBuildCommitMessage(
-    asset: Asset,
+    production: Production,
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: asset.createCommitMessage,
+    template: production.builds.createCommitMessage,
     templates: templates,
     context: Generate.CreateBuildCommitMessage(
       env: env,
@@ -428,15 +452,15 @@ public extension Configuration {
       build: build
     )
   )}
-  func createUserActivityCommitMessage(
-    asset: Asset,
+  func createApproversCommitMessage(
+    fusion: Fusion,
     user: String,
     active: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: asset.createCommitMessage,
+    template: fusion.approval.approvers.createCommitMessage,
     templates: templates,
-    context: Generate.CreateUserActivityCommitMessage(
+    context: Generate.CreateApproversCommitMessage(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
@@ -445,12 +469,12 @@ public extension Configuration {
     )
   )}
   func createReviewQueueCommitMessage(
-    asset: Asset,
+    fusion: Fusion,
     review: Json.GitlabReviewState,
     queued: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: asset.createCommitMessage,
+    template: fusion.queue.createCommitMessage,
     templates: templates,
     context: Generate.CreateReviewQueueCommitMessage(
       env: env,
@@ -461,11 +485,11 @@ public extension Configuration {
     )
   )}
   func createFusionStatusesCommitMessage(
-    asset: Asset,
+    fusion: Fusion,
     review: Json.GitlabReviewState
   ) -> Generate { .init(
     allowEmpty: false,
-    template: asset.createCommitMessage,
+    template: fusion.approval.statuses.createCommitMessage,
     templates: templates,
     context: Generate.CreateFusionStatusesCommitMessage(
       env: env,

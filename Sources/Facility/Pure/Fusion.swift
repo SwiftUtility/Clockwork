@@ -121,8 +121,8 @@ public struct Fusion {
     public var yaml: String {
       guard queue.isEmpty.not else { return "{}\n" }
       return queue
-        .sorted(by: { $0.key < $1.key })
         .map({ "'\($0.key)': [\($0.value.map(String.init(_:)).joined(separator: ", "))]\n" })
+        .sorted()
         .joined()
     }
     public mutating func enqueue(review: UInt, target: String?) -> Set<UInt> {
