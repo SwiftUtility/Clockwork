@@ -75,8 +75,7 @@ public final class Worker {
     let commits = try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [.make(sha: merge.fork)],
       notIn: [.make(remote: merge.target)],
-      noMerges: true,
-      firstParents: false
+      noMerges: true
     )))
     var result: Set<String> = []
     for commit in commits { try ctx.gitlab

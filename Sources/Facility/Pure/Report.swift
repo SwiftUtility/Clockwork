@@ -144,6 +144,30 @@ public struct Report: Query {
     public var authors: [String]
     public var stdin: [String]?
   }
+  public struct ReleaseBranchCreated: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var ref: String
+    public var product: String
+    public var version: String
+    public var subevent: String { product }
+  }
+  public struct ReleaseBranchSummary: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var ref: String
+    public var product: String
+    public var version: String
+    public var notes: Production.ReleaseNotes?
+    public var subevent: String { product }
+  }
+
+
   public struct Custom: GenerationContext {
     public var event: String = Self.event
     public var subevent: String
@@ -158,16 +182,6 @@ public struct Report: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var error: String
-  }
-  public struct ReleaseBranchCreated: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var ref: String
-    public var product: String
-    public var version: String
-    public var subevent: String { product }
   }
   public struct HotfixBranchCreated: GenerationContext {
     public var event: String = Self.event
@@ -186,9 +200,8 @@ public struct Report: Query {
     public var info: GitlabCi.Info?
     public var ref: String
     public var product: String
-    public var deploy: Production.Build.Deploy
+    public var deploy: Production.Build.Tag
     public var uniq: [Commit]?
-    public var heir: [Commit]?
     public var lack: [Commit]?
     public var subevent: String { product }
     public struct Commit: Encodable {
@@ -361,6 +374,36 @@ public extension Configuration {
     authors: status.authors.sorted(),
     stdin: stdin.isEmpty.else(stdin)
   ))}
+  func reportReleaseBranchCreated(
+    product: Production.Product,
+    ref: String,
+    version: String
+  ) -> Report.CreateThread { .init(
+    template: product.release.createThread,
+    report: .init(cfg: self, context: Report.ReleaseBranchCreated(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      ref: ref,
+      product: product.name,
+      version: version
+    ))
+  )}
+  func reportReleaseBranchSummary(
+    product: Production.Product,
+    delivery: Production.Versions.Delivery,
+    notes: Production.ReleaseNotes
+  ) -> Report { .init(cfg: self, context: Report.ReleaseBranchSummary(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: delivery.thread,
+    ref: delivery.branch.name,
+    product: product.name,
+    version: delivery.version,
+    notes: notes.isEmpty.else(notes)
+  ))}
+
   func reportCustom(
     event: String,
     stdin: [String]
@@ -379,42 +422,25 @@ public extension Configuration {
     info: try? gitlabCi.get().info,
     error: String(describing: error)
   ))}
-  func reportReleaseBranchCreated(
-    production: Production,
-    ref: String,
-    product: String,
-    version: String
-  ) -> Report.CreateThread { .init(
-    template: production.createReleaseThread,
-    report: .init(cfg: self, context: Report.ReleaseBranchCreated(
-      env: env,
-      ctx: context,
-      info: try? gitlabCi.get().info,
-      ref: ref,
-      product: product,
-      version: version
-    ))
-  )}
   func reportHotfixBranchCreated(
-    production: Production,
+    product: Production.Product,
     ref: String,
-    product: String,
     version: String
   ) -> Report.CreateThread { .init(
-    template: production.createHotfixThread,
+    template: product.hotfix.createThread,
     report: .init(cfg: self, context: Report.HotfixBranchCreated(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       ref: ref,
-      product: product,
+      product: product.name,
       version: version
     ))
   )}
   func reportDeployTagCreated(
     ref: String,
     product: Production.Product,
-    deploy: Production.Build.Deploy,
+    deploy: Production.Build.Tag,
     uniq: [Report.DeployTagCreated.Commit],
     heir: [Report.DeployTagCreated.Commit],
     lack: [Report.DeployTagCreated.Commit]
@@ -426,7 +452,6 @@ public extension Configuration {
     product: product.name,
     deploy: deploy,
     uniq: uniq.isEmpty.else(uniq),
-    heir: heir.isEmpty.else(heir),
     lack: lack.isEmpty.else(lack)
   ))}
   func reportAccessoryBranchCreated(

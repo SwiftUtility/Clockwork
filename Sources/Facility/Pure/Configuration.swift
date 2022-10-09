@@ -134,13 +134,20 @@ public struct Configuration {
     case value(String)
     case envVar(String)
     case envFile(String)
+    case sysFile(String)
+    case gitFile(Git.File)
     public static func make(yaml: Yaml.Secret) throws -> Self {
-      guard [yaml.value, yaml.envVar, yaml.envFile].compactMap({$0}).count < 2
-      else { throw Thrown("Multiple values in secret") }
-      if let value = yaml.value { return .value(value) }
-      else if let envVar = yaml.envVar { return .envVar(envVar) }
-      else if let envFile = yaml.envFile { return .envFile(envFile) }
-      else { throw Thrown("No values in secret") }
+      switch (yaml.value, yaml.envVar, yaml.envFile, yaml.sysFile, yaml.gitFile) {
+      case (let value?, nil, nil, nil, nil): return .value(value)
+      case (nil, let envVar?, nil, nil, nil): return .envVar(envVar)
+      case (nil, nil, let envFile?, nil, nil): return .envFile(envFile)
+      case (nil, nil, nil, let sysFile?, nil): return .sysFile(sysFile)
+      case (nil, nil, nil, nil, let gitFile?): return try .gitFile(.init(
+        ref: .make(remote: .init(name: gitFile.branch)),
+        path: .init(value: gitFile.path)
+      ))
+      default: throw Thrown("Wrong secret format")
+      }
     }
   }
   public struct Thread: Encodable {
@@ -150,6 +157,7 @@ public struct Configuration {
       channel: yaml.channel,
       ts: yaml.ts
     )}
+    func serialize() -> String { "{channel: '\(channel)', ts: '\(ts)'}" }
   }
   public struct ResolveProfile: Query {
     public var git: Git

@@ -24,7 +24,7 @@ public struct Git {
       path: .init(value: preset.path)
     )}
   }
-  public struct Dir: Hashable {
+  public struct Dir {
     public var ref: Ref
     public var path: Files.Relative
     public init(ref: Ref, path: Files.Relative) {
@@ -113,6 +113,9 @@ public extension Git {
   var notCommited: Execute { proc(args: ["status", "--porcelain"]) }
   var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"]) }
   var listAllRefs: Execute { proc(args: ["show-ref", "--head"]) }
+  func excludeParents(shas: Set<Git.Sha>) -> Execute { proc(
+    args: ["show-branch", "--independent"] + shas.map(\.value)
+  )}
   func check(child: Ref, parent: Ref) -> Execute { proc(
     args: ["merge-base", "--is-ancestor", parent.value, child.value]
   )}
@@ -132,16 +135,17 @@ public extension Git {
   func listCommits(
     in include: [Ref],
     notIn exclude: [Ref],
-    noMerges: Bool,
-    firstParents: Bool,
-    boundary: Bool = false
+    noMerges: Bool = false,
+    firstParents: Bool = false,
+    boundary: Bool = false,
+    ignoreMissing: Bool = false
   ) -> Execute { proc(
-    args: ["log", "--format=%H"]
-    + boundary.then(["--boundary"]).get([])
-    + firstParents.then(["--first-parent"]).get([])
-    + noMerges.then(["--no-merges"]).get([])
-    + include.map(\.value)
-    + exclude.map { "^\($0.value)" }
+    args: ["log", "--format=%H"] + [
+      boundary.then("--boundary"),
+      firstParents.then("--first-parent"),
+      noMerges.then("--no-merges"),
+      ignoreMissing.then("--ignore-missing"),
+    ].compactMap({ $0 }) + include.map(\.value) + exclude.map({ "^\($0.value)" })
   )}
   var writeTree: Execute { proc(args: ["write-tree"]) }
   func commitTree(

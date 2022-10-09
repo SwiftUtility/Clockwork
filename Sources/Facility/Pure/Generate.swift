@@ -44,14 +44,15 @@ public struct Generate: Query {
     public var source: String
     public var targets: [String]
   }
-  public struct ParseReleaseBranchVersion: GenerationContext {
+  public struct CreateReleaseBranchName: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var ref: String
+    public var product: String
+    public var version: String
   }
-  public struct CreateReleaseBranchName: GenerationContext {
+  public struct CreateHotfixBranchName: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -122,15 +123,7 @@ public struct Generate: Query {
     public var product: String
     public var version: String
   }
-  public struct CreateDeliveryCommitMessage: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var product: String
-    public var version: String
-  }
-  public struct CreateVersionCommitMessage: GenerationContext {
+  public struct CreateVersionsCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -223,7 +216,7 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.exportBuild,
+    template: production.exportBuilds,
     templates: templates,
     context: Generate.ExportBuildContext(
       env: env,
@@ -251,28 +244,13 @@ public extension Configuration {
       targets: targets
     )
   )}
-  func parseReleaseBranchVersion(
-    production: Production,
-    ref: String
-  ) -> Generate { .init(
-    allowEmpty: false,
-    template: production.releaseBranch.parseVersion,
-    templates: templates,
-    context: Generate.ParseReleaseBranchVersion(
-      env: env,
-      ctx: context,
-      info: try? gitlabCi.get().info,
-      ref: ref
-    )
-  )}
   func createDeployTagName(
-    production: Production,
     product: Production.Product,
     version: String,
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.deployTag.createName,
+    template: product.deploy.createName,
     templates: templates,
     context: Generate.CreateDeployTagName(
       env: env,
@@ -284,13 +262,12 @@ public extension Configuration {
     )
   )}
   func createDeployTagAnnotation(
-    production: Production,
     product: Production.Product,
     version: String,
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.deployTag.createAnnotation,
+    template: product.deploy.createAnnotation,
     templates: templates,
     context: Generate.CreateDeployTagAnnotation(
       env: env,
@@ -302,14 +279,28 @@ public extension Configuration {
     )
   )}
   func createReleaseBranchName(
-    production: Production,
     product: Production.Product,
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.releaseBranch.createName,
+    template: product.release.createName,
     templates: templates,
     context: Generate.CreateReleaseBranchName(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      product: product.name,
+      version: version
+    )
+  )}
+  func createHotfixBranchName(
+    product: Production.Product,
+    version: String
+  ) -> Generate { .init(
+    allowEmpty: false,
+    template: product.hotfix.createName,
+    templates: templates,
+    context: Generate.CreateHotfixBranchName(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
@@ -322,7 +313,7 @@ public extension Configuration {
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.bumpCurrentVersion,
+    template: product.release.createVersion,
     templates: templates,
     context: Generate.BumpCurrentVersion(
       env: env,
@@ -337,7 +328,7 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.bumpBuildNumber,
+    template: production.createBuild,
     templates: templates,
     context: Generate.BumpBuildNumber(
       env: env,
@@ -347,11 +338,11 @@ public extension Configuration {
     )
   )}
   func parseDeployTagVersion(
-    production: Production,
+    product: Production.Product,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.deployTag.parseVersion,
+    template: product.deploy.parseVersion,
     templates: templates,
     context: Generate.ParseDeployTagVersion(
       env: env,
@@ -361,11 +352,11 @@ public extension Configuration {
     )
   )}
   func parseDeployTagBuild(
-    production: Production,
+    product: Production.Product,
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.deployTag.parseBuild,
+    template: product.deploy.parseBuild,
     templates: templates,
     context: Generate.ParseDeployTagBuild(
       env: env,
@@ -379,7 +370,7 @@ public extension Configuration {
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.createHotfixVersion,
+    template: product.hotfix.createVersion,
     templates: templates,
     context: Generate.CreateHotfixVersion(
       env: env,
@@ -406,31 +397,14 @@ public extension Configuration {
       version: version
     )
   )}
-  func createDeliveryCommitMessage(
-    production: Production,
+  func createVersionsCommitMessage(
     product: Production.Product,
     version: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.deliveries.createCommitMessage,
+    template: product.versions.createCommitMessage,
     templates: templates,
-    context: Generate.CreateVersionCommitMessage(
-      env: env,
-      ctx: context,
-      info: try? gitlabCi.get().info,
-      product: product.name,
-      version: version
-    )
-  )}
-  func createVersionCommitMessage(
-    production: Production,
-    product: Production.Product,
-    version: String
-  ) -> Generate { .init(
-    allowEmpty: false,
-    template: production.versions.createCommitMessage,
-    templates: templates,
-    context: Generate.CreateVersionCommitMessage(
+    context: Generate.CreateVersionsCommitMessage(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,

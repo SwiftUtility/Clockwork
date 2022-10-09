@@ -346,7 +346,7 @@ public struct Fusion {
           for (user, approve) in status.approves.sorted(by: { $0.key < $1.key }) {
             result += "    '\(user)': {'\(approve.commit.value)': \(approve.resolution.rawValue)}\n"
           }
-          result += "  thread: {channel: '\(status.thread.channel)', ts: '\(status.thread.ts)'}\n"
+          result += "  thread: \(status.thread.serialize())\n"
         }
         return result.isEmpty.then("{}\n").get(result)
       }

@@ -34,7 +34,7 @@ struct Clockwork: ParsableCommand {
       ReportCustomReview.self,
       ReportExpiringRequisites.self,
       ReserveReviewBuild.self,
-      ReserveBuild.self,
+      ReserveBranchBuild.self,
       ResetPodSpecs.self,
       RetryJobs.self,
       RemoveReviewLabels.self,
@@ -209,7 +209,7 @@ struct Clockwork: ParsableCommand {
     @Option(help: "Days till expired threashold or 0")
     var days: UInt = 0
   }
-  struct ReserveBuild: ClockworkCommand {
+  struct ReserveBranchBuild: ClockworkCommand {
     static var abstract: String { "Reserve build number for current protected branch pipeline" }
     @OptionGroup var clockwork: Clockwork
   }

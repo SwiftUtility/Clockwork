@@ -71,7 +71,7 @@ public final class Configurator {
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
     let gitlabToken = gitlab
       .map(\.token)
-      .reduce(env, parse(env:secret:))
+      .map({ try parse(git: git, env: env, secret: $0) })
     return try .make(
       git: git,
       env: env,
@@ -97,7 +97,7 @@ public final class Configurator {
       )),
       slack: Lossy(try profile.slack.get { throw Thrown("Slack not configured") })
         .map { slack in try .make(
-          token: parse(env: env, secret: slack.token),
+          token: parse(git: git, env: env, secret: slack.token),
           signals: dialect.read(
             [String: [Yaml.Slack.Signal]].self,
             from: parse(git: git, yaml: slack.signals
@@ -140,14 +140,6 @@ public final class Configurator {
     .reduce([Yaml.Production.Build].self, dialect.read(_:from:))
     .get()
     .map(Production.Build.make(yaml:))
-  }
-  public func resolveProductionVersions(
-    query: Configuration.ResolveProductionVersions
-  ) throws -> Configuration.ResolveProductionVersions.Reply { try Id(query.production.versions)
-    .map(Git.File.make(asset:))
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: String].self, dialect.read(_:from:))
-    .get()
   }
   public func resolveProfile(
     query: Configuration.ResolveProfile
@@ -222,8 +214,7 @@ public final class Configurator {
   }
   public func parseYamlSecret<T: Decodable>(
     query: Configuration.ParseYamlSecret<T>
-  ) throws -> T { try Id(query.secret)
-    .reduce(query.cfg.env, parse(env:secret:))
+  ) throws -> T { try Id(parse(git: query.cfg.git, env: query.cfg.env, secret: query.secret))
     .map(Yaml.Decode.init(content:))
     .map(decodeYaml)
     .reduce(T.self, dialect.read(_:from:))
@@ -254,7 +245,7 @@ public final class Configurator {
   public func resolveSecret(
     query: Configuration.ResolveSecret
   ) throws -> Configuration.ResolveSecret.Reply {
-    try parse(env: query.cfg.env, secret: query.secret)
+    try parse(git: query.cfg.git, env: query.cfg.env, secret: query.secret)
   }
 }
 extension Configurator {
@@ -299,6 +290,7 @@ extension Configurator {
     .get()
   }
   func parse(
+    git: Git,
     env: [String: String],
     secret: Configuration.Secret
   ) throws -> String {
@@ -312,6 +304,18 @@ extension Configurator {
       .map(readFile)
       .map(String.make(utf8:))
       .get { throw Thrown("No env \(envFile)") }
+    case .sysFile(let sysFile): return try Id(sysFile)
+      .map(git.root.makeResolve(path:))
+      .map(resolveAbsolute)
+      .map(Files.ReadFile.init(file:))
+      .map(readFile)
+      .map(String.make(utf8:))
+      .get()
+    case .gitFile(let file): return try Id(file)
+      .map(git.cat(file:))
+      .map(execute)
+      .map(Execute.parseText(reply:))
+      .get()
     }
   }
   func parse(

@@ -182,9 +182,9 @@ extension Clockwork.ReportExpiringRequisites: RunnableCommand {
     try Assembler.requisitor.reportExpiringRequisites(cfg: cfg, days: days)
   }
 }
-extension Clockwork.ReserveBuild: RunnableCommand {
+extension Clockwork.ReserveBranchBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reserveProtectedBuild(cfg: cfg)
+    try Assembler.producer.reserveBranchBuild(cfg: cfg)
   }
 }
 extension Clockwork.ReserveReviewBuild: RunnableCommand {

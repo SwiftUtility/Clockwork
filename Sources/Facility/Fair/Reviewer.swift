@@ -445,16 +445,12 @@ public final class Reviewer {
         sha: sha,
         commits: try? Execute.parseLines(reply: execute(cfg.git.listCommits(
           in: [current],
-          notIn: [target, .make(sha: sha)] + fork.array,
-          noMerges: false,
-          firstParents: false
+          notIn: [target, .make(sha: sha)] + fork.array
         )))
       )}
     for sha in try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [current],
-      notIn: [target] + fork.array,
-      noMerges: false,
-      firstParents: false
+      notIn: [target] + fork.array
     ))) {
       let sha = try Git.Sha.make(value: sha)
       try review.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, ctx: ctx, sha: sha))
@@ -555,9 +551,7 @@ public final class Reviewer {
       ))) else { continue }
       let extras = try Execute.parseLines(reply: execute(cfg.git.listCommits(
         in: [.make(sha: .make(value: base))],
-        notIn: excludes,
-        noMerges: false,
-        firstParents: false
+        notIn: excludes
       )))
       guard !extras.isEmpty else { continue }
       result.append(.extraCommits)
@@ -804,7 +798,6 @@ public final class Reviewer {
       .make(cfg.git.listCommits(
         in: [.make(remote: merge.source)],
         notIn: [.make(sha: merge.fork)],
-        noMerges: false,
         firstParents: true
       ))
       .map(execute)

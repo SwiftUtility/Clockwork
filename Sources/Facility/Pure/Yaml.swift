@@ -46,55 +46,48 @@ public enum Yaml {
   }
   public struct Production: Decodable {
     public var builds: Asset
-    public var versions: Asset
-    public var deliveries: Asset
-    public var bumpBuildNumber: Template
-    public var exportBuild: Template
+    public var buildsCount: Int
+    public var createBuild: Template
+    public var exportBuilds: Template
     public var exportVersions: Template
-    public var createReleaseThread: Template
-    public var createHotfixThread: Template
-    public var deployTag: DeployTag
-    public var releaseBranch: ReleaseBranch
+    public var matchReleaseNote: Criteria
+    public var matchAccessoryBranch: Criteria
     public var products: [String: Product]
-    public var accessoryBranch: AccessoryBranch?
-    public var maxBuildsCount: Int?
     public struct Product: Decodable {
-      public var bumpCurrentVersion: Template
-      public var createHotfixVersion: Template
-      public var deployTagNameMatch: Criteria
-      public var releaseBranchNameMatch: Criteria
-      public var releaseNoteMatch: Criteria?
-    }
-    public struct DeployTag: Decodable {
-      public var createName: Template
-      public var parseBuild: Template
-      public var parseVersion: Template
-      public var createAnnotation: Template
-    }
-    public struct ReleaseBranch: Decodable {
-      public var createName: Template
-      public var parseVersion: Template
-    }
-    public struct AccessoryBranch: Decodable {
-      public var nameMatch: Criteria
-      public var adjustVersion: Template
+      public var stage: Tag
+      public var deploy: Tag
+      public var hotfix: Branch
+      public var release: Branch
+      public var versions: Asset
+      public struct Tag: Decodable {
+        public var matchName: Criteria
+        public var parseBuild: Template
+        public var parseVersion: Template
+        public var createName: Template
+        public var createAnnotation: Template
+      }
+      public struct Branch: Decodable {
+        public var createName: Template
+        public var createThread: Template
+        public var createVersion: Template
+      }
     }
     public struct Build: Decodable {
       public var build: String
       public var sha: String
+      public var tag: String?
       public var branch: String?
       public var review: UInt?
       public var target: String?
-      public var product: String?
-      public var version: String?
     }
-    public struct Delivery: Decodable {
-      public var release: Shipment
-      public var hotfixes: [Shipment]?
-      public struct Shipment: Decodable {
-        public var start: String
+    public struct Versions: Decodable {
+      public var next: String
+      public var flow: [[String]]?
+      public var deliveries: [String: Delivery]?
+      public var accessories: [String: String]?
+      public struct Delivery: Decodable {
+        public var branch: String
         public var thread: Thread
-        public var version: String
         public var deploys: [String]?
       }
     }
