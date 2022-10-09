@@ -6,7 +6,7 @@ public final class Producer {
   let generate: Try.Reply<Generate>
   let writeFile: Try.Reply<Files.WriteFile>
   let resolveProduction: Try.Reply<Configuration.ResolveProduction>
-  let resolveProductionBuilds: Try.Reply<Configuration.ResolveProductionBuilds>
+  let parseBuilds: Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Builds>>
   let parseVersions: Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Versions>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let report: Act.Reply<Report>
@@ -20,7 +20,7 @@ public final class Producer {
     generate: @escaping Try.Reply<Generate>,
     writeFile: @escaping Try.Reply<Files.WriteFile>,
     resolveProduction: @escaping Try.Reply<Configuration.ResolveProduction>,
-    resolveProductionBuilds: @escaping Try.Reply<Configuration.ResolveProductionBuilds>,
+    parseBuilds: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Builds>>,
     parseVersions: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Versions>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     report: @escaping Act.Reply<Report>,
@@ -34,7 +34,7 @@ public final class Producer {
     self.generate = generate
     self.writeFile = writeFile
     self.resolveProduction = resolveProduction
-    self.resolveProductionBuilds = resolveProductionBuilds
+    self.parseBuilds = parseBuilds
     self.parseVersions = parseVersions
     self.persistAsset = persistAsset
     self.report = report
@@ -184,17 +184,21 @@ public final class Producer {
     let production = try resolveProduction(.init(cfg: cfg))
     guard let product = production.products[product]
     else { throw Thrown("Produnc \(product) not configured") }
-    var versions = try loadVersions(cfg: cfg, product: product)
-    let current = versions.next
-    guard versions.deliveries[current] == nil
-    else { throw Thrown("Release \(product) \(current) already exists") }
+    var versions = try loadVersions(cfg: cfg, production: production)
+    guard var version = versions[product.name]
+    else { throw Thrown("Versioning not configured for \(product)") }
+    let current = version.next
+    guard version.deliveries[current] == nil
+    else { throw Thrown("Release \(product.name) \(current) already exists") }
     let branch = try Git.Branch(name: generate(cfg.createReleaseBranchName(
       product: product,
-      version: current
+      version: current,
+      hotfix: false
     )))
-    let next = try generate(cfg.bumpCurrentVersion(
+    let next = try generate(cfg.bumpReleaseVersion(
       product: product,
-      version: current
+      version: current,
+      hotfix: false
     ))
     try gitlabCi
       .postBranches(name: branch.name, ref: gitlabCi.job.pipeline.sha)
@@ -204,22 +208,27 @@ public final class Producer {
     let thread = try createThread(cfg.reportReleaseBranchCreated(
       product: product,
       ref: branch.name,
-      version: current
+      version: current,
+      hotfix: false
     ))
     let sha = try Git.Sha.make(job: gitlabCi.job)
-    let delivery = versions.release(next: next, start: sha, branch: branch, thread: thread)
+    versions[product.name] = version
+    let delivery = version.release(next: next, start: sha, branch: branch, thread: thread)
     _ = try persistAsset(.init(
       cfg: cfg,
-      asset: product.versions,
-      content: versions.serialize(),
+      asset: production.versions,
+      content: Production.Version.serialize(versions: versions),
       message: try generate(cfg.createVersionsCommitMessage(
+        production: production,
         product: product,
-        version: current
+        version: current,
+        reason: .release
       ))
     ))
     try report(cfg.reportReleaseBranchSummary(
       product: product,
       delivery: delivery,
+      ref: branch.name,
       notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery))
     )
     return true
@@ -229,53 +238,61 @@ public final class Producer {
     let production = try resolveProduction(.init(cfg: cfg))
     guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(deploy: gitlabCi.job.pipeline.ref)
-    var versions = try loadVersions(cfg: cfg, product: product)
-    let version = try generate(cfg.parseDeployTagVersion(
+    var versions = try loadVersions(cfg: cfg, production: production)
+    guard var version = versions[product.name]
+    else { throw Thrown("Versioning not configured for \(product.name)") }
+    let current = try generate(cfg.parseDeployTagVersion(
       product: product,
       ref: gitlabCi.job.pipeline.ref
     ))
-    guard versions.deliveries[version] != nil
-    else { throw Thrown("Release \(product) \(version) does not exist") }
-    let hotfix = try generate(cfg.createHotfixVersion(
+    guard version.deliveries[current] != nil
+    else { throw Thrown("Release \(product.name) \(version) does not exist") }
+    let hotfix = try generate(cfg.bumpReleaseVersion(
       product: product,
-      version: version
+      version: current,
+      hotfix: true
     ))
-    guard versions.deliveries[hotfix] == nil
-    else { throw Thrown("Release \(product) \(hotfix) already exists") }
-    let branch = try Git.Branch(name: generate(cfg.createHotfixBranchName(
+    guard version.deliveries[hotfix] == nil
+    else { throw Thrown("Release \(product.name) \(hotfix) already exists") }
+    let branch = try Git.Branch(name: generate(cfg.createReleaseBranchName(
       product: product,
-      version: hotfix
+      version: hotfix,
+      hotfix: true
     )))
     try gitlabCi
       .postBranches(name: branch.name, ref: gitlabCi.job.pipeline.sha)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    let thread = try createThread(cfg.reportHotfixBranchCreated(
+    let thread = try createThread(cfg.reportReleaseBranchCreated(
       product: product,
       ref: branch.name,
-      version: hotfix
+      version: hotfix,
+      hotfix: true
     ))
     let sha = try Git.Sha.make(job: gitlabCi.job)
-    let delivery = try versions.hotfix(
-      from: version,
+    let delivery = try version.hotfix(
+      from: current,
       version: hotfix,
       start: sha,
-      branch: branch,
       thread: thread
     )
+    versions[product.name] = version
     _ = try persistAsset(.init(
       cfg: cfg,
-      asset: product.versions,
-      content: versions.serialize(),
+      asset: production.versions,
+      content: Production.Version.serialize(versions: versions),
       message: try generate(cfg.createVersionsCommitMessage(
+        production: production,
         product: product,
-        version: hotfix
+        version: hotfix,
+        reason: .hotfix
       ))
     ))
     try report(cfg.reportReleaseBranchSummary(
       product: product,
       delivery: delivery,
+      ref: branch.name,
       notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery))
     )
     return true
@@ -367,7 +384,7 @@ public final class Producer {
     cfg: Configuration,
     production: Production,
     sha: Git.Sha,
-    delivery: Production.Versions.Delivery
+    delivery: Production.Version.Delivery
   ) throws -> Production.ReleaseNotes {
     let deploys = try Execute
       .parseLines(reply: execute(cfg.git.excludeParents(shas: delivery.deploys)))
@@ -409,17 +426,18 @@ public final class Producer {
         .joined(),
       message: generate(cfg.createBuildCommitMessage(
         production: production,
-        build: build.build
+        build: build
       ))
     ))
   }
   func loadVersions(
     cfg: Configuration,
-    product: Production.Product
-  ) throws -> Production.Versions { try Id
-    .make(.init(git: cfg.git, file: .make(asset: product.versions)))
+    production: Production
+  ) throws -> [String: Production.Version] { try Id
+    .make(.init(git: cfg.git, file: .make(asset: production.versions)))
     .map(parseVersions)
-    .map(Production.Versions.make(yaml:))
     .get()
+    .map(Production.Version.make(product:yaml:))
+    .reduce(into: [:], { $0[$1.product] = $1 })
   }
 }

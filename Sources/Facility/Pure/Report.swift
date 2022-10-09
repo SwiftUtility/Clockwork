@@ -152,6 +152,7 @@ public struct Report: Query {
     public var ref: String
     public var product: String
     public var version: String
+    public var hotfix: Bool
     public var subevent: String { product }
   }
   public struct ReleaseBranchSummary: GenerationContext {
@@ -182,16 +183,6 @@ public struct Report: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var error: String
-  }
-  public struct HotfixBranchCreated: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var ref: String
-    public var product: String
-    public var version: String
-    public var subevent: String { product }
   }
   public struct DeployTagCreated: GenerationContext {
     public var event: String = Self.event
@@ -377,28 +368,31 @@ public extension Configuration {
   func reportReleaseBranchCreated(
     product: Production.Product,
     ref: String,
-    version: String
+    version: String,
+    hotfix: Bool
   ) -> Report.CreateThread { .init(
-    template: product.release.createThread,
+    template: product.createReleaseThread,
     report: .init(cfg: self, context: Report.ReleaseBranchCreated(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       ref: ref,
       product: product.name,
-      version: version
+      version: version,
+      hotfix: hotfix
     ))
   )}
   func reportReleaseBranchSummary(
     product: Production.Product,
-    delivery: Production.Versions.Delivery,
+    delivery: Production.Version.Delivery,
+    ref: String,
     notes: Production.ReleaseNotes
   ) -> Report { .init(cfg: self, context: Report.ReleaseBranchSummary(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
     thread: delivery.thread,
-    ref: delivery.branch.name,
+    ref: ref,
     product: product.name,
     version: delivery.version,
     notes: notes.isEmpty.else(notes)
@@ -422,21 +416,6 @@ public extension Configuration {
     info: try? gitlabCi.get().info,
     error: String(describing: error)
   ))}
-  func reportHotfixBranchCreated(
-    product: Production.Product,
-    ref: String,
-    version: String
-  ) -> Report.CreateThread { .init(
-    template: product.hotfix.createThread,
-    report: .init(cfg: self, context: Report.HotfixBranchCreated(
-      env: env,
-      ctx: context,
-      info: try? gitlabCi.get().info,
-      ref: ref,
-      product: product.name,
-      version: version
-    ))
-  )}
   func reportDeployTagCreated(
     ref: String,
     product: Production.Product,

@@ -46,7 +46,10 @@ public enum Yaml {
   }
   public struct Production: Decodable {
     public var builds: Asset
+    public var versions: Asset
+    public var accessories: Asset
     public var buildsCount: Int
+    public var releasesCount: Int
     public var createBuild: Template
     public var exportBuilds: Template
     public var exportVersions: Template
@@ -54,43 +57,36 @@ public enum Yaml {
     public var matchAccessoryBranch: Criteria
     public var products: [String: Product]
     public struct Product: Decodable {
-      public var stage: Tag
-      public var deploy: Tag
-      public var hotfix: Branch
-      public var release: Branch
-      public var versions: Asset
-      public struct Tag: Decodable {
-        public var matchName: Criteria
-        public var parseBuild: Template
-        public var parseVersion: Template
-        public var createName: Template
-        public var createAnnotation: Template
-      }
-      public struct Branch: Decodable {
-        public var createName: Template
-        public var createThread: Template
-        public var createVersion: Template
-      }
+      public var createReleaseThread: Template
+      public var createReleaseVersion: Template
+      public var createReleaseBranchName: Template
+      public var matchReleaseBranch: Criteria
+      public var parseReleaseBranchVersion: Template
+      public var createDeployTagName: Template
+      public var createDeployTagAnnotation: Template
+      public var matchDeployTagName: Criteria
+      public var parseDeployTagBuild: Template
+      public var parseDeployTagVersion: Template
     }
     public struct Build: Decodable {
-      public var build: String
       public var sha: String
       public var tag: String?
       public var branch: String?
       public var review: UInt?
       public var target: String?
     }
-    public struct Versions: Decodable {
+    public struct Version: Decodable {
       public var next: String
       public var flow: [[String]]?
       public var deliveries: [String: Delivery]?
-      public var accessories: [String: String]?
       public struct Delivery: Decodable {
-        public var branch: String
         public var thread: Thread
         public var deploys: [String]?
       }
     }
+    public typealias Builds = [String: Build]
+    public typealias Versions = [String: Version]
+    public typealias Accessories = [String: [String: String]]
   }
   public struct Requisition: Decodable {
     public var branch: String

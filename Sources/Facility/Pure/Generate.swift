@@ -51,14 +51,7 @@ public struct Generate: Query {
     public var info: GitlabCi.Info?
     public var product: String
     public var version: String
-  }
-  public struct CreateHotfixBranchName: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var product: String
-    public var version: String
+    public var hotfix: Bool
   }
   public struct CreateDeployTagName: GenerationContext {
     public var event: String = Self.event
@@ -78,13 +71,14 @@ public struct Generate: Query {
     public var version: String
     public var build: String
   }
-  public struct BumpCurrentVersion: GenerationContext {
+  public struct BumpReleaseVersion: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var version: String
+    public var hotfix: Bool
   }
   public struct BumpBuildNumber: GenerationContext {
     public var event: String = Self.event
@@ -107,22 +101,6 @@ public struct Generate: Query {
     public var info: GitlabCi.Info?
     public var ref: String
   }
-  public struct CreateHotfixVersion: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var product: String
-    public var version: String
-  }
-  public struct AdjustAccessoryBranchVersion: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var product: String
-    public var version: String
-  }
   public struct CreateVersionsCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
@@ -130,6 +108,12 @@ public struct Generate: Query {
     public var info: GitlabCi.Info?
     public var product: String
     public var version: String
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case deploy
+      case hotfix
+      case release
+    }
   }
   public struct CreateBuildCommitMessage: GenerationContext {
     public var event: String = Self.event
@@ -137,6 +121,9 @@ public struct Generate: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var build: String
+    public var review: String?
+    public var branch: String?
+    public var tag: String?
   }
   public struct CreateApproversCommitMessage: GenerationContext {
     public var event: String = Self.event
@@ -250,7 +237,7 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deploy.createName,
+    template: product.createDeployTagName,
     templates: templates,
     context: Generate.CreateDeployTagName(
       env: env,
@@ -267,7 +254,7 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deploy.createAnnotation,
+    template: product.createDeployTagAnnotation,
     templates: templates,
     context: Generate.CreateDeployTagAnnotation(
       env: env,
@@ -280,47 +267,36 @@ public extension Configuration {
   )}
   func createReleaseBranchName(
     product: Production.Product,
-    version: String
+    version: String,
+    hotfix: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.release.createName,
+    template: product.createReleaseBranchName,
     templates: templates,
     context: Generate.CreateReleaseBranchName(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
-      version: version
+      version: version,
+      hotfix: hotfix
     )
   )}
-  func createHotfixBranchName(
+  func bumpReleaseVersion(
     product: Production.Product,
-    version: String
+    version: String,
+    hotfix: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.hotfix.createName,
+    template: product.createReleaseVersion,
     templates: templates,
-    context: Generate.CreateHotfixBranchName(
+    context: Generate.BumpReleaseVersion(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
-      version: version
-    )
-  )}
-  func bumpCurrentVersion(
-    product: Production.Product,
-    version: String
-  ) -> Generate { .init(
-    allowEmpty: false,
-    template: product.release.createVersion,
-    templates: templates,
-    context: Generate.BumpCurrentVersion(
-      env: env,
-      ctx: context,
-      info: try? gitlabCi.get().info,
-      product: product.name,
-      version: version
+      version: version,
+      hotfix: hotfix
     )
   )}
   func bumpBuildNumber(
@@ -342,7 +318,7 @@ public extension Configuration {
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deploy.parseVersion,
+    template: product.parseDeployTagVersion,
     templates: templates,
     context: Generate.ParseDeployTagVersion(
       env: env,
@@ -356,7 +332,7 @@ public extension Configuration {
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.deploy.parseBuild,
+    template: product.parseDeployTagBuild,
     templates: templates,
     context: Generate.ParseDeployTagBuild(
       env: env,
@@ -365,56 +341,27 @@ public extension Configuration {
       ref: ref
     )
   )}
-  func createHotfixVersion(
-    product: Production.Product,
-    version: String
-  ) -> Generate { .init(
-    allowEmpty: false,
-    template: product.hotfix.createVersion,
-    templates: templates,
-    context: Generate.CreateHotfixVersion(
-      env: env,
-      ctx: context,
-      info: try? gitlabCi.get().info,
-      product: product.name,
-      version: version
-    )
-  )}
-  func adjustAccessoryBranchVersion(
-    accessoryBranch: Production.AccessoryBranch,
-    ref: String,
-    product: String,
-    version: String
-  ) -> Generate { .init(
-    allowEmpty: false,
-    template: accessoryBranch.adjustVersion,
-    templates: templates,
-    context: Generate.AdjustAccessoryBranchVersion(
-      env: env,
-      ctx: context,
-      info: try? gitlabCi.get().info,
-      product: product,
-      version: version
-    )
-  )}
   func createVersionsCommitMessage(
+    production: Production,
     product: Production.Product,
-    version: String
+    version: String,
+    reason: Generate.CreateVersionsCommitMessage.Reason
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.versions.createCommitMessage,
+    template: production.versions.createCommitMessage,
     templates: templates,
     context: Generate.CreateVersionsCommitMessage(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
-      version: version
+      version: version,
+      reason: reason
     )
   )}
   func createBuildCommitMessage(
     production: Production,
-    build: String
+    build: Production.Build
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.builds.createCommitMessage,
@@ -423,7 +370,10 @@ public extension Configuration {
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
-      build: build
+      build: build.build,
+      review: build.review,
+      branch: build.branch,
+      tag: build.tag
     )
   )}
   func createApproversCommitMessage(

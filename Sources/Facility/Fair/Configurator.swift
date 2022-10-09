@@ -132,15 +132,6 @@ public final class Configurator {
     .map(Production.make(yaml:))
     .get()
   }
-  public func resolveProductionBuilds(
-    query: Configuration.ResolveProductionBuilds
-  ) throws -> Configuration.ResolveProductionBuilds.Reply { try Id(query.production.builds)
-    .map(Git.File.make(asset:))
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([Yaml.Production.Build].self, dialect.read(_:from:))
-    .get()
-    .map(Production.Build.make(yaml:))
-  }
   public func resolveProfile(
     query: Configuration.ResolveProfile
   ) throws -> Configuration.ResolveProfile.Reply { try Id(query.file)

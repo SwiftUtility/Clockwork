@@ -84,7 +84,7 @@ enum Assembler {
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
     resolveProduction: configurator.resolveProduction(query:),
-    resolveProductionBuilds: configurator.resolveProductionBuilds(query:),
+    parseBuilds: configurator.parseYamlFile(query:),
     parseVersions: configurator.parseYamlFile(query:),
     persistAsset: configurator.persistAsset(query:),
     report: reporter.report(query:),
