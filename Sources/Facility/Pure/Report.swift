@@ -182,6 +182,18 @@ public struct Report: Query {
     public var notes: Production.ReleaseNotes?
     public var subevent: String { product }
   }
+  public struct StageTagCreated: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var ref: String
+    public var sha: String
+    public var product: String
+    public var version: String
+    public var build: String
+    public var subevent: String { product }
+  }
 
 
   public struct Custom: GenerationContext {
@@ -417,7 +429,22 @@ public extension Configuration {
     build: build,
     notes: notes.isEmpty.else(notes)
   ))}
-
+  func reportStageTagCreated(
+    product: Production.Product,
+    ref: String,
+    sha: String,
+    version: String,
+    build: String
+  ) -> Report { .init(cfg: self, context: Report.StageTagCreated(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    ref: ref,
+    sha: sha,
+    product: product.name,
+    version: version,
+    build: build
+  ))}
 
 
 

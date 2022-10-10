@@ -279,6 +279,52 @@ public final class Producer {
     report(cfg.reportAccessoryBranchCreated(ref: name))
     return true
   }
+  public func stageBuild(cfg: Configuration, product: String, build: String) throws -> Bool {
+    let gitlabCi = try cfg.gitlabCi.get()
+    let production = try resolveProduction(.init(cfg: cfg))
+    guard let product = production.products[product]
+    else { throw Thrown("Production not configured for \(product)") }
+    guard let version = try loadVersions(cfg: cfg, production: production)[product.name]
+    else { throw Thrown("No versions for \(product)") }
+    guard let build = try loadBuilds(cfg: cfg, production: production)[build.alphaNumeric]
+    else { throw Thrown("No build \(build) reserved") }
+    guard let branch = build.target.flatMapNil(build.branch)
+    else { throw Thrown("Can not stage tag builds") }
+    var current: String = version.next.value
+    if product.matchReleaseBranch.isMet(branch) {
+      current = try generate(cfg.parseReleaseBranchVersion(
+        product: product,
+        ref: branch
+      ))
+    } else if production.matchAccessoryBranch.isMet(branch) {
+      current = version.accessories[branch]?.value ?? current
+    }
+    let tag = try generate(cfg.createTagName(
+      product: product,
+      version: current,
+      build: build.build.value,
+      deploy: false
+    ))
+    let annotation = try generate(cfg.createTagAnnotation(
+      product: product,
+      version: current,
+      build: build.build.value,
+      deploy: false
+    ))
+    try gitlabCi
+      .postTags(name: tag, ref: build.sha, message: annotation)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    report(cfg.reportStageTagCreated(
+      product: product,
+      ref: tag,
+      sha: build.sha,
+      version: current,
+      build: build.build.value
+    ))
+    return true
+  }
   public func renderBuild(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
@@ -317,14 +363,15 @@ public final class Producer {
         return false
       }
       build = resolved.build.value
-      if let product = try production.productMatching(release: name) {
+      let branch = resolved.target.get(name)
+      if let product = try production.productMatching(release: branch) {
         current[product.name] = try generate(cfg.parseReleaseBranchVersion(
           product: product,
-          ref: name
+          ref: branch
         ))
-      } else if production.matchAccessoryBranch.isMet(name) {
+      } else if production.matchAccessoryBranch.isMet(branch) {
         for product in production.products.keys {
-          current[product] = versions[product]?.accessories[name]?.value ?? current[product]
+          current[product] = versions[product]?.accessories[branch]?.value ?? current[product]
         }
       }
     }

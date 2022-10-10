@@ -166,6 +166,13 @@ public struct Production {
       guard case .tag(let tag) = self else { return nil }
       return "\(tag.tag)"
     }
+    public var sha: String {
+      switch self {
+      case .tag(let tag): return tag.sha
+      case .branch(let branch): return branch.sha
+      case .review(let review): return review.sha
+      }
+    }
     public static func make(build: AlphaNumeric, yaml: Yaml.Production.Build) throws -> Self {
       switch (yaml.review, yaml.target, yaml.branch, yaml.tag) {
       case (nil, nil, nil, let tag?): return .tag(.make(
