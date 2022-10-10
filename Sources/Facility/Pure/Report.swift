@@ -142,7 +142,7 @@ public struct Report: Query {
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
-    public var stdin: [String]?
+    public var stdin: AnyCodable?
   }
   public struct ReleaseBranchCreated: GenerationContext {
     public var event: String = Self.event
@@ -202,7 +202,7 @@ public struct Report: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var stdin: [String]?
+    public var stdin: AnyCodable?
   }
   public struct Unexpected: GenerationContext {
     public var event: String = Self.event
@@ -363,7 +363,7 @@ public extension Configuration {
     status: Fusion.Approval.Status,
     approvers: [String: Fusion.Approval.Approver],
     state: Json.GitlabReviewState,
-    stdin: [String]
+    stdin: AnyCodable?
   ) -> Report { .init(cfg: self, context: Report.ReviewCustom(
     subevent: event,
     env: env,
@@ -373,7 +373,7 @@ public extension Configuration {
     review: state,
     users: approvers,
     authors: status.authors.sorted(),
-    stdin: stdin.isEmpty.else(stdin)
+    stdin: stdin
   ))}
   func reportReleaseBranchCreated(
     product: Production.Product,
@@ -450,13 +450,13 @@ public extension Configuration {
 
   func reportCustom(
     event: String,
-    stdin: [String]
+    stdin: AnyCodable?
   ) -> Report { .init(cfg: self, context: Report.Custom(
     subevent: event,
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
-    stdin: stdin.isEmpty.else(stdin)
+    stdin: stdin
   ))}
   func reportUnexpected(
     error: Error

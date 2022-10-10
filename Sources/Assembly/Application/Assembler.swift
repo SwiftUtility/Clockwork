@@ -14,9 +14,6 @@ enum Assembler {
     writeStdout: writeStdout,
     readStdin: readStdin,
     generate: stencilParser.generate(query:),
-    resolveFusion: configurator.resolveFusion(query:),
-    resolveFusionStatuses: configurator.resolveFusionStatuses(query:),
-    resolveApprovers: configurator.resolveApprovers(query:),
     logMessage: logger.logMessage(query:),
     worker: worker,
     jsonDecoder: jsonDecoder
@@ -68,6 +65,7 @@ enum Assembler {
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
+    readStdin: reporter.readStdin(query:),
     createThread: reporter.createThread(query:),
     logMessage: logger.logMessage(query:),
     worker: worker,

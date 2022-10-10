@@ -8,7 +8,7 @@ extension FileHandle {
   public func write(data: Data) {
     write(data)
   }
-  public static func readStdin() throws -> Execute.Reply {
-    try .init(data: standardInput.readToEnd(), statuses: [])
+  public static func readStdin() throws -> Data? {
+    try standardInput.readToEnd()
   }
 }

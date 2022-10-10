@@ -44,6 +44,14 @@ public final class Producer {
     self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
+  public func reportCustom(
+    cfg: Configuration,
+    event: String,
+    stdin: Configuration.ReadStdin
+  ) throws -> Bool {
+    #warning("tbd")
+    return true
+  }
   public func createDeployTag(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))

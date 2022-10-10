@@ -182,26 +182,32 @@ struct Clockwork: ParsableCommand {
   struct ReportCustom: ClockworkCommand {
     static var abstract: String { "Sends preconfigured report" }
     @OptionGroup var clockwork: Clockwork
-    @Flag(help: "Should read stdin")
-    var stdin = false
+    enum Stdin: EnumerableFlag {
+      case ignore
+      case lines
+      case json
+      static func help(for value: Self) -> ArgumentHelp? {
+        switch value {
+        case .ignore: return "Do not read stdin"
+        case .lines: return "Interpret stdin as lines array context"
+        case .json: return "Interpret stdin as json context"
+        }
+      }
+    }
+    @Flag(help: "Should read stdin and pass as a context for generation")
+    var stdin: Stdin = .ignore
     @Option(help: "Event name to send report for")
     var event: String
   }
   struct ReportCustomRelease: ClockworkCommand {
     static var abstract: String { "Send preconfigured release report" }
     @OptionGroup var clockwork: Clockwork
-    @Flag(help: "Should read stdin")
-    var stdin = false
-    @Option(help: "Event name to send report for")
-    var event: String
+    @OptionGroup var custom: ReportCustom
   }
   struct ReportCustomReview: ClockworkCommand {
     static var abstract: String { "Send preconfigured parent review report" }
     @OptionGroup var clockwork: Clockwork
-    @Flag(help: "Should read stdin")
-    var stdin = false
-    @Option(help: "Event name to send report for")
-    var event: String
+    @OptionGroup var custom: ReportCustom
   }
   struct ReportExpiringRequisites: ClockworkCommand {
     static var abstract: String { "Report expiring provisions and certificates" }

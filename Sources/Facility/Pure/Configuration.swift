@@ -107,6 +107,12 @@ public struct Configuration {
       )}
     }
   }
+  public enum ReadStdin: Query {
+    case ignore
+    case lines
+    case json
+    public typealias Reply = AnyCodable?
+  }
   public struct Asset {
     public var file: Files.Relative
     public var branch: Git.Branch

@@ -162,19 +162,26 @@ extension Clockwork.RemindReviews: RunnableCommand {
 }
 extension Clockwork.ReportCustom: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reporter.reportCustom(cfg: cfg, event: event, stdin: stdin)
+    try Assembler.reporter.reportCustom(cfg: cfg, event: event, stdin: stdin.mode)
+  }
+}
+extension Clockwork.ReportCustom.Stdin {
+  var mode: Configuration.ReadStdin {
+    switch self {
+    case .ignore: return .ignore
+    case .lines: return .lines
+    case .json: return .json
+    }
   }
 }
 extension Clockwork.ReportCustomRelease: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
-//    try Assembler.reporter.reportReleaseCustom(cfg: cfg, event: event, stdin: stdin)
+    try Assembler.producer.reportCustom(cfg: cfg, event: custom.event, stdin: custom.stdin.mode)
   }
 }
 extension Clockwork.ReportCustomReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reporter.reportReviewCustom(cfg: cfg, event: event, stdin: stdin)
+    try Assembler.reviewer.reportCustom(cfg: cfg, event: custom.event, stdin: custom.stdin.mode)
   }
 }
 extension Clockwork.ReportExpiringRequisites: RunnableCommand {

@@ -4,22 +4,16 @@ import FacilityPure
 public final class Reporter {
   let execute: Try.Reply<Execute>
   let writeStdout: Act.Of<String>.Go
-  let readStdin: Try.Do<Execute.Reply>
+  let readStdin: Try.Do<Data?>
   let generate: Try.Reply<Generate>
-  let resolveFusion: Try.Reply<Configuration.ResolveFusion>
-  let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
-  let resolveApprovers: Try.Reply<Configuration.ResolveApprovers>
   let logMessage: Act.Reply<LogMessage>
   let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     writeStdout: @escaping Act.Of<String>.Go,
-    readStdin: @escaping Try.Do<Execute.Reply>,
+    readStdin: @escaping Try.Do<Data?>,
     generate: @escaping Try.Reply<Generate>,
-    resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
-    resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
-    resolveApprovers: @escaping Try.Reply<Configuration.ResolveApprovers>,
     logMessage: @escaping Act.Reply<LogMessage>,
     worker: Worker,
     jsonDecoder: JSONDecoder
@@ -28,9 +22,6 @@ public final class Reporter {
     self.writeStdout = writeStdout
     self.readStdin = readStdin
     self.generate = generate
-    self.resolveFusion = resolveFusion
-    self.resolveFusionStatuses = resolveFusionStatuses
-    self.resolveApprovers = resolveApprovers
     self.logMessage = logMessage
     self.worker = worker
     self.jsonDecoder = jsonDecoder
@@ -53,31 +44,25 @@ public final class Reporter {
     self.report(query: query.report)
     return try jsonDecoder.decode(Yaml.Thread.self, from: data)
   }
-  public func reportCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
-    let stdin = try stdin
-      .then(readStdin())
-      .map(Execute.parseLines(reply:))
-      .get([])
-    report(query: cfg.reportCustom(event: event, stdin: stdin))
-    return true
+  public func readStdin(query: Configuration.ReadStdin) throws -> Configuration.ReadStdin.Reply {
+    switch query {
+    case .ignore: return nil
+    case .lines:
+      let stdin = try readStdin()
+        .map(String.make(utf8:))?
+        .trimmingCharacters(in: .newlines)
+        .components(separatedBy: .newlines)
+      return try stdin.map(AnyCodable.init(any:))
+    case .json: return try readStdin().reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
+    }
   }
-  public func reportReviewCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
-    let fusion = try resolveFusion(.init(cfg: cfg))
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    let stdin = try stdin
-      .then(readStdin())
-      .map(Execute.parseLines(reply:))
-      .get([])
-    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    guard let status = statuses[ctx.review.iid] else { throw Thrown("No review thread") }
-    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
-    report(query: cfg.reportReviewCustom(
-      event: event,
-      status: status,
-      approvers: approvers,
-      state: ctx.review,
-      stdin: stdin
-    ))
+  public func reportCustom(
+    cfg: Configuration,
+    event: String,
+    stdin: Configuration.ReadStdin
+  ) throws -> Bool {
+    let stdin = try readStdin(query: stdin)
+    report(query: cfg.reportCustom(event: event, stdin: stdin))
     return true
   }
   public func report(query: Report) -> Report.Reply {

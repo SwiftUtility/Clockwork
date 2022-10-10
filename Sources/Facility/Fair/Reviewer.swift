@@ -15,6 +15,7 @@ public final class Reviewer {
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Act.Reply<Report>
+  let readStdin: Try.Reply<Configuration.ReadStdin>
   let createThread: Try.Reply<Report.CreateThread>
   let logMessage: Act.Reply<LogMessage>
   let worker: Worker
@@ -33,6 +34,7 @@ public final class Reviewer {
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Act.Reply<Report>,
+    readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
     createThread: @escaping Try.Reply<Report.CreateThread>,
     logMessage: @escaping Act.Reply<LogMessage>,
     worker: Worker,
@@ -51,10 +53,31 @@ public final class Reviewer {
     self.writeStdout = writeStdout
     self.generate = generate
     self.report = report
+    self.readStdin = readStdin
     self.createThread = createThread
     self.logMessage = logMessage
     self.worker = worker
     self.jsonDecoder = jsonDecoder
+  }
+  public func reportCustom(
+    cfg: Configuration,
+    event: String,
+    stdin: Configuration.ReadStdin
+  ) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    let stdin = try readStdin(stdin)
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    guard let status = statuses[ctx.review.iid] else { throw Thrown("No review thread") }
+    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    report(cfg.reportReviewCustom(
+      event: event,
+      status: status,
+      approvers: approvers,
+      state: ctx.review,
+      stdin: stdin
+    ))
+    return true
   }
   public func updateApprover(
     cfg: Configuration,
