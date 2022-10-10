@@ -76,17 +76,16 @@ public enum Yaml {
       public var target: String?
     }
     public struct Version: Decodable {
-      public var next: String
-      public var flow: [[String]]?
-      public var deliveries: [String: Delivery]?
+      public var next: AlphaNumeric
+      public var deliveries: [AlphaNumeric: Delivery]?
       public struct Delivery: Decodable {
         public var thread: Thread
         public var deploys: [String]?
       }
     }
-    public typealias Builds = [String: Build]
+    public typealias Builds = [AlphaNumeric: Build]
     public typealias Versions = [String: Version]
-    public typealias Accessories = [String: [String: String]]
+    public typealias Accessories = [String: [String: AlphaNumeric]]
   }
   public struct Requisition: Decodable {
     public var branch: String

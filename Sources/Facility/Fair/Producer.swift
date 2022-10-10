@@ -48,88 +48,59 @@ public final class Producer {
     let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
-//    let product = try production.productMatching(deploy: <#T##String#>)
-//      .productMatching(ref: gitlabCi.job.pipeline.ref, tag: false)
-//      .get { throw Thrown("No product matches \(gitlabCi.job.pipeline.ref)") }
-//    let version = try generate(cfg.parseReleaseBranchVersion(
-//      production: production,
-//      ref: gitlabCi.job.pipeline.ref
-//    ))
-//    let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-//    let head = try Git.Sha.make(value: gitlabCi.job.pipeline.sha)
-//    var uniq: Set<Git.Sha>? = nil
-//    var heir: Set<Git.Sha>? = nil
-//    var lack: Set<Git.Sha> = []
-//    for build in builds.reversed() {
-//      guard case .deploy(let deploy) = build, deploy.product == product.name else { continue }
-//      let sha = try Git.Sha.make(value: deploy.sha)
-//      try Id
-//        .make(cfg.git.listCommits(
-//          in: [.make(sha: sha)],
-//          notIn: [.make(sha: head)],
-//          noMerges: true,
-//          firstParents: false
-//        ))
-//        .map(execute)
-//        .map(Execute.parseLines(reply:))
-//        .get()
-//        .map(Git.Sha.make(value:))
-//        .forEach { lack.insert($0) }
-//      let shas = try Id
-//        .make(cfg.git.listCommits(
-//          in: [.make(sha: head)],
-//          notIn: [.make(sha: sha)],
-//          noMerges: true,
-//          firstParents: false
-//        ))
-//        .map(execute)
-//        .map(Execute.parseLines(reply:))
-//        .get()
-//        .map(Git.Sha.make(value:))
-//      uniq = uniq.get(Set(shas)).intersection(shas)
-//      if deploy.version != version { heir = heir.get(Set(shas)).intersection(shas) }
-//    }
-//    heir = heir.get([]).subtracting(uniq.get([]))
-//    let deploy = try builds.last
-//      .map(\.build)
-//      .reduce(production, cfg.bumpBuildNumber(production:build:))
-//      .map(generate)
-//      .map { product.deploy(job: gitlabCi.job, version: version, build: $0) }
-//      .get { throw Thrown("Push first build number manually") }
-//    let name = try generate(cfg.createDeployTagName(
-//      production: production,
-//      product: product,
-//      version: version,
-//      build: deploy.build
-//    ))
-//    guard product.deployTagNameMatch.isMet(name)
-//    else { throw Thrown("\(name) does not meat deployTag criteria") }
-//    let annotation = try generate(cfg.createDeployTagAnnotation(
-//      production: production,
-//      product: product,
-//      version: version,
-//      build: deploy.build
-//    ))
-//    try persistBuilds(
-//      cfg: cfg,
-//      production: production,
-//      builds: builds,
-//      build: .deploy(deploy)
-//    )
-//    try gitlabCi
-//      .postTags(name: name, ref: gitlabCi.job.pipeline.sha, message: annotation)
-//      .map(execute)
-//      .map(Execute.checkStatus(reply:))
-//      .get()
-//    try report(cfg.reportDeployTagCreated(
-//      ref: name,
-//      product: product,
-//      deploy: deploy,
-//      uniq: makeCommitReport(cfg: cfg, product: product, shas: uniq.get([])),
-//      heir: makeCommitReport(cfg: cfg, product: product, shas: heir.get([])),
-//      lack: makeCommitReport(cfg: cfg, product: product, shas: lack)
-//    ))
-#warning("tbd")
+    let product = try production.productMatching(release: gitlabCi.job.pipeline.ref)
+    let current = try generate(cfg.parseReleaseBranchVersion(
+      product: product,
+      ref: gitlabCi.job.pipeline.ref
+    ))
+    let sha = try Git.Sha.make(job: gitlabCi.job)
+    let versions = try loadVersions(cfg: cfg, production: production)
+    guard var version = versions[product.name]
+    else { throw Thrown("Versioning not configured for \(product)") }
+    let delivery = try version.deploy(version: current, sha: sha)
+    let builds = try loadBuilds(cfg: cfg, production: production)
+    guard let build = try builds.keys.max().map(\.value)
+      .reduce(production, cfg.bumpBuildNumber(production:build:))
+      .map(generate)
+    else { throw Thrown("No builds in asset") }
+    let tag = try generate(cfg.createDeployTagName(
+      product: product,
+      version: current,
+      build: build
+    ))
+    let annotation = try generate(cfg.createDeployTagAnnotation(
+      product: product,
+      version: current,
+      build: build
+    ))
+    try persist(cfg: cfg, production: production, builds: builds, update: .tag(.make(
+      build: build.alphaNumeric,
+      sha: sha.value,
+      tag: tag
+    )))
+    try persist(
+      cfg: cfg,
+      production: production,
+      product: product,
+      versions: versions,
+      update: version,
+      version: current,
+      reason: .deploy
+    )
+    try gitlabCi
+      .postTags(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    try report(cfg.reportDeployTagCreated(
+      product: product,
+      delivery: delivery,
+      ref: tag,
+      sha: sha.value,
+      version: current,
+      build: build,
+      notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery)
+    ))
     return true
   }
   public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
@@ -184,51 +155,51 @@ public final class Producer {
     let production = try resolveProduction(.init(cfg: cfg))
     guard let product = production.products[product]
     else { throw Thrown("Produnc \(product) not configured") }
-    var versions = try loadVersions(cfg: cfg, production: production)
+    let versions = try loadVersions(cfg: cfg, production: production)
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product)") }
-    let current = version.next
-    guard version.deliveries[current] == nil
-    else { throw Thrown("Release \(product.name) \(current) already exists") }
+    let current = version.next.value
     let branch = try Git.Branch(name: generate(cfg.createReleaseBranchName(
       product: product,
       version: current,
       hotfix: false
     )))
-    let next = try generate(cfg.bumpReleaseVersion(
+    let bump = try generate(cfg.bumpReleaseVersion(
       product: product,
       version: current,
       hotfix: false
     ))
-    try gitlabCi
+    let sha = try Git.Sha.make(job: gitlabCi.job)
+    try version.check(bump: bump)
+    guard try gitlabCi
       .postBranches(name: branch.name, ref: gitlabCi.job.pipeline.sha)
       .map(execute)
-      .map(Execute.checkStatus(reply:))
+      .map(Execute.parseData(reply:))
+      .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
       .get()
+      .protected
+    else { throw Thrown("Release \(branch) not protected") }
     let thread = try createThread(cfg.reportReleaseBranchCreated(
       product: product,
       ref: branch.name,
       version: current,
       hotfix: false
     ))
-    let sha = try Git.Sha.make(job: gitlabCi.job)
-    versions[product.name] = version
-    let delivery = version.release(next: next, start: sha, branch: branch, thread: thread)
-    _ = try persistAsset(.init(
+    let delivery = version.release(bump: bump, start: sha, thread: thread)
+    try persist(
       cfg: cfg,
-      asset: production.versions,
-      content: Production.Version.serialize(versions: versions),
-      message: try generate(cfg.createVersionsCommitMessage(
-        production: production,
-        product: product,
-        version: current,
-        reason: .release
-      ))
-    ))
+      production: production,
+      product: product,
+      versions: versions,
+      update: version,
+      version: current,
+      reason: .release
+    )
     try report(cfg.reportReleaseBranchSummary(
       product: product,
       delivery: delivery,
       ref: branch.name,
+      sha: sha.value,
       notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery))
     )
     return true
@@ -238,61 +209,54 @@ public final class Producer {
     let production = try resolveProduction(.init(cfg: cfg))
     guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
     let product = try production.productMatching(deploy: gitlabCi.job.pipeline.ref)
-    var versions = try loadVersions(cfg: cfg, production: production)
+    let versions = try loadVersions(cfg: cfg, production: production)
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product.name)") }
+    let sha = try Git.Sha.make(job: gitlabCi.job)
     let current = try generate(cfg.parseDeployTagVersion(
       product: product,
       ref: gitlabCi.job.pipeline.ref
     ))
-    guard version.deliveries[current] != nil
-    else { throw Thrown("Release \(product.name) \(version) does not exist") }
     let hotfix = try generate(cfg.bumpReleaseVersion(
       product: product,
       version: current,
       hotfix: true
     ))
-    guard version.deliveries[hotfix] == nil
-    else { throw Thrown("Release \(product.name) \(hotfix) already exists") }
-    let branch = try Git.Branch(name: generate(cfg.createReleaseBranchName(
+    let branch = try generate(cfg.createReleaseBranchName(
       product: product,
       version: hotfix,
       hotfix: true
-    )))
-    try gitlabCi
-      .postBranches(name: branch.name, ref: gitlabCi.job.pipeline.sha)
+    ))
+    try version.check(hotfix: hotfix, of: current)
+    guard try gitlabCi
+      .postBranches(name: branch, ref: gitlabCi.job.pipeline.sha)
       .map(execute)
-      .map(Execute.checkStatus(reply:))
+      .map(Execute.parseData(reply:))
+      .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
       .get()
+      .protected
+    else { throw Thrown("Hotfix \(branch) not protected") }
     let thread = try createThread(cfg.reportReleaseBranchCreated(
       product: product,
-      ref: branch.name,
+      ref: branch,
       version: hotfix,
       hotfix: true
     ))
-    let sha = try Git.Sha.make(job: gitlabCi.job)
-    let delivery = try version.hotfix(
-      from: current,
-      version: hotfix,
-      start: sha,
-      thread: thread
-    )
-    versions[product.name] = version
-    _ = try persistAsset(.init(
+    let delivery = version.hotfix(version: hotfix, start: sha, thread: thread)
+    try persist(
       cfg: cfg,
-      asset: production.versions,
-      content: Production.Version.serialize(versions: versions),
-      message: try generate(cfg.createVersionsCommitMessage(
-        production: production,
-        product: product,
-        version: hotfix,
-        reason: .hotfix
-      ))
-    ))
+      production: production,
+      product: product,
+      versions: versions,
+      update: version,
+      version: current,
+      reason: .hotfix
+    )
     try report(cfg.reportReleaseBranchSummary(
       product: product,
       delivery: delivery,
-      ref: branch.name,
+      ref: branch,
+      sha: sha.value,
       notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery))
     )
     return true
@@ -386,14 +350,15 @@ public final class Producer {
     sha: Git.Sha,
     delivery: Production.Version.Delivery
   ) throws -> Production.ReleaseNotes {
-    let deploys = try Execute
-      .parseLines(reply: execute(cfg.git.excludeParents(shas: delivery.deploys)))
+    let previous = try Execute
+      .parseLines(reply: execute(cfg.git.excludeParents(shas: delivery.previous)))
       .reduce(into: [], { try $0.append(Git.Ref.make(sha: .make(value: $1))) })
+    guard previous.isEmpty.not else { return .make(uniq: [], lack: []) }
     return try Production.ReleaseNotes.make(
       uniq: Execute
         .parseLines(reply: execute(cfg.git.listCommits(
           in: [.make(sha: sha)],
-          notIn: deploys,
+          notIn: previous,
           ignoreMissing: true
         )))
         .compactMap({ sha in try production.makeNote(sha: sha, msg: Execute.parseText(
@@ -401,7 +366,7 @@ public final class Producer {
         ))}),
       lack: Execute
         .parseLines(reply: execute(cfg.git.listCommits(
-          in: deploys,
+          in: previous,
           notIn: [.make(sha: sha)],
           ignoreMissing: true
         )))
@@ -410,34 +375,63 @@ public final class Producer {
         ))})
     )
   }
-  func persistBuilds(
+  func persist(
     cfg: Configuration,
     production: Production,
-    builds: [Production.Build],
-    build: Production.Build
+    builds: [AlphaNumeric: Production.Build],
+    update: Production.Build
   ) throws {
-    let builds = builds + [build]
+    var builds = builds
+    guard builds.keys.filter({ !($0 < update.build) }).isEmpty
+    else { throw Thrown("Build \(update) is not the highest") }
+    builds[update.build] = update
     _ = try persistAsset(.init(
       cfg: cfg,
       asset: production.builds,
-      content: builds
-        .suffix(production.buildsCount)
-        .map(\.yaml)
-        .joined(),
+      content: production.serialize(builds: builds),
       message: generate(cfg.createBuildCommitMessage(
         production: production,
-        build: build
+        build: update
+      ))
+    ))
+  }
+  func persist(
+    cfg: Configuration,
+    production: Production,
+    product: Production.Product,
+    versions: [String: Production.Version],
+    update: Production.Version,
+    version: String,
+    reason: Generate.CreateVersionsCommitMessage.Reason
+  ) throws {
+    var versions = versions
+    versions[update.product] = update
+    _ = try persistAsset(.init(
+      cfg: cfg,
+      asset: production.versions,
+      content: production.serialize(versions: versions),
+      message: generate(cfg.createVersionsCommitMessage(
+        production: production,
+        product: product,
+        version: version,
+        reason: reason
       ))
     ))
   }
   func loadVersions(
     cfg: Configuration,
     production: Production
-  ) throws -> [String: Production.Version] { try Id
-    .make(.init(git: cfg.git, file: .make(asset: production.versions)))
-    .map(parseVersions)
-    .get()
-    .map(Production.Version.make(product:yaml:))
-    .reduce(into: [:], { $0[$1.product] = $1 })
+  ) throws -> [String: Production.Version] {
+    try parseVersions(.init(git: cfg.git, file: .make(asset: production.versions)))
+      .map(Production.Version.make(product:yaml:))
+      .reduce(into: [:], { $0[$1.product] = $1 })
+  }
+  func loadBuilds(
+    cfg: Configuration,
+    production: Production
+  ) throws -> [AlphaNumeric: Production.Build] {
+    try parseBuilds(.init(git: cfg.git, file: .make(asset: production.builds)))
+      .map(Production.Build.make(build:yaml:))
+      .reduce(into: [:], { $0[$1.build] = $1 })
   }
 }

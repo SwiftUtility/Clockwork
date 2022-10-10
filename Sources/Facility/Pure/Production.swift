@@ -34,9 +34,54 @@ public struct Production {
     guard products.count < 2 else { throw Thrown("Tag \(deploy) matches multiple products") }
     return try products.first.get { throw Thrown("Tag \(deploy) matches no products") }
   }
+  public func productMatching(release: String) throws -> Product {
+    let products = products.values.filter({ $0.matchReleaseBranch.isMet(release) })
+    guard products.count < 2 else { throw Thrown("Branch \(release) matches multiple products") }
+    return try products.first.get { throw Thrown("Branch \(release) matches no products") }
+  }
   public func makeNote(sha: String, msg: String) -> ReleaseNotes.Note? {
     guard msg.isMet(criteria: matchReleaseNote) else { return nil }
     return .init(sha: sha, msg: msg)
+  }
+  public func serialize(builds: [AlphaNumeric: Build]) -> String {
+    let builds = builds.keys
+      .sorted()
+      .compactMap({ builds[$0] })
+      .suffix(buildsCount)
+    guard builds.isEmpty.not else { return "{}\n" }
+    var result: String = ""
+    for build in builds {
+      switch build {
+      case .tag(let tag): result += tag.yaml.joined()
+      case .branch(let branch): result += branch.yaml.joined()
+      case .review(let review): result += review.yaml.joined()
+      }
+    }
+    return result
+  }
+  public func serialize(versions: [String: Version]) -> String {
+    guard versions.isEmpty.not else { return "{}\n" }
+    var result: String = ""
+    for version in versions.keys.sorted().compactMap({ versions[$0] }) {
+      result += "'\(version.product)':\n"
+      result += "  next: '\(version.next)'\n"
+      let deliveries = version.deliveries.keys
+        .sorted()
+        .compactMap({ version.deliveries[$0] })
+        .suffix(releasesCount)
+      if deliveries.isEmpty.not {
+        result += "  deliveries:\n"
+        for delivery in deliveries {
+          result += "    '\(delivery.version)':\n"
+          result += "      thread: \(delivery.thread.serialize())\n"
+          if delivery.deploys.isEmpty.not {
+            result += "      deploys:\n"
+            result += delivery.deploys.map({ "      - '\($0.value)'\n" }).sorted().joined()
+          }
+        }
+      }
+    }
+    return result
   }
   public struct ReleaseNotes: Encodable {
     public var uniq: [Note]?
@@ -78,7 +123,7 @@ public struct Production {
       parseDeployTagBuild: .make(yaml: yaml.parseDeployTagBuild),
       parseDeployTagVersion: .make(yaml: yaml.parseDeployTagVersion)
     )}
-    public func deploy(build: String, sha: String, tag: String) -> Build.Tag {
+    public func deploy(build: AlphaNumeric, sha: String, tag: String) -> Build.Tag {
       .init(build: build, sha: sha, tag: tag)
     }
   }
@@ -86,14 +131,7 @@ public struct Production {
     case tag(Tag)
     case branch(Branch)
     case review(Review)
-    public var yaml: String {
-      switch self {
-      case .tag(let tag): return tag.yaml.joined()
-      case .branch(let branch): return branch.yaml.joined()
-      case .review(let review): return review.yaml.joined()
-      }
-    }
-    public var build: String {
+    public var build: AlphaNumeric {
       switch self {
       case .tag(let tag): return tag.build
       case .branch(let branch): return branch.build
@@ -116,7 +154,7 @@ public struct Production {
       guard case .tag(let tag) = self else { return nil }
       return "\(tag.tag)"
     }
-    public static func make(build: String, yaml: Yaml.Production.Build) throws -> Self {
+    public static func make(build: AlphaNumeric, yaml: Yaml.Production.Build) throws -> Self {
       switch (yaml.review, yaml.target, yaml.branch, yaml.tag) {
       case (nil, nil, nil, let tag?): return .tag(.make(
         build: build,
@@ -138,18 +176,18 @@ public struct Production {
       }
     }
     public struct Review: Encodable {
-      public var build: String
+      public var build: AlphaNumeric
       public var sha: String
       public var review: UInt
       public var target: String
       public var yaml: [String] { [
-        "- build: '\(build)'\n",
+        "'\(build)':\n",
         "  sha: '\(sha)'\n",
         "  review: \(review)\n",
         "  target: \(target)\n",
       ]}
       public static func make(
-        build: String,
+        build: AlphaNumeric,
         sha: String,
         review: UInt,
         target: String
@@ -161,16 +199,16 @@ public struct Production {
       )}
     }
     public struct Branch: Encodable {
-      public var build: String
+      public var build: AlphaNumeric
       public var sha: String
       public var branch: String
       public var yaml: [String] { [
-        "- build: '\(build)'\n",
+        "'\(build)':\n",
         "  sha: '\(sha)'\n",
         "  branch: \(branch)\n",
       ]}
       public static func make(
-        build: String,
+        build: AlphaNumeric,
         sha: String,
         branch: String
       ) -> Self { .init(
@@ -180,16 +218,16 @@ public struct Production {
       )}
     }
     public struct Tag: Encodable {
-      public var build: String
+      public var build: AlphaNumeric
       public var sha: String
       public var tag: String
       public var yaml: [String] { [
-        "- build: '\(build)'\n",
+        "'\(build)':\n",
         "  sha: '\(sha)'\n",
         "  tag: \(tag)\n"
       ]}
       public static func make(
-        build: String,
+        build: AlphaNumeric,
         sha: String,
         tag: String
       ) -> Self { .init(
@@ -201,98 +239,96 @@ public struct Production {
   }
   public struct Version {
     public internal(set) var product: String
-    public internal(set) var next: String
-    public internal(set) var flow: [[String]]
-    public internal(set) var deliveries: [String: Delivery]
+    public internal(set) var next: AlphaNumeric
+    public internal(set) var deliveries: [AlphaNumeric: Delivery]
     public static func make(
       product: String,
       yaml: Yaml.Production.Version
     ) throws -> Self { try .init(
       product: product,
       next: yaml.next,
-      flow: yaml.flow.get([]),
       deliveries: yaml.deliveries
         .get([:])
         .map(Delivery.make(version:yaml:))
         .reduce(into: [:], { $0[$1.version] = $1 })
     )}
+    public func check(bump: String) throws {
+      let bump = bump.alphaNumeric
+      guard deliveries[next] == nil
+      else { throw Thrown("\(product) \(next) already exists") }
+      guard deliveries[bump] == nil
+      else { throw Thrown("\(product) \(bump) already exists") }
+      guard bump > next
+      else { throw Thrown("\(product) \(bump) is not after \(next)") }
+    }
     public mutating func release(
-      next version: String,
+      bump: String,
       start: Git.Sha,
-      branch: Git.Branch,
       thread: Yaml.Thread
     ) -> Delivery {
-      var result = Delivery(
+      let result = Delivery(
         version: next,
         thread: .make(yaml: thread),
-        deploys: [start]
+        deploys: [start],
+        previous: deliveries.keys
+          .sorted()
+          .compactMap({ deliveries[$0] })
+          .prefix(while: { $0.version < next })
+          .reduce(into: [], { $0.formUnion($1.deploys) })
       )
-      let previous = deliveries.values
-        .reduce(into: Set(), { $0.formUnion($1.deploys) })
-      flow.append([next])
       deliveries[next] = result
-      next = version
-      result.deploys = previous
+      next = .make(bump)
       return result
     }
+    public func check(hotfix: String, of previous: String) throws {
+      let previous = previous.alphaNumeric
+      let hotfix = hotfix.alphaNumeric
+      guard deliveries[previous] != nil
+      else { throw Thrown("No \(product) \(previous) ") }
+      guard deliveries[hotfix] == nil
+      else { throw Thrown("\(product) \(previous) already exists") }
+      guard !deliveries.values.contains(where: { $0.version > previous && $0.version < hotfix })
+      else { throw Thrown("\(product) \(hotfix) is not the latest hotfix") }
+    }
     public mutating func hotfix(
-      from previous: String,
       version: String,
       start: Git.Sha,
       thread: Yaml.Thread
-    ) throws -> Delivery {
-      guard let index = flow.firstIndex(where: { $0.last == previous })
-      else { throw Thrown("Unable to hotfix \(product) \(version)") }
-      var result = Delivery(
-        version: next,
+    ) -> Delivery {
+      let version = version.alphaNumeric
+      let result = Delivery(
+        version: version,
         thread: .make(yaml: thread),
-        deploys: [start]
+        deploys: [start],
+        previous: deliveries.keys
+          .sorted()
+          .compactMap({ deliveries[$0] })
+          .prefix(while: { $0.version < version })
+          .reduce(into: [], { $0.formUnion($1.deploys) })
       )
-      let previous = (0 ... index)
-        .flatMap({ flow[$0] })
-        .compactMap({ deliveries[$0]?.deploys })
-        .reduce(into: Set(), { $0.formUnion($1) })
-      flow[index].append(version)
       deliveries[version] = result
-      result.deploys = previous
       return result
     }
     public mutating func deploy(
       version: String,
       sha: Git.Sha
-    ) throws {
-      guard deliveries[version] != nil else { throw Thrown("No delivery \(product) \(version)") }
+    ) throws -> Delivery {
+      let version = version.alphaNumeric
+      guard var delivery = deliveries[version] else { throw Thrown("No \(product) \(version)") }
+      let delpoys = deliveries.values
+        .filter({ $0.version < version })
+        .reduce(into: delivery.deploys, { $0.formUnion($1.deploys) })
       deliveries[version]?.deploys.insert(sha)
-    }
-    public static func serialize(versions: [String: Self]) -> String {
-      guard versions.isEmpty.not else { return "{}\n" }
-      var result: String = ""
-      for version in versions.keys.sorted().compactMap({ versions[$0] }) {
-        result += "'\(version.product)':\n"
-        result += "  next: '\(version.next)'\n"
-        let flow = version.flow.filter(\.isEmpty.not)
-        if flow.isEmpty.not {
-          result += "  flow:\n"
-          result += flow.map({ "  - ['\($0.joined(separator: "','"))']\n" }).joined()
-          result += "  deliveries:\n"
-          for delivery in flow.flatMap({ $0 }).sorted().compactMap({ version.deliveries[$0] }) {
-            result += "    '\(delivery.version)':\n"
-            result += "      thread: \(delivery.thread.serialize())\n"
-            if delivery.deploys.isEmpty.not {
-              result += "      deploys:\n"
-              result += delivery.deploys.map({ "      - '\($0.value)'\n" }).sorted().joined()
-            }
-          }
-        }
-      }
-      return result
+      delivery.deploys.formUnion(delpoys)
+      return delivery
     }
     public struct Delivery {
-      public var version: String
+      public var version: AlphaNumeric
       public var thread: Configuration.Thread
       public var deploys: Set<Git.Sha>
+      public var previous: Set<Git.Sha>
       public static func make(
-        version: String,
+        version: AlphaNumeric,
         yaml: Yaml.Production.Version.Delivery
       ) throws -> Self { try .init(
         version: version,
@@ -300,7 +336,8 @@ public struct Production {
         deploys: Set(yaml.deploys
           .get([])
           .map(Git.Sha.make(value:))
-        )
+        ),
+        previous: []
       )}
     }
   }

@@ -87,11 +87,20 @@ public struct Generate: Query {
     public var info: GitlabCi.Info?
     public var build: String
   }
+  public struct ParseReleaseBranchVersion: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var product: String
+    public var ref: String
+  }
   public struct ParseDeployTagVersion: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
+    public var product: String
     public var ref: String
   }
   public struct ParseDeployTagBuild: GenerationContext {
@@ -99,6 +108,7 @@ public struct Generate: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
+    public var product: String
     public var ref: String
   }
   public struct CreateVersionsCommitMessage: GenerationContext {
@@ -313,6 +323,21 @@ public extension Configuration {
       build: build
     )
   )}
+  func parseReleaseBranchVersion(
+    product: Production.Product,
+    ref: String
+  ) -> Generate { .init(
+    allowEmpty: false,
+    template: product.parseReleaseBranchVersion,
+    templates: templates,
+    context: Generate.ParseReleaseBranchVersion(
+      env: env,
+      ctx: context,
+      info: try? gitlabCi.get().info,
+      product: product.name,
+      ref: ref
+    )
+  )}
   func parseDeployTagVersion(
     product: Production.Product,
     ref: String
@@ -324,6 +349,7 @@ public extension Configuration {
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
+      product: product.name,
       ref: ref
     )
   )}
@@ -338,6 +364,7 @@ public extension Configuration {
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
+      product: product.name,
       ref: ref
     )
   )}
@@ -370,7 +397,7 @@ public extension Configuration {
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
-      build: build.build,
+      build: build.build.value,
       review: build.review,
       branch: build.branch,
       tag: build.tag

@@ -115,7 +115,7 @@ public final class Worker {
       return value.sha == job.pipeline.sha && value.review == review.iid
     }
     public func makeBuild(build: String) -> Production.Build { .review(.make(
-      build: build,
+      build: .make(build),
       sha: job.pipeline.sha,
       review: review.iid,
       target: review.targetBranch

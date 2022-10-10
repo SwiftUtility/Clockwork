@@ -162,8 +162,23 @@ public struct Report: Query {
     public var info: GitlabCi.Info?
     public var thread: Configuration.Thread
     public var ref: String
+    public var sha: String
     public var product: String
     public var version: String
+    public var notes: Production.ReleaseNotes?
+    public var subevent: String { product }
+  }
+  public struct DeployTagCreated: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var ref: String
+    public var sha: String
+    public var product: String
+    public var version: String
+    public var build: String
     public var notes: Production.ReleaseNotes?
     public var subevent: String { product }
   }
@@ -183,23 +198,6 @@ public struct Report: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var error: String
-  }
-  public struct DeployTagCreated: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
-    public var ref: String
-    public var product: String
-    public var deploy: Production.Build.Tag
-    public var uniq: [Commit]?
-    public var lack: [Commit]?
-    public var subevent: String { product }
-    public struct Commit: Encodable {
-      public var sha: String
-      public var msg: String
-      public static func make(sha: String, msg: String) -> Self { .init(sha: sha, msg: msg) }
-    }
   }
   public struct AccessoryBranchCreated: GenerationContext {
     public var event: String = Self.event
@@ -386,6 +384,7 @@ public extension Configuration {
     product: Production.Product,
     delivery: Production.Version.Delivery,
     ref: String,
+    sha: String,
     notes: Production.ReleaseNotes
   ) -> Report { .init(cfg: self, context: Report.ReleaseBranchSummary(
     env: env,
@@ -393,10 +392,34 @@ public extension Configuration {
     info: try? gitlabCi.get().info,
     thread: delivery.thread,
     ref: ref,
+    sha: sha,
     product: product.name,
-    version: delivery.version,
+    version: delivery.version.value,
     notes: notes.isEmpty.else(notes)
   ))}
+  func reportDeployTagCreated(
+    product: Production.Product,
+    delivery: Production.Version.Delivery,
+    ref: String,
+    sha: String,
+    version: String,
+    build: String,
+    notes: Production.ReleaseNotes
+  ) -> Report { .init(cfg: self, context: Report.DeployTagCreated(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: delivery.thread,
+    ref: ref,
+    sha: sha,
+    product: product.name,
+    version: version,
+    build: build,
+    notes: notes.isEmpty.else(notes)
+  ))}
+
+
+
 
   func reportCustom(
     event: String,
@@ -415,23 +438,6 @@ public extension Configuration {
     ctx: context,
     info: try? gitlabCi.get().info,
     error: String(describing: error)
-  ))}
-  func reportDeployTagCreated(
-    ref: String,
-    product: Production.Product,
-    deploy: Production.Build.Tag,
-    uniq: [Report.DeployTagCreated.Commit],
-    heir: [Report.DeployTagCreated.Commit],
-    lack: [Report.DeployTagCreated.Commit]
-  ) -> Report { .init(cfg: self, context: Report.DeployTagCreated(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
-    ref: ref,
-    product: product.name,
-    deploy: deploy,
-    uniq: uniq.isEmpty.else(uniq),
-    lack: lack.isEmpty.else(lack)
   ))}
   func reportAccessoryBranchCreated(
     ref: String

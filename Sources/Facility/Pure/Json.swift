@@ -32,7 +32,7 @@ public enum Json {
     }
     public func makeBranchBuild(build: String) throws -> Production.Build {
       guard !tag else { throw Thrown("Tag builds not supported") }
-      return .branch(.init(build: build, sha: pipeline.sha, branch: pipeline.ref))
+      return .branch(.init(build: .make(build), sha: pipeline.sha, branch: pipeline.ref))
     }
     public struct Pipeline: Codable {
       public var id: UInt
