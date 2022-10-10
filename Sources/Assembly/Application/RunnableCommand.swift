@@ -119,9 +119,9 @@ extension Clockwork.ExportIntegration: RunnableCommand {
     try Assembler.reviewer.renderIntegration(cfg: cfg)
   }
 }
-extension Clockwork.ExportVersions: RunnableCommand {
+extension Clockwork.ExportNextVersions: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.renderVersions(cfg: cfg)
+    try Assembler.producer.renderNextVersions(cfg: cfg)
   }
 }
 extension Clockwork.ImportRequisites: RunnableCommand {

@@ -30,9 +30,12 @@ public enum Json {
         return value.sha == pipeline.sha && value.branch == pipeline.ref
       }
     }
-    public func makeBranchBuild(build: String) throws -> Production.Build {
-      guard !tag else { throw Thrown("Tag builds not supported") }
-      return .branch(.init(build: .make(build), sha: pipeline.sha, branch: pipeline.ref))
+    public func makeBuild(build: String) -> Production.Build {
+      if tag {
+        return .tag(.make(build: build.alphaNumeric, sha: pipeline.sha, tag: pipeline.ref))
+      } else {
+        return .branch(.make(build: build.alphaNumeric, sha: pipeline.sha, branch: pipeline.ref))
+      }
     }
     public struct Pipeline: Codable {
       public var id: UInt

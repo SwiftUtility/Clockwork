@@ -22,7 +22,7 @@ struct Clockwork: ParsableCommand {
       EraseRequisites.self,
       ExportBuild.self,
       ExportIntegration.self,
-      ExportVersions.self,
+      ExportNextVersions.self,
       ImportRequisites.self,
       ImportPkcs12.self,
       ImportProvisions.self,
@@ -33,8 +33,8 @@ struct Clockwork: ParsableCommand {
       ReportCustomRelease.self,
       ReportCustomReview.self,
       ReportExpiringRequisites.self,
-      ReserveReviewBuild.self,
       ReserveBranchBuild.self,
+      ReserveReviewBuild.self,
       ResetPodSpecs.self,
       RetryJobs.self,
       RemoveReviewLabels.self,
@@ -141,7 +141,7 @@ struct Clockwork: ParsableCommand {
     static var abstract: String { "Render integration suitable branches to stdout" }
     @OptionGroup var clockwork: Clockwork
   }
-  struct ExportVersions: ClockworkCommand {
+  struct ExportNextVersions: ClockworkCommand {
     static var abstract: String { "Render current next versions to stdout" }
     @OptionGroup var clockwork: Clockwork
   }

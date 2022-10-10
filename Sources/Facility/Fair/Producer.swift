@@ -48,7 +48,9 @@ public final class Producer {
     let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
-    let product = try production.productMatching(release: gitlabCi.job.pipeline.ref)
+    let product = try production
+      .productMatching(release: gitlabCi.job.pipeline.ref)
+      .get { throw Thrown("Branch \(gitlabCi.job.pipeline.ref) matches no products") }
     let current = try generate(cfg.parseReleaseBranchVersion(
       product: product,
       ref: gitlabCi.job.pipeline.ref
@@ -63,15 +65,17 @@ public final class Producer {
       .reduce(production, cfg.bumpBuildNumber(production:build:))
       .map(generate)
     else { throw Thrown("No builds in asset") }
-    let tag = try generate(cfg.createDeployTagName(
+    let tag = try generate(cfg.createTagName(
       product: product,
       version: current,
-      build: build
+      build: build,
+      deploy: true
     ))
-    let annotation = try generate(cfg.createDeployTagAnnotation(
+    let annotation = try generate(cfg.createTagAnnotation(
       product: product,
       version: current,
-      build: build
+      build: build,
+      deploy: true
     ))
     try persist(cfg: cfg, production: production, builds: builds, update: .tag(.make(
       build: build.alphaNumeric,
@@ -104,50 +108,43 @@ public final class Producer {
     return true
   }
   public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
-#warning("tbd")
-//    let production = try resolveProduction(.init(cfg: cfg))
-//    let ctx = try worker.resolveParentReview(cfg: cfg)
-//    let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-//    guard !builds.contains(where: ctx.matches(build:))
-//    else {
-//      logMessage(.init(message: "Build already exists"))
-//      return true
-//    }
-//    try persistBuilds(
-//      cfg: cfg,
-//      production: production,
-//      builds: builds,
-//      build: try builds.last
-//        .map(\.build)
-//        .reduce(production, cfg.bumpBuildNumber(production:build:))
-//        .map(generate)
-//        .map(ctx.makeBuild(build:))
-//        .get { throw Thrown("Push first build number manually") }
-//    )
+    let production = try resolveProduction(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    let builds = try loadBuilds(cfg: cfg, production: production)
+    guard !builds.values.contains(where: ctx.matches(build:)) else {
+      logMessage(.init(message: "Build already exists"))
+      return true
+    }
+    let build = try ctx.makeBuild(build: generate(cfg.bumpBuildNumber(
+      production: production,
+      build: builds.keys
+        .sorted()
+        .max()
+        .map(\.value)
+        .get { throw Thrown("No builds in asset") }
+    )))
+    try persist(cfg: cfg, production: production, builds: builds, update: build)
     return true
   }
   public func reserveBranchBuild(cfg: Configuration) throws -> Bool {
-#warning("tbd")
-//    let gitlabCi = try cfg.gitlabCi.get()
-//    guard case nil = try? gitlabCi.job.review.get()
-//    else { throw Thrown("Protected branches merge requests not supported") }
-//    let production = try resolveProduction(.init(cfg: cfg))
-//    let builds = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-//    guard !builds.contains(where: gitlabCi.matches(build:)) else {
-//      logMessage(.init(message: "Build already exists"))
-//      return true
-//    }
-//    try persistBuilds(
-//      cfg: cfg,
-//      production: production,
-//      builds: builds,
-//      build: try builds.last
-//        .map(\.build)
-//        .reduce(production, cfg.bumpBuildNumber(production:build:))
-//        .map(generate)
-//        .map(gitlabCi.job.makeBranchBuild(build:))
-//        .get { throw Thrown("Push first build number manually") }
-//    )
+    let gitlabCi = try cfg.gitlabCi.get()
+    let production = try resolveProduction(.init(cfg: cfg))
+    let builds = try loadBuilds(cfg: cfg, production: production)
+    guard gitlabCi.job.tag.not else { throw Thrown("Not on branch") }
+    guard builds.values.contains(where: gitlabCi.matches(build:)).not else {
+      logMessage(.init(message: "Build already exists"))
+      return true
+    }
+    try persist(
+      cfg: cfg,
+      production: production,
+      builds: builds,
+      update: try builds.keys.max().map(\.value)
+        .reduce(production, cfg.bumpBuildNumber(production:build:))
+        .map(generate)
+        .map(gitlabCi.job.makeBuild(build:))
+        .get { throw Thrown("No builds in asset") }
+    )
     return true
   }
   public func createReleaseBranch(cfg: Configuration, product: String) throws -> Bool {
@@ -208,14 +205,17 @@ public final class Producer {
     let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
-    let product = try production.productMatching(deploy: gitlabCi.job.pipeline.ref)
+    let product = try production
+      .productMatching(deploy: gitlabCi.job.pipeline.ref)
+      .get { throw Thrown("Tag \(gitlabCi.job.pipeline.ref) matches no products") }
     let versions = try loadVersions(cfg: cfg, production: production)
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product.name)") }
     let sha = try Git.Sha.make(job: gitlabCi.job)
-    let current = try generate(cfg.parseDeployTagVersion(
+    let current = try generate(cfg.parseTagVersion(
       product: product,
-      ref: gitlabCi.job.pipeline.ref
+      ref: gitlabCi.job.pipeline.ref,
+      deploy: true
     ))
     let hotfix = try generate(cfg.bumpReleaseVersion(
       product: product,
@@ -265,83 +265,82 @@ public final class Producer {
     cfg: Configuration,
     name: String
   ) throws -> Bool {
-#warning("tbd")
-//    let gitlabCi = try cfg.gitlabCi.get()
-//    let accessoryBranch = try resolveProduction(.init(cfg: cfg))
-//      .accessoryBranch
-//      .get { throw Thrown("accessoryBranch not configured") }
-//    guard accessoryBranch.nameMatch.isMet(name)
-//    else { throw Thrown("\(name) does not meat accessory criteria") }
-//    try gitlabCi
-//      .postBranches(name: name, ref: gitlabCi.job.pipeline.sha)
-//      .map(execute)
-//      .map(Execute.checkStatus(reply:))
-//      .get()
-//    report(cfg.reportAccessoryBranchCreated(ref: name))
+    let gitlabCi = try cfg.gitlabCi.get()
+    let criteria = try resolveProduction(.init(cfg: cfg)).matchAccessoryBranch
+    guard criteria.isMet(name) else { throw Thrown("\(name) does not meat accessory criteria") }
+    guard try gitlabCi
+      .postBranches(name: name, ref: gitlabCi.job.pipeline.sha)
+      .map(execute)
+      .map(Execute.parseData(reply:))
+      .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
+      .get()
+      .protected
+    else { throw Thrown("Release \(name) not protected") }
+    report(cfg.reportAccessoryBranchCreated(ref: name))
     return true
   }
   public func renderBuild(cfg: Configuration) throws -> Bool {
-#warning("tbd")
-//    let gitlabCi = try cfg.gitlabCi.get()
-//    let production = try resolveProduction(.init(cfg: cfg))
-//    let build: String
-//    var versions = try resolveProductionVersions(.init(cfg: cfg, production: production))
-//    if gitlabCi.job.tag {
-//      let product = try production
-//        .productMatching(ref: gitlabCi.job.pipeline.ref, tag: true)
-//        .get { throw Thrown("No product for \(gitlabCi.job.pipeline.ref)") }
-//      build = try generate(cfg.parseDeployTagBuild(
-//        production: production,
-//        ref: gitlabCi.job.pipeline.ref
-//      ))
-//      versions[product.name] = try generate(cfg.parseDeployTagVersion(
-//        production: production,
-//        ref: gitlabCi.job.pipeline.ref
-//      ))
-//    } else {
-//      guard let resolved = try resolveProductionBuilds(.init(cfg: cfg, production: production))
-//       .reversed()
-//       .first(where: gitlabCi.job.matches(build:))
-//      else {
-//        logMessage(.init(message: "No build number reserved"))
-//        return false
-//      }
-//      build = resolved.build
-//      let branch = resolved.target.get(gitlabCi.job.pipeline.ref)
-//      if let accessory = production.accessoryBranch {
-//        for (product, version) in versions {
-//          versions[product] = try generate(cfg.adjustAccessoryBranchVersion(
-//            accessoryBranch: accessory,
-//            ref: branch,
-//            product: product,
-//            version: version
-//          ))
-//        }
-//      }
-//      if let product = try production.productMatching(ref: branch, tag: false) {
-//        versions[product.name] = try generate(cfg.parseReleaseBranchVersion(
-//          production: production,
-//          ref: branch
-//        ))
-//      }
-//    }
-//    try writeStdout(generate(cfg.exportBuildContext(
-//      production: production,
-//      versions: versions,
-//      build: build
-//    )))
+    let gitlabCi = try cfg.gitlabCi.get()
+    let production = try resolveProduction(.init(cfg: cfg))
+    let name = gitlabCi.job.pipeline.ref
+    let build: String
+    let versions = try loadVersions(cfg: cfg, production: production)
+    var current = versions.mapValues(\.next.value)
+    if gitlabCi.job.tag {
+      let product: Production.Product
+      let deploy: Bool
+      if let found = try production.productMatching(deploy: name) {
+        product = found
+        deploy = true
+      } else if let found = try production.productMatching(stage: name) {
+        product = found
+        deploy = false
+      } else {
+        throw Thrown("Not on deploy or stage tag")
+      }
+      build = try generate(cfg.parseTagBuild(
+        product: product,
+        ref: name,
+        deploy: deploy
+      ))
+      current[product.name] = try generate(cfg.parseTagVersion(
+        product: product,
+        ref: name,
+        deploy: deploy
+      ))
+    } else {
+      guard let resolved = try loadBuilds(cfg: cfg, production: production)
+        .values
+        .first(where: gitlabCi.job.matches(build:))
+      else {
+        logMessage(.init(message: "No build number reserved"))
+        return false
+      }
+      build = resolved.build.value
+      if let product = try production.productMatching(release: name) {
+        current[product.name] = try generate(cfg.parseReleaseBranchVersion(
+          product: product,
+          ref: name
+        ))
+      } else if production.matchAccessoryBranch.isMet(name) {
+        for product in production.products.keys {
+          current[product] = versions[product]?.accessories[name]?.value ?? current[product]
+        }
+      }
+    }
+    try writeStdout(generate(cfg.exportBuildContext(
+      production: production,
+      versions: current,
+      build: build
+    )))
     return true
   }
-  public func renderVersions(cfg: Configuration) throws -> Bool {
-#warning("tbd")
-//    let production = try resolveProduction(.init(cfg: cfg))
-//    try writeStdout(generate(cfg.exportCurrentVersions(
-//      production: production,
-//      versions: resolveProductionVersions(.init(
-//        cfg: cfg,
-//        production: resolveProduction(.init(cfg: cfg))
-//      ))
-//    )))
+  public func renderNextVersions(cfg: Configuration) throws -> Bool {
+    let production = try resolveProduction(.init(cfg: cfg))
+    try writeStdout(generate(cfg.exportCurrentVersions(
+      production: production,
+      versions: loadVersions(cfg: cfg, production: production).mapValues(\.next.value)
+    )))
     return true
   }
   func makeNotes(

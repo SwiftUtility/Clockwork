@@ -3,10 +3,9 @@ import Facility
 public struct Production {
   public var builds: Configuration.Asset
   public var versions: Configuration.Asset
-  public var accessories: Configuration.Asset
   public var buildsCount: Int
   public var releasesCount: Int
-  public var createBuild: Configuration.Template
+  public var bumpBuildNumber: Configuration.Template
   public var exportBuilds: Configuration.Template
   public var exportVersions: Configuration.Template
   public var matchReleaseNote: Criteria
@@ -17,10 +16,9 @@ public struct Production {
   ) throws -> Self { try .init(
     builds: .make(yaml: yaml.builds),
     versions: .make(yaml: yaml.versions),
-    accessories: .make(yaml: yaml.accessories),
     buildsCount: yaml.buildsCount,
     releasesCount: yaml.releasesCount,
-    createBuild: .make(yaml: yaml.createBuild),
+    bumpBuildNumber: .make(yaml: yaml.bumpBuildNumber),
     exportBuilds: .make(yaml: yaml.exportBuilds),
     exportVersions: .make(yaml: yaml.exportVersions),
     matchReleaseNote: .init(yaml: yaml.matchReleaseNote),
@@ -29,15 +27,20 @@ public struct Production {
       .map(Product.make(name:yaml:))
       .reduce(into: [:], { $0[$1.name] = $1 })
   )}
-  public func productMatching(deploy: String) throws -> Product {
-    let products = products.values.filter({ $0.matchDeployTagName.isMet(deploy) })
+  public func productMatching(deploy: String) throws -> Product? {
+    let products = products.values.filter({ $0.matchDeployTag.isMet(deploy) })
     guard products.count < 2 else { throw Thrown("Tag \(deploy) matches multiple products") }
-    return try products.first.get { throw Thrown("Tag \(deploy) matches no products") }
+    return products.first
   }
-  public func productMatching(release: String) throws -> Product {
+  public func productMatching(stage: String) throws -> Product? {
+    let products = products.values.filter({ $0.matchStageTag.isMet(stage) })
+    guard products.count < 2 else { throw Thrown("Tag \(stage) matches multiple products") }
+    return products.first
+  }
+  public func productMatching(release: String) throws -> Product? {
     let products = products.values.filter({ $0.matchReleaseBranch.isMet(release) })
     guard products.count < 2 else { throw Thrown("Branch \(release) matches multiple products") }
-    return try products.first.get { throw Thrown("Branch \(release) matches no products") }
+    return products.first
   }
   public func makeNote(sha: String, msg: String) -> ReleaseNotes.Note? {
     guard msg.isMet(criteria: matchReleaseNote) else { return nil }
@@ -80,6 +83,13 @@ public struct Production {
           }
         }
       }
+      if version.accessories.isEmpty.not {
+        result += "  accessories:\n"
+        result += version.accessories.keys
+          .sorted()
+          .compactMap({ try? "    '\($0)': '\(?!version.accessories[$0])'\n" })
+          .joined()
+      }
     }
     return result
   }
@@ -97,31 +107,33 @@ public struct Production {
   }
   public struct Product {
     public var name: String
-    public var createReleaseThread: Configuration.Template
-    public var createReleaseVersion: Configuration.Template
-    public var createReleaseBranchName: Configuration.Template
+    public var matchStageTag: Criteria
+    public var matchDeployTag: Criteria
     public var matchReleaseBranch: Criteria
-    public var parseReleaseBranchVersion: Configuration.Template
-    public var createDeployTagName: Configuration.Template
-    public var createDeployTagAnnotation: Configuration.Template
-    public var matchDeployTagName: Criteria
-    public var parseDeployTagBuild: Configuration.Template
-    public var parseDeployTagVersion: Configuration.Template
+    public var parseTagBuild: Configuration.Template
+    public var parseTagVersion: Configuration.Template
+    public var parseBranchVersion: Configuration.Template
+    public var bumpReleaseVersion: Configuration.Template
+    public var createTagName: Configuration.Template
+    public var createTagAnnotation: Configuration.Template
+    public var createReleaseThread: Configuration.Template
+    public var createReleaseBranchName: Configuration.Template
     public static func make(
       name: String,
       yaml: Yaml.Production.Product
     ) throws -> Self { try .init(
       name: name,
-      createReleaseThread: .make(yaml: yaml.createReleaseThread),
-      createReleaseVersion: .make(yaml: yaml.createReleaseVersion),
-      createReleaseBranchName: .make(yaml: yaml.createReleaseBranchName),
+      matchStageTag: .init(yaml: yaml.matchStageTag),
+      matchDeployTag: .init(yaml: yaml.matchDeployTag),
       matchReleaseBranch: .init(yaml: yaml.matchReleaseBranch),
-      parseReleaseBranchVersion: .make(yaml: yaml.parseReleaseBranchVersion),
-      createDeployTagName: .make(yaml: yaml.createDeployTagName),
-      createDeployTagAnnotation: .make(yaml: yaml.createDeployTagAnnotation),
-      matchDeployTagName: .init(yaml: yaml.matchDeployTagName),
-      parseDeployTagBuild: .make(yaml: yaml.parseDeployTagBuild),
-      parseDeployTagVersion: .make(yaml: yaml.parseDeployTagVersion)
+      parseTagBuild: .make(yaml: yaml.parseTagBuild),
+      parseTagVersion: .make(yaml: yaml.parseTagVersion),
+      parseBranchVersion: .make(yaml: yaml.parseBranchVersion),
+      bumpReleaseVersion: .make(yaml: yaml.bumpReleaseVersion),
+      createTagName: .make(yaml: yaml.createTagName),
+      createTagAnnotation: .make(yaml: yaml.createTagAnnotation),
+      createReleaseThread: .make(yaml: yaml.createReleaseThread),
+      createReleaseBranchName: .make(yaml: yaml.createReleaseBranchName)
     )}
     public func deploy(build: AlphaNumeric, sha: String, tag: String) -> Build.Tag {
       .init(build: build, sha: sha, tag: tag)
@@ -241,16 +253,17 @@ public struct Production {
     public internal(set) var product: String
     public internal(set) var next: AlphaNumeric
     public internal(set) var deliveries: [AlphaNumeric: Delivery]
+    public internal(set) var accessories: [String: AlphaNumeric]
     public static func make(
       product: String,
       yaml: Yaml.Production.Version
     ) throws -> Self { try .init(
       product: product,
       next: yaml.next,
-      deliveries: yaml.deliveries
-        .get([:])
+      deliveries: yaml.deliveries.get([:])
         .map(Delivery.make(version:yaml:))
-        .reduce(into: [:], { $0[$1.version] = $1 })
+        .reduce(into: [:], { $0[$1.version] = $1 }),
+      accessories: yaml.accessories.get([:])
     )}
     public func check(bump: String) throws {
       let bump = bump.alphaNumeric

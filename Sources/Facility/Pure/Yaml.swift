@@ -47,26 +47,26 @@ public enum Yaml {
   public struct Production: Decodable {
     public var builds: Asset
     public var versions: Asset
-    public var accessories: Asset
     public var buildsCount: Int
     public var releasesCount: Int
-    public var createBuild: Template
+    public var bumpBuildNumber: Template
     public var exportBuilds: Template
     public var exportVersions: Template
     public var matchReleaseNote: Criteria
     public var matchAccessoryBranch: Criteria
     public var products: [String: Product]
     public struct Product: Decodable {
-      public var createReleaseThread: Template
-      public var createReleaseVersion: Template
-      public var createReleaseBranchName: Template
+      public var matchStageTag: Criteria
+      public var matchDeployTag: Criteria
       public var matchReleaseBranch: Criteria
-      public var parseReleaseBranchVersion: Template
-      public var createDeployTagName: Template
-      public var createDeployTagAnnotation: Template
-      public var matchDeployTagName: Criteria
-      public var parseDeployTagBuild: Template
-      public var parseDeployTagVersion: Template
+      public var parseTagBuild: Template
+      public var parseTagVersion: Template
+      public var parseBranchVersion: Template
+      public var bumpReleaseVersion: Template
+      public var createTagName: Template
+      public var createTagAnnotation: Template
+      public var createReleaseThread: Template
+      public var createReleaseBranchName: Template
     }
     public struct Build: Decodable {
       public var sha: String
@@ -78,6 +78,7 @@ public enum Yaml {
     public struct Version: Decodable {
       public var next: AlphaNumeric
       public var deliveries: [AlphaNumeric: Delivery]?
+      public var accessories: [String: AlphaNumeric]?
       public struct Delivery: Decodable {
         public var thread: Thread
         public var deploys: [String]?
@@ -85,7 +86,6 @@ public enum Yaml {
     }
     public typealias Builds = [AlphaNumeric: Build]
     public typealias Versions = [String: Version]
-    public typealias Accessories = [String: [String: AlphaNumeric]]
   }
   public struct Requisition: Decodable {
     public var branch: String

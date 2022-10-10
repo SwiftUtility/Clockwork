@@ -53,7 +53,7 @@ public struct Generate: Query {
     public var version: String
     public var hotfix: Bool
   }
-  public struct CreateDeployTagName: GenerationContext {
+  public struct CreateTagName: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -61,8 +61,9 @@ public struct Generate: Query {
     public var product: String
     public var version: String
     public var build: String
+    public var deploy: Bool
   }
-  public struct CreateDeployTagAnnotation: GenerationContext {
+  public struct CreateTagAnnotation: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -70,6 +71,7 @@ public struct Generate: Query {
     public var product: String
     public var version: String
     public var build: String
+    public var deploy: Bool
   }
   public struct BumpReleaseVersion: GenerationContext {
     public var event: String = Self.event
@@ -95,21 +97,23 @@ public struct Generate: Query {
     public var product: String
     public var ref: String
   }
-  public struct ParseDeployTagVersion: GenerationContext {
+  public struct ParseTagVersion: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var ref: String
+    public var deploy: Bool
   }
-  public struct ParseDeployTagBuild: GenerationContext {
+  public struct ParseTagBuild: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var ref: String
+    public var deploy: Bool
   }
   public struct CreateVersionsCommitMessage: GenerationContext {
     public var event: String = Self.event
@@ -241,38 +245,42 @@ public extension Configuration {
       targets: targets
     )
   )}
-  func createDeployTagName(
+  func createTagName(
     product: Production.Product,
     version: String,
-    build: String
+    build: String,
+    deploy: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.createDeployTagName,
+    template: product.createTagName,
     templates: templates,
-    context: Generate.CreateDeployTagName(
+    context: Generate.CreateTagName(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       version: version,
-      build: build
+      build: build,
+      deploy: deploy
     )
   )}
-  func createDeployTagAnnotation(
+  func createTagAnnotation(
     product: Production.Product,
     version: String,
-    build: String
+    build: String,
+    deploy: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.createDeployTagAnnotation,
+    template: product.createTagAnnotation,
     templates: templates,
-    context: Generate.CreateDeployTagAnnotation(
+    context: Generate.CreateTagAnnotation(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       version: version,
-      build: build
+      build: build,
+      deploy: deploy
     )
   )}
   func createReleaseBranchName(
@@ -298,7 +306,7 @@ public extension Configuration {
     hotfix: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.createReleaseVersion,
+    template: product.bumpReleaseVersion,
     templates: templates,
     context: Generate.BumpReleaseVersion(
       env: env,
@@ -314,7 +322,7 @@ public extension Configuration {
     build: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: production.createBuild,
+    template: production.bumpBuildNumber,
     templates: templates,
     context: Generate.BumpBuildNumber(
       env: env,
@@ -328,7 +336,7 @@ public extension Configuration {
     ref: String
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.parseReleaseBranchVersion,
+    template: product.parseBranchVersion,
     templates: templates,
     context: Generate.ParseReleaseBranchVersion(
       env: env,
@@ -338,34 +346,38 @@ public extension Configuration {
       ref: ref
     )
   )}
-  func parseDeployTagVersion(
+  func parseTagVersion(
     product: Production.Product,
-    ref: String
+    ref: String,
+    deploy: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.parseDeployTagVersion,
+    template: product.parseTagVersion,
     templates: templates,
-    context: Generate.ParseDeployTagVersion(
+    context: Generate.ParseTagVersion(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
-      ref: ref
+      ref: ref,
+      deploy: deploy
     )
   )}
-  func parseDeployTagBuild(
+  func parseTagBuild(
     product: Production.Product,
-    ref: String
+    ref: String,
+    deploy: Bool
   ) -> Generate { .init(
     allowEmpty: false,
-    template: product.parseDeployTagBuild,
+    template: product.parseTagBuild,
     templates: templates,
-    context: Generate.ParseDeployTagBuild(
+    context: Generate.ParseTagBuild(
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
-      ref: ref
+      ref: ref,
+      deploy: deploy
     )
   )}
   func createVersionsCommitMessage(
