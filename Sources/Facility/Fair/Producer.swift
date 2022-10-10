@@ -10,6 +10,7 @@ public final class Producer {
   let parseVersions: Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Versions>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let report: Act.Reply<Report>
+  let readStdin: Try.Reply<Configuration.ReadStdin>
   let createThread: Try.Reply<Report.CreateThread>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
@@ -24,6 +25,7 @@ public final class Producer {
     parseVersions: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Versions>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     report: @escaping Act.Reply<Report>,
+    readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
     createThread: @escaping Try.Reply<Report.CreateThread>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
@@ -38,6 +40,7 @@ public final class Producer {
     self.parseVersions = parseVersions
     self.persistAsset = persistAsset
     self.report = report
+    self.readStdin = readStdin
     self.createThread = createThread
     self.logMessage = logMessage
     self.writeStdout = writeStdout
@@ -49,7 +52,41 @@ public final class Producer {
     event: String,
     stdin: Configuration.ReadStdin
   ) throws -> Bool {
-    #warning("tbd")
+    let stdin = try readStdin(stdin)
+    let gitlabCi = try cfg.gitlabCi.get()
+    let production = try resolveProduction(.init(cfg: cfg))
+    let product: Production.Product
+    let current: String
+    if gitlabCi.job.tag {
+      product = try production
+        .productMatching(deploy: gitlabCi.job.pipeline.ref)
+        .get { throw Thrown("Tag \(gitlabCi.job.pipeline.ref) matches no products") }
+      current = try generate(cfg.parseTagVersion(
+        product: product,
+        ref: gitlabCi.job.pipeline.ref,
+        deploy: true
+      ))
+    } else {
+      product = try production
+        .productMatching(release: gitlabCi.job.pipeline.ref)
+        .get { throw Thrown("Branch \(gitlabCi.job.pipeline.ref) matches no products") }
+      current = try generate(cfg.parseReleaseBranchVersion(
+        product: product,
+        ref: gitlabCi.job.pipeline.ref
+      ))
+    }
+    let delivery = try loadVersions(cfg: cfg, production: production)[product.name]
+      .get { throw Thrown("Versioning not configured for \(product)") }
+      .deliveries[current.alphaNumeric]
+      .get { throw Thrown("No \(product.name) \(current)") }
+    report(cfg.reportReleaseCustom(
+      event: event,
+      product: product,
+      delivery: delivery,
+      ref: gitlabCi.job.pipeline.ref,
+      sha: gitlabCi.job.pipeline.sha,
+      stdin: stdin
+    ))
     return true
   }
   public func createDeployTag(cfg: Configuration) throws -> Bool {
@@ -109,7 +146,6 @@ public final class Producer {
       delivery: delivery,
       ref: tag,
       sha: sha.value,
-      version: current,
       build: build,
       notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery)
     ))

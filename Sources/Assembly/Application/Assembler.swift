@@ -86,6 +86,7 @@ enum Assembler {
     parseVersions: configurator.parseYamlFile(query:),
     persistAsset: configurator.persistAsset(query:),
     report: reporter.report(query:),
+    readStdin: reporter.readStdin(query:),
     createThread: reporter.createThread(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,

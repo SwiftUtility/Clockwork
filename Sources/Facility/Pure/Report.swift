@@ -182,6 +182,19 @@ public struct Report: Query {
     public var notes: Production.ReleaseNotes?
     public var subevent: String { product }
   }
+  public struct ReleaseCustom: GenerationContext {
+    public var event: String = Self.event
+    public var subevent: String
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var ref: String
+    public var sha: String
+    public var product: String
+    public var version: String
+    public var stdin: AnyCodable?
+  }
   public struct StageTagCreated: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
@@ -194,8 +207,6 @@ public struct Report: Query {
     public var build: String
     public var subevent: String { product }
   }
-
-
   public struct Custom: GenerationContext {
     public var event: String = Self.event
     public var subevent: String
@@ -414,7 +425,6 @@ public extension Configuration {
     delivery: Production.Version.Delivery,
     ref: String,
     sha: String,
-    version: String,
     build: String,
     notes: Production.ReleaseNotes
   ) -> Report { .init(cfg: self, context: Report.DeployTagCreated(
@@ -425,9 +435,28 @@ public extension Configuration {
     ref: ref,
     sha: sha,
     product: product.name,
-    version: version,
+    version: delivery.version.value,
     build: build,
     notes: notes.isEmpty.else(notes)
+  ))}
+  func reportReleaseCustom(
+    event: String,
+    product: Production.Product,
+    delivery: Production.Version.Delivery,
+    ref: String,
+    sha: String,
+    stdin: AnyCodable?
+  ) -> Report { .init(cfg: self, context: Report.ReleaseCustom(
+    subevent: event,
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: delivery.thread,
+    ref: ref,
+    sha: sha,
+    product: product.name,
+    version: delivery.version.value,
+    stdin: stdin
   ))}
   func reportStageTagCreated(
     product: Production.Product,
@@ -445,9 +474,6 @@ public extension Configuration {
     version: version,
     build: build
   ))}
-
-
-
   func reportCustom(
     event: String,
     stdin: AnyCodable?

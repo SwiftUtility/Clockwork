@@ -64,9 +64,9 @@ public final class Reviewer {
     event: String,
     stdin: Configuration.ReadStdin
   ) throws -> Bool {
+    let stdin = try readStdin(stdin)
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
-    let stdin = try readStdin(stdin)
     let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     guard let status = statuses[ctx.review.iid] else { throw Thrown("No review thread") }
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
