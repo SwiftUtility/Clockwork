@@ -174,9 +174,8 @@ public final class Configurator {
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Yaml.Fusion.Approval.Status].self, dialect.read(_:from:))
     .get()
-    .reduce(into: [:]) {
-      try $0[UInt($1.key).get { throw Thrown("Bad approval asset") }] = .make(yaml: $1.value)
-    }
+    .map(Fusion.Approval.Status.make(review:yaml:))
+    .reduce(into: [:], { $0[$1.review] = $1 })
   }
   public func resolveApprovers(
     query: Configuration.ResolveApprovers

@@ -79,6 +79,32 @@ public final class Reviewer {
     ))
     return true
   }
+  public func remindReviews(cfg: Configuration) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    for status in statuses.values {
+      let gitlabCi = try cfg.gitlabCi.get()
+      let state = try gitlabCi.getMrState(review: status.review)
+        .map(execute)
+        .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
+        .get()
+      guard status.verification?.value == state.pipeline.sha else { continue }
+      let slackers = status.participants
+        .union(status.randoms)
+        .union(status.authors)
+        .subtracting(status.approves.filter(\.value.resolution.approved).keys)
+        .subtracting(status.approves.filter(\.value.resolution.block).keys)
+      guard slackers.isEmpty.not else { continue }
+      report(cfg.reportReviewRemind(
+        approvers: approvers,
+        status: status,
+        state: state,
+        slackers: slackers
+      ))
+    }
+    return true
+  }
   public func updateApprover(
     cfg: Configuration,
     active: Bool,
@@ -117,49 +143,35 @@ public final class Reviewer {
   ) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
-    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, ctx: ctx, fusion: fusion, statuses: &statuses)
-    try review.approve(job: ctx.job, resolution: resolution)
-    statuses[ctx.review.iid] = review.status
-    guard try persistAsset(.init(
-      cfg: cfg,
-      asset: fusion.approval.statuses,
-      content: Fusion.Approval.Status.yaml(statuses: statuses),
-      message: generate(cfg.createFusionStatusesCommitMessage(
-        fusion: fusion,
-        review: ctx.review
-      ))
-    )) else { return false }
-    return try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
-      .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
-      .not
-  }
-  public func dequeueReview(cfg: Configuration) throws -> Bool {
-    let fusion = try resolveFusion(.init(cfg: cfg))
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
-    return true
-  }
-  public func ownReview(cfg: Configuration) throws -> Bool {
-    let fusion = try resolveFusion(.init(cfg: cfg))
-    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard ctx.isActual else { return false }
     guard try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
       .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
       .not
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, ctx: ctx, fusion: fusion, statuses: &statuses)
+    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    try review.approve(job: ctx.job, resolution: resolution)
+    return try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+  }
+  public func dequeueReview(cfg: Configuration) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard ctx.isActual else { return false }
+    try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+    return true
+  }
+  public func ownReview(cfg: Configuration) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try worker.resolveParentReview(cfg: cfg)
+    guard ctx.isActual else { return false }
+    guard try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
+      .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
+      .not
+    else { return false }
+    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
     try review.setAuthor(job: ctx.job)
-    return try persistAsset(.init(
-      cfg: cfg,
-      asset: fusion.approval.statuses,
-      content: Fusion.Approval.Status.yaml(statuses: statuses),
-      message: generate(cfg.createFusionStatusesCommitMessage(
-        fusion: fusion,
-        review: ctx.review
-      ))
-    ))
+    return try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
@@ -242,11 +254,11 @@ public final class Reviewer {
   public func updateReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
+    guard ctx.isActual else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, ctx: ctx, fusion: fusion, statuses: &statuses)
-    guard try checkIsRebased(cfg: cfg, ctx: ctx) else {
-      if let sha = try rebaseReview(cfg: cfg, ctx: ctx, fusion: fusion) {
+    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    guard try checkIsRebased(cfg: cfg, state: ctx.review) else {
+      if let sha = try rebaseReview(cfg: cfg, state: ctx.review, fusion: fusion) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
           url: ctx.gitlab.protected.get().push,
           branch: .init(name: ctx.review.sourceBranch),
@@ -255,42 +267,40 @@ public final class Reviewer {
         )))
       } else {
         report(cfg.reportReviewMergeConflicts(review: review, state: ctx.review))
-        try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
+        try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       }
       return false
     }
-    if let reason = try checkReviewClosers(cfg: cfg, ctx: ctx, kind: review.kind) {
-      try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
-      try closeReview(cfg: cfg, ctx: ctx)
+    if let reason = try checkClosers(
+      cfg: cfg,
+      state: ctx.review,
+      gitlab: ctx.gitlab,
+      kind: review.kind
+    ) {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      try closeReview(cfg: cfg, state: ctx.review)
       report(cfg.reportReviewClosed(review: review, state: ctx.review, reason: reason))
       return false
     }
-    if let blockers = try checkReviewBlockers(cfg: cfg, ctx: ctx, review: review) {
-      try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
+    if let blockers = try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       report(cfg.reportReviewBlocked(review: review, state: ctx.review, reasons: blockers))
       return false
     }
-    let approval = try updateApproval(cfg: cfg, ctx: ctx, fusion: fusion, review: &review)
-    if let troubles = approval.troubles {
+    if let troubles = try verify(cfg: cfg, state: ctx.review, fusion: fusion, review: &review) {
       report(cfg.reportReviewTroubles(review: review, state: ctx.review, troubles: troubles))
-    }
-    statuses[ctx.review.iid] = review.status
-    _ = try persistAsset(.init(
-      cfg: cfg,
-      asset: fusion.approval.statuses,
-      content: Fusion.Approval.Status.yaml(statuses: statuses),
-      message: generate(cfg.createFusionStatusesCommitMessage(
-        fusion: fusion,
-        review: ctx.review
-      ))
-    ))
-    report(cfg.reportReviewUpdate(review: review, state: ctx.review, update: approval.update))
-    guard approval.isApproved else {
-      try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
+      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
       return false
     }
-    guard try checkIsSquashed(cfg: cfg, ctx: ctx, kind: review.kind) else {
-      let sha = try squashReview(cfg: cfg, ctx: ctx, fusion: fusion, kind: review.kind)
+    let approval = review.resolveApproval()
+    report(cfg.reportReviewUpdate(review: review, state: ctx.review, update: approval))
+    guard approval.state.isApproved else {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+      return false
+    }
+    guard try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind) else {
+      let sha = try squashReview(cfg: cfg, state: ctx.review, fusion: fusion, kind: review.kind)
       try Execute.checkStatus(reply: execute(cfg.git.push(
         url: ctx.gitlab.protected.get().push,
         branch: .init(name: ctx.review.sourceBranch),
@@ -298,44 +308,38 @@ public final class Reviewer {
         force: true
       )))
       review.squashApproves(sha: sha)
-      _ = try persistAsset(.init(
-        cfg: cfg,
-        asset: fusion.approval.statuses,
-        content: Fusion.Approval.Status.yaml(statuses: statuses),
-        message: generate(cfg.createFusionStatusesCommitMessage(
-          fusion: fusion,
-          review: ctx.review
-        ))
-      ))
+      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
       return false
     }
-    return try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: true)
+    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+    return try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: true)
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
+    guard ctx.isActual else { return false }
     let queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
     guard queue.isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, ctx: ctx, fusion: fusion, statuses: &statuses)
+    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
     guard
-      try checkIsRebased(cfg: cfg, ctx: ctx),
-      try checkIsSquashed(cfg: cfg, ctx: ctx, kind: review.kind),
-      try checkReviewClosers(cfg: cfg, ctx: ctx, kind: review.kind) == nil,
-      try checkReviewBlockers(cfg: cfg, ctx: ctx, review: review) == nil,
-      try updateApproval(cfg: cfg, ctx: ctx, fusion: fusion, review: &review).isApproved
+      try checkIsRebased(cfg: cfg, state: ctx.review),
+      try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
+      try checkClosers(cfg: cfg, state: ctx.review, gitlab: ctx.gitlab, kind: review.kind) == nil,
+      try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) == nil,
+      review.isApproved(sha: ctx.review.pipeline.sha)
     else {
-      try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
-      throw Thrown("Bad last pipeline state")
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      logMessage(.init(message: "Bad last pipeline state"))
+      return false
     }
-    try changeQueue(cfg: cfg, ctx: ctx, fusion: fusion, enqueue: false)
+    try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
     switch review.kind {
     case .proposition:
       guard try acceptReview(
         cfg: cfg,
-        ctx: ctx,
+        state: ctx.review,
         review: review,
         message: generate(cfg.createPropositionCommitMessage(
           proposition: fusion.proposition,
@@ -345,7 +349,7 @@ public final class Reviewer {
     case .replication(let merge):
       guard try acceptReview(
         cfg: cfg,
-        ctx: ctx,
+        state: ctx.review,
         review: review,
         message: generate(cfg.createReplicationCommitMessage(
           replication: fusion.replication,
@@ -364,7 +368,7 @@ public final class Reviewer {
     case .integration(let merge):
       guard try acceptReview(
         cfg: cfg,
-        ctx: ctx,
+        state: ctx.review,
         review: review,
         message: generate(cfg.createIntegrationCommitMessage(
           integration: fusion.integration,
@@ -374,59 +378,72 @@ public final class Reviewer {
     }
     return true
   }
+  func resolveStatus(
+    cfg: Configuration,
+    approvers: [String: Fusion.Approval.Approver],
+    state: Json.GitlabReviewState,
+    fusion: Fusion,
+    kind: Fusion.Kind,
+    statuses: inout [UInt: Fusion.Approval.Status]
+  ) throws -> Fusion.Approval.Status {
+    if let status = statuses[state.iid] { return status }
+    let authors = try worker.resolveAuthors(cfg: cfg, state: state, kind: kind)
+    let thread = try createThread(cfg.reportReviewCreated(
+      fusion: fusion,
+      review: state,
+      users: approvers,
+      authors: authors
+    ))
+    let status = Fusion.Approval.Status.make(
+      review: state.iid,
+      target: state.targetBranch,
+      authors: authors,
+      thread: .make(yaml: thread),
+      fork: nil
+    )
+    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status)
+    return status
+  }
+  func resolveOwnage(
+    cfg: Configuration,
+    state: Json.GitlabReviewState
+  ) throws -> [String: Criteria] { try cfg.gitlabCi
+    .flatMap(\.env.parent)
+    .map(\.profile)
+    .reduce(.make(sha: .make(value: state.pipeline.sha)), Git.File.init(ref:path:))
+    .map { file in try Configuration.Profile.make(
+      profile: file,
+      yaml: parseProfile(.init(git: cfg.git, file: file))
+    )}
+    .map(\.codeOwnage)
+    .get()
+    .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
+    .map(parseCodeOwnage)
+    .get([:])
+    .mapValues(Criteria.init(yaml:))
+  }
   func resolveReview(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     fusion: Fusion,
     statuses: inout [UInt: Fusion.Approval.Status]
   ) throws -> Review {
-    let kind = try fusion.makeKind(supply: ctx.review.sourceBranch)
+    let kind = try fusion.makeKind(supply: state.sourceBranch)
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
-    let authors = try worker.resolveAuthors(cfg: cfg, ctx: ctx, kind: kind)
-    let status = try statuses[ctx.review.iid].get {
-      let thread = try createThread(cfg.reportReviewCreated(
-        fusion: fusion,
-        review: ctx.review,
-        users: approvers,
-        authors: authors
-      ))
-      let status = Fusion.Approval.Status.make(
-        target: ctx.review.targetBranch,
-        authors: authors,
-        thread: .make(yaml: thread),
-        fork: nil
-      )
-      statuses[ctx.review.iid] = status
-      _ = try persistAsset(.init(
-        cfg: cfg,
-        asset: fusion.approval.statuses,
-        content: Fusion.Approval.Status.yaml(statuses: statuses),
-        message: generate(cfg.createFusionStatusesCommitMessage(
-          fusion: fusion,
-          review: ctx.review
-        ))
-      ))
-      return status
-    }
     return try .make(
-      bot: ctx.gitlab.protected.get().user.username,
-      status: status,
+      bot: cfg.gitlabCi.get().protected.get().user.username,
+      status: resolveStatus(
+        cfg: cfg,
+        approvers: approvers,
+        state: state,
+        fusion: fusion,
+        kind: kind,
+        statuses: &statuses
+      ),
       approvers: approvers,
-      review: ctx.review,
+      review: state,
       kind: kind,
-      ownage: ctx.gitlab.env.parent
-        .map(\.profile)
-        .reduce(.make(sha: .make(value: ctx.review.pipeline.sha)), Git.File.init(ref:path:))
-        .map { file in try Configuration.Profile.make(
-          profile: file,
-          yaml: parseProfile(.init(git: cfg.git, file: file))
-        )}
-        .map(\.codeOwnage)
-        .get()
-        .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
-        .map(parseCodeOwnage)
-        .get([:])
-        .mapValues(Criteria.init(yaml:)),
+      ownage: resolveOwnage(cfg: cfg, state: state),
       rules: .make(yaml: parseApprovalRules(.init(
         git: cfg.git,
         file: fusion.approval.rules
@@ -437,59 +454,70 @@ public final class Reviewer {
         .get([:])
     )
   }
-  func updateApproval(
+  func verify(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     fusion: Fusion,
     review: inout Review
-  ) throws -> Review.Approval {
+  ) throws -> Review.Troubles? {
     let fork = review.kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))
-    let current = try Git.Ref.make(sha: .make(value: ctx.review.pipeline.sha))
-    let target = try Git.Ref.make(remote: .init(name: ctx.review.targetBranch))
-
+    let current = try Git.Sha.make(value: state.pipeline.sha)
+    let target = try Git.Ref.make(remote: .init(name: state.targetBranch))
+    let validation = review.status.verification.map(Git.Ref.make(sha:))
+    if
+      let validation = validation,
+      try !Execute.parseSuccess(reply: execute(cfg.git.check(
+        child: .make(sha: current),
+        parent: validation
+      )))
+    {
+      review.resetVerification()
+    }
     if let fork = review.kind.merge?.fork {
-      try review.addDiff(files: listMergeChanges(
+      try review.prepareVerification(files: listMergeChanges(
         cfg: cfg,
-        ref: current,
+        ref: .make(sha: current),
         parents: [target, .make(sha: fork)]
       ))
     } else {
-      try review.addDiff(files: Execute.parseLines(reply: execute(cfg.git.listChangedFiles(
-        source: current,
-        target: target
-      ))))
+      try review.prepareVerification(files: Execute.parseLines(
+        reply: execute(cfg.git.listChangedFiles(
+          source: .make(sha: current),
+          target: target
+        ))
+      ))
     }
-    try review.status.approves.values
-      .filter(\.resolution.approved)
-      .reduce(into: Set(), { $0.insert($1.commit) })
-      .forEach { sha in try review.addBreakers(
-        sha: sha,
-        commits: try? Execute.parseLines(reply: execute(cfg.git.listCommits(
-          in: [current],
-          notIn: [target, .make(sha: sha)] + fork.array
-        )))
-      )}
     for sha in try Execute.parseLines(reply: execute(cfg.git.listCommits(
-      in: [current],
-      notIn: [target] + fork.array
+      in: [.make(sha: current)],
+      notIn: [target] + fork.array + validation.array,
+      ignoreMissing: true
     ))) {
       let sha = try Git.Sha.make(value: sha)
-      try review.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, ctx: ctx, sha: sha))
+      try review.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, state: state, sha: sha))
     }
-    return review.updateApproval()
+    for sha in review.status.approvedCommits { try review.addBreakers(
+      sha: sha,
+      commits: Execute.parseLines(reply: execute(cfg.git.listCommits(
+        in: [.make(sha: current)],
+        notIn: [target, .make(sha: sha)] + fork.array + validation.array,
+        ignoreMissing: true
+      )))
+    )}
+    return review.performVerification(sha: current)
   }
-  func checkReviewClosers(
+  func checkClosers(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
+    gitlab: GitlabCi,
     kind: Fusion.Kind
   ) throws -> Report.ReviewClosed.Reason? {
     switch kind {
     case .proposition(let rule):
       guard rule != nil else { return .noSourceRule }
     case .replication(let merge):
-      guard try ctx.review.author.username == ctx.gitlab.protected.get().user.username
+      guard try state.author.username == gitlab.protected.get().user.username
       else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
@@ -513,7 +541,7 @@ public final class Reviewer {
       let source = try worker.resolveBranch(cfg: cfg, name: merge.source.name)
       guard source.protected else { return .sourceNotProtected }
     case .integration(let merge):
-      guard try ctx.review.author.username == ctx.gitlab.protected.get().user.username
+      guard try state.author.username == gitlab.protected.get().user.username
       else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
@@ -536,13 +564,13 @@ public final class Reviewer {
   }
   func checkReviewBlockers(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     review: Review
   ) throws -> [Report.ReviewBlocked.Reason]? {
     var result: [Report.ReviewBlocked.Reason] = []
-    if ctx.review.draft { result.append(.draft) }
-    if ctx.review.workInProgress { result.append(.workInProgress) }
-    if !ctx.review.blockingDiscussionsResolved { result.append(.blockingDiscussions) }
+    if state.draft { result.append(.draft) }
+    if state.workInProgress { result.append(.workInProgress) }
+    if !state.blockingDiscussionsResolved { result.append(.blockingDiscussions) }
     if
       let sanity = review.rules.sanity,
       !cfg.profile.checkSanity(criteria: review.ownage[sanity])
@@ -550,23 +578,23 @@ public final class Reviewer {
     let excludes: [Git.Ref]
     switch review.kind {
     case .proposition(let rule):
-      if !ctx.review.squash { result.append(.squashStatus) }
-      let target = try worker.resolveBranch(cfg: cfg, name: ctx.review.targetBranch)
+      if !state.squash { result.append(.squashStatus) }
+      let target = try worker.resolveBranch(cfg: cfg, name: state.targetBranch)
       if !target.protected { result.append(.badTarget) }
       guard let rule = rule else { throw MayDay("no proposition rule") }
-      if !rule.title.isMet(ctx.review.title) { result.append(.badTitle) }
+      if !rule.title.isMet(state.title) { result.append(.badTitle) }
       if let task = rule.task {
-        let source = try findMatches(in: ctx.review.sourceBranch, regexp: task)
-        let title = try findMatches(in: ctx.review.title, regexp: task)
+        let source = try findMatches(in: state.sourceBranch, regexp: task)
+        let title = try findMatches(in: state.title, regexp: task)
         if source.symmetricDifference(title).isEmpty { result.append(.taskMismatch) }
       }
-      try excludes = [.make(remote: .init(name: ctx.review.targetBranch))]
+      try excludes = [.make(remote: .init(name: state.targetBranch))]
     case .replication(let merge), .integration(let merge):
-      if ctx.review.squash { result.append(.squashStatus) }
-      if ctx.review.targetBranch != merge.target.name { result.append(.badTarget) }
+      if state.squash { result.append(.squashStatus) }
+      if state.targetBranch != merge.target.name { result.append(.badTarget) }
       excludes = [.make(remote: merge.target), .make(sha: merge.fork)]
     }
-    let head = try Git.Sha.make(value: ctx.job.pipeline.sha)
+    let head = try Git.Sha.make(value: state.pipeline.sha)
     for branch in try worker.resolveProtectedBranches(cfg: cfg) {
       guard let base = try? Execute.parseText(reply: execute(cfg.git.mergeBase(
         .make(remote: branch),
@@ -584,20 +612,20 @@ public final class Reviewer {
   }
   func checkIsRebased(
     cfg: Configuration,
-    ctx: Worker.ParentReview
+    state: Json.GitlabReviewState
   ) throws -> Bool {
     try Execute.parseSuccess(reply: execute(cfg.git.check(
-      child: .make(sha: .make(value: ctx.review.pipeline.sha)),
-      parent: .make(remote: .init(name: ctx.review.targetBranch))
+      child: .make(sha: .make(value: state.pipeline.sha)),
+      parent: .make(remote: .init(name: state.targetBranch))
     )))
   }
   func checkIsSquashed(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     kind: Fusion.Kind
   ) throws -> Bool {
     guard let fork = kind.merge?.fork else { return true }
-    let parents = try Id(ctx.review.pipeline.sha)
+    let parents = try Id(state.pipeline.sha)
       .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .map(cfg.git.listParents(ref:))
@@ -605,7 +633,7 @@ public final class Reviewer {
       .map(Execute.parseLines(reply:))
       .get()
       .map(Git.Sha.make(value:))
-    let target = try Id(ctx.review.targetBranch)
+    let target = try Id(state.targetBranch)
       .map(Git.Branch.init(name:))
       .map(Git.Ref.make(remote:))
       .map(cfg.git.getSha(ref:))
@@ -617,7 +645,7 @@ public final class Reviewer {
   }
   func listChangedFiles(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     sha: Git.Sha
   ) throws -> [String] {
     let sha = Git.Ref.make(sha: sha)
@@ -665,18 +693,19 @@ public final class Reviewer {
   @discardableResult
   func changeQueue(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     fusion: Fusion,
     enqueue: Bool
   ) throws -> Bool {
+    let gitlab = try cfg.gitlabCi.get()
     var queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
     let notifiables = queue.enqueue(
-      review: ctx.review.iid,
-      target: enqueue.then(ctx.review.targetBranch)
+      review: state.iid,
+      target: enqueue.then(state.targetBranch)
     )
     let message = try generate(cfg.createReviewQueueCommitMessage(
       fusion: fusion,
-      review: ctx.review,
+      review: state,
       queued: enqueue
     ))
     _ = try persistAsset(.init(
@@ -686,13 +715,13 @@ public final class Reviewer {
       message: message
     ))
     for notifiable in notifiables {
-      try Execute.checkStatus(reply: execute(ctx.gitlab.postMrPipelines(review: notifiable).get()))
+      try Execute.checkStatus(reply: execute(gitlab.postMrPipelines(review: notifiable).get()))
     }
-    return queue.isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
+    return queue.isFirst(review: state.iid, target: state.targetBranch)
   }
   func rebaseReview(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     fusion: Fusion
   ) throws -> Git.Sha? {
     let initial = try Id(.head)
@@ -702,10 +731,10 @@ public final class Reviewer {
       .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    let sha = try Git.Ref.make(sha: .make(value: ctx.review.pipeline.sha))
+    let sha = try Git.Ref.make(sha: .make(value: state.pipeline.sha))
     let message = try generate(cfg.createFusionMergeCommitMessage(
       fusion: fusion,
-      review: ctx.review
+      review: state
     ))
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: sha)))
     let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: sha)))
@@ -713,7 +742,7 @@ public final class Reviewer {
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     do {
       try Execute.checkStatus(reply: execute(cfg.git.merge(
-        refs: [.make(remote: .init(name: ctx.review.targetBranch))],
+        refs: [.make(remote: .init(name: state.targetBranch))],
         message: message,
         noFf: true,
         env: Git.env(
@@ -742,7 +771,7 @@ public final class Reviewer {
   }
   func squashReview(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> Git.Sha {
@@ -751,10 +780,10 @@ public final class Reviewer {
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: fork)))
     let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: fork)))
     return try Git.Sha.make(value: Execute.parseText(reply: execute(cfg.git.commitTree(
-      tree: .init(ref: .make(sha: .make(value: ctx.job.pipeline.sha))),
+      tree: .init(ref: .make(sha: .make(value: state.pipeline.sha))),
       message: generate(cfg.createFusionMergeCommitMessage(
         fusion: fusion,
-        review: ctx.review
+        review: state
       )),
       parents: [fork, .make(remote: merge.target)],
       env: Git.env(
@@ -765,16 +794,17 @@ public final class Reviewer {
       )
     ))))
   }
-  func closeReview(cfg: Configuration, ctx: Worker.ParentReview) throws {
-    try ctx.gitlab
-      .putMrState(parameters: .init(stateEvent: "close"), review: ctx.review.iid)
+  func closeReview(cfg: Configuration, state: Json.GitlabReviewState) throws {
+    let gitlab = try cfg.gitlabCi.get()
+    try gitlab
+      .putMrState(parameters: .init(stateEvent: "close"), review: state.iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
     try Id
       .make(cfg.git.push(
-        url: ctx.gitlab.protected.get().push,
-        delete: .init(name: ctx.review.sourceBranch)
+        url: gitlab.protected.get().push,
+        delete: .init(name: state.sourceBranch)
       ))
       .map(execute)
       .map(Execute.checkStatus(reply:))
@@ -782,20 +812,20 @@ public final class Reviewer {
   }
   func acceptReview(
     cfg: Configuration,
-    ctx: Worker.ParentReview,
+    state: Json.GitlabReviewState,
     review: Review,
     message: String
   ) throws -> Bool {
-    let result = try ctx.gitlab
+    let result = try cfg.gitlabCi.get()
       .putMrMerge(
         parameters: .init(
           mergeCommitMessage: message,
           squashCommitMessage: message,
-          squash: ctx.review.squash,
+          squash: state.squash,
           shouldRemoveSourceBranch: true,
-          sha: .make(value: ctx.review.pipeline.sha)
+          sha: .make(value: state.pipeline.sha)
         ),
-        review: ctx.review.iid
+        review: state.iid
       )
       .map(execute)
       .map(\.data)
@@ -803,11 +833,11 @@ public final class Reviewer {
       .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
     if case "merged"? = result?.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
-      report(cfg.reportReviewMerged(review: review, state: ctx.review))
+      report(cfg.reportReviewMerged(review: review, state: state))
       return true
     } else if let message = result?.map?["message"]?.value?.string {
       logMessage(.init(message: message))
-      report(cfg.reportReviewMergeError(review: review, state: ctx.review, error: message))
+      report(cfg.reportReviewMergeError(review: review, state: state, error: message))
       return false
     } else {
       throw MayDay("Unexpected merge response")
@@ -862,6 +892,25 @@ public final class Reviewer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
+  }
+  func persist(
+    _ statuses: [UInt: Fusion.Approval.Status],
+    cfg: Configuration,
+    fusion: Fusion,
+    state: Json.GitlabReviewState,
+    status: Fusion.Approval.Status
+  ) throws -> Bool {
+    var statuses = statuses
+    statuses[state.iid] = status
+    return try persistAsset(.init(
+      cfg: cfg,
+      asset: fusion.approval.statuses,
+      content: Fusion.Approval.Status.yaml(statuses: statuses),
+      message: generate(cfg.createFusionStatusesCommitMessage(
+        fusion: fusion,
+        review: state
+      ))
+    ))
   }
   func findMatches(in string: String, regexp: NSRegularExpression) throws -> Set<String> {
     var result: Set<String> = []

@@ -34,6 +34,13 @@ public struct Generate: Query {
     public var info: GitlabCi.Info?
     public var versions: [String: String]
     public var build: String
+    public var kind: Kind
+    public enum Kind: String, Encodable {
+      case stage
+      case deploy
+      case review
+      case branch
+    }
   }
   public struct ExportIntegrationTargets: GenerationContext {
     public var event: String = Self.event
@@ -214,7 +221,8 @@ public extension Configuration {
   func exportBuildContext(
     production: Production,
     versions: [String: String],
-    build: String
+    build: String,
+    kind: Generate.ExportBuildContext.Kind
   ) -> Generate { .init(
     allowEmpty: false,
     template: production.exportBuilds,
@@ -224,7 +232,8 @@ public extension Configuration {
       ctx: context,
       info: try? gitlabCi.get().info,
       versions: versions,
-      build: build
+      build: build,
+      kind: kind
     )
   )}
   func exportIntegrationTargets(

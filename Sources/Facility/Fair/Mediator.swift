@@ -46,7 +46,7 @@ public final class Mediator {
     cfg: Configuration
   ) throws -> Bool {
     let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
+    guard ctx.isActual else { return false }
     try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
@@ -58,7 +58,7 @@ public final class Mediator {
     labels: [String]
   ) throws -> Bool {
     let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
+    guard ctx.isActual else { return false }
     let labels = Set(labels).subtracting(.init(ctx.review.labels))
     guard !labels.isEmpty else {
       logMessage(.init(message: "No new labels"))
@@ -80,7 +80,7 @@ public final class Mediator {
     labels: [String]
   ) throws -> Bool {
     let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
+    guard ctx.isActual else { return false }
     let labels = Set(labels).intersection(.init(ctx.review.labels))
     guard !labels.isEmpty else {
       logMessage(.init(message: "Labels not present"))

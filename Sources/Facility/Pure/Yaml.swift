@@ -125,10 +125,6 @@ public enum Yaml {
       public var createCommitMessage: Template
       public var exportAvailableTargets: Template
     }
-    public struct Imitation: Decodable {
-      public var createCommitMessage: Template
-      public var exportAvailableTargets: Template
-    }
     public struct Approval: Decodable {
       public var rules: Preset
       public var statuses: Asset
@@ -160,11 +156,13 @@ public enum Yaml {
       }
       public struct Status: Decodable {
         public var thread: Thread
-        public var authors: [String]
         public var target: String
-        public var participants: Set<String>
+        public var authors: [String]
         public var randoms: Set<String>
+        public var participants: Set<String>
+        public var teams: Set<String>
         public var approves: [String: [String: Resolution]]
+        public var verification: String?
         public enum Resolution: String, Decodable {
           case block
           case fragil

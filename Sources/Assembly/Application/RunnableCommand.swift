@@ -156,8 +156,7 @@ extension Clockwork.PlayJobs: RunnableCommand {
 }
 extension Clockwork.RemindReviews: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    #warning("tbd")
-    return false
+    try Assembler.reviewer.remindReviews(cfg: cfg)
   }
 }
 extension Clockwork.ReportCustom: RunnableCommand {

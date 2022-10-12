@@ -3,12 +3,14 @@ import XCTest
 @testable import FacilityPure
 final class ReviewTests: XCTestCase {
   let statuses: [UInt: Fusion.Approval.Status] = [1: .init(
+    review: 1,
     target: "develop",
     authors: ["u1"],
     randoms: [],
     participants: ["u2"],
-    approves: ["u2": .init(commit: .init(value: "1"), resolution: .fragil)],
-    thread: .init(channel: "channel", ts: "1123123.1231231")
+    approves: ["u2": .init(approver: "u2", commit: .init(value: "1"), resolution: .fragil)],
+    thread: .init(channel: "channel", ts: "1123123.1231231"),
+    teams: ["g1"]
   )]
   let approvers: [String: Fusion.Approval.Approver] = [
     "u1": .init(active: true, slack: "1"),
@@ -27,6 +29,7 @@ final class ReviewTests: XCTestCase {
     ),
     teams: [
       "g1": .init(
+        name: "g1",
         quorum: 1,
         labels: [],
         mentions: [],
@@ -36,6 +39,7 @@ final class ReviewTests: XCTestCase {
         advanceApproval: false
       ),
       "g2": .init(
+        name: "g2",
         quorum: 1,
         labels: [],
         mentions: [],
@@ -45,6 +49,7 @@ final class ReviewTests: XCTestCase {
         advanceApproval: false
       ),
       "g3": .init(
+        name: "g3",
         quorum: 1,
         labels: [],
         mentions: [],

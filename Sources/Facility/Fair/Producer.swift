@@ -155,11 +155,11 @@ public final class Producer {
     let production = try resolveProduction(.init(cfg: cfg))
     let ctx = try worker.resolveParentReview(cfg: cfg)
     let builds = try loadBuilds(cfg: cfg, production: production)
-    guard !builds.values.contains(where: ctx.matches(build:)) else {
+    guard !builds.values.contains(where: ctx.review.matches(build:)) else {
       logMessage(.init(message: "Build already exists"))
       return true
     }
-    let build = try ctx.makeBuild(build: generate(cfg.bumpBuildNumber(
+    let build = try ctx.review.makeBuild(build: generate(cfg.bumpBuildNumber(
       production: production,
       build: builds.keys
         .sorted()
@@ -376,6 +376,7 @@ public final class Producer {
     let build: String
     let versions = try loadVersions(cfg: cfg, production: production)
     var current = versions.mapValues(\.next.value)
+    let kind: Generate.ExportBuildContext.Kind
     if gitlabCi.job.tag {
       let product: Production.Product
       let deploy: Bool
@@ -398,6 +399,7 @@ public final class Producer {
         ref: name,
         deploy: deploy
       ))
+      kind = deploy.then(.deploy).get(.stage)
     } else {
       guard let resolved = try loadBuilds(cfg: cfg, production: production)
         .values
@@ -406,6 +408,7 @@ public final class Producer {
         logMessage(.init(message: "No build number reserved"))
         return false
       }
+      kind = (resolved.target != nil).then(.review).get(.branch)
       build = resolved.build.value
       let branch = resolved.target.get(name)
       if let product = try production.productMatching(release: branch) {
@@ -422,7 +425,8 @@ public final class Producer {
     try writeStdout(generate(cfg.exportBuildContext(
       production: production,
       versions: current,
-      build: build
+      build: build,
+      kind: kind
     )))
     return true
   }

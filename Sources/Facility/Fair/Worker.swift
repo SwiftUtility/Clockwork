@@ -26,11 +26,18 @@ public final class Worker {
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
+    if job.pipeline.id != review.pipeline.id {
+      logMessage(.init(message: "Pipeline outdated"))
+    }
+    if review.state != "opened" {
+      logMessage(.init(message: "Review state: \(review.state)"))
+    }
     return .init(
       gitlab: gitlabCi,
       job: job,
       profile: parent.profile,
-      review: review
+      review: review,
+      isLastPipe: job.pipeline.id == review.pipeline.id
     )
   }
   func resolveProject(cfg: Configuration) throws -> Json.GitlabProject { try cfg
@@ -67,58 +74,36 @@ public final class Worker {
   }
   func resolveAuthors(
     cfg: Configuration,
-    ctx: ParentReview,
+    state: Json.GitlabReviewState,
     kind: Fusion.Kind
   ) throws -> Set<String> {
-    guard let merge = kind.merge else { return [ctx.review.author.username] }
-    let bot = try ctx.gitlab.protected.get().user.username
+    let gitlab = try cfg.gitlabCi.get()
+    guard let merge = kind.merge else { return [state.author.username] }
+    let bot = try cfg.gitlabCi.get().protected.get().user.username
     let commits = try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [.make(sha: merge.fork)],
       notIn: [.make(remote: merge.target)],
       noMerges: true
     )))
     var result: Set<String> = []
-    for commit in commits { try ctx.gitlab
+    for commit in commits { try gitlab
       .listShaMergeRequests(sha: .make(value: commit))
       .map(execute)
       .reduce([Json.GitlabCommitMergeRequest].self, jsonDecoder.decode(success:reply:))
       .get()
-      .filter { $0.projectId == ctx.gitlab.job.pipeline.projectId }
+      .filter { $0.projectId == gitlab.job.pipeline.projectId }
       .filter { $0.squashCommitSha == commit }
       .filter { $0.author.username != bot }
       .forEach { result.insert($0.author.username) }
     }
     return result
   }
-  func isLastPipe(ctx: ParentReview) -> Bool {
-    guard ctx.job.pipeline.id == ctx.review.pipeline.id else {
-      logMessage(.init(message: "Pipeline outdated"))
-      return false
-    }
-    guard ctx.review.state == "opened" else {
-      logMessage(.init(message: "Review must be opened"))
-      return false
-    }
-    guard ctx.job.pipeline.sha == ctx.review.pipeline.sha else {
-      logMessage(.init(message: "Review commit mismatch"))
-      return false
-    }
-    return true
-  }
   struct ParentReview {
     let gitlab: GitlabCi
     let job: Json.GitlabJob
     let profile: Files.Relative
     let review: Json.GitlabReviewState
-    public func matches(build: Production.Build) -> Bool {
-      guard case .review(let value) = build else { return false }
-      return value.sha == job.pipeline.sha && value.review == review.iid
-    }
-    public func makeBuild(build: String) -> Production.Build { .review(.make(
-      build: .make(build),
-      sha: job.pipeline.sha,
-      review: review.iid,
-      target: review.targetBranch
-    ))}
+    let isLastPipe: Bool
+    var isActual: Bool { return isLastPipe && review.state == "opened" }
   }
 }

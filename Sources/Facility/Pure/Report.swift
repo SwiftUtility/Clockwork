@@ -109,7 +109,7 @@ public struct Report: Query {
     public var approvers: [String]?
     public var cheaters: [String]?
     public var outdaters: [String: [String]]?
-    public var state: Review.Approval.Update.State
+    public var state: Review.Approval.State
   }
   public struct ReviewMerged: GenerationContext {
     public var event: String = Self.event
@@ -131,6 +131,17 @@ public struct Report: Query {
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
     public var error: String
+  }
+  public struct ReviewRemind: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var review: Json.GitlabReviewState
+    public var users: [String: Fusion.Approval.Approver]
+    public var authors: [String]
+    public var slackers: [String]
   }
   public struct ReviewCustom: GenerationContext {
     public var event: String = Self.event
@@ -307,7 +318,7 @@ public extension Configuration {
   func reportReviewTroubles(
     review: Review,
     state: Json.GitlabReviewState,
-    troubles: Review.Approval.Troubles
+    troubles: Review.Troubles
   ) -> Report { .init(cfg: self, context: Report.ReviewTroubles(
     env: env,
     ctx: context,
@@ -324,7 +335,7 @@ public extension Configuration {
   func reportReviewUpdate(
     review: Review,
     state: Json.GitlabReviewState,
-    update: Review.Approval.Update
+    update: Review.Approval
   ) -> Report { .init(cfg: self, context: Report.ReviewUpdate(
     env: env,
     ctx: context,
@@ -368,6 +379,21 @@ public extension Configuration {
     users: review.approvers,
     authors: review.status.authors.sorted(),
     error: error
+  ))}
+  func reportReviewRemind(
+    approvers: [String: Fusion.Approval.Approver],
+    status: Fusion.Approval.Status,
+    state: Json.GitlabReviewState,
+    slackers: Set<String>
+  ) -> Report { .init(cfg: self, context: Report.ReviewRemind(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: status.thread,
+    review: state,
+    users: approvers,
+    authors: status.authors.sorted(),
+    slackers: slackers.sorted()
   ))}
   func reportReviewCustom(
     event: String,

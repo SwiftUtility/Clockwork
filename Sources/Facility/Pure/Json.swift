@@ -68,6 +68,16 @@ public enum Json {
     public var labels: [String]
     public var iid: UInt
     public var webUrl: String
+    public func matches(build: Production.Build) -> Bool {
+      guard case .review(let value) = build else { return false }
+      return value.sha == pipeline.sha && value.review == iid
+    }
+    public func makeBuild(build: String) -> Production.Build { .review(.make(
+      build: .make(build),
+      sha: pipeline.sha,
+      review: iid,
+      target: targetBranch
+    ))}
     public struct Pipeline: Codable {
       public var id: UInt
       public var sha: String
