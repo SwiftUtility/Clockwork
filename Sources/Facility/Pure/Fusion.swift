@@ -214,7 +214,6 @@ public struct Fusion {
     }
     public struct Rules {
       public var sanity: String?
-      public var emergency: String?
       public var randoms: Randoms
       public var teams: [String: Team]
       public var authorship: [String: Set<String>]
@@ -222,7 +221,6 @@ public struct Fusion {
       public var targetBranch: [String: Criteria]
       public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
         sanity: yaml.sanity,
-        emergency: yaml.emergency,
         randoms: .make(yaml: yaml.randoms),
         teams: yaml.teams
           .get([:])

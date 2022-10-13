@@ -132,7 +132,6 @@ public enum Yaml {
       public var haters: Secret?
       public struct Rules: Decodable {
         public var sanity: String?
-        public var emergency: String?
         public var randoms: Randoms
         public var teams: [String: Team]?
         public var authorship: [String: [String]]?

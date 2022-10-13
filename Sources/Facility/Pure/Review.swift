@@ -56,7 +56,7 @@ public struct Review {
       .union(rules.authorship.flatMap(\.value))
       .union(rules.teams.flatMap(\.value.approvers))
       .subtracting(approvers.keys)
-    result.unknownTeams = Set(rules.emergency.array + rules.sanity.array)
+    result.unknownTeams = Set(rules.sanity.array)
       .union(ownage.keys)
       .union(rules.targetBranch.keys)
       .union(rules.sourceBranch.keys)

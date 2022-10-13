@@ -21,7 +21,6 @@ final class ReviewTests: XCTestCase {
   let haters: [String : Set<String>] = [:]
   let rules: Fusion.Approval.Rules = try! .init(
     sanity: "g1",
-    emergency: "emergency",
     randoms: .init(
       quorum: 4,
       baseWeight: 500,
