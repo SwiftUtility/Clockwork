@@ -10,7 +10,8 @@ final class ReviewTests: XCTestCase {
     participants: ["u2"],
     approves: ["u2": .init(approver: "u2", commit: .init(value: "1"), resolution: .fragil)],
     thread: .init(channel: "channel", ts: "1123123.1231231"),
-    teams: ["g1"]
+    teams: ["g1"],
+    emergent: false
   )]
   let approvers: [String: Fusion.Approval.Approver] = [
     "u1": .init(active: true, slack: "1"),

@@ -316,6 +316,7 @@ public struct Fusion {
       public var thread: Configuration.Thread
       public var verification: Git.Sha?
       public var teams: Set<String>
+      public var emergent: Bool
       mutating func invalidate(users: Set<String>) { approves
         .filter(\.value.resolution.approved)
         .keys
@@ -325,6 +326,22 @@ public struct Fusion {
       public var approvedCommits: Set<Git.Sha> { approves.values
         .filter(\.resolution.approved)
         .reduce(into: [], { $0.insert($1.commit) })
+      }
+      public func isApproved(sha: String, rules: Rules) -> Bool {
+        guard verification?.value == sha else { return false }
+        guard emergent.not else { return true }
+        #warning("tbd")
+        return false
+      }
+      public func reminds(sha: String, approvers: [String: Approver]) -> Set<String> {
+        guard emergent.not else { return [] }
+        guard verification?.value == sha else { return [] }
+        guard approves.filter(\.value.resolution.block).isEmpty else { return [] }
+        return participants
+          .union(randoms)
+          .union(authors)
+          .subtracting(approves.filter(\.value.resolution.approved).keys)
+          .intersection(approvers.filter(\.value.active).keys)
       }
       public static func make(
         review: String,
@@ -341,7 +358,8 @@ public struct Fusion {
         thread: .make(yaml: yaml.thread),
         verification: yaml.verification
           .map(Git.Sha.make(value:)),
-        teams: yaml.teams
+        teams: yaml.teams,
+        emergent: yaml.emergent
       )}
       public static func yaml(statuses: [UInt: Self]) -> String {
         var result = ""
@@ -349,6 +367,7 @@ public struct Fusion {
           result += "'\(review)':\n"
           result += "  thread: \(status.thread.serialize())\n"
           result += "  target: '\(status.target)'\n"
+          result += "  emergent: \(status.emergent)\n"
           let authors = status.authors
             .sorted()
             .map({ "'\($0)'" })
@@ -393,7 +412,8 @@ public struct Fusion {
         participants: [],
         approves: makeApproves(fork: fork, authors: authors),
         thread: thread,
-        teams: []
+        teams: [],
+        emergent: false
       )}
       public static func makeApproves(fork: Git.Sha?, authors: Set<String>) -> [String: Approve] {
         guard let fork = fork else { return [:] }

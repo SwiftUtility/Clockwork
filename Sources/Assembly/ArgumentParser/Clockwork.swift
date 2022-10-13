@@ -64,13 +64,11 @@ struct Clockwork: ParsableCommand {
       case block
       case fragil
       case advance
-      case emergent
       static func help(for value: Self) -> ArgumentHelp? {
         switch value {
         case .block: return "Block review"
         case .fragil: return "Approve current commit only"
         case .advance: return "Approve review in advance"
-        case .emergent: return "Skip regular approval process"
         }
       }
     }

@@ -47,7 +47,6 @@ extension Clockwork.ApproveReview: RunnableCommand {
 extension Clockwork.ApproveReview.Resolution {
   var status: Yaml.Fusion.Approval.Status.Resolution {
     switch self {
-    case .emergent: return .emergent
     case .fragil: return .fragil
     case .advance: return .advance
     case .block: return .block

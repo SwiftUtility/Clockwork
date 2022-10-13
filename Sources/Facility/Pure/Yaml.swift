@@ -163,27 +163,21 @@ public enum Yaml {
         public var teams: Set<String>
         public var approves: [String: [String: Resolution]]
         public var verification: String?
+        public var emergent: Bool
         public enum Resolution: String, Decodable {
           case block
           case fragil
           case advance
-          case emergent
           case outdated
           public var approved: Bool {
             switch self {
-            case .fragil, .advance, .emergent: return true
+            case .fragil, .advance: return true
             case .block, .outdated: return false
             }
           }
           public var fragil: Bool {
             switch self {
             case .fragil: return true
-            default: return false
-            }
-          }
-          public var emergent: Bool {
-            switch self {
-            case .emergent: return true
             default: return false
             }
           }

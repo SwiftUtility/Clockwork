@@ -83,24 +83,19 @@ public final class Reviewer {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
     let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    let gitlabCi = try cfg.gitlabCi.get()
     for status in statuses.values {
-      let gitlabCi = try cfg.gitlabCi.get()
       let state = try gitlabCi.getMrState(review: status.review)
         .map(execute)
         .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
         .get()
-      guard status.verification?.value == state.pipeline.sha else { continue }
-      let slackers = status.participants
-        .union(status.randoms)
-        .union(status.authors)
-        .subtracting(status.approves.filter(\.value.resolution.approved).keys)
-        .subtracting(status.approves.filter(\.value.resolution.block).keys)
-      guard slackers.isEmpty.not else { continue }
+      let reminds = status.reminds(sha: state.pipeline.sha, approvers: approvers)
+      guard reminds.isEmpty.not else { continue }
       report(cfg.reportReviewRemind(
         approvers: approvers,
         status: status,
         state: state,
-        slackers: slackers
+        slackers: reminds
       ))
     }
     return true
@@ -287,12 +282,16 @@ public final class Reviewer {
       report(cfg.reportReviewBlocked(review: review, state: ctx.review, reasons: blockers))
       return false
     }
-    if let troubles = try verify(cfg: cfg, state: ctx.review, fusion: fusion, review: &review) {
-      report(cfg.reportReviewTroubles(review: review, state: ctx.review, troubles: troubles))
+    let approval = try verify(cfg: cfg, state: ctx.review, fusion: fusion, review: &review)
+    if approval.isUnapprovable {
+      report(cfg.reportReviewUnapprovable(
+        review: review,
+        state: ctx.review,
+        approval: approval
+      ))
       _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
       return false
     }
-    let approval = review.resolveApproval()
     report(cfg.reportReviewUpdate(review: review, state: ctx.review, update: approval))
     guard approval.state.isApproved else {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
@@ -322,13 +321,13 @@ public final class Reviewer {
     guard queue.isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    let review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
     guard
       try checkIsRebased(cfg: cfg, state: ctx.review),
       try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
       try checkClosers(cfg: cfg, state: ctx.review, gitlab: ctx.gitlab, kind: review.kind) == nil,
       try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) == nil,
-      review.isApproved(sha: ctx.review.pipeline.sha)
+      review.status.isApproved(sha: ctx.review.pipeline.sha, rules: review.rules)
     else {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       logMessage(.init(message: "Bad last pipeline state"))
@@ -444,22 +443,25 @@ public final class Reviewer {
       review: state,
       kind: kind,
       ownage: resolveOwnage(cfg: cfg, state: state),
-      rules: .make(yaml: parseApprovalRules(.init(
-        git: cfg.git,
-        file: fusion.approval.rules
-      ))),
+      rules: resolveRules(cfg: cfg, fusion: fusion),
       haters: fusion.approval.haters
         .reduce(cfg, Configuration.ParseYamlSecret.init(cfg:secret:))
         .map(parseAntagonists)
         .get([:])
     )
   }
+  func resolveRules(cfg: Configuration, fusion: Fusion) throws -> Fusion.Approval.Rules {
+    try .make(yaml: parseApprovalRules(.init(
+      git: cfg.git,
+      file: fusion.approval.rules
+    )))
+  }
   func verify(
     cfg: Configuration,
     state: Json.GitlabReviewState,
     fusion: Fusion,
     review: inout Review
-  ) throws -> Review.Troubles? {
+  ) throws -> Review.Approval {
     let fork = review.kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))
@@ -491,8 +493,7 @@ public final class Reviewer {
     }
     for sha in try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [.make(sha: current)],
-      notIn: [target] + fork.array + validation.array,
-      ignoreMissing: true
+      notIn: [target] + fork.array
     ))) {
       let sha = try Git.Sha.make(value: sha)
       try review.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, state: state, sha: sha))
@@ -501,7 +502,7 @@ public final class Reviewer {
       sha: sha,
       commits: Execute.parseLines(reply: execute(cfg.git.listCommits(
         in: [.make(sha: current)],
-        notIn: [target, .make(sha: sha)] + fork.array + validation.array,
+        notIn: [target, .make(sha: sha)] + fork.array,
         ignoreMissing: true
       )))
     )}
@@ -575,6 +576,8 @@ public final class Reviewer {
       let sanity = review.rules.sanity,
       !cfg.profile.checkSanity(criteria: review.ownage[sanity])
     { result.append(.sanity) }
+    if review.unknownUsers.isEmpty.not { result.append(.unknownUsers) }
+    if review.unknownTeams.isEmpty.not { result.append(.unknownTeams) }
     let excludes: [Git.Ref]
     switch review.kind {
     case .proposition(let rule):

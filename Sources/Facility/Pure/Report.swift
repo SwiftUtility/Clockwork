@@ -66,6 +66,8 @@ public struct Report: Query {
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
     public var reasons: [Reason]
+    public var unknownUsers: [String]?
+    public var unknownTeams: [String]?
     public enum Reason: String, Encodable {
       case draft
       case workInProgress
@@ -76,9 +78,11 @@ public struct Report: Query {
       case extraCommits
       case taskMismatch
       case sanity
+      case unknownTeams
+      case unknownUsers
     }
   }
-  public struct ReviewTroubles: GenerationContext {
+  public struct ReviewUnapprovable: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
     public var ctx: AnyCodable?
@@ -88,9 +92,7 @@ public struct Report: Query {
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
     public var inactiveAuthors: [String]?
-    public var unknownUsers: [String]?
     public var unapprovableTeams: [String]?
-    public var unknownTeams: [String]?
   }
   public struct ReviewUpdate: GenerationContext {
     public var event: String = Self.event
@@ -313,13 +315,15 @@ public extension Configuration {
     review: state,
     users: review.approvers,
     authors: review.status.authors.sorted(),
-    reasons: reasons
+    reasons: reasons,
+    unknownUsers: review.unknownUsers.isEmpty.else(review.unknownUsers.sorted()),
+    unknownTeams: review.unknownTeams.isEmpty.else(review.unknownTeams.sorted())
   ))}
-  func reportReviewTroubles(
+  func reportReviewUnapprovable(
     review: Review,
     state: Json.GitlabReviewState,
-    troubles: Review.Troubles
-  ) -> Report { .init(cfg: self, context: Report.ReviewTroubles(
+    approval: Review.Approval
+  ) -> Report { .init(cfg: self, context: Report.ReviewUnapprovable(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
@@ -327,10 +331,8 @@ public extension Configuration {
     review: state,
     users: review.approvers,
     authors: review.status.authors.sorted(),
-    inactiveAuthors: troubles.inactiveAuthors.isEmpty.else(troubles.inactiveAuthors.sorted()),
-    unknownUsers: troubles.unknownUsers.isEmpty.else(troubles.unknownUsers.sorted()),
-    unapprovableTeams: troubles.unapprovalbeTeams.isEmpty.else(troubles.unapprovalbeTeams.sorted()),
-    unknownTeams: troubles.unknownTeams.isEmpty.else(troubles.unknownTeams.sorted())
+    inactiveAuthors: approval.inactiveAuthors.isEmpty.else(approval.inactiveAuthors.sorted()),
+    unapprovableTeams: approval.unapprovableTeams.isEmpty.else(approval.unapprovableTeams.sorted())
   ))}
   func reportReviewUpdate(
     review: Review,
