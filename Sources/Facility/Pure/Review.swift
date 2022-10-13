@@ -64,6 +64,18 @@ public struct Review {
       .filter { rules.teams[$0] == nil }
     return result
   }
+  public func isApproved(sha: String) -> Bool {
+    guard status.verification?.value == sha else { return false }
+    guard status.emergent.not else { return true }
+    let active = Set(approvers.filter(\.value.active).keys)
+    let blockers = Set(status.approves.filter(\.value.resolution.block).keys)
+    guard blockers.intersection(active).isEmpty else { return false }
+    return status.participants
+      .union(status.randoms)
+      .union(status.authors)
+      .subtracting(status.approves.filter(\.value.resolution.approved).keys)
+      .isEmpty
+  }
   public mutating func approve(
     job: Json.GitlabJob,
     resolution: Yaml.Fusion.Approval.Status.Resolution
@@ -96,6 +108,7 @@ public struct Review {
   }
   public mutating func prepareVerification(files: [String]) {
     diffTeams = Set(ownage.filter({ files.contains(where: $0.value.isMet(_:)) }).keys)
+    status.teams = diffTeams.union(utilityTeams)
   }
   public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
     childCommits[sha] = try Set(commits.map(Git.Sha.make(value:)))
@@ -112,6 +125,10 @@ public struct Review {
     status.verification = sha
   }
   public mutating func performVerification(sha: Git.Sha) -> Approval {
+    guard status.emergent.not else {
+      status.verification = sha
+      return Approval(emergent: true)
+    }
     let fragilUsers = rules.teams.keys
       .filter(utilityTeams.contains(_:))
       .compactMap({ rules.teams[$0] })
@@ -133,113 +150,91 @@ public struct Review {
         .intersection(approvers)
       )
     }
-
-
-
-    status.verification = sha
-    status.teams = diffTeams.union(utilityTeams)
-    #warning("tbd")
-    return .init()
-  }
-//  public func isCheated(sha: String) -> Bool {
-//    guard let emergency = rules.emergency.flatMap({ rules.teams[$0] }) else { return false }
-//    return emergency.isApproved(by: Set(status.approves.filter(\.value.resolution.emergent).keys))
-//  }
-//  public func isApproved(sha: String) -> Bool {
-//    guard status.verification?.value == sha else { return false }
-//    guard status.approves.filter(\.value.resolution.block).isEmpty else { return false }
-//    let active = Set(approvers.filter(\.value.active).keys)
-//    let approvers = Set(status.approves.filter(\.value.resolution.approved).keys)
-//    let yetActive = active.union(approvers)
-//    let involved = status.teams
-//      .compactMap({ rules.teams[$0] })
-//      .reduce(into: Set(), { $0.formUnion($1.approvers) })
-//      .intersection(active)
-//    guard
-//      status.authors.intersection(yetActive).isEmpty.not,
-//      status.authors.intersection(active).subtracting(approvers).isEmpty,
-//      status.randoms.intersection(active).subtracting(approvers).isEmpty,
-//      status.participants.intersection(involved).subtracting(approvers).isEmpty
-//    else { return false }
-//    for team in status.teams {
-//      guard let team = rules.teams[team], team.isApproved(by: approvers) else { return false }
-//    }
-//    return true
-//  }
-  public mutating func resolveApproval() -> Approval {
-    var result = Approval(teams: status.teams)
+    var result = Approval()
     var teams = status.teams.reduce(into: [:], { $0[$1] = rules.teams[$1] })
-    let active = Set(approvers.filter(\.value.active).keys)
-    let outstanders = teams.reduce(into: Set(), { $0.formUnion($1.value.approvers) })
-    let approved = Set(status.approves.filter(\.value.resolution.approved).keys)
-    let yetActive = active.union(approved)
-    teams = teams.reduce(into: teams, { $0[$1.key]?.update(active: yetActive) })
-    status.participants = status.participants
-      .intersection(teams.reduce(into: [], { $0.formUnion($1.value.approvers) }))
+    result.watchers = teams.values.reduce(into: Set(), { $0.formUnion($1.optional) })
     result.addLabels.formUnion(teams.values.reduce(into: Set(), { $0.formUnion($1.labels) }))
-    result.delLabels = rules.teams.values
+    result.delLabels = teams.values
       .reduce(into: Set(), { $0.formUnion($1.labels) })
       .subtracting(result.addLabels)
-    result.mentions.formUnion(teams.values.reduce(into: Set(), { $0.formUnion($1.mentions) }))
+    result.mentions = teams.values.reduce(into: Set(), { $0.formUnion($1.mentions) })
+    let active = Set(approvers.filter(\.value.active).keys)
+    let approved = Set(status.approves.filter(\.value.resolution.approved).keys)
+    let yetActive = active.union(approved)
+    let involved = teams.reduce(into: Set(), { $0.formUnion($1.value.approvers) })
+    result.inactiveAuthors = status.authors.intersection(yetActive).isEmpty
+    teams.keys.forEach({ teams[$0]?.update(active: yetActive) })
+    if kind.proposition {
+      teams.keys.forEach({ teams[$0]?.update(exclude: status.authors) })
+    } else {
+      teams.keys.forEach({ teams[$0]?.update(involved: status.authors) })
+    }
+    result.unapprovableTeams = teams.values
+      .filter({ $0.approvers.count < $0.quorum })
+      .reduce(into: [], { $0.insert($1.name) })
+    guard result.isUnapprovable.not else { return result }
+    status.verification = sha
+    status.participants = status.participants
+      .intersection(yetActive)
+      .intersection(involved)
+      .subtracting(status.authors)
+    status.randoms = status.randoms
+      .subtracting(status.authors)
+    teams.keys.forEach({ teams[$0]?.update(involved: status.randoms) })
+    teams.keys.forEach({ teams[$0]?.update(involved: status.participants) })
     let required = teams.values
       .reduce(into: Set(), { $0.formUnion($1.required) })
-      .subtracting(status.authors)
-    teams = teams.reduce(into: teams, { $0[$1.key]?.update(involved: required) })
-    if kind.proposition {
-      let haters = Set(haters.filter({ $0.value.intersection(status.authors).isEmpty.not }).keys)
-      let exclude = status.authors.union(haters)
-      teams = teams.reduce(into: teams, { $0[$1.key]?.update(exclude: exclude) })
-      if status.randoms.count < rules.randoms.quorum {
-        let randoms = outstanders
-          .subtracting(exclude)
-          .intersection(active)
-        status.randoms = (0 ..< rules.randoms.quorum - status.randoms.count)
-          .reduce(into: Set(), { (acc, _) in
-            acc.formUnion(random(users: randoms.subtracting(acc)).array)
-          })
-      }
-    } else {
-      teams = teams.reduce(into: teams, { $0[$1.key]?.update(involved: status.authors) })
+    status.participants.formUnion(required)
+    teams.keys.forEach({ teams[$0]?.update(involved: required) })
+    if kind.proposition, status.randoms.count < rules.randoms.quorum {
+      let outstanders = active
+        .subtracting(involved)
+        .subtracting(haters.filter({ $0.value.intersection(status.authors).isEmpty.not }).keys)
+        .subtracting(status.authors)
+      status.randoms = (0 ..< rules.randoms.quorum - status.randoms.count)
+        .reduce(into: status.randoms, { (acc, _) in
+          acc.formUnion(random(users: outstanders.subtracting(acc)).array)
+        })
     }
     let optional = teams.values.reduce(into: Set(), { $0.formUnion($1.optional) })
-    teams = teams.reduce(into: teams, { $0[$1.key]?.update(optional: optional) })
-    let necessary = teams.reduce(into: Set(), { $0.formUnion($1.value.necessary) })
-    teams = teams
-      .reduce(into: teams, { $0[$1.key]?.update(involved: necessary) })
-      .filter(\.value.approvers.isEmpty.not)
+    teams.keys.forEach({ teams[$0]?.update(optional: optional) })
+    let necessary = teams.values.reduce(into: Set(), { $0.formUnion($1.necessary) })
+    status.participants.formUnion(necessary)
+    teams.keys.forEach({ teams[$0]?.update(involved: necessary) })
     let reserveTeams = teams.filter({ $0.value.optional.isEmpty && $0.value.quorum > 0 })
     let reserveRandom = selectUsers(
       teams: reserveTeams,
       users: reserveTeams.values.reduce(into: Set(), { $0.formUnion($1.reserve) })
     )
-    teams = teams.reduce(into: teams, { $0[$1.key]?.update(involved: reserveRandom) })
+    status.participants.formUnion(reserveRandom)
+    teams.keys.forEach({ teams[$0]?.update(involved: reserveRandom) })
     let optionalTeams = teams.filter({ $0.value.optional.isEmpty.not && $0.value.quorum > 0 })
     let optionalRandom = selectUsers(
       teams: optionalTeams,
       users: optionalTeams.values.reduce(into: Set(), { $0.formUnion($1.optional) })
     )
-    status.participants = status.participants
-      .union(required)
-      .union(necessary)
-      .union(optionalRandom)
-      .union(reserveRandom)
-    result.watchers = optional.subtracting(status.participants)
+    status.participants.formUnion(optionalRandom)
+    teams.keys.forEach({ teams[$0]?.update(involved: optionalRandom) })
+    result.watchers = result.watchers
+      .intersection(active)
+      .subtracting(status.participants)
+      .subtracting(status.randoms)
+      .subtracting(status.authors)
     result.blockers = status.authors
       .subtracting(approved)
       .union(status.approves.filter(\.value.resolution.block).keys)
-    result.slackers = status.participants.union(status.randoms)
-    result.approvers = status.participants.intersection(approved)
+    result.slackers = status.participants
+      .union(status.randoms)
+      .subtracting(status.approves.keys)
+    result.approvers = status.participants
+      .union(status.randoms)
+      .intersection(approved)
     result.outdaters = status.participants
       .union(status.randoms)
-      .filter({ status.approves[$0].map(\.resolution).get(.outdated) == .outdated })
-      .compactMap({ try? [?!status.approves[$0]?.commit.value: Set([$0])] })
+      .compactMap({ status.approves[$0] })
+      .filter(\.resolution.outdated)
+      .map({ [$0.commit.value: Set([$0.approver])] })
       .reduce(into: [:], { $0.merge($1, uniquingKeysWith: { $0.union($1) }) })
-//    result.update(authors: status.authors)
-//    if let emergency = rules.emergency.flatMap({ rules.teams[$0] }) {
-//      result.cheaters = emergency.approvers
-//        .intersection(status.approves.filter(\.value.resolution.emergent).keys)
-//      if result.cheaters.count >= emergency.quorum { result.state = .emergent }
-//    }
     return result
   }
   func getUser(job: Json.GitlabJob) throws -> String {
@@ -248,29 +243,6 @@ public struct Review {
     guard approver.active else { throw Thrown("Inactive approver: \(user)") }
     return user
   }
-//  func chechUnapprovable() -> Fusion.Approval.Status.Unapprovable? {
-//    var result = Unapprovable()
-//    let requireds = status.teams
-//      .compactMap({ rules.teams[$0] })
-//      .reduce(into: Set(), { $0.formUnion($1.required) })
-//    let excluded = haters
-//      .filter({ $0.value.intersection(status.authors).isEmpty.not })
-//      .reduce(into: Set(), { $0.insert($1.key) })
-//      .subtracting(requireds)
-//      .subtracting(status.authors)
-//    let activeApprovers = Set(approvers.filter(\.value.active).keys)
-//      .union(approvers.filter(\.value.active).keys)
-//      .subtracting(excluded)
-//    result.inactiveAuthors = status.authors
-//      .intersection(activeApprovers)
-//      .isEmpty
-//      .then(status.authors)
-//      .get([])
-//    result.unapprovalbeTeams = rules.teams
-//      .filter({ $0.value.approvers.intersection(activeApprovers).count < $0.value.quorum })
-//      .reduce(into: [], { $0.insert($1.key) })
-//    return result.isEmpty.else(result)
-//  }
   func selectUsers(teams: [String: Fusion.Approval.Rules.Team], users: Set<String>) -> Set<String> {
     var left = users
     var teams = teams.filter({ $0.value.optional.isEmpty })
@@ -314,6 +286,7 @@ public struct Review {
     }
   }
   public struct Approval: Equatable {
+    public var emergent: Bool = false
     public var teams: Set<String> = []
     public var addLabels: Set<String> = []
     public var delLabels: Set<String> = []
@@ -325,10 +298,10 @@ public struct Review {
     public var approvers: Set<String> = []
     public var cheaters: Set<String> = []
     public var outdaters: [String: Set<String>] = [:]
-    public var inactiveAuthors: Set<String> = []
+    public var inactiveAuthors: Bool = false
     public var unapprovableTeams: Set<String> = []
     public var isUnapprovable: Bool {
-      inactiveAuthors.isEmpty.not || unapprovableTeams.isEmpty.not
+      inactiveAuthors || unapprovableTeams.isEmpty.not
     }
     public var state: State {
       if slackers.isEmpty.not { return .waitingSlackers }
@@ -338,8 +311,6 @@ public struct Review {
       else { return .waitingHolders }
 
     }
-//    mutating func update(authors: Set<String>) {
-//    }
     public enum State: String, Codable {
       case emergent
       case approved

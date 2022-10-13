@@ -186,6 +186,12 @@ public enum Yaml {
             default: return false
             }
           }
+          public var outdated: Bool {
+            switch self {
+            case .outdated: return true
+            default: return false
+            }
+          }
         }
       }
       public struct Approver: Decodable {

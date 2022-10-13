@@ -325,12 +325,6 @@ public struct Fusion {
         .filter(\.resolution.approved)
         .reduce(into: [], { $0.insert($1.commit) })
       }
-      public func isApproved(sha: String, rules: Rules) -> Bool {
-        guard verification?.value == sha else { return false }
-        guard emergent.not else { return true }
-        #warning("tbd")
-        return false
-      }
       public func reminds(sha: String, approvers: [String: Approver]) -> Set<String> {
         guard emergent.not else { return [] }
         guard verification?.value == sha else { return [] }

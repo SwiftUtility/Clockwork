@@ -91,7 +91,7 @@ public struct Report: Query {
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
-    public var inactiveAuthors: [String]?
+    public var inactiveAuthors: Bool
     public var unapprovableTeams: [String]?
   }
   public struct ReviewUpdate: GenerationContext {
@@ -331,7 +331,7 @@ public extension Configuration {
     review: state,
     users: review.approvers,
     authors: review.status.authors.sorted(),
-    inactiveAuthors: approval.inactiveAuthors.isEmpty.else(approval.inactiveAuthors.sorted()),
+    inactiveAuthors: approval.inactiveAuthors,
     unapprovableTeams: approval.unapprovableTeams.isEmpty.else(approval.unapprovableTeams.sorted())
   ))}
   func reportReviewUpdate(

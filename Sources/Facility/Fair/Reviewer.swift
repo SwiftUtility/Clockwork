@@ -327,7 +327,7 @@ public final class Reviewer {
       try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
       try checkClosers(cfg: cfg, state: ctx.review, gitlab: ctx.gitlab, kind: review.kind) == nil,
       try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) == nil,
-      review.status.isApproved(sha: ctx.review.pipeline.sha, rules: review.rules)
+      review.isApproved(sha: ctx.review.pipeline.sha)
     else {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       logMessage(.init(message: "Bad last pipeline state"))
