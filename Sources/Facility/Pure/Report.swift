@@ -54,6 +54,7 @@ public struct Report: Query {
       case forkParentNotInTarget
       case forkNotInSource
       case forkNotInSupply
+      case manual
     }
   }
   public struct ReviewBlocked: GenerationContext {
@@ -289,17 +290,18 @@ public extension Configuration {
     authors: review.status.authors.sorted()
   ))}
   func reportReviewClosed(
-    review: Review,
+    status: Fusion.Approval.Status,
     state: Json.GitlabReviewState,
+    users: [String: Fusion.Approval.Approver],
     reason: Report.ReviewClosed.Reason
   ) -> Report { .init(cfg: self, context: Report.ReviewClosed(
     env: env,
     ctx: context,
     info: try? gitlabCi.get().info,
-    thread: review.status.thread,
+    thread: status.thread,
     review: state,
-    users: review.approvers,
-    authors: review.status.authors.sorted(),
+    users: users,
+    authors: status.authors.sorted(),
     reason: reason
   ))}
   func reportReviewBlocked(

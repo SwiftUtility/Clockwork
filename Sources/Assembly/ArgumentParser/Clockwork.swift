@@ -28,7 +28,7 @@ struct Clockwork: ParsableCommand {
       ImportProvisions.self,
       OwnReview.self,
       PlayJobs.self,
-      RemindReviews.self,
+      CleanReviews.self,
       ReportCustom.self,
       ReportCustomRelease.self,
       ReportCustomReview.self,
@@ -174,9 +174,11 @@ struct Clockwork: ParsableCommand {
     @Argument(help: "Job names to paly")
     var names: [String]
   }
-  struct RemindReviews: ClockworkCommand {
-    static var abstract: String { "Remind review approvers" }
+  struct CleanReviews: ClockworkCommand {
+    static var abstract: String { "Clean outdated reviews" }
     @OptionGroup var clockwork: Clockwork
+    @Flag(help: "Should ping slackers")
+    var remind: Bool = false
   }
   struct ReportCustom: ClockworkCommand {
     static var abstract: String { "Sends preconfigured report" }

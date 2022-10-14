@@ -167,7 +167,7 @@ public struct Generate: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
+    public var review: Json.GitlabReviewState?
   }
   public struct CreatePropositionCommitMessage: GenerationContext {
     public var event: String = Self.event
@@ -458,7 +458,7 @@ public extension Configuration {
   )}
   func createFusionStatusesCommitMessage(
     fusion: Fusion,
-    review: Json.GitlabReviewState
+    review: Json.GitlabReviewState?
   ) -> Generate { .init(
     allowEmpty: false,
     template: fusion.approval.statuses.createCommitMessage,

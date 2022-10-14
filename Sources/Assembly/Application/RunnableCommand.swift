@@ -153,9 +153,9 @@ extension Clockwork.PlayJobs: RunnableCommand {
     )
   }
 }
-extension Clockwork.RemindReviews: RunnableCommand {
+extension Clockwork.CleanReviews: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.remindReviews(cfg: cfg)
+    try Assembler.reviewer.cleanReviews(cfg: cfg, remind: remind)
   }
 }
 extension Clockwork.ReportCustom: RunnableCommand {
