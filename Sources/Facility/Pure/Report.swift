@@ -109,7 +109,6 @@ public struct Report: Query {
     public var blockers: [String]?
     public var slackers: [String]?
     public var approvers: [String]?
-    public var cheaters: [String]?
     public var outdaters: [String: [String]]?
     public var state: Review.Approval.State
   }
@@ -345,14 +344,13 @@ public extension Configuration {
     thread: review.status.thread,
     review: state,
     users: review.approvers,
-    authors: review.status.authors.sorted(),
+    authors: update.authors.sorted(),
     teams: update.teams.isEmpty.else(update.teams.sorted()),
     mentions: update.mentions.isEmpty.else(update.mentions.sorted()),
     watchers: update.watchers.isEmpty.else(update.watchers.sorted()),
     blockers: update.blockers.isEmpty.else(update.blockers.sorted()),
     slackers: update.slackers.isEmpty.else(update.slackers.sorted()),
     approvers: update.approvers.isEmpty.else(update.approvers.sorted()),
-    cheaters: update.cheaters.isEmpty.else(update.cheaters.sorted()),
     outdaters: update.outdaters.isEmpty.else(update.outdaters.mapValues({ $0.sorted() })),
     state: update.state
   ))}

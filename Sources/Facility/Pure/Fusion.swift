@@ -193,22 +193,25 @@ public struct Fusion {
         .map(Configuration.Secret.make(yaml:))
     )}
     public struct Approver: Encodable {
+      public var login: String
       public var active: Bool
       public var slack: String
-      var yaml: String { "{active: \(active), slack: '\(slack)}" }
-      public static func make(yaml: Yaml.Fusion.Approval.Approver) -> Self { .init(
+      var yaml: String { "'\(login)': {active: \(active), slack: '\(slack)}\n" }
+      public static func make(login: String, yaml: Yaml.Fusion.Approval.Approver) -> Self { .init(
+        login: login,
         active: yaml.active,
         slack: yaml.slack
       )}
-      public static func make(active: Bool, slack: String) -> Self { .init(
+      public static func make(login: String, active: Bool, slack: String) -> Self { .init(
+        login: login,
         active: active,
         slack: slack
       )}
       public static func yaml(approvers: [String: Self]) -> String {
         guard approvers.isEmpty.not else { return "{}\n" }
-        return approvers
-          .sorted(by: { $0.key < $1.key })
-          .map({ "'\($0.key)': \($0.value.yaml)\n" })
+        return approvers.keys
+          .sorted()
+          .compactMap({ approvers[$0]?.yaml })
           .joined()
       }
     }

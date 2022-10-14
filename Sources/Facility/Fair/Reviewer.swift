@@ -120,7 +120,7 @@ public final class Reviewer {
       .keys
       .joined(separator: ", ")
     guard clones.isEmpty else { throw Thrown("Same slack as: \(clones)") }
-    approvers[user] = .make(active: active, slack: slack)
+    approvers[user] = .make(login: user, active: active, slack: slack)
     return try persistAsset(.init(
       cfg: cfg,
       asset: fusion.approval.approvers,
@@ -131,6 +131,21 @@ public final class Reviewer {
         active: active
       ))
     ))
+  }
+  public func skipReview(
+    cfg: Configuration,
+    review: UInt
+  ) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let gitlabCi = try cfg.gitlabCi.get()
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    let state = try gitlabCi.getMrState(review: review)
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
+      .get()
+    guard var status = statuses[review] else { return false }
+    status.emergent = true
+    return try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status)
   }
   public func approveReview(
     cfg: Configuration,
@@ -145,8 +160,14 @@ public final class Reviewer {
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    let wasApproved = review.isApproved(sha: ctx.review.pipeline.sha)
     try review.approve(job: ctx.job, resolution: resolution)
-    return try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+    guard try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+    else { return false }
+    if wasApproved.not, review.isApproved(sha: ctx.review.pipeline.sha) { try Execute.checkStatus(
+      reply: execute(ctx.gitlab.postMrPipelines(review: ctx.review.iid).get())
+    )}
+    return true
   }
   public func dequeueReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
@@ -321,7 +342,8 @@ public final class Reviewer {
     guard queue.isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    let review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    review.prepareVerification(source: ctx.review.sourceBranch, target: ctx.review.targetBranch)
     guard
       try checkIsRebased(cfg: cfg, state: ctx.review),
       try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
@@ -429,7 +451,7 @@ public final class Reviewer {
   ) throws -> Review {
     let kind = try fusion.makeKind(supply: state.sourceBranch)
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
-    return try .make(
+    var result = try Review.make(
       bot: cfg.gitlabCi.get().protected.get().user.username,
       status: resolveStatus(
         cfg: cfg,
@@ -449,6 +471,8 @@ public final class Reviewer {
         .map(parseAntagonists)
         .get([:])
     )
+    result.prepareVerification(source: state.sourceBranch, target: state.targetBranch)
+    return result
   }
   func resolveRules(cfg: Configuration, fusion: Fusion) throws -> Fusion.Approval.Rules {
     try .make(yaml: parseApprovalRules(.init(
@@ -467,24 +491,14 @@ public final class Reviewer {
       .map(Git.Ref.make(sha:))
     let current = try Git.Sha.make(value: state.pipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: state.targetBranch))
-    let validation = review.status.verification.map(Git.Ref.make(sha:))
-    if
-      let validation = validation,
-      try !Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(sha: current),
-        parent: validation
-      )))
-    {
-      review.resetVerification()
-    }
     if let fork = review.kind.merge?.fork {
-      try review.prepareVerification(files: listMergeChanges(
+      try review.prepareVerification(diff: listMergeChanges(
         cfg: cfg,
         ref: .make(sha: current),
         parents: [target, .make(sha: fork)]
       ))
     } else {
-      try review.prepareVerification(files: Execute.parseLines(
+      try review.prepareVerification(diff: Execute.parseLines(
         reply: execute(cfg.git.listChangedFiles(
           source: .make(sha: current),
           target: target
@@ -496,15 +510,17 @@ public final class Reviewer {
       notIn: [target] + fork.array
     ))) {
       let sha = try Git.Sha.make(value: sha)
-      try review.addChanges(sha: sha, files: listChangedFiles(cfg: cfg, state: state, sha: sha))
+      try review.addChanges(sha: sha, diff: listChangedFiles(cfg: cfg, state: state, sha: sha))
     }
     for sha in review.status.approvedCommits { try review.addBreakers(
       sha: sha,
-      commits: Execute.parseLines(reply: execute(cfg.git.listCommits(
-        in: [.make(sha: current)],
-        notIn: [target, .make(sha: sha)] + fork.array,
-        ignoreMissing: true
-      )))
+      commits: Execute
+        .parseLines(reply: execute(cfg.git.listCommits(
+          in: [.make(sha: current)],
+          notIn: [target, .make(sha: sha)] + fork.array,
+          ignoreMissing: true
+        )))
+        .map(Git.Sha.make(value:))
     )}
     return review.performVerification(sha: current)
   }

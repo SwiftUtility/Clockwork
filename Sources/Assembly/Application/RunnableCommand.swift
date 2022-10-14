@@ -227,6 +227,11 @@ extension Clockwork.TriggerReviewPipeline: RunnableCommand {
     try Assembler.mediator.createReviewPipeline(cfg: cfg)
   }
 }
+extension Clockwork.SkipReview: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.skipReview(cfg: cfg, review: review)
+  }
+}
 extension Clockwork.StartReplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.startReplication(cfg: cfg)

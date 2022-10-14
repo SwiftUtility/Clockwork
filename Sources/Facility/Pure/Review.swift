@@ -7,9 +7,9 @@ public struct Review {
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
   public let haters: [String: Set<String>]
+  public let unknownUsers: Set<String>
+  public let unknownTeams: Set<String>
   public internal(set) var status: Fusion.Approval.Status
-  public internal(set) var unknownUsers: Set<String> = []
-  public internal(set) var unknownTeams: Set<String> = []
   public internal(set) var utilityTeams: Set<String> = []
   public internal(set) var changedTeams: [Git.Sha: Set<String>] = [:]
   public internal(set) var diffTeams: Set<String> = []
@@ -23,47 +23,28 @@ public struct Review {
     ownage: [String: Criteria],
     rules: Fusion.Approval.Rules,
     haters: [String: Set<String>]
-  ) -> Self {
-    var result = Self(
-      bot: bot,
-      approvers: approvers,
-      kind: kind,
-      ownage: ownage,
-      rules: rules,
-      haters: haters,
-      status: status
-    )
-    let authorshipTeams = kind.proposition
-      .then(rules.authorship)
-      .get([:])
-      .filter({ $0.value.intersection(status.authors).isEmpty.not })
-      .reduce(into: Set(), { $0.insert($1.key) })
-    let sourceTeams = rules.sourceBranch.filter({ $0.value.isMet(review.sourceBranch) }).keys
-    let targetTeams = rules.targetBranch.filter({ $0.value.isMet(review.targetBranch) }).keys
-    result.utilityTeams = authorshipTeams
-      .union(sourceTeams)
-      .union(targetTeams)
-    if result.status.target != review.targetBranch {
-      result.status.invalidate(users: Set(targetTeams
-        .flatMap({ rules.teams[$0].map(\.approvers).get([]) })
-      ))
-      result.status.target = review.targetBranch
-    }
-    result.unknownUsers = status.authors
+  ) -> Self { .init(
+    bot: bot,
+    approvers: approvers,
+    kind: kind,
+    ownage: ownage,
+    rules: rules,
+    haters: haters,
+    unknownUsers: status.authors
       .union(status.approves.keys)
       .union(haters.keys)
       .union(haters.flatMap(\.value))
       .union(rules.authorship.flatMap(\.value))
       .union(rules.teams.flatMap(\.value.approvers))
-      .subtracting(approvers.keys)
-    result.unknownTeams = Set(rules.sanity.array)
+      .subtracting(approvers.keys),
+    unknownTeams: Set(rules.sanity.array)
       .union(ownage.keys)
       .union(rules.targetBranch.keys)
       .union(rules.sourceBranch.keys)
       .union(rules.authorship.keys)
-      .filter { rules.teams[$0] == nil }
-    return result
-  }
+      .filter { rules.teams[$0] == nil },
+    status: status
+  )}
   public func isApproved(sha: String) -> Bool {
     guard status.verification?.value == sha else { return false }
     guard status.emergent.not else { return true }
@@ -73,6 +54,7 @@ public struct Review {
     return status.participants
       .union(status.randoms)
       .union(status.authors)
+      .intersection(active)
       .subtracting(status.approves.filter(\.value.resolution.approved).keys)
       .isEmpty
   }
@@ -97,26 +79,38 @@ public struct Review {
       .reduce(into: [user], { $0.formUnion($1.approvers) })
     )
   }
-  public mutating func resetVerification() {
-    status.verification = nil
-    status.teams = []
-    status.invalidate(users: Set(status.approves.keys))
-    Fusion.Approval.Status
-      .makeApproves(fork: kind.merge?.fork, authors: status.authors)
-      .values
-      .forEach({ status.approves[$0.approver] = $0 })
+  public mutating func prepareVerification(source: String, target: String) {
+    let authorshipTeams = kind.proposition
+      .then(rules.authorship)
+      .get([:])
+      .filter({ $0.value.intersection(status.authors).isEmpty.not })
+      .reduce(into: Set(), { $0.insert($1.key) })
+    let sourceTeams = rules.sourceBranch.filter({ $0.value.isMet(source) }).keys
+    let targetTeams = rules.targetBranch.filter({ $0.value.isMet(target) }).keys
+    utilityTeams = authorshipTeams
+      .union(sourceTeams)
+      .union(targetTeams)
+    if status.target != target {
+      status.invalidate(users: Set(targetTeams
+        .flatMap({ rules.teams[$0].map(\.approvers).get([]) })
+      ))
+      status.target = target
+    }
+    if utilityTeams.subtracting(status.teams).isEmpty.not {
+      status.verification = nil
+    }
   }
-  public mutating func prepareVerification(files: [String]) {
-    diffTeams = Set(ownage.filter({ files.contains(where: $0.value.isMet(_:)) }).keys)
+  public mutating func prepareVerification(diff: [String]) {
+    diffTeams = Set(ownage.filter({ diff.contains(where: $0.value.isMet(_:)) }).keys)
     status.teams = diffTeams.union(utilityTeams)
   }
-  public mutating func addBreakers(sha: Git.Sha, commits: [String]) throws {
-    childCommits[sha] = try Set(commits.map(Git.Sha.make(value:)))
+  public mutating func addBreakers(sha: Git.Sha, commits: [Git.Sha]) {
+    childCommits[sha] = Set(commits)
   }
-  public mutating func addChanges(sha: Git.Sha, files: [String]) {
-    guard files.isEmpty.not else { return }
+  public mutating func addChanges(sha: Git.Sha, diff: [String]) {
+    guard diff.isEmpty.not else { return }
     changedTeams[sha] = diffTeams.filter({ ownage[$0]
-      .map({ files.contains(where: $0.isMet(_:)) })
+      .map({ diff.contains(where: $0.isMet(_:)) })
       .get(false)
     })
   }
@@ -215,6 +209,8 @@ public struct Review {
     )
     status.participants.formUnion(optionalRandom)
     teams.keys.forEach({ teams[$0]?.update(involved: optionalRandom) })
+    result.authors = status.authors
+      .intersection(yetActive)
     result.watchers = result.watchers
       .intersection(active)
       .subtracting(status.participants)
@@ -292,11 +288,10 @@ public struct Review {
     public var delLabels: Set<String> = []
     public var mentions: Set<String> = []
     public var watchers: Set<String> = []
-    public var authors: Set<String> = []
     public var blockers: Set<String> = []
     public var slackers: Set<String> = []
     public var approvers: Set<String> = []
-    public var cheaters: Set<String> = []
+    public var authors: Set<String> = []
     public var outdaters: [String: Set<String>] = [:]
     public var inactiveAuthors: Bool = false
     public var unapprovableTeams: Set<String> = []

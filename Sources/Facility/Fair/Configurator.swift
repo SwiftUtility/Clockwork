@@ -184,7 +184,8 @@ public final class Configurator {
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce([String: Yaml.Fusion.Approval.Approver].self, dialect.read(_:from:))
     .get()
-    .mapValues(Fusion.Approval.Approver.make(yaml:))
+    .map(Fusion.Approval.Approver.make(login:yaml:))
+    .reduce(into: [:], { $0[$1.login] = $1 })
   }
   public func resolveReviewQueue(
     query: Fusion.Queue.Resolve
