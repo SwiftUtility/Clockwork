@@ -2,7 +2,7 @@ import Foundation
 import Facility
 public enum Yaml {
   public struct Profile: Decodable {
-    public var gitlabCi: GitlabCi?
+    public var gitlab: Gitlab?
     public var slack: Slack?
     public var codeOwnage: String?
     public var fileTaboos: String?
@@ -13,7 +13,7 @@ public enum Yaml {
     public var fusion: String?
     public var context: Secret?
   }
-  public struct GitlabCi: Decodable {
+  public struct Gitlab: Decodable {
     public var token: Secret
     public var trigger: Trigger
     public struct Trigger: Decodable {

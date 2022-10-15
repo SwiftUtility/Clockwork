@@ -42,7 +42,7 @@ public struct Configuration {
       yaml: Yaml.Profile
     ) throws -> Self { try .init(
       profile: profile,
-      gitlabCi: yaml.gitlabCi
+      gitlabCi: yaml.gitlab
         .map(GitlabCi.make(yaml:)),
       slack: yaml.slack
         .reduce(profile.ref, Slack.make(ref:yaml:)),
@@ -87,9 +87,9 @@ public struct Configuration {
     }
     public struct GitlabCi {
       public var token: Secret
-      public var trigger: Yaml.GitlabCi.Trigger
+      public var trigger: Yaml.Gitlab.Trigger
       public static func make(
-        yaml: Yaml.GitlabCi
+        yaml: Yaml.Gitlab
       ) throws -> Self { try .init(
         token: .make(yaml: yaml.token),
         trigger: yaml.trigger

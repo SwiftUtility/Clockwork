@@ -3,7 +3,7 @@ import Facility
 public struct GitlabCi {
   public var env: Env
   public let job: Json.GitlabJob
-  public var trigger: Yaml.GitlabCi.Trigger
+  public var trigger: Yaml.Gitlab.Trigger
   public var protected: Lossy<Protected>
   public var info: Info { .init(
     bot: try? protected.get().user.username,
@@ -18,7 +18,7 @@ public struct GitlabCi {
     return value.sha == job.pipeline.sha && value.branch == job.pipeline.ref
   }
   public static func make(
-    trigger: Yaml.GitlabCi.Trigger,
+    trigger: Yaml.Gitlab.Trigger,
     env: Env,
     job: Json.GitlabJob,
     protected: Lossy<Protected>
@@ -87,7 +87,7 @@ public struct GitlabCi {
       url: "\(api)/user",
       headers: ["Authorization: Bearer \(token)"]
     ))}
-    public static func make(env: [String: String], trigger: Yaml.GitlabCi.Trigger) throws -> Self {
+    public static func make(env: [String: String], trigger: Yaml.Gitlab.Trigger) throws -> Self {
       guard "true" == env["GITLAB_CI"] else { throw Thrown("Not in GitlabCI context") }
       return try .init(
         api: "CI_API_V4_URL".get(env: env),
