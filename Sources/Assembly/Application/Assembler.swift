@@ -15,7 +15,6 @@ enum Assembler {
     readStdin: readStdin,
     generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),
-    worker: worker,
     jsonDecoder: jsonDecoder
   )
   static let configurator = Configurator(
@@ -68,13 +67,11 @@ enum Assembler {
     readStdin: reporter.readStdin(query:),
     createThread: reporter.createThread(query:),
     logMessage: logger.logMessage(query:),
-    worker: worker,
     jsonDecoder: jsonDecoder
   )
   static let mediator = Mediator(
     execute: execute,
     logMessage: logger.logMessage(query:),
-    worker: worker,
     jsonDecoder: jsonDecoder
   )
   static let producer = Producer(
@@ -90,12 +87,6 @@ enum Assembler {
     createThread: reporter.createThread(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
-    worker: worker,
-    jsonDecoder: jsonDecoder
-  )
-  static let worker = Worker(
-    execute: execute,
-    logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let stencilParser = StencilParser(notation: .json)

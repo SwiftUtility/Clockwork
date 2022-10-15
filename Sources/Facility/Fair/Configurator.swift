@@ -95,7 +95,7 @@ public final class Configurator {
             .reduce(Json.GitlabUser.self, jsonDecoder.decode(success:reply:))
         ))
       )),
-      slack: Lossy(try profile.slack.get { throw Thrown("Slack not configured") })
+      slack: Lossy(try profile.slack
         .map { slack in try .make(
           token: parse(git: git, env: env, secret: slack.token),
           signals: dialect.read(
@@ -103,6 +103,7 @@ public final class Configurator {
             from: parse(git: git, yaml: slack.signals
           ))
         )}
+        .get { throw Thrown("Slack not configured") })
     )
   }
   public func resolveRequisition(

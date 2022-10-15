@@ -7,7 +7,6 @@ public final class Reporter {
   let readStdin: Try.Do<Data?>
   let generate: Try.Reply<Generate>
   let logMessage: Act.Reply<LogMessage>
-  let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -15,7 +14,6 @@ public final class Reporter {
     readStdin: @escaping Try.Do<Data?>,
     generate: @escaping Try.Reply<Generate>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    worker: Worker,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
@@ -23,7 +21,6 @@ public final class Reporter {
     self.readStdin = readStdin
     self.generate = generate
     self.logMessage = logMessage
-    self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
   public func finish(cfg: Configuration, success: Bool) throws {

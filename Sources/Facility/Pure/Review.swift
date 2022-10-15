@@ -321,4 +321,25 @@ public struct Review {
       }
     }
   }
+  public struct Context {
+    public let gitlab: GitlabCi
+    public let job: Json.GitlabJob
+    public let profile: Files.Relative
+    public let review: Json.GitlabReviewState
+    public let isLastPipe: Bool
+    public var isActual: Bool { return isLastPipe && review.state == "opened" }
+    public static func make(
+      gitlab: GitlabCi,
+      job: Json.GitlabJob,
+      profile: Files.Relative,
+      review: Json.GitlabReviewState,
+      isLastPipe: Bool
+    ) -> Self { .init(
+      gitlab: gitlab,
+      job: job,
+      profile: profile,
+      review: review,
+      isLastPipe: isLastPipe
+    )}
+  }
 }

@@ -36,7 +36,7 @@ extension Clockwork.AcceptReview: RunnableCommand {
 }
 extension Clockwork.AddReviewLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.addReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.reviewer.addReviewLabels(cfg: cfg, labels: labels)
   }
 }
 extension Clockwork.ApproveReview: RunnableCommand {
@@ -224,7 +224,7 @@ extension Clockwork.RetryJobs: RunnableCommand {
 }
 extension Clockwork.RemoveReviewLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.removeReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.reviewer.removeReviewLabels(cfg: cfg, labels: labels)
   }
 }
 extension Clockwork.TriggerPipeline: RunnableCommand {
@@ -234,7 +234,7 @@ extension Clockwork.TriggerPipeline: RunnableCommand {
 }
 extension Clockwork.TriggerReviewPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.createReviewPipeline(cfg: cfg)
+    try Assembler.reviewer.createReviewPipeline(cfg: cfg)
   }
 }
 extension Clockwork.SkipReview: RunnableCommand {

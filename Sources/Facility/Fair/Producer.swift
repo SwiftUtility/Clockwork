@@ -14,7 +14,6 @@ public final class Producer {
   let createThread: Try.Reply<Report.CreateThread>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
-  let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
@@ -29,7 +28,6 @@ public final class Producer {
     createThread: @escaping Try.Reply<Report.CreateThread>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
-    worker: Worker,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
@@ -44,7 +42,6 @@ public final class Producer {
     self.createThread = createThread
     self.logMessage = logMessage
     self.writeStdout = writeStdout
-    self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
   public func reportCustom(
@@ -273,13 +270,23 @@ public final class Producer {
   }
   public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
     let production = try resolveProduction(.init(cfg: cfg))
-    let ctx = try worker.resolveParentReview(cfg: cfg)
+    let gitlabCi = try cfg.gitlabCi.get()
+    let parent = try gitlabCi.env.parent.get()
+    let job = try gitlabCi.getJob(id: parent.job)
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
+      .get()
+    let review = try job.review
+      .flatMap(gitlabCi.getMrState(review:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
+      .get()
     let builds = try loadBuilds(cfg: cfg, production: production)
-    guard !builds.values.contains(where: ctx.review.matches(build:)) else {
+    guard !builds.values.contains(where: review.matches(build:)) else {
       logMessage(.init(message: "Build already exists"))
       return true
     }
-    let build = try ctx.review.makeBuild(build: generate(cfg.bumpBuildNumber(
+    let build = try review.makeBuild(build: generate(cfg.bumpBuildNumber(
       production: production,
       build: builds.keys
         .sorted()
@@ -644,5 +651,39 @@ public final class Producer {
     try parseBuilds(.init(git: cfg.git, file: .make(asset: production.builds)))
       .map(Production.Build.make(build:yaml:))
       .reduce(into: [:], { $0[$1.build] = $1 })
+  }
+  func resolveParentReview(cfg: Configuration) throws -> ParentReview {
+    let gitlabCi = try cfg.gitlabCi.get()
+    let parent = try gitlabCi.env.parent.get()
+    let job = try gitlabCi.getJob(id: parent.job)
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
+      .get()
+    let review = try job.review
+      .flatMap(gitlabCi.getMrState(review:))
+      .map(execute)
+      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
+      .get()
+    if job.pipeline.id != review.pipeline.id {
+      logMessage(.init(message: "Pipeline outdated"))
+    }
+    if review.state != "opened" {
+      logMessage(.init(message: "Review state: \(review.state)"))
+    }
+    return .init(
+      gitlab: gitlabCi,
+      job: job,
+      profile: parent.profile,
+      review: review,
+      isLastPipe: job.pipeline.id == review.pipeline.id
+    )
+  }
+  struct ParentReview {
+    let gitlab: GitlabCi
+    let job: Json.GitlabJob
+    let profile: Files.Relative
+    let review: Json.GitlabReviewState
+    let isLastPipe: Bool
+    var isActual: Bool { return isLastPipe && review.state == "opened" }
   }
 }

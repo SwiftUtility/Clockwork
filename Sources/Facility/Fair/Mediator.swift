@@ -4,17 +4,14 @@ import FacilityPure
 public final class Mediator {
   let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>
-  let worker: Worker
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    worker: Worker,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.logMessage = logMessage
-    self.worker = worker
     self.jsonDecoder = jsonDecoder
   }
   public func triggerPipeline(
@@ -40,61 +37,6 @@ public final class Mediator {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    return true
-  }
-  public func createReviewPipeline(
-    cfg: Configuration
-  ) throws -> Bool {
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard ctx.isActual else { return false }
-    try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    return true
-  }
-  public func addReviewLabels(
-    cfg: Configuration,
-    labels: [String]
-  ) throws -> Bool {
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard ctx.isActual else { return false }
-    let labels = Set(labels).subtracting(.init(ctx.review.labels))
-    guard !labels.isEmpty else {
-      logMessage(.init(message: "No new labels"))
-      return false
-    }
-    try ctx.gitlab
-      .putMrState(
-        parameters: .init(addLabels: labels.joined(separator: ",")),
-        review: ctx.review.iid
-      )
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    logMessage(.init(message: "Labels added"))
-    return true
-  }
-  public func removeReviewLabels(
-    cfg: Configuration,
-    labels: [String]
-  ) throws -> Bool {
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard ctx.isActual else { return false }
-    let labels = Set(labels).intersection(.init(ctx.review.labels))
-    guard !labels.isEmpty else {
-      logMessage(.init(message: "Labels not present"))
-      return false
-    }
-    try ctx.gitlab
-      .putMrState(
-        parameters: .init(removeLabels: labels.joined(separator: ",")),
-        review: ctx.review.iid
-      )
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    logMessage(.init(message: "Labels removed"))
     return true
   }
   public func affectJobs(
