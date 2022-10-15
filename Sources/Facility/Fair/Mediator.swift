@@ -98,7 +98,7 @@ public final class Mediator {
     return true
   }
   public func affectJobs(
-    configuration cfg: Configuration,
+    cfg: Configuration,
     pipeline: String,
     names: [String],
     action: GitlabCi.JobAction

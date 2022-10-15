@@ -258,6 +258,11 @@ public extension GitlabCi {
       headers: [protected.get().auth]
     ))
   }
+  func deleteBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
+    url: "\(protected.get().project)/repository/branches/\(name)",
+    method: "DELETE",
+    headers: [protected.get().auth]
+  ))}
   func getBranches(page: Int, count: Int) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(protected.get().project)/repository/branches?page=\(page)&per_page=\(count)",
     headers: [protected.get().auth]

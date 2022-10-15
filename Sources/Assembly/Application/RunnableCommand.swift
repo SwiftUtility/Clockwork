@@ -55,12 +55,7 @@ extension Clockwork.ApproveReview.Resolution {
 }
 extension Clockwork.CancelJobs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectJobs(
-      configuration: cfg,
-      pipeline: pipeline,
-      names: names,
-      action: .cancel
-    )
+    try Assembler.mediator.affectJobs(cfg: cfg, pipeline: pipeline, names: names, action: .cancel)
   }
 }
 extension Clockwork.CheckConflictMarkers: RunnableCommand {
@@ -76,6 +71,11 @@ extension Clockwork.CheckFileTaboos: RunnableCommand {
 extension Clockwork.CheckUnownedCode: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.validator.validateUnownedCode(cfg: cfg, json: json)
+  }
+}
+extension Clockwork.ChangeVersion: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.changeVersion(cfg: cfg, product: product, next: next, version: version)
   }
 }
 extension Clockwork.CreateAccessoryBranch: RunnableCommand {
@@ -96,6 +96,21 @@ extension Clockwork.CreateHotfixBranch: RunnableCommand {
 extension Clockwork.CreateReleaseBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.createReleaseBranch(cfg: cfg, product: product)
+  }
+}
+extension Clockwork.CreateStageTag: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.stageBuild(cfg: cfg, product: product, build: build)
+  }
+}
+extension Clockwork.DeleteAccessoryBranch: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.deleteBranch(cfg: cfg, revoke: nil)
+  }
+}
+extension Clockwork.DeleteReleaseBranch: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.deleteBranch(cfg: cfg, revoke: revoke)
   }
 }
 extension Clockwork.DequeueReview: RunnableCommand {
@@ -123,6 +138,11 @@ extension Clockwork.ExportNextVersions: RunnableCommand {
     try Assembler.producer.renderNextVersions(cfg: cfg)
   }
 }
+extension Clockwork.ForwardBranch: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.forwardBranch(cfg: cfg, name: name)
+  }
+}
 extension Clockwork.ImportRequisites: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.installRequisite(cfg: cfg, requisites: requisites)
@@ -145,12 +165,7 @@ extension Clockwork.OwnReview: RunnableCommand {
 }
 extension Clockwork.PlayJobs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectJobs(
-      configuration: cfg,
-      pipeline: pipeline,
-      names: names,
-      action: .play
-    )
+    try Assembler.mediator.affectJobs(cfg: cfg, pipeline: pipeline, names: names, action: .play)
   }
 }
 extension Clockwork.CleanReviews: RunnableCommand {
@@ -204,12 +219,7 @@ extension Clockwork.ResetPodSpecs: RunnableCommand {
 }
 extension Clockwork.RetryJobs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectJobs(
-      configuration: cfg,
-      pipeline: pipeline,
-      names: names,
-      action: .retry
-    )
+    try Assembler.mediator.affectJobs(cfg: cfg, pipeline: pipeline, names: names, action: .retry)
   }
 }
 extension Clockwork.RemoveReviewLabels: RunnableCommand {

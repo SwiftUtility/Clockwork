@@ -89,17 +89,138 @@ public final class Producer {
     ))
     return true
   }
+  public func changeVersion(
+    cfg: Configuration,
+    product: String,
+    next: Bool,
+    version: String
+  ) throws -> Bool {
+    let gitlabCi = try cfg.gitlabCi.get()
+    let production = try resolveProduction(.init(cfg: cfg))
+    let versions = try loadVersions(cfg: cfg, production: production)
+    guard var update = versions[product]
+    else { throw Thrown("Versioning not configured for \(product)") }
+    let reason: Generate.CreateVersionsCommitMessage.Reason
+    if next {
+      try update.change(next: version)
+      reason = .changeNext
+    } else {
+      guard gitlabCi.job.tag.not else { throw Thrown("Not branch job") }
+      let branch = gitlabCi.job.pipeline.ref
+      guard production.matchAccessoryBranch.isMet(branch)
+      else { throw Thrown("Not accessory branch \(branch)") }
+      update.accessories[branch] = version.alphaNumeric
+      reason = .changeAccessory
+    }
+    return try persist(
+      cfg: cfg,
+      production: production,
+      versions: versions,
+      update: update,
+      version: version,
+      reason: reason
+    )
+  }
+  public func deleteBranch(cfg: Configuration, revoke: Bool?) throws -> Bool {
+    let gitlabCi = try cfg.gitlabCi.get()
+    let production = try resolveProduction(.init(cfg: cfg))
+    var versions = try loadVersions(cfg: cfg, production: production)
+    guard gitlabCi.job.tag.not else { throw Thrown("Not on branch") }
+    let branch = try Git.Branch.init(name: gitlabCi.job.pipeline.ref)
+    let sha = try Git.Sha.make(job: gitlabCi.job)
+    guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+      child: .make(sha: sha),
+      parent: .make(remote: branch)
+    ))) else { throw Thrown("Not last commit pipeline") }
+    let defaultBranch = try gitlabCi.getProject
+      .map(execute)
+      .map(Execute.parseData(reply:))
+      .reduce(Json.GitlabProject.self, jsonDecoder.decode(_:from:))
+      .get()
+      .defaultBranch
+    guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+      child: .make(remote: .init(name: defaultBranch)),
+      parent: .make(sha: sha)
+    ))) else { throw Thrown("Branch \(branch) not integrated into \(defaultBranch)") }
+    if let revoke = revoke {
+      let product = try production
+        .productMatching(release: branch.name)
+        .get { throw Thrown("Branch \(branch) matches no products") }
+      let current = try generate(cfg.parseReleaseBranchVersion(product: product, ref: branch.name))
+      if let delivery = versions[product.name]?.deliveries[current.alphaNumeric] {
+        if revoke {
+          try versions[product.name]?.revoke(version: current, sha: sha)
+          _ = try persist(
+            cfg: cfg,
+            production: production,
+            versions: versions,
+            update: nil,
+            version: current,
+            reason: .revokeRelease
+          )
+        }
+        try gitlabCi.deleteBranch(name: branch.name)
+          .map(execute)
+          .map(Execute.checkStatus(reply:))
+          .get()
+        report(cfg.reportReleaseBranchDeleted(
+          product: product, delivery: delivery, ref: branch.name, sha: sha.value, revoke: revoke
+        ))
+      }
+    } else {
+      guard production.matchAccessoryBranch.isMet(branch.name)
+      else { throw Thrown("Not accessory branch \(branch.name)") }
+      versions.keys.forEach({ versions[$0]?.accessories[branch.name] = nil })
+      try gitlabCi.deleteBranch(name: branch.name)
+        .map(execute)
+        .map(Execute.checkStatus(reply:))
+        .get()
+      _ = try persist(
+        cfg: cfg,
+        production: production,
+        versions: versions,
+        update: nil,
+        version: nil,
+        reason: .deleteAccessory
+      )
+    }
+    return true
+  }
+  public func forwardBranch(cfg: Configuration, name: String) throws -> Bool {
+    let gitlabCi = try cfg.gitlabCi.get()
+    let production = try resolveProduction(.init(cfg: cfg))
+    guard gitlabCi.job.tag.not else { throw Thrown("Not on branch") }
+    let sha = try Git.Sha.make(job: gitlabCi.job)
+    let forward = try gitlabCi.getBranch(name: name)
+      .map(execute)
+      .map(Execute.parseData(reply:))
+      .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
+      .get()
+    guard forward.protected else { throw Thrown("Branch \(name) not protected") }
+    guard forward.default.not else { throw Thrown("Branch \(name) is default") }
+    guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+      child: .make(sha: sha),
+      parent: .make(remote: .init(name: name))
+    ))) else { throw Thrown("Not fast forward \(sha.value)") }
+    try gitlabCi.deleteBranch(name: name)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    try gitlabCi.postBranches(name: name, ref: sha.value)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return true
+  }
   public func createDeployTag(cfg: Configuration) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))
     guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
+    let branch = gitlabCi.job.pipeline.ref
     let product = try production
-      .productMatching(release: gitlabCi.job.pipeline.ref)
-      .get { throw Thrown("Branch \(gitlabCi.job.pipeline.ref) matches no products") }
-    let current = try generate(cfg.parseReleaseBranchVersion(
-      product: product,
-      ref: gitlabCi.job.pipeline.ref
-    ))
+      .productMatching(release: branch)
+      .get { throw Thrown("Branch \(branch) matches no products") }
+    let current = try generate(cfg.parseReleaseBranchVersion(product: product, ref: branch))
     let sha = try Git.Sha.make(job: gitlabCi.job)
     let versions = try loadVersions(cfg: cfg, production: production)
     guard var version = versions[product.name]
@@ -127,10 +248,9 @@ public final class Producer {
       sha: sha.value,
       tag: tag
     )))
-    try persist(
+    _ = try persist(
       cfg: cfg,
       production: production,
-      product: product,
       versions: versions,
       update: version,
       version: current,
@@ -227,10 +347,9 @@ public final class Producer {
       hotfix: false
     ))
     let delivery = version.release(bump: bump, start: sha, thread: thread)
-    try persist(
+    _ = try persist(
       cfg: cfg,
       production: production,
-      product: product,
       versions: versions,
       update: version,
       version: current,
@@ -287,10 +406,9 @@ public final class Producer {
       hotfix: true
     ))
     let delivery = version.hotfix(version: hotfix, start: sha, thread: thread)
-    try persist(
+    _ = try persist(
       cfg: cfg,
       production: production,
-      product: product,
       versions: versions,
       update: version,
       version: current,
@@ -492,21 +610,20 @@ public final class Producer {
   func persist(
     cfg: Configuration,
     production: Production,
-    product: Production.Product,
     versions: [String: Production.Version],
-    update: Production.Version,
-    version: String,
+    update: Production.Version?,
+    version: String?,
     reason: Generate.CreateVersionsCommitMessage.Reason
-  ) throws {
+  ) throws -> Bool {
     var versions = versions
-    versions[update.product] = update
-    _ = try persistAsset(.init(
+    if let update = update { versions[update.product] = update }
+    return try persistAsset(.init(
       cfg: cfg,
       asset: production.versions,
       content: production.serialize(versions: versions),
       message: generate(cfg.createVersionsCommitMessage(
         production: production,
-        product: product,
+        product: update?.product,
         version: version,
         reason: reason
       ))

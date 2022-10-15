@@ -168,6 +168,19 @@ public struct Report: Query {
     public var hotfix: Bool
     public var subevent: String { product }
   }
+  public struct ReleaseBranchDeleted: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var ctx: AnyCodable?
+    public var info: GitlabCi.Info?
+    public var thread: Configuration.Thread
+    public var ref: String
+    public var sha: String
+    public var product: String
+    public var version: String
+    public var revoke: Bool
+    public var subevent: String { product }
+  }
   public struct ReleaseBranchSummary: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
@@ -431,6 +444,23 @@ public extension Configuration {
       hotfix: hotfix
     ))
   )}
+  func reportReleaseBranchDeleted(
+    product: Production.Product,
+    delivery: Production.Version.Delivery,
+    ref: String,
+    sha: String,
+    revoke: Bool
+  ) -> Report { .init(cfg: self, context: Report.ReleaseBranchDeleted(
+    env: env,
+    ctx: context,
+    info: try? gitlabCi.get().info,
+    thread: delivery.thread,
+    ref: ref,
+    sha: sha,
+    product: product.name,
+    version: delivery.version.value,
+    revoke: revoke
+  ))}
   func reportReleaseBranchSummary(
     product: Production.Product,
     delivery: Production.Version.Delivery,

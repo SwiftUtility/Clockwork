@@ -127,13 +127,17 @@ public struct Generate: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var product: String
-    public var version: String
+    public var product: String?
+    public var version: String?
     public var reason: Reason
     public enum Reason: String, Encodable {
       case deploy
       case hotfix
       case release
+      case changeNext
+      case changeAccessory
+      case deleteAccessory
+      case revokeRelease
     }
   }
   public struct CreateBuildCommitMessage: GenerationContext {
@@ -391,8 +395,8 @@ public extension Configuration {
   )}
   func createVersionsCommitMessage(
     production: Production,
-    product: Production.Product,
-    version: String,
+    product: String?,
+    version: String?,
     reason: Generate.CreateVersionsCommitMessage.Reason
   ) -> Generate { .init(
     allowEmpty: false,
@@ -402,7 +406,7 @@ public extension Configuration {
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
-      product: product.name,
+      product: product,
       version: version,
       reason: reason
     )

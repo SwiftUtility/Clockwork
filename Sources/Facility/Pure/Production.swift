@@ -260,7 +260,7 @@ public struct Production {
     public internal(set) var product: String
     public internal(set) var next: AlphaNumeric
     public internal(set) var deliveries: [AlphaNumeric: Delivery]
-    public internal(set) var accessories: [String: AlphaNumeric]
+    public var accessories: [String: AlphaNumeric]
     public static func make(
       product: String,
       yaml: Yaml.Production.Version
@@ -272,6 +272,23 @@ public struct Production {
         .reduce(into: [:], { $0[$1.version] = $1 }),
       accessories: yaml.accessories.get([:])
     )}
+    public mutating func revoke(version: String, sha: Git.Sha) throws {
+      let version = version.alphaNumeric
+      guard let delivery = deliveries[version] else { return }
+      guard deliveries.keys.max() == version, delivery.deploys == [sha]
+      else { throw Thrown("Unable to revoke \(product) \(version)") }
+      deliveries[version] = nil
+      next = version
+    }
+    public mutating func change(next bump: String) throws {
+      let bump = bump.alphaNumeric
+      guard deliveries[bump] == nil
+      else { throw Thrown("\(product) \(bump) already exists") }
+      if let max = deliveries.keys.max() {
+        guard bump > max else { throw Thrown("\(product) \(bump) is not the latest") }
+      }
+      next = bump
+    }
     public func check(bump: String) throws {
       let bump = bump.alphaNumeric
       guard deliveries[next] == nil

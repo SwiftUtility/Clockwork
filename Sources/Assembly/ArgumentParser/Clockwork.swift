@@ -14,15 +14,20 @@ struct Clockwork: ParsableCommand {
       CheckConflictMarkers.self,
       CheckFileTaboos.self,
       CheckUnownedCode.self,
+      ChangeVersion.self,
       CreateAccessoryBranch.self,
       CreateDeployTag.self,
       CreateHotfixBranch.self,
       CreateReleaseBranch.self,
+      CreateStageTag.self,
+      DeleteAccessoryBranch.self,
+      DeleteReleaseBranch.self,
       DequeueReview.self,
       EraseRequisites.self,
       ExportBuild.self,
       ExportIntegration.self,
       ExportNextVersions.self,
+      ForwardBranch.self,
       ImportRequisites.self,
       ImportPkcs12.self,
       ImportProvisions.self,
@@ -104,6 +109,16 @@ struct Clockwork: ParsableCommand {
     @Flag(help: "Should render json to stdout")
     var json = false
   }
+  struct ChangeVersion: ClockworkCommand {
+    static var abstract: String { "Cut custom protected branch" }
+    @OptionGroup var clockwork: Clockwork
+    @Option(help: "Product name to change version for")
+    var product: String
+    @Flag(help: "Wether change next or current accessory branch specific version")
+    var next: Bool = false
+    @Option(help: "Version to set")
+    var version: String
+  }
   struct CreateAccessoryBranch: ClockworkCommand {
     static var abstract: String { "Cut custom protected branch" }
     @OptionGroup var clockwork: Clockwork
@@ -124,6 +139,24 @@ struct Clockwork: ParsableCommand {
     @Option(help: "Product name to make branch for")
     var product: String
   }
+  struct CreateStageTag: ClockworkCommand {
+    static var abstract: String { "Create stage tag on reserved build" }
+    @OptionGroup var clockwork: Clockwork
+    @Option(help: "Product name to make stage tag for")
+    var product: String
+    @Option(help: "Build number to make stage tag for")
+    var build: String
+  }
+  struct DeleteAccessoryBranch: ClockworkCommand {
+    static var abstract: String { "Delete protected branch and clear its assets" }
+    @OptionGroup var clockwork: Clockwork
+  }
+  struct DeleteReleaseBranch: ClockworkCommand {
+    static var abstract: String { "Delete protected branch and clear its assets" }
+    @OptionGroup var clockwork: Clockwork
+    @Flag(help: "")
+    var revoke: Bool = false
+  }
   struct DequeueReview: ClockworkCommand {
     static var abstract: String { "Dequeue parent review" }
     @OptionGroup var clockwork: Clockwork
@@ -143,6 +176,12 @@ struct Clockwork: ParsableCommand {
   struct ExportNextVersions: ClockworkCommand {
     static var abstract: String { "Render current next versions to stdout" }
     @OptionGroup var clockwork: Clockwork
+  }
+  struct ForwardBranch: ClockworkCommand {
+    static var abstract: String { "Fast forward branch to current commit" }
+    @OptionGroup var clockwork: Clockwork
+    @Option(help: "The branch name to forward")
+    var name: String
   }
   struct ImportRequisites: ClockworkCommand {
     static var abstract: String { "Import p12 and provisions" }
@@ -190,8 +229,8 @@ struct Clockwork: ParsableCommand {
       static func help(for value: Self) -> ArgumentHelp? {
         switch value {
         case .ignore: return "Do not read stdin"
-        case .lines: return "Interpret stdin as lines array context"
-        case .json: return "Interpret stdin as json context"
+        case .lines: return "Interpret stdin as lines array"
+        case .json: return "Interpret stdin as json"
         }
       }
     }
