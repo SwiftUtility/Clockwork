@@ -165,7 +165,7 @@ public final class Reviewer {
         slackers: reminds
       ))
     }
-    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: nil, status: nil)
+    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: nil, status: nil, reason: .clean)
     return true
   }
   public func updateApprover(
@@ -213,7 +213,7 @@ public final class Reviewer {
       .get()
     guard var status = statuses[review] else { return false }
     status.emergent = true
-    return try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status)
+    return try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status, reason: .cheat)
   }
   public func approveReview(
     cfg: Configuration,
@@ -230,7 +230,7 @@ public final class Reviewer {
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
     let wasApproved = review.isApproved(sha: ctx.review.pipeline.sha)
     try review.approve(job: ctx.job, resolution: resolution)
-    guard try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+    guard try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .approve)
     else { return false }
     if wasApproved.not, review.isApproved(sha: ctx.review.pipeline.sha) { try Execute.checkStatus(
       reply: execute(ctx.gitlab.postMrPipelines(review: ctx.review.iid).get())
@@ -255,7 +255,7 @@ public final class Reviewer {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
     try review.setAuthor(job: ctx.job)
-    return try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+    return try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .own)
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
@@ -362,7 +362,7 @@ public final class Reviewer {
     ) {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       try closeReview(cfg: cfg, state: ctx.review)
-      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: nil)
+      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: nil, reason: .close)
       report(cfg.reportReviewClosed(
         status: review.status,
         state: ctx.review,
@@ -383,13 +383,13 @@ public final class Reviewer {
         state: ctx.review,
         approval: approval
       ))
-      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
       return false
     }
     report(cfg.reportReviewUpdate(review: review, state: ctx.review, update: approval))
     guard approval.state.isApproved else {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
-      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
       return false
     }
     guard try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind) else {
@@ -401,10 +401,10 @@ public final class Reviewer {
         force: true
       )))
       review.squashApproves(sha: sha)
-      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
       return false
     }
-    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status)
+    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
     return try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: true)
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
@@ -470,7 +470,7 @@ public final class Reviewer {
         ))
       ) else { return false }
     }
-    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: nil)
+    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: nil, reason: .merge)
     return true
   }
   func resolveStatus(
@@ -496,7 +496,7 @@ public final class Reviewer {
       thread: .make(yaml: thread),
       fork: nil
     )
-    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status)
+    _ = try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status, reason: .create)
     return status
   }
   func resolveOwnage(
@@ -988,7 +988,8 @@ public final class Reviewer {
     cfg: Configuration,
     fusion: Fusion,
     state: Json.GitlabReviewState?,
-    status: Fusion.Approval.Status?
+    status: Fusion.Approval.Status?,
+    reason: Generate.CreateFusionStatusesCommitMessage.Reason
   ) throws -> Bool {
     var statuses = statuses
     if let state = state { statuses[state.iid] = status }
@@ -998,7 +999,8 @@ public final class Reviewer {
       content: Fusion.Approval.Status.yaml(statuses: statuses),
       message: generate(cfg.createFusionStatusesCommitMessage(
         fusion: fusion,
-        review: state
+        review: state,
+        reason: reason
       ))
     ))
   }

@@ -172,6 +172,17 @@ public struct Generate: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState?
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case create
+      case merge
+      case close
+      case update
+      case clean
+      case cheat
+      case approve
+      case own
+    }
   }
   public struct CreatePropositionCommitMessage: GenerationContext {
     public var event: String = Self.event
@@ -462,7 +473,8 @@ public extension Configuration {
   )}
   func createFusionStatusesCommitMessage(
     fusion: Fusion,
-    review: Json.GitlabReviewState?
+    review: Json.GitlabReviewState?,
+    reason: Generate.CreateFusionStatusesCommitMessage.Reason
   ) -> Generate { .init(
     allowEmpty: false,
     template: fusion.approval.statuses.createCommitMessage,
@@ -471,7 +483,8 @@ public extension Configuration {
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
-      review: review
+      review: review,
+      reason: reason
     )
   )}
   func createPropositionCommitMessage(
