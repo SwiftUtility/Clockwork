@@ -214,8 +214,7 @@ public struct Generate: Query {
     public var env: [String: String]
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
-    public var source: String
-    public var target: String
+    public var review: Json.GitlabReviewState
   }
 }
 public extension Configuration {
@@ -544,8 +543,7 @@ public extension Configuration {
       env: env,
       ctx: context,
       info: try? gitlabCi.get().info,
-      source: review.sourceBranch,
-      target: review.targetBranch
+      review: review
     )
   )}
 }
