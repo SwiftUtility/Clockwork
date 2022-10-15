@@ -651,38 +651,4 @@ public final class Producer {
       .map(Production.Build.make(build:yaml:))
       .reduce(into: [:], { $0[$1.build] = $1 })
   }
-  func resolveParentReview(cfg: Configuration) throws -> ParentReview {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let parent = try gitlabCi.env.parent.get()
-    let job = try gitlabCi.getJob(id: parent.job)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    let review = try job.review
-      .flatMap(gitlabCi.getMrState(review:))
-      .map(execute)
-      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-      .get()
-    if job.pipeline.id != review.pipeline.id {
-      logMessage(.init(message: "Pipeline outdated"))
-    }
-    if review.state != "opened" {
-      logMessage(.init(message: "Review state: \(review.state)"))
-    }
-    return .init(
-      gitlab: gitlabCi,
-      job: job,
-      profile: parent.profile,
-      review: review,
-      isLastPipe: job.pipeline.id == review.pipeline.id
-    )
-  }
-  struct ParentReview {
-    let gitlab: GitlabCi
-    let job: Json.GitlabJob
-    let profile: Files.Relative
-    let review: Json.GitlabReviewState
-    let isLastPipe: Bool
-    var isActual: Bool { return isLastPipe && review.state == "opened" }
-  }
 }
