@@ -114,6 +114,7 @@ public final class Producer {
       production: production,
       versions: versions,
       update: update,
+      product: update.product,
       version: version,
       reason: reason
     )
@@ -152,6 +153,7 @@ public final class Producer {
             production: production,
             versions: versions,
             update: nil,
+            product: product.name,
             version: current,
             reason: .revokeRelease
           )
@@ -177,6 +179,7 @@ public final class Producer {
         production: production,
         versions: versions,
         update: nil,
+        product: nil,
         version: nil,
         reason: .deleteAccessory
       )
@@ -249,6 +252,7 @@ public final class Producer {
       production: production,
       versions: versions,
       update: version,
+      product: version.product,
       version: current,
       reason: .deploy
     )
@@ -358,6 +362,7 @@ public final class Producer {
       production: production,
       versions: versions,
       update: version,
+      product: version.product,
       version: current,
       reason: .release
     )
@@ -417,6 +422,7 @@ public final class Producer {
       production: production,
       versions: versions,
       update: version,
+      product: version.product,
       version: current,
       reason: .hotfix
     )
@@ -618,6 +624,7 @@ public final class Producer {
     production: Production,
     versions: [String: Production.Version],
     update: Production.Version?,
+    product: String?,
     version: String?,
     reason: Generate.CreateVersionsCommitMessage.Reason
   ) throws -> Bool {
@@ -629,7 +636,7 @@ public final class Producer {
       content: production.serialize(versions: versions),
       message: generate(cfg.createVersionsCommitMessage(
         production: production,
-        product: update?.product,
+        product: product,
         version: version,
         reason: reason
       ))
