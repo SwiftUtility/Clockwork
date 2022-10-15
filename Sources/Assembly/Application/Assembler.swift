@@ -56,7 +56,7 @@ enum Assembler {
     resolveFusionStatuses: configurator.resolveFusionStatuses(query:),
     resolveReviewQueue: configurator.resolveReviewQueue(query:),
     resolveApprovers: configurator.resolveApprovers(query:),
-    parseApprovalRules: configurator.parseYamlFile(query:),
+    parseApprovalRules: configurator.parseYamlSecret(query:),
     parseCodeOwnage: configurator.parseYamlFile(query:),
     parseProfile: configurator.parseYamlFile(query:),
     parseAntagonists: configurator.parseYamlSecret(query:),

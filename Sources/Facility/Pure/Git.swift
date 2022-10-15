@@ -19,10 +19,6 @@ public struct Git {
       ref: .make(remote: asset.branch),
       path: asset.file
     )}
-    public static func make(preset: Yaml.Preset) throws -> Self { try .init(
-      ref: .make(remote: .init(name: preset.branch)),
-      path: .init(value: preset.path)
-    )}
   }
   public struct Dir {
     public var ref: Ref

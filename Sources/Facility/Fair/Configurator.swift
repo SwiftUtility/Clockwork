@@ -80,7 +80,7 @@ public final class Configurator {
         .reduce(git, parse(git:templates:))
         .get([:]),
       context: profile.context
-        .reduce(git, parse(git:yaml:)),
+        .map({ try decodeYaml(.init(content: parse(git: git, env: env, secret: $0))) }),
       gitlabCi: Lossy(try .make(
         trigger: gitlab.get().trigger,
         env: gitlabEnv.get(),

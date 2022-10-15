@@ -11,7 +11,7 @@ public enum Yaml {
     public var production: String?
     public var requisition: String?
     public var fusion: String?
-    public var context: Preset?
+    public var context: Secret?
   }
   public struct GitlabCi: Decodable {
     public var token: Secret
@@ -126,7 +126,7 @@ public enum Yaml {
       public var exportAvailableTargets: Template
     }
     public struct Approval: Decodable {
-      public var rules: Preset
+      public var rules: Secret
       public var statuses: Asset
       public var approvers: Asset
       public var haters: Secret?
@@ -204,10 +204,6 @@ public enum Yaml {
     public var path: String
     public var branch: String
     public var createCommitMessage: Template
-  }
-  public struct Preset: Decodable {
-    public var path: String
-    public var branch: String
   }
   public struct Secret: Decodable {
     public var value: String?

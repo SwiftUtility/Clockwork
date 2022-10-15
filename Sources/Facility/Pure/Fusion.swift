@@ -181,12 +181,12 @@ public struct Fusion {
     }
   }
   public struct Approval {
-    public var rules: Git.File
+    public var rules: Configuration.Secret
     public var statuses: Configuration.Asset
     public var approvers: Configuration.Asset
     public var haters: Configuration.Secret?
     public static func make(yaml: Yaml.Fusion.Approval) throws -> Self { try .init(
-      rules: .make(preset: yaml.rules),
+      rules: .make(yaml: yaml.rules),
       statuses: .make(yaml: yaml.statuses),
       approvers: .make(yaml: yaml.approvers),
       haters: yaml.haters

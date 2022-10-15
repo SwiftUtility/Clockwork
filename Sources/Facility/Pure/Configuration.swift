@@ -29,7 +29,7 @@ public struct Configuration {
     public var profile: Git.File
     public var gitlabCi: GitlabCi?
     public var slack: Slack?
-    public var context: Git.File?
+    public var context: Secret?
     public var templates: Git.Dir?
     public var fusion: Lossy<Git.File>
     public var codeOwnage: Git.File?
@@ -47,7 +47,7 @@ public struct Configuration {
       slack: yaml.slack
         .reduce(profile.ref, Slack.make(ref:yaml:)),
       context: yaml.context
-        .map(Git.File.make(preset:)),
+        .map(Secret.make(yaml:)),
       templates: yaml.templates
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.Dir.init(ref:path:)),
