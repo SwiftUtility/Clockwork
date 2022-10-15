@@ -14,9 +14,11 @@ public struct Slack {
   public struct Signal {
     public var method: String
     public var body: Configuration.Template
+    public var mark: String?
     public static func make(yaml: Yaml.Slack.Signal) throws -> Self { try .init(
       method: yaml.method,
-      body: .make(yaml: yaml.body)
+      body: .make(yaml: yaml.body),
+      mark: yaml.mark
     )}
   }
 }

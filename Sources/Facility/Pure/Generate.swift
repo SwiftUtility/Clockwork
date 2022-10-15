@@ -3,12 +3,15 @@ import Facility
 public protocol GenerationContext: Encodable {
   var event: String { get }
   var subevent: String { get }
-  var ctx: AnyCodable? { get }
-  var info: GitlabCi.Info? { get }
+  var env: [String: String] { get set }
+  var ctx: AnyCodable? { get set }
+  var info: GitlabCi.Info? { get set }
+  var mark: String? { get set }
 }
 public extension GenerationContext {
   static var event: String { "\(Self.self)" }
   var subevent: String { "" }
+  var mark: String? { get { "" } set {} }
   var identity: String { subevent.isEmpty
     .then("\(Self.self)")
     .get("\(Self.self)/\(subevent)")

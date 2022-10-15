@@ -17,18 +17,20 @@ public struct Report: Query {
   )}
   public struct ReviewCreated: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
   }
   public struct ReviewMergeConflicts: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -36,9 +38,10 @@ public struct Report: Query {
   }
   public struct ReviewClosed: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -59,9 +62,10 @@ public struct Report: Query {
   }
   public struct ReviewBlocked: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -85,9 +89,10 @@ public struct Report: Query {
   }
   public struct ReviewUnapprovable: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -97,9 +102,10 @@ public struct Report: Query {
   }
   public struct ReviewUpdate: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -115,9 +121,10 @@ public struct Report: Query {
   }
   public struct ReviewMerged: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -125,9 +132,10 @@ public struct Report: Query {
   }
   public struct ReviewMergeError: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -136,9 +144,10 @@ public struct Report: Query {
   }
   public struct ReviewRemind: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -147,10 +156,11 @@ public struct Report: Query {
   }
   public struct ReviewCustom: GenerationContext {
     public var event: String = Self.event
+    public var mark: String? = nil
     public var subevent: String
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -159,9 +169,10 @@ public struct Report: Query {
   }
   public struct ReleaseBranchCreated: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var ref: String
     public var product: String
     public var version: String
@@ -170,9 +181,10 @@ public struct Report: Query {
   }
   public struct ReleaseBranchDeleted: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var ref: String
     public var sha: String
@@ -183,9 +195,10 @@ public struct Report: Query {
   }
   public struct ReleaseBranchSummary: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var ref: String
     public var sha: String
@@ -196,9 +209,10 @@ public struct Report: Query {
   }
   public struct DeployTagCreated: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var ref: String
     public var sha: String
@@ -210,10 +224,11 @@ public struct Report: Query {
   }
   public struct ReleaseCustom: GenerationContext {
     public var event: String = Self.event
+    public var mark: String? = nil
     public var subevent: String
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var ref: String
     public var sha: String
@@ -223,9 +238,10 @@ public struct Report: Query {
   }
   public struct StageTagCreated: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var ref: String
     public var sha: String
     public var product: String
@@ -235,31 +251,35 @@ public struct Report: Query {
   }
   public struct Custom: GenerationContext {
     public var event: String = Self.event
+    public var mark: String? = nil
     public var subevent: String
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var stdin: AnyCodable?
   }
   public struct Unexpected: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var error: String
   }
   public struct AccessoryBranchCreated: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var ref: String
   }
   public struct ExpiringRequisites: GenerationContext {
     public var event: String = Self.event
-    public var env: [String: String]
-    public var ctx: AnyCodable?
-    public var info: GitlabCi.Info?
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
     public var items: [Item]
     public struct Item: Encodable {
       public var file: String
@@ -294,9 +314,6 @@ public extension Configuration {
     review: Review,
     state: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeConflicts(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: review.status.thread,
     review: state,
     users: review.approvers,
@@ -308,9 +325,6 @@ public extension Configuration {
     users: [String: Fusion.Approval.Approver],
     reason: Report.ReviewClosed.Reason
   ) -> Report { .init(cfg: self, context: Report.ReviewClosed(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: status.thread,
     review: state,
     users: users,
@@ -322,9 +336,6 @@ public extension Configuration {
     state: Json.GitlabReviewState,
     reasons: [Report.ReviewBlocked.Reason]
   ) -> Report { .init(cfg: self, context: Report.ReviewBlocked(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: review.status.thread,
     review: state,
     users: review.approvers,
@@ -338,9 +349,6 @@ public extension Configuration {
     state: Json.GitlabReviewState,
     approval: Review.Approval
   ) -> Report { .init(cfg: self, context: Report.ReviewUnapprovable(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: review.status.thread,
     review: state,
     users: review.approvers,
@@ -353,9 +361,6 @@ public extension Configuration {
     state: Json.GitlabReviewState,
     update: Review.Approval
   ) -> Report { .init(cfg: self, context: Report.ReviewUpdate(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: review.status.thread,
     review: state,
     users: review.approvers,
@@ -373,9 +378,6 @@ public extension Configuration {
     review: Review,
     state: Json.GitlabReviewState
   ) -> Report { .init(cfg: self, context: Report.ReviewMerged(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: review.status.thread,
     review: state,
     users: review.approvers,
@@ -386,9 +388,6 @@ public extension Configuration {
     state: Json.GitlabReviewState,
     error: String
   ) -> Report { .init(cfg: self, context: Report.ReviewMergeError(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: review.status.thread,
     review: state,
     users: review.approvers,
@@ -401,9 +400,6 @@ public extension Configuration {
     state: Json.GitlabReviewState,
     slackers: Set<String>
   ) -> Report { .init(cfg: self, context: Report.ReviewRemind(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: status.thread,
     review: state,
     users: approvers,
@@ -418,9 +414,6 @@ public extension Configuration {
     stdin: AnyCodable?
   ) -> Report { .init(cfg: self, context: Report.ReviewCustom(
     subevent: event,
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: status.thread,
     review: state,
     users: approvers,
@@ -451,9 +444,6 @@ public extension Configuration {
     sha: String,
     revoke: Bool
   ) -> Report { .init(cfg: self, context: Report.ReleaseBranchDeleted(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: delivery.thread,
     ref: ref,
     sha: sha,
@@ -468,9 +458,6 @@ public extension Configuration {
     sha: String,
     notes: Production.ReleaseNotes
   ) -> Report { .init(cfg: self, context: Report.ReleaseBranchSummary(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: delivery.thread,
     ref: ref,
     sha: sha,
@@ -486,9 +473,6 @@ public extension Configuration {
     build: String,
     notes: Production.ReleaseNotes
   ) -> Report { .init(cfg: self, context: Report.DeployTagCreated(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: delivery.thread,
     ref: ref,
     sha: sha,
@@ -506,9 +490,6 @@ public extension Configuration {
     stdin: AnyCodable?
   ) -> Report { .init(cfg: self, context: Report.ReleaseCustom(
     subevent: event,
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     thread: delivery.thread,
     ref: ref,
     sha: sha,
@@ -523,9 +504,6 @@ public extension Configuration {
     version: String,
     build: String
   ) -> Report { .init(cfg: self, context: Report.StageTagCreated(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     ref: ref,
     sha: sha,
     product: product.name,
@@ -537,33 +515,21 @@ public extension Configuration {
     stdin: AnyCodable?
   ) -> Report { .init(cfg: self, context: Report.Custom(
     subevent: event,
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     stdin: stdin
   ))}
   func reportUnexpected(
     error: Error
   ) -> Report { .init(cfg: self, context: Report.Unexpected(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     error: String(describing: error)
   ))}
   func reportAccessoryBranchCreated(
     ref: String
   ) -> Report { .init(cfg: self, context: Report.AccessoryBranchCreated(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     ref: ref
   ))}
   func reportExpiringRequisites(
     items: [Report.ExpiringRequisites.Item]
   ) -> Report { .init(cfg: self, context: Report.ExpiringRequisites(
-    env: env,
-    ctx: context,
-    info: try? gitlabCi.get().info,
     items: items
   ))}
 }

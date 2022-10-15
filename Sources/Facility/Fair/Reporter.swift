@@ -32,6 +32,10 @@ public final class Reporter {
   }
   public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
     let slack = try query.report.cfg.slack.get()
+    var query = query
+    query.report.context.env = query.report.cfg.env
+    query.report.context.ctx = query.report.cfg.context
+    query.report.context.info = try? query.report.cfg.gitlabCi.get().info
     let body = try generate(query.report.generate(template: query.template))
     let data = try Execute.parseData(reply: execute(query.report.cfg.curlSlack(
       token: slack.token,
@@ -63,10 +67,15 @@ public final class Reporter {
     return true
   }
   public func report(query: Report) -> Report.Reply {
+    var query = query
+    query.context.env = query.cfg.env
+    query.context.ctx = query.cfg.context
+    query.context.info = try? query.cfg.gitlabCi.get().info
     let slack: Slack
     do { slack = try query.cfg.slack.get() }
     catch { return logMessage(.init(message: "Report failed: \(error)")) }
     for signal in slack.signals[query.context.identity].get([]) {
+      query.context.mark = signal.mark
       let body: String
       do {
         body = try generate(query.generate(template: signal.body))
@@ -84,11 +93,5 @@ public final class Reporter {
         logMessage(.init(message: body))
       }
     }
-  }
-}
-private extension Reporter {
-  func merge(context: inout [String: AnyCodable], element: AnyCodable) throws {
-    guard let element = element.map else { throw MayDay("wrong encodable structure") }
-    try context.merge(element) { _,_ in throw MayDay("not unique unique") }
   }
 }

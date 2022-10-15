@@ -4,6 +4,7 @@ import XCTest
 @testable import FacilityPure
 extension AnyCodable: GenerationContext {
   public var event: String { get {""} }
+  public var mark: String? { get {""} set {} }
   public var ctx: AnyCodable? { self }
   public var info: GitlabCi.Info? { nil }
 }
