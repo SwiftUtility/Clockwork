@@ -185,7 +185,6 @@ public final class Producer {
   }
   public func forwardBranch(cfg: Configuration, name: String) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
     guard gitlabCi.job.tag.not else { throw Thrown("Not on branch") }
     let sha = try Git.Sha.make(job: gitlabCi.job)
     let forward = try gitlabCi.getBranch(name: name)
