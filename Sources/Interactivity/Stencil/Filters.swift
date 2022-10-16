@@ -55,6 +55,11 @@ enum Filters {
       .replacingOccurrences(of: "<", with: "&lt;")
       .replacingOccurrences(of: ">", with: "&gt;")
   }
+  static func escapeJson(value: Any?) throws -> Any? {
+    let value = try (value as? String)
+      .get { throw TemplateSyntaxError("escapeJson not String \(value ?? "")") }
+    return try String(data: JSONEncoder().encode(value), encoding: .utf8)
+  }
   static func escapeUrlQueryAllowed(value: Any?) throws -> Any? {
     let value = try (value as? String)
       .get { throw TemplateSyntaxError("escapeUrlQueryAllowed: not String \(value ?? "")") }
