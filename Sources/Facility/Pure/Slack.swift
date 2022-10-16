@@ -5,20 +5,26 @@ public struct Slack {
   public var signals: [String: [Signal]]
   public static func make(
     token: String,
-    signals: [String: [Yaml.Slack.Signal]]
+    signals: [String: Yaml.Slack.Signal]
   ) throws -> Self { try .init(
     token: token,
-    signals: signals
-      .mapValues { try $0.map(Signal.make(yaml:)) }
+    signals: signals.reduce(into: [:], Signal.make(acc:yaml:))
   )}
   public struct Signal {
+    public var mark: String
     public var method: String
     public var body: Configuration.Template
-    public var mark: String?
-    public static func make(yaml: Yaml.Slack.Signal) throws -> Self { try .init(
-      method: yaml.method,
-      body: .make(yaml: yaml.body),
-      mark: yaml.mark
-    )}
+    public static func make(
+      acc: inout [String: [Self]],
+      yaml: Dictionary<String, Yaml.Slack.Signal>.Element
+    ) throws {
+      for event in yaml.value.events {
+        try acc[event] = acc[event].get([]) + [.init(
+          mark: yaml.key,
+          method: yaml.value.method,
+          body: .make(yaml: yaml.value.body)
+        )]
+      }
+    }
   }
 }

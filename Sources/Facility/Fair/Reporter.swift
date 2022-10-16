@@ -36,6 +36,7 @@ public final class Reporter {
     query.report.context.env = query.report.cfg.env
     query.report.context.ctx = query.report.cfg.context
     query.report.context.info = try? query.report.cfg.gitlabCi.get().info
+    query.report.context.mark = "createThread"
     let body = try generate(query.report.generate(template: query.template))
     let data = try Execute.parseData(reply: execute(query.report.cfg.curlSlack(
       token: slack.token,

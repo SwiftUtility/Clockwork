@@ -29,7 +29,7 @@ public enum Yaml {
     public struct Signal: Decodable {
       public var method: String
       public var body: Template
-      public var mark: String?
+      public var events: [String]
     }
   }
   public struct FileTaboo: Decodable {

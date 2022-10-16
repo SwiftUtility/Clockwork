@@ -99,7 +99,7 @@ public final class Configurator {
         .map { slack in try .make(
           token: parse(git: git, env: env, secret: slack.token),
           signals: dialect.read(
-            [String: [Yaml.Slack.Signal]].self,
+            [String: Yaml.Slack.Signal].self,
             from: parse(git: git, yaml: slack.signals
           ))
         )}
