@@ -15,7 +15,12 @@ final class StencilTests: XCTestCase {
     allowEmpty: false,
     template: .name(name),
     templates: [
-      "testJson": "{% filter escapeJson %}yay{% endfilter %}",
+      "testJson": """
+        {% filter escapeJson %}
+        yay
+        yay
+        {% endfilter %}
+        """,
       "testSubscript": "{{custom.members[env.login].mention}}",
       "testRegexp": #"""
         {% filter regexp:custom.jiraRegexp,"{{_.1}}<link|{{_.2}}>{{_.3}}" %}
@@ -111,6 +116,6 @@ final class StencilTests: XCTestCase {
   func testJson() throws {
     let result = try StencilParser(notation: .json)
       .generate(query: makeQuery("testJson"))
-    XCTAssertEqual(result, #""yay""#)
+    XCTAssertEqual(result, #""yay\nyay""#)
   }
 }
