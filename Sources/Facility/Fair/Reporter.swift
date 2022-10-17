@@ -43,7 +43,7 @@ public final class Reporter {
       method: "chat.postMessage",
       body: body
     )))
-    self.report(query: query.report)
+    report(query: query.report)
     return try jsonDecoder.decode(Yaml.Thread.self, from: data)
   }
   public func readStdin(query: Configuration.ReadStdin) throws -> Configuration.ReadStdin.Reply {
