@@ -274,6 +274,14 @@ public struct Report: Query {
     public var info: GitlabCi.Info? = nil
     public var ref: String
   }
+  public struct AccessoryBranchDeleted: GenerationContext {
+    public var event: String = Self.event
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
+    public var ref: String
+  }
   public struct ExpiringRequisites: GenerationContext {
     public var event: String = Self.event
     public var mark: String? = nil
@@ -525,6 +533,11 @@ public extension Configuration {
   func reportAccessoryBranchCreated(
     ref: String
   ) -> Report { .init(cfg: self, context: Report.AccessoryBranchCreated(
+    ref: ref
+  ))}
+  func reportAccessoryBranchDeleted(
+    ref: String
+  ) -> Report { .init(cfg: self, context: Report.AccessoryBranchDeleted(
     ref: ref
   ))}
   func reportExpiringRequisites(

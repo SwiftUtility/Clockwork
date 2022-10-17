@@ -183,6 +183,7 @@ public final class Producer {
         version: nil,
         reason: .deleteAccessory
       )
+      report(cfg.reportAccessoryBranchDeleted(ref: branch.name))
     }
     return true
   }

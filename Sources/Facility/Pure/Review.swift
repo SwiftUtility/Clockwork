@@ -299,12 +299,12 @@ public struct Review {
       inactiveAuthors || unapprovableTeams.isEmpty.not
     }
     public var state: State {
-      if slackers.isEmpty.not { return .waitingSlackers }
+      if emergent { return .emergent }
+      else if slackers.isEmpty.not { return .waitingSlackers }
       else if outdaters.isEmpty.not { return .waitingOutdaters }
       else if blockers.isEmpty { return .approved }
       else if blockers.subtracting(authors).isEmpty { return .waitingAuthors }
       else { return .waitingHolders }
-
     }
     public enum State: String, Codable {
       case emergent
