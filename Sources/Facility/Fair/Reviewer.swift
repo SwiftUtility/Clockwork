@@ -156,7 +156,7 @@ public final class Reviewer {
         continue
       }
       guard remind else { continue }
-      let reminds = status.reminds(sha: state.pipeline.sha, approvers: approvers)
+      let reminds = status.reminds(sha: state.lastPipeline.sha, approvers: approvers)
       guard reminds.isEmpty.not else { continue }
       report(cfg.reportReviewRemind(
         approvers: approvers,
@@ -228,11 +228,11 @@ public final class Reviewer {
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
-    let wasApproved = review.isApproved(sha: ctx.review.pipeline.sha)
+    let wasApproved = review.isApproved(sha: ctx.review.lastPipeline.sha)
     try review.approve(job: ctx.job, resolution: resolution)
     guard try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .approve)
     else { return false }
-    if wasApproved.not, review.isApproved(sha: ctx.review.pipeline.sha) { try Execute.checkStatus(
+    if wasApproved.not, review.isApproved(sha: ctx.review.lastPipeline.sha) { try Execute.checkStatus(
       reply: execute(ctx.gitlab.postMrPipelines(review: ctx.review.iid).get())
     )}
     return true
@@ -422,7 +422,7 @@ public final class Reviewer {
       try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
       try checkClosers(cfg: cfg, state: ctx.review, gitlab: ctx.gitlab, kind: review.kind) == nil,
       try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) == nil,
-      review.isApproved(sha: ctx.review.pipeline.sha)
+      review.isApproved(sha: ctx.review.lastPipeline.sha)
     else {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       logMessage(.init(message: "Bad last pipeline state"))
@@ -505,7 +505,7 @@ public final class Reviewer {
   ) throws -> [String: Criteria] { try cfg.gitlabCi
       .flatMap(\.env.parent)
       .map(\.profile)
-      .reduce(.make(sha: .make(value: state.pipeline.sha)), Git.File.init(ref:path:))
+      .reduce(.make(sha: .make(value: state.lastPipeline.sha)), Git.File.init(ref:path:))
       .map { file in try Configuration.Profile.make(
         profile: file,
         yaml: parseProfile(.init(git: cfg.git, file: file))
@@ -560,7 +560,7 @@ public final class Reviewer {
     let fork = review.kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))
-    let current = try Git.Sha.make(value: state.pipeline.sha)
+    let current = try Git.Sha.make(value: state.lastPipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: state.targetBranch))
     if let fork = review.kind.merge?.fork {
       try review.prepareVerification(diff: listMergeChanges(
@@ -684,7 +684,7 @@ public final class Reviewer {
       if state.targetBranch != merge.target.name { result.append(.badTarget) }
       excludes = [.make(remote: merge.target), .make(sha: merge.fork)]
     }
-    let head = try Git.Sha.make(value: state.pipeline.sha)
+    let head = try Git.Sha.make(value: state.lastPipeline.sha)
     for branch in try resolveProtectedBranches(cfg: cfg) {
       guard let base = try? Execute.parseText(reply: execute(cfg.git.mergeBase(
         .make(remote: branch),
@@ -705,7 +705,7 @@ public final class Reviewer {
     state: Json.GitlabReviewState
   ) throws -> Bool {
     try Execute.parseSuccess(reply: execute(cfg.git.check(
-      child: .make(sha: .make(value: state.pipeline.sha)),
+      child: .make(sha: .make(value: state.lastPipeline.sha)),
       parent: .make(remote: .init(name: state.targetBranch))
     )))
   }
@@ -715,7 +715,7 @@ public final class Reviewer {
     kind: Fusion.Kind
   ) throws -> Bool {
     guard let fork = kind.merge?.fork else { return true }
-    let parents = try Id(state.pipeline.sha)
+    let parents = try Id(state.lastPipeline.sha)
       .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .map(cfg.git.listParents(ref:))
@@ -821,7 +821,7 @@ public final class Reviewer {
       .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    let sha = try Git.Ref.make(sha: .make(value: state.pipeline.sha))
+    let sha = try Git.Ref.make(sha: .make(value: state.lastPipeline.sha))
     let message = try generate(cfg.createFusionMergeCommitMessage(
       fusion: fusion,
       review: state
@@ -870,7 +870,7 @@ public final class Reviewer {
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: fork)))
     let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: fork)))
     return try Git.Sha.make(value: Execute.parseText(reply: execute(cfg.git.commitTree(
-      tree: .init(ref: .make(sha: .make(value: state.pipeline.sha))),
+      tree: .init(ref: .make(sha: .make(value: state.lastPipeline.sha))),
       message: generate(cfg.createFusionMergeCommitMessage(
         fusion: fusion,
         review: state
@@ -913,7 +913,7 @@ public final class Reviewer {
           squashCommitMessage: message,
           squash: state.squash,
           shouldRemoveSourceBranch: true,
-          sha: .make(value: state.pipeline.sha)
+          sha: .make(value: state.lastPipeline.sha)
         ),
         review: state.iid
       )
@@ -1080,7 +1080,7 @@ public final class Reviewer {
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
-    if job.pipeline.id != review.pipeline.id {
+    if job.pipeline.id != review.lastPipeline.id {
       logMessage(.init(message: "Pipeline outdated"))
     }
     if review.state != "opened" {
@@ -1091,7 +1091,7 @@ public final class Reviewer {
       job: job,
       profile: parent.profile,
       review: review,
-      isLastPipe: job.pipeline.id == review.pipeline.id
+      isLastPipe: job.pipeline.id == review.lastPipeline.id
     )
   }
 }

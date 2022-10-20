@@ -61,7 +61,9 @@ public enum Json {
     public var mergeStatus: String
     public var squash: Bool
     public var mergeError: String?
-    public var pipeline: Pipeline
+    public var pipeline: Pipeline?
+    public var headPipeline: Pipeline?
+    public var lastPipeline: Pipeline { headPipeline.get(pipeline!) }
     public var rebaseInProgress: Bool?
     public var hasConflicts: Bool
     public var blockingDiscussionsResolved: Bool
@@ -70,11 +72,11 @@ public enum Json {
     public var webUrl: String
     public func matches(build: Production.Build) -> Bool {
       guard case .review(let value) = build else { return false }
-      return value.sha == pipeline.sha && value.review == iid
+      return value.sha == lastPipeline.sha && value.review == iid
     }
     public func makeBuild(build: String) -> Production.Build { .review(.make(
       build: .make(build),
-      sha: pipeline.sha,
+      sha: lastPipeline.sha,
       review: iid,
       target: targetBranch
     ))}
