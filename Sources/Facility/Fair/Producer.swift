@@ -119,6 +119,34 @@ public final class Producer {
       reason: reason
     )
   }
+  public func deleteStageTag(cfg: Configuration) throws -> Bool {
+    let gitlabCi = try cfg.gitlabCi.get()
+    let production = try resolveProduction(.init(cfg: cfg))
+    guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
+    let name = gitlabCi.job.pipeline.ref
+    guard let product = try production.productMatching(stage: name)
+    else { throw Thrown("Not on stage tag") }
+    try gitlabCi.deleteTag(name: name)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    try report(cfg.reportStageTagDeleted(
+      product: product,
+      ref: name,
+      sha: gitlabCi.job.pipeline.sha,
+      version: generate(cfg.parseTagBuild(
+        product: product,
+        ref: name,
+        deploy: false
+      )),
+      build: generate(cfg.parseTagBuild(
+        product: product,
+        ref: name,
+        deploy: false
+      ))
+    ))
+    return true
+  }
   public func deleteBranch(cfg: Configuration, revoke: Bool?) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
     let production = try resolveProduction(.init(cfg: cfg))

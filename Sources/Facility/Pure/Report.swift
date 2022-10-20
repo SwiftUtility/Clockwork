@@ -249,6 +249,19 @@ public struct Report: Query {
     public var build: String
     public var subevent: String { product }
   }
+  public struct StageTagDeleted: GenerationContext {
+    public var event: String = Self.event
+    public var mark: String? = nil
+    public var env: [String: String] = [:]
+    public var ctx: AnyCodable? = nil
+    public var info: GitlabCi.Info? = nil
+    public var ref: String
+    public var sha: String
+    public var product: String
+    public var version: String
+    public var build: String
+    public var subevent: String { product }
+  }
   public struct Custom: GenerationContext {
     public var event: String = Self.event
     public var mark: String? = nil
@@ -512,6 +525,19 @@ public extension Configuration {
     version: String,
     build: String
   ) -> Report { .init(cfg: self, context: Report.StageTagCreated(
+    ref: ref,
+    sha: sha,
+    product: product.name,
+    version: version,
+    build: build
+  ))}
+  func reportStageTagDeleted(
+    product: Production.Product,
+    ref: String,
+    sha: String,
+    version: String,
+    build: String
+  ) -> Report { .init(cfg: self, context: Report.StageTagDeleted(
     ref: ref,
     sha: sha,
     product: product.name,

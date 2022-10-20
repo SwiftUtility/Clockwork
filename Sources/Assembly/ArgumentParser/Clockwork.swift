@@ -22,6 +22,7 @@ struct Clockwork: ParsableCommand {
       CreateStageTag.self,
       DeleteAccessoryBranch.self,
       DeleteReleaseBranch.self,
+      DeleteStageTag.self,
       DequeueReview.self,
       EraseRequisites.self,
       ExportBuild.self,
@@ -156,6 +157,10 @@ struct Clockwork: ParsableCommand {
     @OptionGroup var clockwork: Clockwork
     @Flag(help: "")
     var revoke: Bool = false
+  }
+  struct DeleteStageTag: ClockworkCommand {
+    static var abstract: String { "Delete current stage tag" }
+    @OptionGroup var clockwork: Clockwork
   }
   struct DequeueReview: ClockworkCommand {
     static var abstract: String { "Dequeue parent review" }

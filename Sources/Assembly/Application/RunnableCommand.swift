@@ -113,6 +113,11 @@ extension Clockwork.DeleteReleaseBranch: RunnableCommand {
     try Assembler.producer.deleteBranch(cfg: cfg, revoke: revoke)
   }
 }
+extension Clockwork.DeleteStageTag: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.deleteStageTag(cfg: cfg)
+  }
+}
 extension Clockwork.DequeueReview: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.dequeueReview(cfg: cfg)
