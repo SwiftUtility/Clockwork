@@ -179,16 +179,14 @@ public extension GitlabCi {
     cfg: Configuration,
     ref: String,
     variables: [String: String]
-  ) -> Lossy<Execute> { .init(.makeCurl(
+  ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/trigger/pipeline",
     method: "POST",
     form: [
       "token=\(env.token)",
       "ref=\(ref)",
-    ] + variables.compactMap { pair in pair.value
-      .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
-      .map { "variables[\(pair.key)]=\($0)" }
-    }
+    ] + variables
+      .map { try "variables[\($0.key)]=\($0.value.urlEncoded.get())" }
   ))}
   func postMergeRequests(
     parameters: PostMergeRequests
