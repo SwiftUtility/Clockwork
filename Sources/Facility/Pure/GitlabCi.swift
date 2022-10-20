@@ -245,26 +245,22 @@ public extension GitlabCi {
   func postBranches(
     name: String,
     ref: String
-  ) -> Lossy<Execute> {
-    guard let name = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics)
-    else { return .error(MayDay("addingPercentEncoding failed")) }
-    return .init(try .makeCurl(
-        url: "\(project)/repository/branches",
-      method: "POST",
-      form: [
-        "branch=\(name)",
-        "ref=\(ref)",
-      ],
-      headers: [protected.get().auth]
-    ))
-  }
+  ) -> Lossy<Execute> { .init(try .makeCurl(
+    url: "\(project)/repository/branches",
+    method: "POST",
+    form: [
+      "branch=\(name.urlEncoded.get())",
+      "ref=\(ref)",
+    ],
+    headers: [protected.get().auth]
+  ))}
   func deleteBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(project)/repository/branches/\(name)",
+    url: "\(project)/repository/branches/\(name.urlEncoded.get())",
     method: "DELETE",
     headers: [protected.get().auth]
   ))}
   func deleteTag(name: String) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(project)/repository/tags/\(name)",
+    url: "\(project)/repository/tags/\(name.urlEncoded.get())",
     method: "DELETE",
     headers: [protected.get().auth]
   ))}
@@ -273,7 +269,7 @@ public extension GitlabCi {
     headers: [protected.get().auth]
   ))}
   func getBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(project)/repository/branches/\(name)",
+    url: "\(project)/repository/branches/\(name.urlEncoded.get())",
     headers: [protected.get().auth]
   ))}
   struct PutMrState: Encodable {
@@ -354,4 +350,10 @@ extension Encodable {
       .map(encoder.encode(_:))
       .map(String.make(utf8:))
   }
+}
+extension String {
+  var urlEncoded: Lossy<String> { .init(try self
+    .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+    .get { throw MayDay("addingPercentEncoding failed") }
+  )}
 }
