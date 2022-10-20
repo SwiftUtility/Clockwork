@@ -88,7 +88,6 @@ public final class Configurator {
         protected: .init(try .make(
           token: gitlabToken,
           env: gitlabEnv,
-          job: gitlabJob,
           user: gitlabEnv
             .flatMap { try $0.getTokenUser(token: gitlabToken.get()) }
             .map(execute)
