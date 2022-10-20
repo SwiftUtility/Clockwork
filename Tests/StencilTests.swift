@@ -22,11 +22,6 @@ final class StencilTests: XCTestCase {
         {% endfilter %}
         """,
       "testSubscript": "{{custom.members[env.login].mention}}",
-      "testRegexp": #"""
-        {% filter regexp:custom.jiraRegexp,"{{_.1}}<link|{{_.2}}>{{_.3}}" %}
-        {{ env.CI_MERGE_REQUEST_TITLE }}
-        {% endfilter %}
-        """#,
       "testFilterChaining": #"""
         {% filter regexp:"&","&amp;"|regexp:"\<","&lt;"|regexp:"\>","&gt;" %}
         {{ env.text }}
@@ -66,7 +61,6 @@ final class StencilTests: XCTestCase {
             "mention": .value(.string("<@USERID>")),
           ]),
         ]),
-        "jiraRegexp": .value(.string(#"( |^)([A-Z]+-\d+)( )"#)),
         "versionRegexp": .value(.string(#".*(\d+)\.(\d+)\.(\d+).*"#)),
         "versionString": .value(.string(#"release/1.2.4"#)),
       ]),
@@ -77,11 +71,6 @@ final class StencilTests: XCTestCase {
     let result = try StencilParser(notation: .json)
       .generate(query: makeQuery("testSubscript"))
     XCTAssertEqual(result, "<@USERID>")
-  }
-  func testRegexp() throws {
-    let result = try StencilParser(notation: .json)
-      .generate(query: makeQuery("testRegexp"))
-    XCTAssertEqual(result, #"MR-123, <link|MB-234> ME-123: asd "asdas" [MR-234], RF-345'"#)
   }
   func testFilterChaining() throws {
     let result = try StencilParser(notation: .json)
