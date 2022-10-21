@@ -27,7 +27,7 @@ public final class Validator {
     self.jsonDecoder = jsonDecoder
   }
   public func validateUnownedCode(cfg: Configuration, json: Bool) throws -> Bool {
-    guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
+    guard try Execute.parseLines(reply: execute(cfg.git.isClean)).isEmpty
     else { throw Thrown("Git is dirty") }
     let approvals = try cfg.profile.codeOwnage
       .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
@@ -44,7 +44,7 @@ public final class Validator {
     return result.isEmpty
   }
   public func validateFileTaboos(cfg: Configuration, json: Bool) throws -> Bool {
-    guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
+    guard try Execute.parseLines(reply: execute(cfg.git.isClean)).isEmpty
     else { throw Thrown("Git is dirty") }
     let rules = try resolveFileTaboos(.init(cfg: cfg, profile: cfg.profile))
     let nameRules = rules.filter(\.lines.isEmpty)
@@ -73,7 +73,7 @@ public final class Validator {
     base: String,
     json: Bool
   ) throws -> Bool {
-    guard try Execute.parseLines(reply: execute(cfg.git.notCommited)).isEmpty
+    guard try Execute.parseLines(reply: execute(cfg.git.isClean)).isEmpty
     else { throw Thrown("Git is dirty") }
     let initial = try Execute.parseText(reply: execute(cfg.git.getSha(ref: .head)))
     try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: .make(sha: .make(value: base)))))
