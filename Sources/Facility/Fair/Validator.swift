@@ -37,7 +37,7 @@ public final class Validator {
       .map(Criteria.init(yaml:))
     var result: [String] = []
     for file in try Execute.parseLines(reply: execute(cfg.git.listAllTrackedFiles(ref: .head))) {
-      guard approvals.contains(where: file.isMet(criteria:)).not else { continue }
+      guard approvals.contains(where: file.isMet(criteria:)) else { continue }
       result.append(file)
     }
     if json { try stdoutData(JSONEncoder().encode(result)) }
