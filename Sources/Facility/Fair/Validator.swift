@@ -37,7 +37,8 @@ public final class Validator {
       .map(Criteria.init(yaml:))
     var result: [String] = []
     for file in try Execute.parseLines(reply: execute(cfg.git.listAllTrackedFiles(ref: .head))) {
-      if approvals.contains(where: file.isMet(criteria:)) { result.append(file) }
+      guard approvals.contains(where: file.isMet(criteria:)).not else { continue }
+      result.append(file)
     }
     if json { try stdoutData(JSONEncoder().encode(result)) }
     else { result.forEach { logMessage(.init(message: "Unowned file: \($0)")) } }
