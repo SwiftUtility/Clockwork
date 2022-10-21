@@ -146,6 +146,7 @@ public struct Review {
     }
     var result = Approval()
     var teams = status.teams.reduce(into: [:], { $0[$1] = rules.teams[$1] })
+    result.teams = Set(teams.keys)
     result.watchers = teams.values.reduce(into: Set(), { $0.formUnion($1.optional) })
     result.addLabels.formUnion(teams.values.reduce(into: Set(), { $0.formUnion($1.labels) }))
     result.delLabels = teams.values
@@ -241,7 +242,7 @@ public struct Review {
   }
   func selectUsers(teams: [String: Fusion.Approval.Rules.Team], users: Set<String>) -> Set<String> {
     var left = users
-    var teams = teams.filter({ $0.value.optional.isEmpty })
+    var teams = teams
     while true {
       let counts = teams
         .filter({ $0.value.quorum > 0 })
@@ -259,7 +260,7 @@ public struct Review {
       let user = Set(random(users: counts.keys.max().flatMap({ counts[$0] }).get([])).array)
       guard user.isEmpty.not else { return users.subtracting(left) }
       left = left.subtracting(user)
-      teams = teams.reduce(into: teams, { $0[$1.key]?.update(involved: user) })
+      teams.keys.forEach({ teams[$0]?.update(involved: user) })
     }
   }
   func random(users: Set<String>) -> String? {

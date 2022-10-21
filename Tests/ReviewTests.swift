@@ -8,10 +8,10 @@ final class ReviewTests: XCTestCase {
       target: "develop",
       authors: ["u1"],
       randoms: [],
-      participants: ["u2"],
-      approves: ["u2": .init(approver: "u2", commit: .init(value: "1"), resolution: .fragil)],
+      participants: [],
+      approves: [:],
       thread: .init(channel: "channel", ts: "1123123.1231231"),
-      teams: ["g1"],
+      teams: [],
       emergent: false
     ),
   ].reduce(into: [:], { $0[$1.review] = $1})
@@ -32,7 +32,7 @@ final class ReviewTests: XCTestCase {
   let rules: Fusion.Approval.Rules = try! .init(
     sanity: "g1",
     randoms: .init(
-      quorum: 2,
+      quorum: 0,
       baseWeight: 500,
       weights: [:],
       advanceApproval: true
@@ -44,18 +44,18 @@ final class ReviewTests: XCTestCase {
         labels: [],
         mentions: [],
         reserve: [],
-        optional: ["u4"],
-        required: ["u1"],
+        optional: ["u3","u4"],
+        required: ["u1","u2"],
         advanceApproval: false
       ),
       .init(
         name: "o2",
-        quorum: 2,
+        quorum: 3,
         labels: [],
         mentions: [],
         reserve: [],
-        optional: ["u5", "u4"],
-        required: ["u2"],
+        optional: ["u5", "u4","u6","u7"],
+        required: ["u1"],
         advanceApproval: false
       ),
       .init(
