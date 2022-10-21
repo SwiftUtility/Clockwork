@@ -57,13 +57,14 @@ public final class Mediator {
         .get()
       if jobs.count == page * 100 { page += 1 } else { break }
     }
-    let names = Set(names)
+    var names = Set(names)
     let ids = jobs
       .filter({ names.contains($0.name) })
       .reduce(into: [:], { $0[$1.name] = max($0[$1.name].get($1.id), $1.id) })
-      .values
-    guard ids.count == names.count else { return false }
-    for id in ids { try Execute.checkStatus(
+    names = names.subtracting(ids.keys)
+    guard names.isEmpty
+    else { throw Thrown("Can not affect jobs: \(names.joined(separator: ", "))") }
+    for id in ids.values { try Execute.checkStatus(
       reply: execute(gitlabCi.postJobsAction(job: id, action: action).get())
     )}
     return true
