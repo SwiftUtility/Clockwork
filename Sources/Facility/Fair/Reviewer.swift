@@ -378,6 +378,7 @@ public final class Reviewer {
     }
     let approval = try verify(cfg: cfg, state: ctx.review, fusion: fusion, review: &review)
     if approval.isUnapprovable {
+      logMessage(.init(message: "Review is unapprovable"))
       report(cfg.reportReviewUnapprovable(
         review: review,
         state: ctx.review,
@@ -388,6 +389,7 @@ public final class Reviewer {
     }
     report(cfg.reportReviewUpdate(review: review, state: ctx.review, update: approval))
     guard approval.state.isApproved else {
+      logMessage(.init(message: "Review is unapproved"))
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
       return false
