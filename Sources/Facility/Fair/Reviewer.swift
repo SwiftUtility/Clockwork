@@ -61,7 +61,11 @@ public final class Reviewer {
     event: String,
     stdin: Configuration.ReadStdin
   ) throws -> Bool {
-    throw Thrown("yay")
+    throw Thrown("""
+    \(cfg.env["BCS_CI_PARENT_NAME"])
+    \(cfg.env["BCS_CI_PARENT_JOB"])
+    \(cfg.env["BCS_CI_TARGET"])
+    """)
     let stdin = try readStdin(stdin)
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)
