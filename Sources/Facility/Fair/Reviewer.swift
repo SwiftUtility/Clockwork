@@ -400,6 +400,7 @@ public final class Reviewer {
         sha: sha,
         force: true
       )))
+      logMessage(.init(message: "Updating approves commits"))
       review.squashApproves(sha: sha)
       _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
       return false
@@ -523,6 +524,7 @@ public final class Reviewer {
     fusion: Fusion,
     statuses: inout [UInt: Fusion.Approval.Status]
   ) throws -> Review {
+    logMessage(.init(message: "Loading status assets"))
     let kind = try fusion.makeKind(supply: state.sourceBranch)
     let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
     var result = try Review.make(
@@ -557,6 +559,7 @@ public final class Reviewer {
     fusion: Fusion,
     review: inout Review
   ) throws -> Review.Approval {
+    logMessage(.init(message: "Validating approves"))
     let fork = review.kind.merge
       .map(\.fork)
       .map(Git.Ref.make(sha:))
@@ -601,6 +604,7 @@ public final class Reviewer {
     gitlab: GitlabCi,
     kind: Fusion.Kind
   ) throws -> Report.ReviewClosed.Reason? {
+    logMessage(.init(message: "Checking should close review"))
     switch kind {
     case .proposition(let rule):
       guard rule != nil else { return .noSourceRule }
@@ -655,6 +659,7 @@ public final class Reviewer {
     state: Json.GitlabReviewState,
     review: Review
   ) throws -> [Report.ReviewBlocked.Reason]? {
+    logMessage(.init(message: "Checking blocking reasons"))
     var result: [Report.ReviewBlocked.Reason] = []
     if state.draft { result.append(.draft) }
     if state.workInProgress { result.append(.workInProgress) }
@@ -704,7 +709,8 @@ public final class Reviewer {
     cfg: Configuration,
     state: Json.GitlabReviewState
   ) throws -> Bool {
-    try Execute.parseSuccess(reply: execute(cfg.git.check(
+    logMessage(.init(message: "Checking fast forward state"))
+    return try Execute.parseSuccess(reply: execute(cfg.git.check(
       child: .make(sha: .make(value: state.lastPipeline.sha)),
       parent: .make(remote: .init(name: state.targetBranch))
     )))
@@ -714,6 +720,7 @@ public final class Reviewer {
     state: Json.GitlabReviewState,
     kind: Fusion.Kind
   ) throws -> Bool {
+    logMessage(.init(message: "Checking squash required"))
     guard let fork = kind.merge?.fork else { return true }
     let parents = try Id(state.lastPipeline.sha)
       .map(Git.Sha.make(value:))
@@ -787,6 +794,8 @@ public final class Reviewer {
     fusion: Fusion,
     enqueue: Bool
   ) throws -> Bool {
+    if enqueue { logMessage(.init(message: "Enqueueing review")) }
+    else { logMessage(.init(message: "Dequeueing review")) }
     let gitlab = try cfg.gitlabCi.get()
     var queue = try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
     let notifiables = queue.enqueue(
@@ -814,6 +823,7 @@ public final class Reviewer {
     state: Json.GitlabReviewState,
     fusion: Fusion
   ) throws -> Git.Sha? {
+    logMessage(.init(message: "Merging target into source"))
     let initial = try Id(.head)
       .map(cfg.git.getSha(ref:))
       .map(execute)
@@ -865,6 +875,7 @@ public final class Reviewer {
     fusion: Fusion,
     kind: Fusion.Kind
   ) throws -> Git.Sha {
+    logMessage(.init(message: "Squashing source commits"))
     guard let merge = kind.merge else { throw MayDay("Squashing proposition") }
     let fork = Git.Ref.make(sha: merge.fork)
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: fork)))
@@ -885,6 +896,7 @@ public final class Reviewer {
     ))))
   }
   func closeReview(cfg: Configuration, state: Json.GitlabReviewState) throws {
+    logMessage(.init(message: "Closing gitlab review"))
     let gitlab = try cfg.gitlabCi.get()
     try gitlab
       .putMrState(parameters: .init(stateEvent: "close"), review: state.iid)
@@ -991,6 +1003,7 @@ public final class Reviewer {
     status: Fusion.Approval.Status?,
     reason: Generate.CreateFusionStatusesCommitMessage.Reason
   ) throws -> Bool {
+    logMessage(.init(message: "Persisting review status"))
     var statuses = statuses
     if let state = state { statuses[state.iid] = status }
     return try persistAsset(.init(
@@ -1069,6 +1082,7 @@ public final class Reviewer {
     return result
   }
   func resolveReviewContext(cfg: Configuration) throws -> Review.Context {
+    logMessage(.init(message: "Loading gitlab review"))
     let gitlabCi = try cfg.gitlabCi.get()
     let parent = try gitlabCi.env.parent.get()
     let job = try gitlabCi.getJob(id: parent.job)
