@@ -106,7 +106,7 @@ public extension Git {
     ],
     escalate: false
   )}
-  var isClean: Execute { proc(args: ["status", "--porcelain"]) }
+  var changesList: Execute { proc(args: ["status", "--porcelain"]) }
   var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"]) }
   var listAllRefs: Execute { proc(args: ["show-ref", "--head"]) }
   func excludeParents(shas: Set<Git.Sha>) -> Execute { proc(

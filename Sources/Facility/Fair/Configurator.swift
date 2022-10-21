@@ -253,22 +253,18 @@ extension Configurator {
       .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    logMessage(.init(message: "initial: \(initial.value)"))
     try Execute.checkStatus(reply: execute(git.detach(ref: .make(remote: asset.branch))))
     try Execute.checkStatus(reply: execute(git.clean))
-    logMessage(.init(message: "yaml:\n\(yaml)"))
     try writeFile(.init(
       file: .init(value: "\(git.root.value)/\(asset.file.value)"),
       data: .init(yaml.utf8)
     ))
     let result: Git.Sha?
-    if try !Execute.parseSuccess(reply: execute(git.isClean)) {
-      logMessage(.init(message: "dirty"))
+    if try Execute.parseLines(reply: execute(git.changesList)).isEmpty.not {
       try Execute.checkStatus(reply: execute(git.addAll))
       try Execute.checkStatus(reply: execute(git.commit(message: message)))
       result = try .make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
     } else {
-      try logMessage(.init(message: "file:\n\(readFile(.init(file: .init(value: "\(git.root.value)/\(asset.file.value)"))))"))
       result = nil
     }
     try Execute.checkStatus(reply: execute(git.detach(ref: initial)))
