@@ -107,8 +107,10 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct Pipeline: ParsableCommand {
-    @Option(help: "Pipeline id to affect")
-    var id: UInt
+    struct Context: ParsableArguments {
+      @Option(help: "Pipeline id to affect")
+      var id: UInt
+    }
     static let configuration = CommandConfiguration(
       abstract: "Distributed scalable monorepo management tool",
       subcommands: [
@@ -122,12 +124,12 @@ struct Clockwork: ParsableCommand {
     struct Cancel: ClockworkCommand {
       static var abstract: String { "Cancel all pipeline jobs" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var pipeline: Pipeline
+      @OptionGroup var pipeline: Context
     }
     struct Delete: ClockworkCommand {
       static var abstract: String { "Delete pipeline" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var pipeline: Pipeline
+      @OptionGroup var pipeline: Context
     }
     struct Jobs: ParsableCommand {
       static let configuration = CommandConfiguration(
@@ -145,19 +147,19 @@ struct Clockwork: ParsableCommand {
       struct Cancel: ClockworkCommand {
         static var abstract: String { "Cancel matching jobs" }
         @OptionGroup var clockwork: Clockwork
-        @OptionGroup var pipeline: Pipeline
+        @OptionGroup var pipeline: Context
         @OptionGroup var jobs: Jobs
       }
       struct Play: ClockworkCommand {
         static var abstract: String { "Play matching jobs" }
         @OptionGroup var clockwork: Clockwork
-        @OptionGroup var pipeline: Pipeline
+        @OptionGroup var pipeline: Context
         @OptionGroup var jobs: Jobs
       }
       struct Retry: ClockworkCommand {
         static var abstract: String { "Retry matching jobs" }
         @OptionGroup var clockwork: Clockwork
-        @OptionGroup var pipeline: Pipeline
+        @OptionGroup var pipeline: Context
         @OptionGroup var jobs: Jobs
       }
       enum Scope: EnumerableFlag {
@@ -181,7 +183,7 @@ struct Clockwork: ParsableCommand {
     struct Retry: ClockworkCommand {
       static var abstract: String { "Retry all failed pipeline jobs" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var pipeline: Pipeline
+      @OptionGroup var pipeline: Context
     }
   }
   struct Pods: ParsableCommand {
@@ -450,6 +452,8 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct Validate: ParsableCommand {
+    @Flag(help: "Should render json to stdout")
+    var json = false
     static let configuration = CommandConfiguration(
       abstract: "Distributed scalable monorepo management tool",
       subcommands: [
@@ -461,22 +465,21 @@ struct Clockwork: ParsableCommand {
     struct ConflictMarkers: ClockworkCommand {
       static var abstract: String { "Ensure no conflict markers against base" }
       @OptionGroup var clockwork: Clockwork
+      @OptionGroup var validate: Validate
       @Option(help: "The commit sha to diff with")
       var base: String
-      @Flag(help: "Should render json to stdout")
-      var json = false
     }
     struct FileTaboos: ClockworkCommand {
       static var abstract: String { "Ensure files match defined rules" }
       @OptionGroup var clockwork: Clockwork
+      @OptionGroup var validate: Validate
       @Flag(help: "Should render json to stdout")
       var json = false
     }
     struct UnownedCode: ClockworkCommand {
       static var abstract: String { "Ensure no unowned files" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Should render json to stdout")
-      var json = false
+      @OptionGroup var validate: Validate
     }
   }
 }

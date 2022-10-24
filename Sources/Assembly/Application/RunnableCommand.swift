@@ -119,7 +119,7 @@ extension Clockwork.Pipeline.Jobs.Play: RunnableCommand {
     pipeline: pipeline.id,
     names: jobs.names,
     action: .play,
-    scopes: jobs.scopes.map(\.mode)
+    scopes: []
   )}
 }
 extension Clockwork.Pipeline.Jobs.Retry: RunnableCommand {
@@ -314,16 +314,16 @@ extension Clockwork.Review.Update: RunnableCommand {
 }
 extension Clockwork.Validate.ConflictMarkers: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateReviewConflictMarkers(cfg: cfg, base: base, json: json)
+    try Assembler.validator.validateReviewConflictMarkers(cfg: cfg, base: base, json: validate.json)
   }
 }
 extension Clockwork.Validate.FileTaboos: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateFileTaboos(cfg: cfg, json: json)
+    try Assembler.validator.validateFileTaboos(cfg: cfg, json: validate.json)
   }
 }
 extension Clockwork.Validate.UnownedCode: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateUnownedCode(cfg: cfg, json: json)
+    try Assembler.validator.validateUnownedCode(cfg: cfg, json: validate.json)
   }
 }
