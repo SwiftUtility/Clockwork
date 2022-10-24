@@ -26,7 +26,7 @@ public struct Fusion {
     throw Thrown("\(supply) prefix not configured")
   }
   public static func make(
-    yaml: Yaml.Fusion
+    yaml: Yaml.Review
   ) throws -> Self { try .init(
     approval: .make(yaml: yaml.approval),
     proposition: .init(
@@ -185,7 +185,7 @@ public struct Fusion {
     public var statuses: Configuration.Asset
     public var approvers: Configuration.Asset
     public var haters: Configuration.Secret?
-    public static func make(yaml: Yaml.Fusion.Approval) throws -> Self { try .init(
+    public static func make(yaml: Yaml.Review.Approval) throws -> Self { try .init(
       rules: .make(yaml: yaml.rules),
       statuses: .make(yaml: yaml.statuses),
       approvers: .make(yaml: yaml.approvers),
@@ -212,7 +212,7 @@ public struct Fusion {
         }
         return result
       }
-      public static func make(login: String, yaml: Yaml.Fusion.Approval.Approver) -> Self { .init(
+      public static func make(login: String, yaml: Yaml.Review.Approval.Approver) -> Self { .init(
         login: login,
         active: yaml.active,
         slack: yaml.slack,
@@ -256,7 +256,7 @@ public struct Fusion {
       public var authorship: [String: Set<String>]
       public var sourceBranch: [String: Criteria]
       public var targetBranch: [String: Criteria]
-      public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
+      public static func make(yaml: Yaml.Review.Approval.Rules) throws -> Self { try .init(
         sanity: yaml.sanity,
         weights: yaml.weights.get([:]),
         baseWeight: yaml.baseWeight,
@@ -288,7 +288,7 @@ public struct Fusion {
         public var approvers: Set<String> { reserve.union(optional).union(required) }
         public static func make(
           name: String,
-          yaml: Yaml.Fusion.Approval.Rules.Team
+          yaml: Yaml.Review.Approval.Rules.Team
         ) -> Self { .init(
           name: name,
           quorum: yaml.quorum,
@@ -387,7 +387,7 @@ public struct Fusion {
       }
       public static func make(
         review: String,
-        yaml: Yaml.Fusion.Approval.Status
+        yaml: Yaml.Review.Approval.Status
       ) throws -> Self { try .init(
         review: review.getUInt(),
         target: yaml.target,
@@ -455,10 +455,10 @@ public struct Fusion {
       public struct Approve {
         public var approver: String
         public var commit: Git.Sha
-        public var resolution: Yaml.Fusion.Approval.Status.Resolution
+        public var resolution: Yaml.Review.Approval.Status.Resolution
         public static func make(
           approver: String,
-          yaml: [Yaml.Fusion.Approval.Status.Resolution: String]
+          yaml: [Yaml.Review.Approval.Status.Resolution: String]
         ) throws -> Self {
           guard yaml.count == 1, let (resolution, commit) = yaml.first
           else { throw Thrown("Bad approve format") }

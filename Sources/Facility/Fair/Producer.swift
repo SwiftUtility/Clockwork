@@ -6,8 +6,8 @@ public final class Producer {
   let generate: Try.Reply<Generate>
   let writeFile: Try.Reply<Files.WriteFile>
   let resolveProduction: Try.Reply<Configuration.ResolveProduction>
-  let parseBuilds: Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Builds>>
-  let parseVersions: Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Versions>>
+  let parseBuilds: Try.Reply<Configuration.ParseYamlFile<Yaml.Flow.Builds>>
+  let parseVersions: Try.Reply<Configuration.ParseYamlFile<Yaml.Flow.Versions>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let report: Act.Reply<Report>
   let readStdin: Try.Reply<Configuration.ReadStdin>
@@ -20,8 +20,8 @@ public final class Producer {
     generate: @escaping Try.Reply<Generate>,
     writeFile: @escaping Try.Reply<Files.WriteFile>,
     resolveProduction: @escaping Try.Reply<Configuration.ResolveProduction>,
-    parseBuilds: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Builds>>,
-    parseVersions: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Production.Versions>>,
+    parseBuilds: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Flow.Builds>>,
+    parseVersions: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Flow.Versions>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     report: @escaping Act.Reply<Report>,
     readStdin: @escaping Try.Reply<Configuration.ReadStdin>,

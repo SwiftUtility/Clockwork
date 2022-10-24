@@ -8,9 +8,9 @@ public enum Yaml {
     public var fileTaboos: String?
     public var cocoapods: String?
     public var templates: String?
-    public var production: String?
+    public var flow: String?
     public var requisition: String?
-    public var fusion: String?
+    public var review: String?
     public var context: Secret?
   }
   public struct Gitlab: Decodable {
@@ -45,7 +45,7 @@ public enum Yaml {
       public var sha: String
     }
   }
-  public struct Production: Decodable {
+  public struct Flow: Decodable {
     public var builds: Asset
     public var versions: Asset
     public var buildsCount: Int
@@ -102,7 +102,7 @@ public enum Yaml {
       public var provisions: [String]
     }
   }
-  public struct Fusion: Decodable {
+  public struct Review: Decodable {
     public var queue: Asset
     public var approval: Approval
     public var createThread: Template

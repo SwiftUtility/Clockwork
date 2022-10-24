@@ -51,7 +51,7 @@ public struct Configuration {
       templates: yaml.templates
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.Dir.init(ref:path:)),
-      fusion: yaml.fusion
+      fusion: yaml.review
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
@@ -69,7 +69,7 @@ public struct Configuration {
         .reduce(profile.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("cocoapods not configured"))),
-      production: yaml.production
+      production: yaml.flow
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))

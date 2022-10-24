@@ -188,6 +188,14 @@ public extension GitlabCi {
     ] + variables
       .map { try "variables[\($0.key)]=\($0.value.urlEncoded.get())" }
   ))}
+  func affectPipeline(
+    cfg: Configuration,
+    pipeline: UInt,
+    action: PipelineAction
+  ) -> Lossy<Execute> { .init(.makeCurl(
+    url: "\(project)/pipelines/\(pipeline)\(action.path)",
+    method: action.method
+  ))}
   func postMergeRequests(
     parameters: PostMergeRequests
   ) -> Lossy<Execute> { .init(try .makeCurl(
@@ -204,6 +212,7 @@ public extension GitlabCi {
   ))}
   func getJobs(
     action: JobAction,
+    scopes: [JobScope],
     pipeline: UInt,
     page: Int,
     count: Int
@@ -212,7 +221,7 @@ public extension GitlabCi {
       "include_retried=true",
       "page=\(page)",
       "per_page=\(count)",
-    ] + action.scope.map { "scope[]=\($0)" }
+    ] + scopes.flatMapEmpty(action.scopes).map { "scope[]=\($0.rawValue)" }
     return .init(try .makeCurl(
         url: "\(project)/pipelines/\(pipeline)/jobs?\(query.joined(separator: "&"))",
       headers: [protected.get().auth]
@@ -327,17 +336,45 @@ public extension GitlabCi {
       self.title = title
     }
   }
-  enum JobAction: String {
-    case play = "play"
-    case cancel = "cancel"
-    case retry = "retry"
-    var scope: [String] {
+  enum PipelineAction: String {
+    case cancel
+    case delete
+    case retry
+    var path: String {
       switch self {
-      case .play: return ["manual"]
-      case .cancel: return ["pending", "running", "created"]
-      case .retry: return ["failed", "canceled", "success"]
+      case .cancel: return "/cancel"
+      case .delete: return ""
+      case .retry: return "/retry"
       }
     }
+    var method: String {
+      switch self {
+      case .cancel: return "POST"
+      case .delete: return "DELETE"
+      case .retry: return "POST"
+      }
+    }
+  }
+  enum JobAction: String {
+    case play
+    case cancel
+    case retry
+    var scopes: [JobScope] {
+      switch self {
+      case .play: return [.manual]
+      case .cancel: return [.pending, .running, .created]
+      case .retry: return [.failed, .canceled, .success]
+      }
+    }
+  }
+  enum JobScope: String {
+    case canceled
+    case created
+    case failed
+    case manual
+    case pending
+    case running
+    case success
   }
 }
 extension Encodable {

@@ -4,198 +4,227 @@ struct Clockwork: ParsableCommand {
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
   static let configuration = CommandConfiguration(
-    abstract: "Distributed scalable monorepo git flow management tool",
+    abstract: "Distributed scalable monorepo management tool",
     version: Self.version,
     subcommands: [
-      Approver.self,
-      CancelJobs.self,
-      CheckConflictMarkers.self,
-      CheckFileTaboos.self,
-      CheckUnownedCode.self,
-      ChangeVersion.self,
-      CreateAccessoryBranch.self,
-      CreateDeployTag.self,
-      CreateHotfixBranch.self,
-      CreateReleaseBranch.self,
-      CreateStageTag.self,
-      DeleteAccessoryBranch.self,
-      DeleteReleaseBranch.self,
-      DeleteStageTag.self,
-      ExportBuild.self,
-      ExportNextVersions.self,
-      ForwardBranch.self,
-      PlayJobs.self,
-      ReportCustom.self,
-      ReportCustomRelease.self,
+      Flow.self,
+      Pipeline.self,
+      Pods.self,
+      Report.self,
       Requisites.self,
-      ReserveBranchBuild.self,
-      ResetPodSpecs.self,
-      RetryJobs.self,
       Review.self,
-      TriggerPipeline.self,
-      UpdatePodSpecs.self,
+      Validate.self,
     ]
   )
-  struct Approver: ParsableCommand {
+  struct Flow: ParsableCommand {
     static let configuration = CommandConfiguration(
-      abstract: "Subset of approver manipulations commands",
+      abstract: "Subset of flow management commands",
       subcommands: [
-        Activate.self,
-        Deactivate.self,
-        Register.self,
-        UnwatchAuthors.self,
-        UnwatchTeams.self,
-        WatchAuthors.self,
-        WatchTeams.self,
+        ChangeVersion.self,
+        CreateAccessoryBranch.self,
+        CreateDeployTag.self,
+        CreateHotfixBranch.self,
+        CreateReleaseBranch.self,
+        CreateStageTag.self,
+        DeleteAccessoryBranch.self,
+        DeleteReleaseBranch.self,
+        DeleteStageTag.self,
+        ExportBuild.self,
+        ExportNextVersions.self,
+        ForwardBranch.self,
+        ReserveBranchBuild.self,
       ]
     )
-    @Option(help: "Approver gitlab login or current")
-    var gitlab: String = ""
-    @Argument(help: "List of arguments required by subcommands")
-    var args: [String] = []
-    struct Activate: ClockworkCommand {
-      static var abstract: String { "Activate user" }
+    struct ChangeVersion: ClockworkCommand {
+      static var abstract: String { "Change product version" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var approver: Approver
+      @Option(help: "Product name to change version for")
+      var product: String
+      @Flag(help: "Wether change next or current accessory branch specific version")
+      var next: Bool = false
+      @Option(help: "Version to set")
+      var version: String
     }
-    struct Deactivate: ClockworkCommand {
-      static var abstract: String { "Deactivate user" }
+    struct CreateAccessoryBranch: ClockworkCommand {
+      static var abstract: String { "Cut custom protected branch" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var approver: Approver
+      @Option(help: "Name of the branch")
+      var name: String
     }
-    struct Register: ClockworkCommand {
-      static var abstract: String { "Add new user" }
+    struct CreateDeployTag: ClockworkCommand {
+      static var abstract: String { "Create deploy tag on release branch" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var approver: Approver
-      @Option(help: "Approver's slack id")
-      var slack: String
     }
-    struct UnwatchAuthors: ClockworkCommand {
-      static var abstract: String { "Remove user from watchers for authors provided in arguments" }
+    struct CreateHotfixBranch: ClockworkCommand {
+      static var abstract: String { "Cut hotfix branch from deploy tag" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var approver: Approver
     }
-    struct UnwatchTeams: ClockworkCommand {
-      static var abstract: String { "Remove user from watchers for teams provided in arguments" }
+    struct CreateReleaseBranch: ClockworkCommand {
+      static var abstract: String { "Cut release branch and bump product version" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var approver: Approver
+      @Option(help: "Product name to make branch for")
+      var product: String
     }
-    struct WatchAuthors: ClockworkCommand {
-      static var abstract: String { "Add user to watchers for authors provided in arguments" }
+    struct CreateStageTag: ClockworkCommand {
+      static var abstract: String { "Create stage tag on reserved build" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var approver: Approver
+      @Option(help: "Product name to make stage tag for")
+      var product: String
+      @Option(help: "Build number to make stage tag for")
+      var build: String
     }
-    struct WatchTeams: ClockworkCommand {
-      static var abstract: String { "Add user to watchers for teams provided in arguments" }
+    struct DeleteAccessoryBranch: ClockworkCommand {
+      static var abstract: String { "Delete protected branch and clear its assets" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var approver: Approver
+    }
+    struct DeleteReleaseBranch: ClockworkCommand {
+      static var abstract: String { "Delete protected branch and clear its assets" }
+      @OptionGroup var clockwork: Clockwork
+      @Flag(help: "")
+      var revoke: Bool = false
+    }
+    struct DeleteStageTag: ClockworkCommand {
+      static var abstract: String { "Delete current stage tag" }
+      @OptionGroup var clockwork: Clockwork
+    }
+    struct ExportBuild: ClockworkCommand {
+      static var abstract: String { "Render reserved build and versions to stdout" }
+      @OptionGroup var clockwork: Clockwork
+    }
+    struct ExportNextVersions: ClockworkCommand {
+      static var abstract: String { "Render current next versions to stdout" }
+      @OptionGroup var clockwork: Clockwork
+    }
+    struct ForwardBranch: ClockworkCommand {
+      static var abstract: String { "Fast forward branch to current commit" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "The branch name to forward")
+      var name: String
     }
   }
-  struct CancelJobs: ClockworkCommand {
-    static var abstract: String { "Cancel job" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Jobs pipeline id")
-    var pipeline: String
-    @Argument(help: "Job names to cancel")
-    var names: [String]
+  struct Pipeline: ParsableCommand {
+    @Option(help: "Pipeline id to affect")
+    var id: UInt
+    static let configuration = CommandConfiguration(
+      abstract: "Distributed scalable monorepo management tool",
+      subcommands: [
+        Cancel.self,
+        Delete.self,
+        Jobs.self,
+        Trigger.self,
+        Retry.self
+      ]
+    )
+    struct Cancel: ClockworkCommand {
+      static var abstract: String { "Cancel all pipeline jobs" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var pipeline: Pipeline
+    }
+    struct Delete: ClockworkCommand {
+      static var abstract: String { "Delete pipeline" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var pipeline: Pipeline
+    }
+    struct Jobs: ParsableCommand {
+      static let configuration = CommandConfiguration(
+        abstract: "Subset of jobs affecting commands",
+        subcommands: [
+          Play.self,
+          Retry.self,
+          Cancel.self,
+        ]
+      )
+      @Flag(help: "Scopes of jobs to look for")
+      var scopes: [Scope] = []
+      @Argument(help: "Job names to affect")
+      var names: [String]
+      struct Cancel: ClockworkCommand {
+        static var abstract: String { "Cancel matching jobs" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var pipeline: Pipeline
+        @OptionGroup var jobs: Jobs
+      }
+      struct Play: ClockworkCommand {
+        static var abstract: String { "Play matching jobs" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var pipeline: Pipeline
+        @OptionGroup var jobs: Jobs
+      }
+      struct Retry: ClockworkCommand {
+        static var abstract: String { "Retry matching jobs" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var pipeline: Pipeline
+        @OptionGroup var jobs: Jobs
+      }
+      enum Scope: EnumerableFlag {
+        case canceled
+        case created
+        case failed
+        case manual
+        case pending
+        case running
+        case success
+      }
+    }
+    struct Trigger: ClockworkCommand {
+      static var abstract: String { "Trigger pipeline configured and custom context" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "Ref to run pipeline on")
+      var ref: String
+      @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
+      var context: [String] = []
+    }
+    struct Retry: ClockworkCommand {
+      static var abstract: String { "Retry all failed pipeline jobs" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var pipeline: Pipeline
+    }
   }
-  struct CheckConflictMarkers: ClockworkCommand {
-    static var abstract: String { "Ensure no conflict markers" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "The commit sha to diff with")
-    var base: String
-    @Flag(help: "Should render json to stdout")
-    var json = false
+  struct Pods: ParsableCommand {
+    static let configuration = CommandConfiguration(
+      abstract: "Distributed scalable monorepo management tool",
+      subcommands: [
+        ResetSpecs.self,
+        UpdateSpecs.self,
+      ]
+    )
+    struct ResetSpecs: ClockworkCommand {
+      static var abstract: String { "Reset cocoapods specs to configured commits" }
+      @OptionGroup var clockwork: Clockwork
+    }
+    struct UpdateSpecs: ClockworkCommand {
+      static var abstract: String { "Update cocoapods specs and configured commist" }
+      @OptionGroup var clockwork: Clockwork
+    }
   }
-  struct CheckFileTaboos: ClockworkCommand {
-    static var abstract: String { "Ensure files match defined rules" }
-    @OptionGroup var clockwork: Clockwork
-    @Flag(help: "Should render json to stdout")
-    var json = false
-  }
-  struct CheckUnownedCode: ClockworkCommand {
-    static var abstract: String { "Ensure no unowned files" }
-    @OptionGroup var clockwork: Clockwork
-    @Flag(help: "Should render json to stdout")
-    var json = false
-  }
-  struct ChangeVersion: ClockworkCommand {
-    static var abstract: String { "Cut custom protected branch" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Product name to change version for")
-    var product: String
-    @Flag(help: "Wether change next or current accessory branch specific version")
-    var next: Bool = false
-    @Option(help: "Version to set")
-    var version: String
-  }
-  struct CreateAccessoryBranch: ClockworkCommand {
-    static var abstract: String { "Cut custom protected branch" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Name of the branch")
-    var name: String
-  }
-  struct CreateDeployTag: ClockworkCommand {
-    static var abstract: String { "Create deploy tag on release branch" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct CreateHotfixBranch: ClockworkCommand {
-    static var abstract: String { "Cut hotfix branch from deploy tag" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct CreateReleaseBranch: ClockworkCommand {
-    static var abstract: String { "Cut release branch and bump product version" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Product name to make branch for")
-    var product: String
-  }
-  struct CreateStageTag: ClockworkCommand {
-    static var abstract: String { "Create stage tag on reserved build" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Product name to make stage tag for")
-    var product: String
-    @Option(help: "Build number to make stage tag for")
-    var build: String
-  }
-  struct DeleteAccessoryBranch: ClockworkCommand {
-    static var abstract: String { "Delete protected branch and clear its assets" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct DeleteReleaseBranch: ClockworkCommand {
-    static var abstract: String { "Delete protected branch and clear its assets" }
-    @OptionGroup var clockwork: Clockwork
-    @Flag(help: "")
-    var revoke: Bool = false
-  }
-  struct DeleteStageTag: ClockworkCommand {
-    static var abstract: String { "Delete current stage tag" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct ExportBuild: ClockworkCommand {
-    static var abstract: String { "Render reserved build and versions to stdout" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct ExportNextVersions: ClockworkCommand {
-    static var abstract: String { "Render current next versions to stdout" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct ForwardBranch: ClockworkCommand {
-    static var abstract: String { "Fast forward branch to current commit" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "The branch name to forward")
-    var name: String
-  }
-  struct PlayJobs: ClockworkCommand {
-    static var abstract: String { "Play job with matching names" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Jobs pipeline id")
-    var pipeline: String
-    @Argument(help: "Job names to paly")
-    var names: [String]
-  }
-  struct ReportCustom: ClockworkCommand {
-    static var abstract: String { "Sends preconfigured report" }
-    @OptionGroup var clockwork: Clockwork
+  struct Report: ParsableCommand {
+    static let configuration = CommandConfiguration(
+      abstract: "Subset preconfigured report sending commands",
+      subcommands: [
+        Custom.self,
+        ReleaseThread.self,
+        ReviewThread.self,
+      ]
+    )
+    @Flag(help: "Should read stdin and pass as a context for generation")
+    var stdin: Stdin = .ignore
+    @Option(help: "Event name to send report for")
+    var event: String
+    struct Custom: ClockworkCommand {
+      static var abstract: String { "Send custom preconfigured report" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var report: Report
+    }
+    struct ReleaseThread: ClockworkCommand {
+      static var abstract: String { "Send preconfigured release related report" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var report: Report
+    }
+    struct ReviewThread: ClockworkCommand {
+      static var abstract: String { "Send preconfigured review related report" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var report: Report
+    }
     enum Stdin: EnumerableFlag {
       case ignore
       case lines
@@ -208,15 +237,6 @@ struct Clockwork: ParsableCommand {
         }
       }
     }
-    @Flag(help: "Should read stdin and pass as a context for generation")
-    var stdin: Stdin = .ignore
-    @Option(help: "Event name to send report for")
-    var event: String
-  }
-  struct ReportCustomRelease: ClockworkCommand {
-    static var abstract: String { "Send preconfigured release report" }
-    @OptionGroup var clockwork: Clockwork
-    @OptionGroup var custom: ReportCustom
   }
   struct Requisites: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -262,18 +282,6 @@ struct Clockwork: ParsableCommand {
     static var abstract: String { "Reserve build number for current protected branch pipeline" }
     @OptionGroup var clockwork: Clockwork
   }
-  struct ResetPodSpecs: ClockworkCommand {
-    static var abstract: String { "Reset cocoapods specs to configured commits" }
-    @OptionGroup var clockwork: Clockwork
-  }
-  struct RetryJobs: ClockworkCommand {
-    static var abstract: String { "Retry current pipeline's job with matching name" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Jobs pipeline id")
-    var pipeline: String
-    @Argument(help: "Job names to retry")
-    var names: [String]
-  }
   struct Review: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of review lifecycle management commands",
@@ -281,18 +289,18 @@ struct Clockwork: ParsableCommand {
         Accept.self,
         AddLabels.self,
         Approve.self,
+        Approver.self,
+        Clean.self,
         Dequeue.self,
         ExportIntegration.self,
         Own.self,
-        Clean.self,
-        ReportCustom.self,
         ReserveBuild.self,
         RemoveLabels.self,
-        Update.self,
         TriggerPipeline.self,
         Skip.self,
         StartReplication.self,
         StartIntegration.self,
+        Update.self,
       ]
     )
     struct Accept: ClockworkCommand {
@@ -323,6 +331,61 @@ struct Clockwork: ParsableCommand {
       @Flag(help: "Resolution for approval")
       var resolution: Resolution
     }
+    struct Approver: ParsableCommand {
+      static let configuration = CommandConfiguration(
+        abstract: "Subset of approver manipulations commands",
+        subcommands: [
+          Activate.self,
+          Deactivate.self,
+          Register.self,
+          UnwatchAuthors.self,
+          UnwatchTeams.self,
+          WatchAuthors.self,
+          WatchTeams.self,
+        ]
+      )
+      @Option(help: "Approver gitlab login or current")
+      var gitlab: String = ""
+      @Argument(help: "List of arguments required by subcommands")
+      var args: [String] = []
+      struct Activate: ClockworkCommand {
+        static var abstract: String { "Activate user" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var approver: Approver
+      }
+      struct Deactivate: ClockworkCommand {
+        static var abstract: String { "Deactivate user" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var approver: Approver
+      }
+      struct Register: ClockworkCommand {
+        static var abstract: String { "Add new user" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var approver: Approver
+        @Option(help: "Approver's slack id")
+        var slack: String
+      }
+      struct UnwatchAuthors: ClockworkCommand {
+        static var abstract: String { "Remove user from watchers for authors provided in arguments" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var approver: Approver
+      }
+      struct UnwatchTeams: ClockworkCommand {
+        static var abstract: String { "Remove user from watchers for teams provided in arguments" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var approver: Approver
+      }
+      struct WatchAuthors: ClockworkCommand {
+        static var abstract: String { "Add user to watchers for authors provided in arguments" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var approver: Approver
+      }
+      struct WatchTeams: ClockworkCommand {
+        static var abstract: String { "Add user to watchers for teams provided in arguments" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var approver: Approver
+      }
+    }
     struct Clean: ClockworkCommand {
       static var abstract: String { "Clean outdated reviews" }
       @OptionGroup var clockwork: Clockwork
@@ -350,11 +413,6 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Labels to be removed from parent review")
       var labels: [String]
-    }
-    struct ReportCustom: ClockworkCommand {
-      static var abstract: String { "Send preconfigured parent review report" }
-      @OptionGroup var clockwork: Clockwork
-      @OptionGroup var custom: Clockwork.ReportCustom
     }
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Create new pipeline for parent review" }
@@ -385,17 +443,35 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
     }
   }
-  struct TriggerPipeline: ClockworkCommand {
-    static var abstract: String { "Trigger pipeline configured and custom context" }
-    @OptionGroup var clockwork: Clockwork
-    @Option(help: "Ref to run pipeline on")
-    var ref: String
-    @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
-    var context: [String] = []
-  }
-  struct UpdatePodSpecs: ClockworkCommand {
-    static var abstract: String { "Update cocoapods specs and configured commist" }
-    @OptionGroup var clockwork: Clockwork
+  struct Validate: ParsableCommand {
+    static let configuration = CommandConfiguration(
+      abstract: "Distributed scalable monorepo management tool",
+      subcommands: [
+        ConflictMarkers.self,
+        FileTaboos.self,
+        UnownedCode.self,
+      ]
+    )
+    struct ConflictMarkers: ClockworkCommand {
+      static var abstract: String { "Ensure no conflict markers against base" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "The commit sha to diff with")
+      var base: String
+      @Flag(help: "Should render json to stdout")
+      var json = false
+    }
+    struct FileTaboos: ClockworkCommand {
+      static var abstract: String { "Ensure files match defined rules" }
+      @OptionGroup var clockwork: Clockwork
+      @Flag(help: "Should render json to stdout")
+      var json = false
+    }
+    struct UnownedCode: ClockworkCommand {
+      static var abstract: String { "Ensure no unowned files" }
+      @OptionGroup var clockwork: Clockwork
+      @Flag(help: "Should render json to stdout")
+      var json = false
+    }
   }
 }
 protocol ClockworkCommand: ParsableCommand {

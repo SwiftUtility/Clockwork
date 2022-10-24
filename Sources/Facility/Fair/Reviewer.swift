@@ -7,7 +7,7 @@ public final class Reviewer {
   let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
   let resolveReviewQueue: Try.Reply<Fusion.Queue.Resolve>
   let resolveApprovers: Try.Reply<Configuration.ResolveApprovers>
-  let parseApprovalRules: Try.Reply<Configuration.ParseYamlSecret<Yaml.Fusion.Approval.Rules>>
+  let parseApprovalRules: Try.Reply<Configuration.ParseYamlSecret<Yaml.Review.Approval.Rules>>
   let parseCodeOwnage: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>
   let parseProfile: Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>
   let parseAntagonists: Try.Reply<Configuration.ParseYamlSecret<[String: Set<String>]>>
@@ -25,7 +25,7 @@ public final class Reviewer {
     resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
     resolveReviewQueue: @escaping Try.Reply<Fusion.Queue.Resolve>,
     resolveApprovers: @escaping Try.Reply<Configuration.ResolveApprovers>,
-    parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlSecret<Yaml.Fusion.Approval.Rules>>,
+    parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlSecret<Yaml.Review.Approval.Rules>>,
     parseCodeOwnage: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>,
     parseProfile: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>,
     parseAntagonists: @escaping Try.Reply<Configuration.ParseYamlSecret<[String: Set<String>]>>,
@@ -241,7 +241,7 @@ public final class Reviewer {
   }
   public func approveReview(
     cfg: Configuration,
-    resolution: Yaml.Fusion.Approval.Status.Resolution
+    resolution: Yaml.Review.Approval.Status.Resolution
   ) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)

@@ -39,31 +39,41 @@ public final class Mediator {
       .get()
     return true
   }
-  public func affectJobs(
+  public func affectPipeline(
     cfg: Configuration,
-    pipeline: String,
-    names: [String],
-    action: GitlabCi.JobAction
+    id: UInt,
+    action: GitlabCi.PipelineAction
   ) throws -> Bool {
     let gitlabCi = try cfg.gitlabCi.get()
-    let pipeline = try pipeline.getUInt()
+    try gitlabCi
+      .affectPipeline(cfg: cfg, pipeline: id, action: action)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return true
+  }
+  public func affectJobs(
+    cfg: Configuration,
+    pipeline: UInt,
+    names: [String],
+    action: GitlabCi.JobAction,
+    scopes: [GitlabCi.JobScope]
+  ) throws -> Bool {
+    let gitlabCi = try cfg.gitlabCi.get()
     var page = 1
     var jobs: [Json.GitlabJob] = []
     while true {
       jobs += try gitlabCi
-        .getJobs(action: action, pipeline: pipeline, page: page, count: 100)
+        .getJobs(action: action, scopes: scopes, pipeline: pipeline, page: page, count: 100)
         .map(execute)
         .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
         .get()
       if jobs.count == page * 100 { page += 1 } else { break }
     }
-    var names = Set(names)
     let ids = jobs
       .filter({ names.contains($0.name) })
       .reduce(into: [:], { $0[$1.name] = max($0[$1.name].get($1.id), $1.id) })
-    names = names.subtracting(ids.keys)
-    guard names.isEmpty
-    else { throw Thrown("Can not affect jobs: \(names.joined(separator: ", "))") }
+    guard ids.isEmpty.not else { return false }
     for id in ids.values { try Execute.checkStatus(
       reply: execute(gitlabCi.postJobsAction(job: id, action: action).get())
     )}

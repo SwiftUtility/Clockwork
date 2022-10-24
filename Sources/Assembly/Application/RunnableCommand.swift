@@ -29,153 +29,158 @@ extension RunnableCommand {
       .get()
   }
 }
-extension Clockwork.Approver.Activate: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .activate)
-  }
-}
-extension Clockwork.Approver.Deactivate: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .deactivate)
-  }
-}
-extension Clockwork.Approver.Register: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .register(slack)
-  )}
-}
-extension Clockwork.Approver.UnwatchAuthors: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchAuthors(approver.args)
-  )}
-}
-extension Clockwork.Approver.UnwatchTeams: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .unwatchTeams(approver.args)
-  )}
-}
-extension Clockwork.Approver.WatchAuthors: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchAuthors(approver.args)
-  )}
-}
-extension Clockwork.Approver.WatchTeams: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchTeams(approver.args)
-  )}
-}
-extension Clockwork.CancelJobs: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectJobs(cfg: cfg, pipeline: pipeline, names: names, action: .cancel)
-  }
-}
-extension Clockwork.CheckConflictMarkers: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateReviewConflictMarkers(cfg: cfg, base: base, json: json)
-  }
-}
-extension Clockwork.CheckFileTaboos: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateFileTaboos(cfg: cfg, json: json)
-  }
-}
-extension Clockwork.CheckUnownedCode: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateUnownedCode(cfg: cfg, json: json)
-  }
-}
-extension Clockwork.ChangeVersion: RunnableCommand {
+extension Clockwork.Flow.ChangeVersion: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.changeVersion(cfg: cfg, product: product, next: next, version: version)
   }
 }
-extension Clockwork.CreateAccessoryBranch: RunnableCommand {
+extension Clockwork.Flow.CreateAccessoryBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.createAccessoryBranch(cfg: cfg, name: name)
   }
 }
-extension Clockwork.CreateDeployTag: RunnableCommand {
+extension Clockwork.Flow.CreateDeployTag: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.createDeployTag(cfg: cfg)
   }
 }
-extension Clockwork.CreateHotfixBranch: RunnableCommand {
+extension Clockwork.Flow.CreateHotfixBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.createHotfixBranch(cfg: cfg)
   }
 }
-extension Clockwork.CreateReleaseBranch: RunnableCommand {
+extension Clockwork.Flow.CreateReleaseBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.createReleaseBranch(cfg: cfg, product: product)
   }
 }
-extension Clockwork.CreateStageTag: RunnableCommand {
+extension Clockwork.Flow.CreateStageTag: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.stageBuild(cfg: cfg, product: product, build: build)
   }
 }
-extension Clockwork.DeleteAccessoryBranch: RunnableCommand {
+extension Clockwork.Flow.DeleteAccessoryBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.deleteBranch(cfg: cfg, revoke: nil)
   }
 }
-extension Clockwork.DeleteReleaseBranch: RunnableCommand {
+extension Clockwork.Flow.DeleteReleaseBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.deleteBranch(cfg: cfg, revoke: revoke)
   }
 }
-extension Clockwork.DeleteStageTag: RunnableCommand {
+extension Clockwork.Flow.DeleteStageTag: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.deleteStageTag(cfg: cfg)
   }
 }
-extension Clockwork.ExportBuild: RunnableCommand {
+extension Clockwork.Flow.ExportBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.renderBuild(cfg: cfg)
   }
 }
-extension Clockwork.ExportNextVersions: RunnableCommand {
+extension Clockwork.Flow.ExportNextVersions: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.renderNextVersions(cfg: cfg)
   }
 }
-extension Clockwork.ForwardBranch: RunnableCommand {
+extension Clockwork.Flow.ForwardBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.forwardBranch(cfg: cfg, name: name)
   }
 }
-extension Clockwork.PlayJobs: RunnableCommand {
+extension Clockwork.Pipeline.Cancel: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectJobs(cfg: cfg, pipeline: pipeline, names: names, action: .play)
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .cancel)
   }
 }
-extension Clockwork.ReportCustom: RunnableCommand {
+extension Clockwork.Pipeline.Delete: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reporter.reportCustom(cfg: cfg, event: event, stdin: stdin.mode)
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .delete)
   }
 }
-extension Clockwork.ReportCustom.Stdin {
+extension Clockwork.Pipeline.Jobs.Cancel: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
+    cfg: cfg,
+    pipeline: pipeline.id,
+    names: jobs.names,
+    action: .cancel,
+    scopes: jobs.scopes.map(\.mode)
+  )}
+}
+extension Clockwork.Pipeline.Jobs.Play: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
+    cfg: cfg,
+    pipeline: pipeline.id,
+    names: jobs.names,
+    action: .play,
+    scopes: jobs.scopes.map(\.mode)
+  )}
+}
+extension Clockwork.Pipeline.Jobs.Retry: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
+    cfg: cfg,
+    pipeline: pipeline.id,
+    names: jobs.names,
+    action: .retry,
+    scopes: jobs.scopes.map(\.mode)
+  )}
+}
+extension Clockwork.Pipeline.Jobs.Scope {
+  var mode: GitlabCi.JobScope {
+    switch self {
+    case .canceled: return .canceled
+    case .created: return .created
+    case .failed: return .failed
+    case .manual: return .manual
+    case .pending: return .pending
+    case .running: return .running
+    case .success: return .success
+    }
+  }
+}
+extension Clockwork.Pipeline.Trigger: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.triggerPipeline(cfg: cfg, ref: ref, context: context)
+  }
+}
+extension Clockwork.Pipeline.Retry: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .retry)
+  }
+}
+extension Clockwork.Pods.ResetSpecs: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.restoreCocoapodsSpecs(cfg: cfg)
+  }
+}
+extension Clockwork.Pods.UpdateSpecs: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
+  }
+}
+extension Clockwork.Report.Custom: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reporter.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
+  }
+}
+extension Clockwork.Report.ReleaseThread: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
+  }
+}
+extension Clockwork.Report.ReviewThread: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
+  }
+}
+extension Clockwork.Report.Stdin {
   var mode: Configuration.ReadStdin {
     switch self {
     case .ignore: return .ignore
     case .lines: return .lines
     case .json: return .json
     }
-  }
-}
-extension Clockwork.ReportCustomRelease: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reportCustom(cfg: cfg, event: custom.event, stdin: custom.stdin.mode)
   }
 }
 extension Clockwork.Requisites.Erase: RunnableCommand {
@@ -208,16 +213,6 @@ extension Clockwork.ReserveBranchBuild: RunnableCommand {
     try Assembler.producer.reserveBranchBuild(cfg: cfg)
   }
 }
-extension Clockwork.ResetPodSpecs: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.restoreCocoapodsSpecs(cfg: cfg)
-  }
-}
-extension Clockwork.RetryJobs: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectJobs(cfg: cfg, pipeline: pipeline, names: names, action: .retry)
-  }
-}
 extension Clockwork.Review.Accept: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.acceptReview(cfg: cfg)
@@ -234,13 +229,58 @@ extension Clockwork.Review.Approve: RunnableCommand {
   }
 }
 extension Clockwork.Review.Approve.Resolution {
-  var status: Yaml.Fusion.Approval.Status.Resolution {
+  var status: Yaml.Review.Approval.Status.Resolution {
     switch self {
     case .fragil: return .fragil
     case .advance: return .advance
     case .block: return .block
     }
   }
+}
+extension Clockwork.Review.Approver.Activate: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .activate)
+  }
+}
+extension Clockwork.Review.Approver.Deactivate: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .deactivate)
+  }
+}
+extension Clockwork.Review.Approver.Register: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .register(slack)
+  )}
+}
+extension Clockwork.Review.Approver.UnwatchAuthors: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .watchAuthors(approver.args)
+  )}
+}
+extension Clockwork.Review.Approver.UnwatchTeams: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .unwatchTeams(approver.args)
+  )}
+}
+extension Clockwork.Review.Approver.WatchAuthors: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .watchAuthors(approver.args)
+  )}
+}
+extension Clockwork.Review.Approver.WatchTeams: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .watchTeams(approver.args)
+  )}
 }
 extension Clockwork.Review.Clean: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
@@ -267,13 +307,18 @@ extension Clockwork.Review.Update: RunnableCommand {
     try Assembler.reviewer.updateReview(cfg: cfg)
   }
 }
-extension Clockwork.TriggerPipeline: RunnableCommand {
+extension Clockwork.Validate.ConflictMarkers: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.triggerPipeline(cfg: cfg, ref: ref, context: context)
+    try Assembler.validator.validateReviewConflictMarkers(cfg: cfg, base: base, json: json)
   }
 }
-extension Clockwork.UpdatePodSpecs: RunnableCommand {
+extension Clockwork.Validate.FileTaboos: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
+    try Assembler.validator.validateFileTaboos(cfg: cfg, json: json)
+  }
+}
+extension Clockwork.Validate.UnownedCode: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.validator.validateUnownedCode(cfg: cfg, json: json)
   }
 }

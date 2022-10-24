@@ -120,7 +120,7 @@ public final class Configurator {
     query: Configuration.ResolveFusion
   ) throws -> Configuration.ResolveFusion.Reply { try query.cfg.profile.fusion
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.Fusion.self, dialect.read(_:from:))
+    .reduce(Yaml.Review.self, dialect.read(_:from:))
     .map(Fusion.make(yaml:))
     .get()
   }
@@ -128,7 +128,7 @@ public final class Configurator {
     query: Configuration.ResolveProduction
   ) throws -> Configuration.ResolveProduction.Reply { try query.cfg.profile.production
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.Production.self, dialect.read(_:from:))
+    .reduce(Yaml.Flow.self, dialect.read(_:from:))
     .map(Production.make(yaml:))
     .get()
   }
@@ -172,7 +172,7 @@ public final class Configurator {
   ) throws -> Configuration.ResolveFusionStatuses.Reply { try Id(query.approval.statuses)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Yaml.Fusion.Approval.Status].self, dialect.read(_:from:))
+    .reduce([String: Yaml.Review.Approval.Status].self, dialect.read(_:from:))
     .get()
     .map(Fusion.Approval.Status.make(review:yaml:))
     .reduce(into: [:], { $0[$1.review] = $1 })
@@ -182,7 +182,7 @@ public final class Configurator {
   ) throws -> Configuration.ResolveApprovers.Reply { try Id(query.approval.approvers)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Yaml.Fusion.Approval.Approver].self, dialect.read(_:from:))
+    .reduce([String: Yaml.Review.Approval.Approver].self, dialect.read(_:from:))
     .get()
     .map(Fusion.Approval.Approver.make(login:yaml:))
     .reduce(into: [:], { $0[$1.login] = $1 })

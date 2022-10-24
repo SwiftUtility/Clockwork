@@ -12,7 +12,7 @@ public struct Production {
   public var matchAccessoryBranch: Criteria
   public var products: [String: Product]
   public static func make(
-    yaml: Yaml.Production
+    yaml: Yaml.Flow
   ) throws -> Self { try .init(
     builds: .make(yaml: yaml.builds),
     versions: .make(yaml: yaml.versions),
@@ -120,7 +120,7 @@ public struct Production {
     public var createReleaseBranchName: Configuration.Template
     public static func make(
       name: String,
-      yaml: Yaml.Production.Product
+      yaml: Yaml.Flow.Product
     ) throws -> Self { try .init(
       name: name,
       matchStageTag: .init(yaml: yaml.matchStageTag),
@@ -173,7 +173,7 @@ public struct Production {
       case .review(let review): return review.sha
       }
     }
-    public static func make(build: AlphaNumeric, yaml: Yaml.Production.Build) throws -> Self {
+    public static func make(build: AlphaNumeric, yaml: Yaml.Flow.Build) throws -> Self {
       switch (yaml.review, yaml.target, yaml.branch, yaml.tag) {
       case (nil, nil, nil, let tag?): return .tag(.make(
         build: build,
@@ -263,7 +263,7 @@ public struct Production {
     public var accessories: [String: AlphaNumeric]
     public static func make(
       product: String,
-      yaml: Yaml.Production.Version
+      yaml: Yaml.Flow.Version
     ) throws -> Self { try .init(
       product: product,
       next: yaml.next,
@@ -366,7 +366,7 @@ public struct Production {
       public var previous: Set<Git.Sha>
       public static func make(
         version: AlphaNumeric,
-        yaml: Yaml.Production.Version.Delivery
+        yaml: Yaml.Flow.Version.Delivery
       ) throws -> Self { try .init(
         version: version,
         thread: .make(yaml: yaml.thread),
