@@ -205,7 +205,7 @@ public struct Review {
       teams: &randoms,
       users: randoms.reduce(into: Set(), { $0.formUnion($1.random) })
     ))
-    var result = Approval(state: .approved)
+    var result = Approval()
     result.orphaned = status.authors.isDisjoint(with: yetActive)
     result.unapprovable = legates
       .filter({ $0.quorum > 0 })
@@ -232,21 +232,16 @@ public struct Review {
       .filter(\.resolution.outdated)
       .map({ [$0.commit.value: Set([$0.approver])] })
       .reduce(into: [:], { $0.merge($1, uniquingKeysWith: { $0.union($1) }) })
-    if result.blockers.isEmpty.not { result.state = result.blockers
-      .isSubset(of: status.authors)
-      .then(.waitingAuthors)
-      .get(.waitingHolders)
-    }
     status.verified = (result.unapprovable.isEmpty && result.orphaned.not).then(sha)
     if status.emergent != nil { result.state = .emergent }
     else if status.verified == nil { result.state = .unapprovable }
-    else if result.slackers.isEmpty.not { result.state = .waitingSlackers }
-    else if result.outdaters.isEmpty.not { result.state = .waitingOutdaters }
+    else if result.slackers.isEmpty.not { result.state = .slackers }
+    else if result.outdaters.isEmpty.not { result.state = .outdaters }
     else if result.blockers.isEmpty.not { result.state = result.blockers
       .isSubset(of: status.authors)
-      .then(.waitingAuthors)
-      .get(.waitingHolders)
-    }
+      .then(.authors)
+      .get(.holders)
+    } else { result.state = .approved }
     return result
   }
   func selectUsers(teams: inout [Fusion.Approval.Rules.Team], users: Set<String>) -> Set<String> {
@@ -301,14 +296,14 @@ public struct Review {
     public var slackers: Set<String> = []
     public var outdaters: [String: Set<String>] = [:]
     public var approvers: Set<String> = []
-    public var state: State
+    public var state: State = .approved
     public enum State: String, Encodable {
       case emergent
       case unapprovable
-      case waitingSlackers
-      case waitingOutdaters
-      case waitingHolders
-      case waitingAuthors
+      case slackers
+      case outdaters
+      case holders
+      case authors
       case approved
       public var isApproved: Bool {
         switch self {

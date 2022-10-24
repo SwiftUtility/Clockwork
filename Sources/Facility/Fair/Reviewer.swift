@@ -67,7 +67,7 @@ public final class Reviewer {
     let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     guard let status = statuses[ctx.review.iid] else { throw Thrown("No review thread") }
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
-    report(cfg.reportReviewCustom(
+    report(cfg.reportReviewThread(
       event: event,
       status: status,
       approvers: approvers,
@@ -445,8 +445,7 @@ public final class Reviewer {
       review.isApproved(state: ctx.review)
     else {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
-      logMessage(.init(message: "Bad last pipeline state"))
-      return false
+      throw Thrown("Bad last pipeline state")
     }
     try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
     switch review.kind {

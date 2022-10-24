@@ -139,7 +139,7 @@ public struct Report: Query {
     public var authors: [String]
     public var slackers: [String]
   }
-  public struct ReviewCustom: GenerationContext {
+  public struct ReviewThread: GenerationContext {
     public var event: String = Self.event
     public var mark: String? = nil
     public var subevent: String
@@ -202,7 +202,7 @@ public struct Report: Query {
     public var notes: Production.ReleaseNotes?
     public var subevent: String { product }
   }
-  public struct ReleaseCustom: GenerationContext {
+  public struct ReleaseThread: GenerationContext {
     public var event: String = Self.event
     public var mark: String? = nil
     public var subevent: String
@@ -391,13 +391,13 @@ public extension Configuration {
     authors: status.authors.sorted(),
     slackers: slackers.sorted()
   ))}
-  func reportReviewCustom(
+  func reportReviewThread(
     event: String,
     status: Fusion.Approval.Status,
     approvers: [String: Fusion.Approval.Approver],
     state: Json.GitlabReviewState,
     stdin: AnyCodable?
-  ) -> Report { .init(cfg: self, context: Report.ReviewCustom(
+  ) -> Report { .init(cfg: self, context: Report.ReviewThread(
     subevent: event,
     thread: status.thread,
     review: state,
@@ -465,14 +465,14 @@ public extension Configuration {
     build: build,
     notes: notes.isEmpty.else(notes)
   ))}
-  func reportReleaseCustom(
+  func reportReleaseThread(
     event: String,
     product: Production.Product,
     delivery: Production.Version.Delivery,
     ref: String,
     sha: String,
     stdin: AnyCodable?
-  ) -> Report { .init(cfg: self, context: Report.ReleaseCustom(
+  ) -> Report { .init(cfg: self, context: Report.ReleaseThread(
     subevent: event,
     thread: delivery.thread,
     ref: ref,

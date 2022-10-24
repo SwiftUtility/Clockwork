@@ -76,7 +76,7 @@ public final class Producer {
       .get { throw Thrown("Versioning not configured for \(product)") }
       .deliveries[current.alphaNumeric]
       .get { throw Thrown("No \(product.name) \(current)") }
-    report(cfg.reportReleaseCustom(
+    report(cfg.reportReleaseThread(
       event: event,
       product: product,
       delivery: delivery,

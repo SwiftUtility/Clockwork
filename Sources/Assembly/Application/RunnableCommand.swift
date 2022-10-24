@@ -79,7 +79,7 @@ extension Clockwork.Flow.ExportBuild: RunnableCommand {
     try Assembler.producer.renderBuild(cfg: cfg)
   }
 }
-extension Clockwork.Flow.ExportNextVersions: RunnableCommand {
+extension Clockwork.Flow.ExportVersions: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.renderNextVersions(cfg: cfg)
   }
@@ -258,28 +258,28 @@ extension Clockwork.Review.Approver.UnwatchAuthors: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
     cfg: cfg,
     gitlab: approver.gitlab,
-    command: .watchAuthors(approver.args)
+    command: .watchAuthors(args)
   )}
 }
 extension Clockwork.Review.Approver.UnwatchTeams: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
     cfg: cfg,
     gitlab: approver.gitlab,
-    command: .unwatchTeams(approver.args)
+    command: .unwatchTeams(args)
   )}
 }
 extension Clockwork.Review.Approver.WatchAuthors: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
     cfg: cfg,
     gitlab: approver.gitlab,
-    command: .watchAuthors(approver.args)
+    command: .watchAuthors(args)
   )}
 }
 extension Clockwork.Review.Approver.WatchTeams: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
     cfg: cfg,
     gitlab: approver.gitlab,
-    command: .watchTeams(approver.args)
+    command: .watchTeams(args)
   )}
 }
 extension Clockwork.Review.Clean: RunnableCommand {
@@ -300,6 +300,11 @@ extension Clockwork.Review.ExportIntegration: RunnableCommand {
 extension Clockwork.Review.Own: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.ownReview(cfg: cfg)
+  }
+}
+extension Clockwork.Review.Skip: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.skipReview(cfg: cfg, review: id)
   }
 }
 extension Clockwork.Review.Update: RunnableCommand {
