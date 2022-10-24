@@ -101,7 +101,7 @@ public struct Fusion {
         prefix: prefix,
         source: source,
         target: target,
-        supply: .init(name: "\(prefix)/-/\(target)/-/\(source)/-/\(fork)")
+        supply: .init(name: "\(prefix)/-/\(target.name)/-/\(source.name)/-/\(fork.value)")
       )
     }
     public static func make(supply: String) throws -> Self? {

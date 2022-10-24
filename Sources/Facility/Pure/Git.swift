@@ -78,12 +78,9 @@ public struct Git {
   public struct Branch {
     public let name: String
     public init(name: String) throws {
-      guard
-        !name.isEmpty,
-        !name.hasPrefix("/"),
-        !name.hasSuffix("/"),
-        !name.contains(" ")
-      else { throw Thrown("invalid branch name") }
+      guard !name.isEmpty else { throw Thrown("empty branch name") }
+      guard !name.hasPrefix("/"), !name.hasSuffix("/"), !name.contains(" ")
+      else { throw Thrown("invalid branch name \(name)") }
       self.name = name
     }
     public static func make(job: Json.GitlabJob) throws -> Self {
