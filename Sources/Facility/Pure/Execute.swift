@@ -111,7 +111,7 @@ public extension Configuration {
     method: "POST",
     retry: 2,
     data: body,
-    headers: [Json.contentType, "Authorization: Bearer \(token)"]
+    headers: [Json.utf8, "Authorization: Bearer \(token)"]
   )}
   func write(file: Files.Absolute, execute: Execute) -> Execute {
     var execute = execute

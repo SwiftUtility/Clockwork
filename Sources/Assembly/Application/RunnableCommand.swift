@@ -29,29 +29,50 @@ extension RunnableCommand {
       .get()
   }
 }
-extension Clockwork.AcceptReview: RunnableCommand {
+extension Clockwork.Approver.Activate: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.acceptReview(cfg: cfg)
+    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .activate)
   }
 }
-extension Clockwork.AddReviewLabels: RunnableCommand {
+extension Clockwork.Approver.Deactivate: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.addReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .deactivate)
   }
 }
-extension Clockwork.ApproveReview: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.approveReview(cfg: cfg, resolution: resolution.status)
-  }
+extension Clockwork.Approver.Register: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .register(slack)
+  )}
 }
-extension Clockwork.ApproveReview.Resolution {
-  var status: Yaml.Fusion.Approval.Status.Resolution {
-    switch self {
-    case .fragil: return .fragil
-    case .advance: return .advance
-    case .block: return .block
-    }
-  }
+extension Clockwork.Approver.UnwatchAuthors: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .watchAuthors(approver.args)
+  )}
+}
+extension Clockwork.Approver.UnwatchTeams: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .unwatchTeams(approver.args)
+  )}
+}
+extension Clockwork.Approver.WatchAuthors: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .watchAuthors(approver.args)
+  )}
+}
+extension Clockwork.Approver.WatchTeams: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
+    cfg: cfg,
+    gitlab: approver.gitlab,
+    command: .watchTeams(approver.args)
+  )}
 }
 extension Clockwork.CancelJobs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
@@ -118,24 +139,9 @@ extension Clockwork.DeleteStageTag: RunnableCommand {
     try Assembler.producer.deleteStageTag(cfg: cfg)
   }
 }
-extension Clockwork.DequeueReview: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.dequeueReview(cfg: cfg)
-  }
-}
-extension Clockwork.EraseRequisites: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.clearRequisites(cfg: cfg)
-  }
-}
 extension Clockwork.ExportBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.renderBuild(cfg: cfg)
-  }
-}
-extension Clockwork.ExportIntegration: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.renderIntegration(cfg: cfg)
   }
 }
 extension Clockwork.ExportNextVersions: RunnableCommand {
@@ -148,34 +154,9 @@ extension Clockwork.ForwardBranch: RunnableCommand {
     try Assembler.producer.forwardBranch(cfg: cfg, name: name)
   }
 }
-extension Clockwork.ImportRequisites: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.installRequisite(cfg: cfg, requisites: requisites)
-  }
-}
-extension Clockwork.ImportPkcs12: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.installKeychain(cfg: cfg, requisites: requisites)
-  }
-}
-extension Clockwork.ImportProvisions: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.installProvisions(cfg: cfg, requisites: requisites)
-  }
-}
-extension Clockwork.OwnReview: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.ownReview(cfg: cfg)
-  }
-}
 extension Clockwork.PlayJobs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.affectJobs(cfg: cfg, pipeline: pipeline, names: names, action: .play)
-  }
-}
-extension Clockwork.CleanReviews: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.cleanReviews(cfg: cfg, remind: remind)
   }
 }
 extension Clockwork.ReportCustom: RunnableCommand {
@@ -197,12 +178,27 @@ extension Clockwork.ReportCustomRelease: RunnableCommand {
     try Assembler.producer.reportCustom(cfg: cfg, event: custom.event, stdin: custom.stdin.mode)
   }
 }
-extension Clockwork.ReportCustomReview: RunnableCommand {
+extension Clockwork.Requisites.Erase: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.reportCustom(cfg: cfg, event: custom.event, stdin: custom.stdin.mode)
+    try Assembler.requisitor.clearRequisites(cfg: cfg)
   }
 }
-extension Clockwork.ReportExpiringRequisites: RunnableCommand {
+extension Clockwork.Requisites.Import: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.installRequisite(cfg: cfg, requisites: requisites)
+  }
+}
+extension Clockwork.Requisites.ImportPkcs12: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.installKeychain(cfg: cfg, requisites: requisites)
+  }
+}
+extension Clockwork.Requisites.ImportProvisions: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.installProvisions(cfg: cfg, requisites: requisites)
+  }
+}
+extension Clockwork.Requisites.ReportExpiring: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.reportExpiringRequisites(cfg: cfg, days: days)
   }
@@ -210,11 +206,6 @@ extension Clockwork.ReportExpiringRequisites: RunnableCommand {
 extension Clockwork.ReserveBranchBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.reserveBranchBuild(cfg: cfg)
-  }
-}
-extension Clockwork.ReserveReviewBuild: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reserveReviewBuild(cfg: cfg)
   }
 }
 extension Clockwork.ResetPodSpecs: RunnableCommand {
@@ -227,9 +218,53 @@ extension Clockwork.RetryJobs: RunnableCommand {
     try Assembler.mediator.affectJobs(cfg: cfg, pipeline: pipeline, names: names, action: .retry)
   }
 }
-extension Clockwork.RemoveReviewLabels: RunnableCommand {
+extension Clockwork.Review.Accept: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.removeReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.reviewer.acceptReview(cfg: cfg)
+  }
+}
+extension Clockwork.Review.AddLabels: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.addReviewLabels(cfg: cfg, labels: labels)
+  }
+}
+extension Clockwork.Review.Approve: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.approveReview(cfg: cfg, resolution: resolution.status)
+  }
+}
+extension Clockwork.Review.Approve.Resolution {
+  var status: Yaml.Fusion.Approval.Status.Resolution {
+    switch self {
+    case .fragil: return .fragil
+    case .advance: return .advance
+    case .block: return .block
+    }
+  }
+}
+extension Clockwork.Review.Clean: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.cleanReviews(cfg: cfg, remind: remind)
+  }
+}
+extension Clockwork.Review.Dequeue: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.dequeueReview(cfg: cfg)
+  }
+}
+extension Clockwork.Review.ExportIntegration: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.renderIntegration(cfg: cfg)
+  }
+}
+extension Clockwork.Review.Own: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.ownReview(cfg: cfg)
+  }
+}
+extension Clockwork.Review.Update: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.updateReview(cfg: cfg)
   }
 }
 extension Clockwork.TriggerPipeline: RunnableCommand {
@@ -237,38 +272,8 @@ extension Clockwork.TriggerPipeline: RunnableCommand {
     try Assembler.mediator.triggerPipeline(cfg: cfg, ref: ref, context: context)
   }
 }
-extension Clockwork.TriggerReviewPipeline: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.createReviewPipeline(cfg: cfg)
-  }
-}
-extension Clockwork.SkipReview: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.skipReview(cfg: cfg, review: review)
-  }
-}
-extension Clockwork.StartReplication: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startReplication(cfg: cfg)
-  }
-}
-extension Clockwork.StartIntegration: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startIntegration(cfg: cfg, source: source, target: target, fork: fork)
-  }
-}
 extension Clockwork.UpdatePodSpecs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
-  }
-}
-extension Clockwork.UpdateApprover: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateApprover(cfg: cfg, active: active, slack: slack, gitlab: gitlab)
-  }
-}
-extension Clockwork.UpdateReview: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateReview(cfg: cfg)
   }
 }

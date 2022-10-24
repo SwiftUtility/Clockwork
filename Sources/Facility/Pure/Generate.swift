@@ -159,7 +159,16 @@ public struct Generate: Query {
     public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var user: String
-    public var active: Bool
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case activate
+      case deactivate
+      case register
+      case unwatchAuthors
+      case unwatchTeams
+      case watchAuthors
+      case watchTeams
+    }
   }
   public struct CreateReviewQueueCommitMessage: GenerationContext {
     public var event: String = Self.event
@@ -444,7 +453,7 @@ public extension Configuration {
   func createApproversCommitMessage(
     fusion: Fusion,
     user: String,
-    active: Bool
+    command: Fusion.Approval.Approver.Command
   ) -> Generate { .init(
     allowEmpty: false,
     template: fusion.approval.approvers.createCommitMessage,
@@ -454,7 +463,7 @@ public extension Configuration {
       ctx: context,
       info: try? gitlabCi.get().info,
       user: user,
-      active: active
+      reason: command.reason
     )
   )}
   func createReviewQueueCommitMessage(

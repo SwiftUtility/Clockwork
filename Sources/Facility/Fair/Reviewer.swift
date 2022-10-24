@@ -170,33 +170,57 @@ public final class Reviewer {
   }
   public func updateApprover(
     cfg: Configuration,
-    active: Bool,
-    slack: String,
-    gitlab: String
+    gitlab: String,
+    command: Fusion.Approval.Approver.Command
   ) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
+    let rules = try resolveRules(cfg: cfg, fusion: fusion)
     var approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
     let user = try gitlab.isEmpty
       .else(gitlab)
       .get(cfg.gitlabCi.get().job.user.username)
-    let slack = try slack.isEmpty
-      .else(slack)
-      .flatMapNil(approvers[user]?.slack)
-      .get { throw Thrown("No slack id for user: \(user)") }
-    let clones = approvers
-      .filter({ $0.key != user && $0.value.slack == slack })
-      .keys
-      .joined(separator: ", ")
-    guard clones.isEmpty else { throw Thrown("Same slack as: \(clones)") }
-    approvers[user] = .make(login: user, active: active, slack: slack)
+    if case .register(let slack) = command {
+      guard approvers[user] == nil else { throw Thrown("Already exists \(user)") }
+      approvers[user] = .make(login: user, active: true, slack: slack)
+    } else {
+      guard var approver = approvers[user] else { throw Thrown("No approver \(user)") }
+      switch command {
+      case .register: break
+      case .activate: approver.active = true
+      case .deactivate: approver.active = false
+      case .unwatchAuthors(let authors):
+        let unknown = authors.filter({ approver.watchAuthors.contains($0).not })
+        guard unknown.isEmpty
+        else { throw Thrown("Not watching authors: \(unknown.joined(separator: ", "))") }
+        approver.watchAuthors = approver.watchAuthors.subtracting(authors)
+      case .unwatchTeams(let teams):
+        let unknown = teams.filter({ approver.watchTeams.contains($0).not })
+        guard unknown.isEmpty
+        else { throw Thrown("Not watching teams: \(unknown.joined(separator: ", "))") }
+        approver.watchTeams = approver.watchTeams.subtracting(teams)
+      case .watchAuthors(let authors):
+        let known = approvers.values.reduce(into: Set(), { $0.insert($1.login) })
+        let unknown = authors.filter({ known.contains($0).not })
+        guard unknown.isEmpty
+        else { throw Thrown("Unknown users: \(unknown.joined(separator: ", "))") }
+        approver.watchAuthors.formUnion(authors)
+      case .watchTeams(let teams):
+        let known = rules.teams.values.reduce(into: Set(), { $0.insert($1.name) })
+        let unknown = teams.filter({ known.contains($0).not })
+        guard unknown.isEmpty
+        else { throw Thrown("Unknown teams: \(unknown.joined(separator: ", "))") }
+        approver.watchTeams.formUnion(teams)
+      }
+      approvers[user] = approver
+    }
     return try persistAsset(.init(
       cfg: cfg,
       asset: fusion.approval.approvers,
-      content: Fusion.Approval.Approver.yaml(approvers: approvers),
+      content: Fusion.Approval.Approver.serialize(approvers: approvers),
       message: generate(cfg.createApproversCommitMessage(
         fusion: fusion,
         user: user,
-        active: active
+        command: command
       ))
     ))
   }
@@ -212,7 +236,7 @@ public final class Reviewer {
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
     guard var status = statuses[review] else { return false }
-    status.emergent = true
+    status.emergent = try .make(value: state.lastPipeline.sha)
     return try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status, reason: .cheat)
   }
   public func approveReview(
@@ -228,13 +252,16 @@ public final class Reviewer {
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
-    let wasApproved = review.isApproved(sha: ctx.review.lastPipeline.sha)
+    let wasApproved = review.isApproved(state: ctx.review)
     try review.approve(job: ctx.job, resolution: resolution)
     guard try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .approve)
     else { return false }
-    if wasApproved.not, review.isApproved(sha: ctx.review.lastPipeline.sha) { try Execute.checkStatus(
-      reply: execute(ctx.gitlab.postMrPipelines(review: ctx.review.iid).get())
-    )}
+    if wasApproved.not, review.isApproved(state: ctx.review) { try ctx.gitlab
+      .postMrPipelines(review: ctx.review.iid)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    }
     return true
   }
   public func dequeueReview(cfg: Configuration) throws -> Bool {
@@ -377,19 +404,9 @@ public final class Reviewer {
       return false
     }
     let approval = try verify(cfg: cfg, state: ctx.review, fusion: fusion, review: &review)
-    if approval.isUnapprovable {
-      logMessage(.init(message: "Review is unapprovable"))
-      report(cfg.reportReviewUnapprovable(
-        review: review,
-        state: ctx.review,
-        approval: approval
-      ))
-      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
-      return false
-    }
     report(cfg.reportReviewUpdate(review: review, state: ctx.review, update: approval))
     guard approval.state.isApproved else {
-      logMessage(.init(message: "Review is unapproved"))
+      logMessage(.init(message: "Review is not approved"))
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
       return false
@@ -419,13 +436,13 @@ public final class Reviewer {
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
-    review.prepareVerification(source: ctx.review.sourceBranch, target: ctx.review.targetBranch)
+    review.resolveUtility(source: ctx.review.sourceBranch, target: ctx.review.targetBranch)
     guard
       try checkIsRebased(cfg: cfg, state: ctx.review),
       try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
       try checkClosers(cfg: cfg, state: ctx.review, gitlab: ctx.gitlab, kind: review.kind) == nil,
       try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) == nil,
-      review.isApproved(sha: ctx.review.lastPipeline.sha)
+      review.isApproved(state: ctx.review)
     else {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       logMessage(.init(message: "Bad last pipeline state"))
@@ -549,7 +566,7 @@ public final class Reviewer {
         .map(parseAntagonists)
         .get([:])
     )
-    result.prepareVerification(source: state.sourceBranch, target: state.targetBranch)
+    result.resolveUtility(source: state.sourceBranch, target: state.targetBranch)
     return result
   }
   func resolveRules(cfg: Configuration, fusion: Fusion) throws -> Fusion.Approval.Rules {
@@ -568,13 +585,13 @@ public final class Reviewer {
     let current = try Git.Sha.make(value: state.lastPipeline.sha)
     let target = try Git.Ref.make(remote: .init(name: state.targetBranch))
     if let fork = review.kind.merge?.fork {
-      try review.prepareVerification(diff: listMergeChanges(
+      try review.resolveOwnage(diff: listMergeChanges(
         cfg: cfg,
         ref: .make(sha: current),
         parents: [target, .make(sha: fork)]
       ))
     } else {
-      try review.prepareVerification(diff: Execute.parseLines(
+      try review.resolveOwnage(diff: Execute.parseLines(
         reply: execute(cfg.git.listChangedFiles(
           source: .make(sha: current),
           target: target
@@ -598,7 +615,7 @@ public final class Reviewer {
         )))
         .map(Git.Sha.make(value:))
     )}
-    return review.performVerification(sha: current)
+    return review.resolveApproval(sha: current)
   }
   func checkClosers(
     cfg: Configuration,
@@ -1011,7 +1028,7 @@ public final class Reviewer {
     return try persistAsset(.init(
       cfg: cfg,
       asset: fusion.approval.statuses,
-      content: Fusion.Approval.Status.yaml(statuses: statuses),
+      content: Fusion.Approval.Status.serialize(statuses: statuses),
       message: generate(cfg.createFusionStatusesCommitMessage(
         fusion: fusion,
         review: state,

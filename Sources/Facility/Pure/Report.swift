@@ -87,19 +87,6 @@ public struct Report: Query {
       case unknownUsers
     }
   }
-  public struct ReviewUnapprovable: GenerationContext {
-    public var event: String = Self.event
-    public var mark: String? = nil
-    public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
-    public var info: GitlabCi.Info? = nil
-    public var thread: Configuration.Thread
-    public var review: Json.GitlabReviewState
-    public var users: [String: Fusion.Approval.Approver]
-    public var authors: [String]
-    public var inactiveAuthors: Bool
-    public var unapprovableTeams: [String]?
-  }
   public struct ReviewUpdate: GenerationContext {
     public var event: String = Self.event
     public var mark: String? = nil
@@ -111,13 +98,15 @@ public struct Report: Query {
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
     public var teams: [String]?
-    public var mentions: [String]?
     public var watchers: [String]?
     public var blockers: [String]?
     public var slackers: [String]?
     public var approvers: [String]?
     public var outdaters: [String: [String]]?
+    public var orphaned: Bool
+    public var unapprovable: [String]?
     public var state: Review.Approval.State
+    public var subevent: String { state.rawValue }
   }
   public struct ReviewMerged: GenerationContext {
     public var event: String = Self.event
@@ -129,6 +118,10 @@ public struct Report: Query {
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
+    public var teams: [String]?
+    public var watchers: [String]?
+    public var approvers: [String]?
+    public var state: Review.Approval.State
   }
   public struct ReviewMergeError: GenerationContext {
     public var event: String = Self.event
@@ -365,18 +358,6 @@ public extension Configuration {
     unknownUsers: review.unknownUsers.isEmpty.else(review.unknownUsers.sorted()),
     unknownTeams: review.unknownTeams.isEmpty.else(review.unknownTeams.sorted())
   ))}
-  func reportReviewUnapprovable(
-    review: Review,
-    state: Json.GitlabReviewState,
-    approval: Review.Approval
-  ) -> Report { .init(cfg: self, context: Report.ReviewUnapprovable(
-    thread: review.status.thread,
-    review: state,
-    users: review.approvers,
-    authors: review.status.authors.sorted(),
-    inactiveAuthors: approval.inactiveAuthors,
-    unapprovableTeams: approval.unapprovableTeams.isEmpty.else(approval.unapprovableTeams.sorted())
-  ))}
   func reportReviewUpdate(
     review: Review,
     state: Json.GitlabReviewState,
@@ -385,14 +366,15 @@ public extension Configuration {
     thread: review.status.thread,
     review: state,
     users: review.approvers,
-    authors: update.authors.sorted(),
-    teams: update.teams.isEmpty.else(update.teams.sorted()),
-    mentions: update.mentions.isEmpty.else(update.mentions.sorted()),
-    watchers: update.watchers.isEmpty.else(update.watchers.sorted()),
+    authors: review.status.authors.sorted(),
+    teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
+    watchers: review.watchers,
     blockers: update.blockers.isEmpty.else(update.blockers.sorted()),
     slackers: update.slackers.isEmpty.else(update.slackers.sorted()),
     approvers: update.approvers.isEmpty.else(update.approvers.sorted()),
     outdaters: update.outdaters.isEmpty.else(update.outdaters.mapValues({ $0.sorted() })),
+    orphaned: update.orphaned,
+    unapprovable: update.unapprovable.isEmpty.else(update.unapprovable.sorted()),
     state: update.state
   ))}
   func reportReviewMerged(
@@ -402,7 +384,11 @@ public extension Configuration {
     thread: review.status.thread,
     review: state,
     users: review.approvers,
-    authors: review.status.authors.sorted()
+    authors: review.status.authors.sorted(),
+    teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
+    watchers: review.watchers,
+    approvers: review.status.participants.isEmpty.else(review.status.participants.sorted()),
+    state: review.status.emergent.map({_ in .emergent}).get(.approved)
   ))}
   func reportReviewMergeError(
     review: Review,

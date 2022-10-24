@@ -196,39 +196,76 @@ public struct Fusion {
       public var login: String
       public var active: Bool
       public var slack: String
-      var yaml: String { "'\(login)': {active: \(active), slack: '\(slack)}\n" }
+      public var watchTeams: Set<String>
+      public var watchAuthors: Set<String>
+      public static func serialize(approvers this: [String: Self]) -> String {
+        guard this.isEmpty.not else { return "{}" }
+        var result: String = ""
+        for approvar in this.keys.sorted().compactMap({ this[$0] }) {
+          result += "'\(approvar.login)':\n"
+          result += "  active: \(approvar.active)\n"
+          result += "  slack: \(approvar.slack)\n"
+          let watchTeams = approvar.watchTeams.sorted().map({ "'\($0)'" }).joined(separator: ",")
+          if watchTeams.isEmpty.not { result += "  watchTeams: [\(watchTeams)]\n" }
+          let watchAuthors = approvar.watchAuthors.sorted().map({ "'\($0)'" }).joined(separator: ",")
+          if watchAuthors.isEmpty.not { result += "  watchAuthors: [\(watchAuthors)]\n" }
+        }
+        return result
+      }
       public static func make(login: String, yaml: Yaml.Fusion.Approval.Approver) -> Self { .init(
         login: login,
         active: yaml.active,
-        slack: yaml.slack
+        slack: yaml.slack,
+        watchTeams: Set(yaml.watchTeams.get([])),
+        watchAuthors: Set(yaml.watchAuthors.get([]))
       )}
       public static func make(login: String, active: Bool, slack: String) -> Self { .init(
         login: login,
         active: active,
-        slack: slack
+        slack: slack,
+        watchTeams: [],
+        watchAuthors: []
       )}
-      public static func yaml(approvers: [String: Self]) -> String {
-        guard approvers.isEmpty.not else { return "{}\n" }
-        return approvers.keys
-          .sorted()
-          .compactMap({ approvers[$0]?.yaml })
-          .joined()
+      public enum Command {
+        case activate
+        case deactivate
+        case register(String)
+        case unwatchAuthors([String])
+        case unwatchTeams([String])
+        case watchAuthors([String])
+        case watchTeams([String])
+        public var reason: Generate.CreateApproversCommitMessage.Reason {
+          switch self {
+          case .activate: return .activate
+          case .deactivate: return .deactivate
+          case .register: return .register
+          case .unwatchAuthors: return .unwatchAuthors
+          case .unwatchTeams: return .unwatchTeams
+          case .watchAuthors: return .watchAuthors
+          case .watchTeams: return .watchTeams
+          }
+        }
       }
     }
     public struct Rules {
       public var sanity: String?
-      public var randoms: Randoms
+      public var weights: [String: Int]
+      public var baseWeight: Int
       public var teams: [String: Team]
+      public var randoms: [String: Set<String>]
       public var authorship: [String: Set<String>]
       public var sourceBranch: [String: Criteria]
       public var targetBranch: [String: Criteria]
       public static func make(yaml: Yaml.Fusion.Approval.Rules) throws -> Self { try .init(
         sanity: yaml.sanity,
-        randoms: .make(yaml: yaml.randoms),
+        weights: yaml.weights.get([:]),
+        baseWeight: yaml.baseWeight,
         teams: yaml.teams
           .get([:])
           .map(Team.make(name:yaml:))
           .reduce(into: [:], { $0[$1.name] = $1 }),
+        randoms: yaml.randoms.get([:])
+          .mapValues(Set.init(_:)),
         authorship: yaml.authorship
           .get([:])
           .mapValues(Set.init(_:)),
@@ -243,7 +280,7 @@ public struct Fusion {
         public var name: String
         public var quorum: Int
         public var labels: [String]
-        public var mentions: [String]
+        public var random: Set<String>
         public var reserve: Set<String>
         public var optional: Set<String>
         public var required: Set<String>
@@ -256,30 +293,51 @@ public struct Fusion {
           name: name,
           quorum: yaml.quorum,
           labels: yaml.labels.get([]),
-          mentions: yaml.mentions.get([]),
+          random: Set(yaml.random.get([])),
           reserve: Set(yaml.reserve.get([])),
           optional: Set(yaml.optional.get([])),
           required: Set(yaml.required.get([])),
           advanceApproval: yaml.advanceApproval.get(false)
         )}
         public mutating func update(active: Set<String>) {
-          required = required.intersection(active)
-          optional = optional.intersection(active)
-          reserve = reserve.intersection(active)
+          required.formIntersection(active)
+          optional.formIntersection(active)
+          reserve.formIntersection(active)
+          random.formIntersection(active)
         }
         public mutating func update(involved: Set<String>) {
-          quorum -= involved.intersection(approvers).count
+          quorum -= approvers
+            .union(random)
+            .intersection(involved)
+            .count
           update(exclude: involved)
         }
         public mutating func update(exclude: Set<String>) {
           required = required.subtracting(exclude)
           optional = optional.subtracting(exclude)
           reserve = reserve.subtracting(exclude)
+          random = random.subtracting(exclude)
         }
         public mutating func update(optional involved: Set<String>) {
           let involved = reserve.intersection(involved)
           optional = optional.union(involved)
           reserve = reserve.subtracting(involved)
+        }
+        public mutating func update(isRandom: Bool) {
+          if isRandom {
+            required = []
+            optional = []
+            reserve = []
+          } else {
+            random = []
+          }
+        }
+        public func isNeeded(user: String) -> Bool {
+          guard quorum > 0 else { return false }
+          return required.contains(user)
+          || optional.contains(user)
+          || reserve.contains(user)
+          || random.contains(user)
         }
         public var necessary: Set<String> {
           let optional = optional.union(required)
@@ -288,36 +346,20 @@ public struct Fusion {
           guard optional.count > quorum else { return optional }
           return []
         }
-        public func isApproved(by users: Set<String>) -> Bool {
-          guard required.subtracting(users).isEmpty else { return false }
-          return approvers.intersection(users).count >= quorum
-        }
-      }
-      public struct Randoms {
-        public var quorum: Int
-        public var baseWeight: Int
-        public var weights: [String: Int]
-        public var advanceApproval: Bool
-        public static func make(yaml: Yaml.Fusion.Approval.Rules.Randoms) -> Self { .init(
-          quorum: yaml.quorum,
-          baseWeight: yaml.baseWeight,
-          weights: yaml.weights
-            .get([:]),
-          advanceApproval: yaml.advanceApproval
-        )}
       }
     }
     public struct Status {
       public var review: UInt
       public var target: String
+      public var teams: Set<String>
+      public var emergent: Git.Sha?
+      public var verified: Git.Sha?
       public var authors: Set<String>
       public var randoms: Set<String>
-      public var participants: Set<String>
+      public var legates: Set<String>
+      public var participants: Set<String> { legates.union(randoms) }
       public var approves: [String: Approve]
       public var thread: Configuration.Thread
-      public var verification: Git.Sha?
-      public var teams: Set<String>
-      public var emergent: Bool
       mutating func invalidate(users: Set<String>) { approves
         .filter(\.value.resolution.approved)
         .keys
@@ -326,17 +368,22 @@ public struct Fusion {
       }
       public var approvedCommits: Set<Git.Sha> { approves.values
         .filter(\.resolution.approved)
-        .reduce(into: [], { $0.insert($1.commit) })
+        .reduce(into: Set(emergent.array), { $0.insert($1.commit) })
       }
       public func reminds(sha: String, approvers: [String: Approver]) -> Set<String> {
-        guard emergent.not else { return [] }
-        guard verification?.value == sha else { return [] }
-        guard approves.filter(\.value.resolution.block).isEmpty else { return [] }
-        return participants
+        guard emergent == nil else { return [] }
+        guard verified?.value == sha else { return [] }
+        return legates
           .union(randoms)
           .union(authors)
           .subtracting(approves.filter(\.value.resolution.approved).keys)
+          .subtracting(approves.filter(\.value.resolution.block).keys)
           .intersection(approvers.filter(\.value.active).keys)
+      }
+      public func isWatched(by approver: Approver) -> Bool {
+        guard teams.isDisjoint(with: approver.watchTeams) else { return true }
+        guard authors.isDisjoint(with: approver.watchAuthors) else { return true }
+        return false
       }
       public static func make(
         review: String,
@@ -344,52 +391,41 @@ public struct Fusion {
       ) throws -> Self { try .init(
         review: review.getUInt(),
         target: yaml.target,
-        authors: .init(yaml.authors),
-        randoms: yaml.randoms,
-        participants: yaml.participants,
-        approves: yaml.approves
+        teams: Set(yaml.teams.get([])),
+        emergent: yaml.emergent.map(Git.Sha.make(value:)),
+        verified: yaml.verified.map(Git.Sha.make(value:)),
+        authors: Set(yaml.authors),
+        randoms: Set(yaml.randoms.get([])),
+        legates: Set(yaml.legates.get([])),
+        approves: yaml.approves.get([:])
           .map(Approve.make(approver:yaml:))
           .reduce(into: [:], { $0[$1.approver] = $1 }),
-        thread: .make(yaml: yaml.thread),
-        verification: yaml.verification
-          .map(Git.Sha.make(value:)),
-        teams: yaml.teams,
-        emergent: yaml.emergent
+        thread: .make(yaml: yaml.thread)
       )}
-      public static func yaml(statuses: [UInt: Self]) -> String {
+      public static func serialize(statuses: [UInt: Self]) -> String {
         var result = ""
         for (review, status) in statuses.sorted(by: { $0.key < $1.key }) {
           result += "'\(review)':\n"
           result += "  thread: \(status.thread.serialize())\n"
           result += "  target: '\(status.target)'\n"
-          result += "  emergent: \(status.emergent)\n"
           let authors = status.authors
             .sorted()
             .map({ "'\($0)'" })
             .joined(separator: ",")
           result += "  authors: [\(authors)]\n"
-          let randoms = status.randoms
+          let teams = status.teams.sorted().map({ "'\($0)'" }).joined(separator: ",")
+          if teams.isEmpty.not { result += "  teams: [\(teams)]" }
+          if let verified = status.verified?.value { result += "  verified: '\(verified)'\n" }
+          if let emergent = status.emergent?.value { result += "  emergent: '\(emergent)'\n" }
+          let legates = status.legates.sorted().map { "'\($0)'" }.joined(separator: ",")
+          if legates.isEmpty.not { result += "  legates: [\(legates)]\n" }
+          let randoms = status.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
+          if randoms.isEmpty.not { result += "  randoms: [\(randoms)]\n" }
+          let approves = status.approves.keys
             .sorted()
-            .map { "'\($0)'" }
-            .joined(separator: ",")
-          result += "  randoms: [\(randoms)]\n"
-          let participants = status.participants
-            .sorted()
-            .map { "'\($0)'" }
-            .joined(separator: ",")
-          result += "  participants: [\(participants)]\n"
-          let teams = status.teams
-            .sorted()
-            .map { "'\($0)'" }
-            .joined(separator: ",")
-          result += "  teams: [\(teams)]\n"
-          result += "  approves:\(status.approves.isEmpty.then(" {}").get(""))\n"
-          for (user, approve) in status.approves.sorted(by: { $0.key < $1.key }) {
-            result += "    '\(user)': {'\(approve.commit.value)': \(approve.resolution.rawValue)}\n"
-          }
-          if let verification = status.verification {
-            result += "  verification: '\(verification.value)'\n"
-          }
+            .compactMap({ status.approves[$0] })
+            .map({ "    '\($0.approver)': {\($0.resolution.rawValue): '\($0.commit.value)'}\n" })
+          if approves.isEmpty.not { result += "  approves:\n" + approves.joined() }
         }
         return result.isEmpty.then("{}\n").get(result)
       }
@@ -402,13 +438,13 @@ public struct Fusion {
       ) -> Self { .init(
         review: review,
         target: target,
+        teams: [],
+        emergent: nil,
         authors: authors,
         randoms: [],
-        participants: [],
+        legates: [],
         approves: makeApproves(fork: fork, authors: authors),
-        thread: thread,
-        teams: [],
-        emergent: false
+        thread: thread
       )}
       public static func makeApproves(fork: Git.Sha?, authors: Set<String>) -> [String: Approve] {
         guard let fork = fork else { return [:] }
@@ -422,9 +458,9 @@ public struct Fusion {
         public var resolution: Yaml.Fusion.Approval.Status.Resolution
         public static func make(
           approver: String,
-          yaml: [String: Yaml.Fusion.Approval.Status.Resolution]
+          yaml: [Yaml.Fusion.Approval.Status.Resolution: String]
         ) throws -> Self {
-          guard yaml.count == 1, let (commit, resolution) = yaml.first
+          guard yaml.count == 1, let (resolution, commit) = yaml.first
           else { throw Thrown("Bad approve format") }
           return try .init(approver: approver, commit: .make(value: commit), resolution: resolution)
         }

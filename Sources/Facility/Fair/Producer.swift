@@ -478,7 +478,7 @@ public final class Producer {
       .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
       .get()
       .protected
-    else { throw Thrown("Release \(name) not protected") }
+    else { throw Thrown("\(name) not protected") }
     report(cfg.reportAccessoryBranchCreated(ref: name))
     return true
   }

@@ -2,6 +2,7 @@ import Foundation
 import Facility
 public enum Json {
   public static var contentType: String { "Content-Type: application/json" }
+  public static var utf8: String { "Content-Type: application/json; charset=utf-8" }
   public struct GitlabPipeline: Codable {
     public var id: UInt
     public var status: String
@@ -36,6 +37,12 @@ public enum Json {
       } else {
         return .branch(.make(build: build.alphaNumeric, sha: pipeline.sha, branch: pipeline.ref))
       }
+    }
+    public func getLogin(approvers: [String: Fusion.Approval.Approver]) throws -> String {
+      let login = user.username
+      guard let approver = approvers[login] else { throw Thrown("Unknown user: \(login)") }
+      guard approver.active else { throw Thrown("Inactive approver: \(login)") }
+      return login
     }
     public struct Pipeline: Codable {
       public var id: UInt

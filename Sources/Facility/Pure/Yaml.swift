@@ -133,8 +133,10 @@ public enum Yaml {
       public var haters: Secret?
       public struct Rules: Decodable {
         public var sanity: String?
-        public var randoms: Randoms
+        public var weights: [String: Int]?
+        public var baseWeight: Int
         public var teams: [String: Team]?
+        public var randoms: [String: [String]]?
         public var authorship: [String: [String]]?
         public var sourceBranch: [String: Criteria]?
         public var targetBranch: [String: Criteria]?
@@ -142,28 +144,22 @@ public enum Yaml {
           public var quorum: Int
           public var advanceApproval: Bool?
           public var labels: [String]?
-          public var mentions: [String]?
+          public var random: [String]?
           public var reserve: [String]?
           public var optional: [String]?
           public var required: [String]?
-        }
-        public struct Randoms: Decodable {
-          public var quorum: Int
-          public var baseWeight: Int
-          public var weights: [String: Int]?
-          public var advanceApproval: Bool
         }
       }
       public struct Status: Decodable {
         public var thread: Thread
         public var target: String
         public var authors: [String]
-        public var randoms: Set<String>
-        public var participants: Set<String>
-        public var teams: Set<String>
-        public var approves: [String: [String: Resolution]]
-        public var verification: String?
-        public var emergent: Bool
+        public var teams: [String]?
+        public var emergent: String?
+        public var verified: String?
+        public var randoms: [String]?
+        public var legates: [String]?
+        public var approves: [String: [Resolution: String]]?
         public enum Resolution: String, Decodable {
           case block
           case fragil
@@ -198,6 +194,8 @@ public enum Yaml {
       public struct Approver: Decodable {
         public var active: Bool
         public var slack: String
+        public var watchTeams: Set<String>?
+        public var watchAuthors: Set<String>?
       }
     }
   }
