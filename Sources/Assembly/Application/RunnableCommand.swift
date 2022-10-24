@@ -302,9 +302,34 @@ extension Clockwork.Review.Own: RunnableCommand {
     try Assembler.reviewer.ownReview(cfg: cfg)
   }
 }
+extension Clockwork.Review.ReserveBuild: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.reserveReviewBuild(cfg: cfg)
+  }
+}
+extension Clockwork.Review.RemoveLabels: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.removeReviewLabels(cfg: cfg, labels: labels)
+  }
+}
+extension Clockwork.Review.TriggerPipeline: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.createReviewPipeline(cfg: cfg)
+  }
+}
 extension Clockwork.Review.Skip: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.skipReview(cfg: cfg, review: id)
+  }
+}
+extension Clockwork.Review.StartReplication: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.startReplication(cfg: cfg)
+  }
+}
+extension Clockwork.Review.StartIntegration: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.startIntegration(cfg: cfg, source: source, target: target, fork: fork)
   }
 }
 extension Clockwork.Review.Update: RunnableCommand {
