@@ -4,7 +4,6 @@ public protocol GenerationContext: Encodable {
   var event: String { get }
   var subevent: String { get }
   var env: [String: String] { get set }
-  var ctx: AnyCodable? { get set }
   var info: GitlabCi.Info? { get set }
   var mark: String? { get set }
 }
@@ -26,14 +25,12 @@ public struct Generate: Query {
   public struct ExportCurrentVersions: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var versions: [String: String]
   }
   public struct ExportBuildContext: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var versions: [String: String]
     public var build: String
@@ -48,7 +45,6 @@ public struct Generate: Query {
   public struct ExportIntegrationTargets: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var fork: String
     public var source: String
@@ -57,7 +53,6 @@ public struct Generate: Query {
   public struct CreateReleaseBranchName: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var version: String
@@ -66,7 +61,6 @@ public struct Generate: Query {
   public struct CreateTagName: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var version: String
@@ -76,7 +70,6 @@ public struct Generate: Query {
   public struct CreateTagAnnotation: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var version: String
@@ -86,7 +79,6 @@ public struct Generate: Query {
   public struct BumpReleaseVersion: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var version: String
@@ -95,14 +87,12 @@ public struct Generate: Query {
   public struct BumpBuildNumber: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var build: String
   }
   public struct ParseReleaseBranchVersion: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var ref: String
@@ -110,7 +100,6 @@ public struct Generate: Query {
   public struct ParseTagVersion: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var ref: String
@@ -119,7 +108,6 @@ public struct Generate: Query {
   public struct ParseTagBuild: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String
     public var ref: String
@@ -128,7 +116,6 @@ public struct Generate: Query {
   public struct CreateVersionsCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var product: String?
     public var version: String?
@@ -146,7 +133,6 @@ public struct Generate: Query {
   public struct CreateBuildCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var build: String
     public var review: String?
@@ -156,7 +142,6 @@ public struct Generate: Query {
   public struct CreateApproversCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var user: String
     public var reason: Reason
@@ -173,7 +158,6 @@ public struct Generate: Query {
   public struct CreateReviewQueueCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
     public var queued: Bool
@@ -181,7 +165,6 @@ public struct Generate: Query {
   public struct CreateFusionStatusesCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState?
     public var reason: Reason
@@ -199,14 +182,12 @@ public struct Generate: Query {
   public struct CreatePropositionCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
   }
   public struct CreateIntegrationCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var fork: String
     public var source: String
@@ -215,7 +196,6 @@ public struct Generate: Query {
   public struct CreateReplicationCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var fork: String
     public var source: String
@@ -224,7 +204,6 @@ public struct Generate: Query {
   public struct CreateFusionMergeCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
-    public var ctx: AnyCodable?
     public var info: GitlabCi.Info?
     public var review: Json.GitlabReviewState
   }
@@ -239,7 +218,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.ExportCurrentVersions(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       versions: versions
     )
@@ -255,7 +233,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.ExportBuildContext(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       versions: versions,
       build: build,
@@ -273,7 +250,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.ExportIntegrationTargets(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       fork: fork.value,
       source: source,
@@ -291,7 +267,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateTagName(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       version: version,
@@ -310,7 +285,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateTagAnnotation(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       version: version,
@@ -328,7 +302,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateReleaseBranchName(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       version: version,
@@ -345,7 +318,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.BumpReleaseVersion(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       version: version,
@@ -361,7 +333,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.BumpBuildNumber(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       build: build
     )
@@ -375,7 +346,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.ParseReleaseBranchVersion(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       ref: ref
@@ -391,7 +361,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.ParseTagVersion(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       ref: ref,
@@ -408,7 +377,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.ParseTagBuild(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       product: product.name,
       ref: ref,
@@ -426,7 +394,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateVersionsCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       product: product,
       version: version,
@@ -442,7 +409,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateBuildCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       build: build.build.value,
       review: build.review,
@@ -460,7 +426,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateApproversCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       user: user,
       reason: command.reason
@@ -476,7 +441,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateReviewQueueCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       review: review,
       queued: queued
@@ -492,7 +456,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateFusionStatusesCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       review: review,
       reason: reason
@@ -507,7 +470,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreatePropositionCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       review: review
     )
@@ -521,7 +483,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateIntegrationCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       fork: merge.fork.value,
       source: merge.source.name,
@@ -537,7 +498,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateReplicationCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       fork: merge.fork.value,
       source: merge.source.name,
@@ -553,7 +513,6 @@ public extension Configuration {
     templates: templates,
     context: Generate.CreateFusionMergeCommitMessage(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       review: review
     )

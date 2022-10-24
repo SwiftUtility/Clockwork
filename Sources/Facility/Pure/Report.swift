@@ -19,7 +19,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
@@ -29,7 +28,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
@@ -40,7 +38,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
@@ -64,7 +61,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
@@ -91,7 +87,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
@@ -112,7 +107,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
@@ -127,7 +121,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
@@ -139,7 +132,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
@@ -152,7 +144,6 @@ public struct Report: Query {
     public var mark: String? = nil
     public var subevent: String
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var review: Json.GitlabReviewState
@@ -164,7 +155,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var ref: String
     public var product: String
@@ -176,7 +166,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var ref: String
@@ -190,7 +179,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var ref: String
@@ -204,7 +192,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var ref: String
@@ -220,7 +207,6 @@ public struct Report: Query {
     public var mark: String? = nil
     public var subevent: String
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var thread: Configuration.Thread
     public var ref: String
@@ -233,7 +219,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var ref: String
     public var sha: String
@@ -246,7 +231,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var ref: String
     public var sha: String
@@ -260,7 +244,6 @@ public struct Report: Query {
     public var mark: String? = nil
     public var subevent: String
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var stdin: AnyCodable?
   }
@@ -268,7 +251,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var error: String
   }
@@ -276,7 +258,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var ref: String
   }
@@ -284,7 +265,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var ref: String
   }
@@ -292,7 +272,6 @@ public struct Report: Query {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
-    public var ctx: AnyCodable? = nil
     public var info: GitlabCi.Info? = nil
     public var items: [Item]
     public struct Item: Encodable {
@@ -317,7 +296,6 @@ public extension Configuration {
     template: fusion.createThread,
     report: .init(cfg: self, context: Report.ReviewCreated(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       review: review,
       users: users,
@@ -436,7 +414,6 @@ public extension Configuration {
     template: product.createReleaseThread,
     report: .init(cfg: self, context: Report.ReleaseBranchCreated(
       env: env,
-      ctx: context,
       info: try? gitlabCi.get().info,
       ref: ref,
       product: product.name,

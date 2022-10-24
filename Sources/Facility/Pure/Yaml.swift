@@ -9,9 +9,8 @@ public enum Yaml {
     public var cocoapods: String?
     public var templates: String?
     public var flow: String?
-    public var requisition: String?
+    public var requisites: String?
     public var review: String?
-    public var context: Secret?
   }
   public struct Gitlab: Decodable {
     public var token: Secret

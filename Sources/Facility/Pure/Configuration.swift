@@ -5,7 +5,6 @@ public struct Configuration {
   public var env: [String: String]
   public var profile: Profile
   public var templates: [String: String]
-  public var context: AnyCodable?
   public var gitlabCi: Lossy<GitlabCi>
   public var slack: Lossy<Slack>
   public static func make(
@@ -13,7 +12,6 @@ public struct Configuration {
     env: [String: String],
     profile: Configuration.Profile,
     templates: [String: String],
-    context: AnyCodable? = nil,
     gitlabCi: Lossy<GitlabCi>,
     slack: Lossy<Slack>
   ) -> Self { .init(
@@ -21,7 +19,6 @@ public struct Configuration {
     env: env,
     profile: profile,
     templates: templates,
-    context: context,
     gitlabCi: gitlabCi,
     slack: slack
   )}
@@ -29,7 +26,6 @@ public struct Configuration {
     public var profile: Git.File
     public var gitlabCi: GitlabCi?
     public var slack: Slack?
-    public var context: Secret?
     public var templates: Git.Dir?
     public var fusion: Lossy<Git.File>
     public var codeOwnage: Git.File?
@@ -46,8 +42,6 @@ public struct Configuration {
         .map(GitlabCi.make(yaml:)),
       slack: yaml.slack
         .reduce(profile.ref, Slack.make(ref:yaml:)),
-      context: yaml.context
-        .map(Secret.make(yaml:)),
       templates: yaml.templates
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.Dir.init(ref:path:)),
@@ -74,11 +68,11 @@ public struct Configuration {
         .reduce(profile.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("production not configured"))),
-      requisition: yaml.requisition
+      requisition: yaml.requisites
         .map(Files.Relative.init(value:))
         .reduce(profile.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
-        .get(.error(Thrown("requisition not configured")))
+        .get(.error(Thrown("requisites not configured")))
     )}
     public func checkSanity(criteria: Criteria?) -> Bool {
       guard let criteria = criteria else { return false }

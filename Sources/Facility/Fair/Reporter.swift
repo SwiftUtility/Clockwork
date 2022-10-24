@@ -34,7 +34,6 @@ public final class Reporter {
     let slack = try query.report.cfg.slack.get()
     var query = query
     query.report.context.env = query.report.cfg.env
-    query.report.context.ctx = query.report.cfg.context
     query.report.context.info = try? query.report.cfg.gitlabCi.get().info
     query.report.context.mark = "createThread"
     let body = try generate(query.report.generate(template: query.template))
@@ -70,7 +69,6 @@ public final class Reporter {
   public func report(query: Report) -> Report.Reply {
     var query = query
     query.context.env = query.cfg.env
-    query.context.ctx = query.cfg.context
     query.context.info = try? query.cfg.gitlabCi.get().info
     let slack: Slack
     do { slack = try query.cfg.slack.get() }
