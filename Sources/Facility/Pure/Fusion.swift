@@ -181,7 +181,7 @@ public struct Fusion {
     }
   }
   public struct Approval {
-    public var rules: Configuration.Secret
+    public var rules: Configuration.Asset
     public var statuses: Configuration.Asset
     public var approvers: Configuration.Asset
     public var haters: Configuration.Secret?

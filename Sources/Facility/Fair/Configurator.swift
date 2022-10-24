@@ -175,16 +175,6 @@ public final class Configurator {
     .map(Fusion.Approval.Status.make(review:yaml:))
     .reduce(into: [:], { $0[$1.review] = $1 })
   }
-  public func resolveApprovers(
-    query: Configuration.ResolveApprovers
-  ) throws -> Configuration.ResolveApprovers.Reply { try Id(query.approval.approvers)
-    .map(Git.File.make(asset:))
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Yaml.Review.Approval.Approver].self, dialect.read(_:from:))
-    .get()
-    .map(Fusion.Approval.Approver.make(login:yaml:))
-    .reduce(into: [:], { $0[$1.login] = $1 })
-  }
   public func resolveReviewQueue(
     query: Fusion.Queue.Resolve
   ) throws -> Fusion.Queue.Resolve.Reply { try Id(query.fusion.queue)

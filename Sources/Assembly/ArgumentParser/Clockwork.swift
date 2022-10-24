@@ -32,7 +32,7 @@ struct Clockwork: ParsableCommand {
         ExportBuild.self,
         ExportNextVersions.self,
         ForwardBranch.self,
-        ReserveBranchBuild.self,
+        ReserveBuild.self,
       ]
     )
     struct ChangeVersion: ClockworkCommand {
@@ -100,6 +100,10 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Option(help: "The branch name to forward")
       var name: String
+    }
+    struct ReserveBuild: ClockworkCommand {
+      static var abstract: String { "Reserve build number for current protected branch pipeline" }
+      @OptionGroup var clockwork: Clockwork
     }
   }
   struct Pipeline: ParsableCommand {
@@ -277,10 +281,6 @@ struct Clockwork: ParsableCommand {
       @Option(help: "Days till expired threashold or 0")
       var days: UInt = 0
     }
-  }
-  struct ReserveBranchBuild: ClockworkCommand {
-    static var abstract: String { "Reserve build number for current protected branch pipeline" }
-    @OptionGroup var clockwork: Clockwork
   }
   struct Review: ParsableCommand {
     static let configuration = CommandConfiguration(

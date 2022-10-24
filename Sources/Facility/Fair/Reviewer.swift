@@ -6,8 +6,8 @@ public final class Reviewer {
   let resolveFusion: Try.Reply<Configuration.ResolveFusion>
   let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
   let resolveReviewQueue: Try.Reply<Fusion.Queue.Resolve>
-  let resolveApprovers: Try.Reply<Configuration.ResolveApprovers>
-  let parseApprovalRules: Try.Reply<Configuration.ParseYamlSecret<Yaml.Review.Approval.Rules>>
+  let parseApprovers: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Review.Approval.Approver]>>
+  let parseApprovalRules: Try.Reply<Configuration.ParseYamlFile<Yaml.Review.Approval.Rules>>
   let parseCodeOwnage: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>
   let parseProfile: Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>
   let parseAntagonists: Try.Reply<Configuration.ParseYamlSecret<[String: Set<String>]>>
@@ -24,8 +24,8 @@ public final class Reviewer {
     resolveFusion: @escaping Try.Reply<Configuration.ResolveFusion>,
     resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
     resolveReviewQueue: @escaping Try.Reply<Fusion.Queue.Resolve>,
-    resolveApprovers: @escaping Try.Reply<Configuration.ResolveApprovers>,
-    parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlSecret<Yaml.Review.Approval.Rules>>,
+    parseApprovers: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Review.Approval.Approver]>>,
+    parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Review.Approval.Rules>>,
     parseCodeOwnage: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>,
     parseProfile: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>,
     parseAntagonists: @escaping Try.Reply<Configuration.ParseYamlSecret<[String: Set<String>]>>,
@@ -42,7 +42,7 @@ public final class Reviewer {
     self.resolveFusion = resolveFusion
     self.resolveFusionStatuses = resolveFusionStatuses
     self.resolveReviewQueue = resolveReviewQueue
-    self.resolveApprovers = resolveApprovers
+    self.parseApprovers = parseApprovers
     self.parseApprovalRules = parseApprovalRules
     self.parseCodeOwnage = parseCodeOwnage
     self.parseProfile = parseProfile
@@ -66,7 +66,7 @@ public final class Reviewer {
     let ctx = try resolveReviewContext(cfg: cfg)
     let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     guard let status = statuses[ctx.review.iid] else { throw Thrown("No review thread") }
-    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     report(cfg.reportReviewCustom(
       event: event,
       status: status,
@@ -133,7 +133,7 @@ public final class Reviewer {
   }
   public func cleanReviews(cfg: Configuration, remind: Bool) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
-    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     let gitlabCi = try cfg.gitlabCi.get()
     for status in statuses.values {
@@ -175,7 +175,7 @@ public final class Reviewer {
   ) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let rules = try resolveRules(cfg: cfg, fusion: fusion)
-    var approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    var approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     let user = try gitlab.isEmpty
       .else(gitlab)
       .get(cfg.gitlabCi.get().job.user.username)
@@ -545,7 +545,7 @@ public final class Reviewer {
   ) throws -> Review {
     logMessage(.init(message: "Loading status assets"))
     let kind = try fusion.makeKind(supply: state.sourceBranch)
-    let approvers = try resolveApprovers(.init(cfg: cfg, approval: fusion.approval))
+    let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     var result = try Review.make(
       bot: cfg.gitlabCi.get().protected.get().user.username,
       status: resolveStatus(
@@ -568,9 +568,6 @@ public final class Reviewer {
     )
     result.resolveUtility(source: state.sourceBranch, target: state.targetBranch)
     return result
-  }
-  func resolveRules(cfg: Configuration, fusion: Fusion) throws -> Fusion.Approval.Rules {
-    try .make(yaml: parseApprovalRules(.init(cfg: cfg, secret: fusion.approval.rules)))
   }
   func verify(
     cfg: Configuration,
@@ -1126,5 +1123,21 @@ public final class Reviewer {
       review: review,
       isLastPipe: job.pipeline.id == review.lastPipeline.id
     )
+  }
+  func resolveApprovers(
+    cfg: Configuration,
+    fusion: Fusion
+  ) throws -> [String: Fusion.Approval.Approver] { try Id
+    .make(.init(git: cfg.git, file: .make(asset: fusion.approval.approvers)))
+    .map(parseApprovers)
+    .get()
+    .map(Fusion.Approval.Approver.make(login:yaml:))
+    .reduce(into: [:], { $0[$1.login] = $1 })
+  }
+  func resolveRules(cfg: Configuration, fusion: Fusion) throws -> Fusion.Approval.Rules { try Id
+    .make(.init(git: cfg.git, file: .make(asset: fusion.approval.rules)))
+    .map(parseApprovalRules)
+    .map(Fusion.Approval.Rules.make(yaml:))
+    .get()
   }
 }

@@ -89,6 +89,11 @@ extension Clockwork.Flow.ForwardBranch: RunnableCommand {
     try Assembler.producer.forwardBranch(cfg: cfg, name: name)
   }
 }
+extension Clockwork.Flow.ReserveBuild: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.reserveBranchBuild(cfg: cfg)
+  }
+}
 extension Clockwork.Pipeline.Cancel: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .cancel)
@@ -206,11 +211,6 @@ extension Clockwork.Requisites.ImportProvisions: RunnableCommand {
 extension Clockwork.Requisites.ReportExpiring: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.reportExpiringRequisites(cfg: cfg, days: days)
-  }
-}
-extension Clockwork.ReserveBranchBuild: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reserveBranchBuild(cfg: cfg)
   }
 }
 extension Clockwork.Review.Accept: RunnableCommand {

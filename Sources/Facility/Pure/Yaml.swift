@@ -126,7 +126,7 @@ public enum Yaml {
       public var exportAvailableTargets: Template
     }
     public struct Approval: Decodable {
-      public var rules: Secret
+      public var rules: Asset
       public var statuses: Asset
       public var approvers: Asset
       public var haters: Secret?
