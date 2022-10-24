@@ -141,7 +141,7 @@ public enum Yaml {
         public var targetBranch: [String: Criteria]?
         public struct Team: Decodable {
           public var quorum: Int
-          public var advanceApproval: Bool?
+          public var advance: Bool?
           public var labels: [String]?
           public var random: [String]?
           public var reserve: [String]?

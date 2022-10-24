@@ -31,6 +31,7 @@ public final class Reporter {
     throw error
   }
   public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
+    logMessage(.init(message: "Creating thread"))
     let slack = try query.report.cfg.slack.get()
     var query = query
     query.report.context.env = query.report.cfg.env

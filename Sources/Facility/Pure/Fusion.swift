@@ -297,7 +297,7 @@ public struct Fusion {
           reserve: Set(yaml.reserve.get([])),
           optional: Set(yaml.optional.get([])),
           required: Set(yaml.required.get([])),
-          advanceApproval: yaml.advanceApproval.get(false)
+          advanceApproval: yaml.advance.get(false)
         )}
         public mutating func update(active: Set<String>) {
           required.formIntersection(active)

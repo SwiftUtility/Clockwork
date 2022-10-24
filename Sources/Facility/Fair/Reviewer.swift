@@ -303,6 +303,7 @@ public final class Reviewer {
       merge: merge,
       title: generate(cfg.createReplicationCommitMessage(
         replication: fusion.replication,
+        review: nil,
         merge: merge
       ))
     )
@@ -327,6 +328,7 @@ public final class Reviewer {
       merge: merge,
       title: generate(cfg.createIntegrationCommitMessage(
         integration: fusion.integration,
+        review: nil,
         merge: merge
       ))
     )
@@ -466,6 +468,7 @@ public final class Reviewer {
         review: review,
         message: generate(cfg.createReplicationCommitMessage(
           replication: fusion.replication,
+          review: ctx.review,
           merge: merge
         ))
       ) else { return false }
@@ -475,6 +478,7 @@ public final class Reviewer {
         merge: merge,
         title: generate(cfg.createReplicationCommitMessage(
           replication: fusion.replication,
+          review: nil,
           merge: merge
         ))
       )}
@@ -485,6 +489,7 @@ public final class Reviewer {
         review: review,
         message: generate(cfg.createIntegrationCommitMessage(
           integration: fusion.integration,
+          review: ctx.review,
           merge: merge
         ))
       ) else { return false }
@@ -522,19 +527,19 @@ public final class Reviewer {
     cfg: Configuration,
     state: Json.GitlabReviewState
   ) throws -> [String: Criteria] { try cfg.gitlabCi
-      .flatMap(\.env.parent)
-      .map(\.profile)
-      .reduce(.make(sha: .make(value: state.lastPipeline.sha)), Git.File.init(ref:path:))
-      .map { file in try Configuration.Profile.make(
-        profile: file,
-        yaml: parseProfile(.init(git: cfg.git, file: file))
-      )}
-      .map(\.codeOwnage)
-      .get()
-      .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
-      .map(parseCodeOwnage)
-      .get([:])
-      .mapValues(Criteria.init(yaml:))
+    .flatMap(\.env.parent)
+    .map(\.profile)
+    .reduce(.make(sha: .make(value: state.lastPipeline.sha)), Git.File.init(ref:path:))
+    .map { file in try Configuration.Profile.make(
+      profile: file,
+      yaml: parseProfile(.init(git: cfg.git, file: file))
+    )}
+    .map(\.codeOwnage)
+    .get()
+    .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
+    .map(parseCodeOwnage)
+    .get([:])
+    .mapValues(Criteria.init(yaml:))
   }
   func resolveReview(
     cfg: Configuration,
@@ -1077,6 +1082,7 @@ public final class Reviewer {
   ) throws -> Set<String> {
     let gitlab = try cfg.gitlabCi.get()
     guard let merge = kind.merge else { return [state.author.username] }
+    logMessage(.init(message: "Resolving authors"))
     let bot = try cfg.gitlabCi.get().protected.get().user.username
     let commits = try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [.make(sha: merge.fork)],

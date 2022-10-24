@@ -208,6 +208,7 @@ public struct Generate: Query {
     public var event: String = Self.event
     public var env: [String: String]
     public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState?
     public var fork: String
     public var source: String
     public var target: String
@@ -216,6 +217,7 @@ public struct Generate: Query {
     public var event: String = Self.event
     public var env: [String: String]
     public var info: GitlabCi.Info?
+    public var review: Json.GitlabReviewState?
     public var fork: String
     public var source: String
     public var target: String
@@ -495,6 +497,7 @@ public extension Configuration {
   )}
   func createIntegrationCommitMessage(
     integration: Fusion.Integration,
+    review: Json.GitlabReviewState?,
     merge: Fusion.Merge
   ) -> Generate { .init(
     allowEmpty: false,
@@ -503,6 +506,7 @@ public extension Configuration {
     context: Generate.CreateIntegrationCommitMessage(
       env: env,
       info: try? gitlabCi.get().info,
+      review: review,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
@@ -510,6 +514,7 @@ public extension Configuration {
   )}
   func createReplicationCommitMessage(
     replication: Fusion.Replication,
+    review: Json.GitlabReviewState?,
     merge: Fusion.Merge
   ) -> Generate { .init(
     allowEmpty: false,
@@ -518,6 +523,7 @@ public extension Configuration {
     context: Generate.CreateReplicationCommitMessage(
       env: env,
       info: try? gitlabCi.get().info,
+      review: review,
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
