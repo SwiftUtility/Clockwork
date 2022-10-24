@@ -123,7 +123,7 @@ public enum Yaml {
     }
     public struct Integration: Decodable {
       public var createCommitMessage: Template
-      public var exportAvailableTargets: Template
+      public var exportTargets: Template
     }
     public struct Approval: Decodable {
       public var rules: Asset

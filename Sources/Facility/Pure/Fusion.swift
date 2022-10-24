@@ -44,7 +44,7 @@ public struct Fusion {
     ),
     integration: .init(
       createCommitMessage: .make(yaml: yaml.integration.createCommitMessage),
-      exportAvailableTargets: .make(yaml: yaml.integration.exportAvailableTargets)
+      exportAvailableTargets: .make(yaml: yaml.integration.exportTargets)
     ),
     queue: .make(yaml: yaml.queue),
     createThread: .make(yaml: yaml.createThread),

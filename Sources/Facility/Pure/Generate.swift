@@ -139,6 +139,25 @@ public struct Generate: Query {
     public var branch: String?
     public var tag: String?
   }
+  public struct CreateApprovalRulesCommitMessage: GenerationContext {
+    public var event: String = Self.event
+    public var env: [String: String]
+    public var info: GitlabCi.Info?
+    public var team: String?
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case sanity
+      case weights
+      case randoms
+      case authorship
+      case sourceBranch
+      case targetBranch
+      case teams
+      case approval
+      case labels
+      case approvers
+    }
+  }
   public struct CreateApproversCommitMessage: GenerationContext {
     public var event: String = Self.event
     public var env: [String: String]
