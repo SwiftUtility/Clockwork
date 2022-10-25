@@ -634,9 +634,6 @@ public final class Reviewer {
     case .proposition(let rule):
       guard rule != nil else { return .noSourceRule }
     case .replication(let merge):
-      merge.target.name.debug("merge.target: ")
-      merge.fork.value.debug("merge.fork: ")
-      throw Thrown("wip")
       guard try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
