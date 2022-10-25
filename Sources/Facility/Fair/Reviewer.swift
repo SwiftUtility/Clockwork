@@ -634,30 +634,19 @@ public final class Reviewer {
     case .proposition(let rule):
       guard rule != nil else { return .noSourceRule }
     case .replication(let merge):
-      guard try state.author.username == gitlab.protected.get().user.username
-      else { return .authorNotBot }
-      guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: merge.target),
-        parent: .make(sha: merge.fork)
-      ))) else { return .forkInTarget }
       guard try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
       ))) else { return .forkParentNotInTarget }
-      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: merge.source),
-        parent: .make(sha: merge.fork)
-      ))) else { return .forkNotInSource }
-      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: merge.supply),
-        parent: .make(sha: merge.fork)
-      ))) else { return .forkNotInSupply }
       let target = try resolveBranch(cfg: cfg, name: merge.target.name)
       guard target.protected else { return .targetNotProtected }
       guard target.default else { return .targetNotDefault }
-      let source = try resolveBranch(cfg: cfg, name: merge.source.name)
-      guard source.protected else { return .sourceNotProtected }
     case .integration(let merge):
+      let target = try resolveBranch(cfg: cfg, name: merge.target.name)
+      guard target.protected else { return .targetNotProtected }
+    }
+    switch kind {
+    case .replication(let merge), .integration(let merge):
       guard try state.author.username == gitlab.protected.get().user.username
       else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
@@ -672,10 +661,9 @@ public final class Reviewer {
         child: .make(remote: merge.supply),
         parent: .make(sha: merge.fork)
       ))) else { return .forkNotInSupply }
-      let target = try resolveBranch(cfg: cfg, name: merge.target.name)
-      guard target.protected else { return .targetNotProtected }
       let source = try resolveBranch(cfg: cfg, name: merge.source.name)
       guard source.protected else { return .sourceNotProtected }
+    default: break
     }
     return nil
   }

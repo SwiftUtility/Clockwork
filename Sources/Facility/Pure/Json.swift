@@ -63,7 +63,7 @@ public enum Json {
     public var targetBranch: String
     public var sourceBranch: String
     public var author: GitlabUser
-    public var closedBy: GitlabUser
+    public var closedBy: GitlabUser?
     public var draft: Bool
     public var workInProgress: Bool
     public var mergeStatus: String
