@@ -1,11 +1,9 @@
 import ArgumentParser
 struct Clockwork: ParsableCommand {
   static var version: String { "0.4.0" }
-  @Option(help: "The path to the profile")
-  var profile = ".clockwork.yml"
   static let configuration = CommandConfiguration(
     abstract: "Distributed scalable monorepo management tool",
-    version: Self.version,
+    version: Clockwork.version,
     subcommands: [
       Flow.self,
       Pipeline.self,
@@ -16,9 +14,12 @@ struct Clockwork: ParsableCommand {
       Validate.self,
     ]
   )
+  @Option(help: "The path to the profile")
+  var profile = ".clockwork.yml"
   struct Flow: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of flow management commands",
+      version: Clockwork.version,
       subcommands: [
         ChangeVersion.self,
         CreateAccessoryBranch.self,
@@ -109,6 +110,7 @@ struct Clockwork: ParsableCommand {
   struct Pipeline: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Distributed scalable monorepo management tool",
+      version: Clockwork.version,
       subcommands: [
         Cancel.self,
         Delete.self,
@@ -132,6 +134,7 @@ struct Clockwork: ParsableCommand {
     struct Jobs: ParsableCommand {
       static let configuration = CommandConfiguration(
         abstract: "Subset of jobs affecting commands",
+        version: Clockwork.version,
         subcommands: [
           Play.self,
           Retry.self,
@@ -140,24 +143,28 @@ struct Clockwork: ParsableCommand {
       )
       @Flag(help: "Scopes of jobs to look for")
       var scopes: [Scope] = []
-      @Argument(help: "Job names to affect")
-      var names: [String]
       @Option(help: "Pipeline id to affect job on")
       var id: UInt
       struct Cancel: ClockworkCommand {
         static var abstract: String { "Cancel matching jobs" }
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var jobs: Jobs
+        @Argument(help: "Job names to affect")
+        var names: [String]
       }
       struct Play: ClockworkCommand {
         static var abstract: String { "Play matching jobs" }
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var jobs: Jobs
+        @Argument(help: "Job names to affect")
+        var names: [String]
       }
       struct Retry: ClockworkCommand {
         static var abstract: String { "Retry matching jobs" }
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var jobs: Jobs
+        @Argument(help: "Job names to affect")
+        var names: [String]
       }
       enum Scope: EnumerableFlag {
         case canceled
@@ -187,6 +194,7 @@ struct Clockwork: ParsableCommand {
   struct Pods: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Distributed scalable monorepo management tool",
+      version: Clockwork.version,
       subcommands: [
         ResetSpecs.self,
         UpdateSpecs.self,
@@ -204,6 +212,7 @@ struct Clockwork: ParsableCommand {
   struct Report: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset preconfigured report sending commands",
+      version: Clockwork.version,
       subcommands: [
         Custom.self,
         ReleaseThread.self,
@@ -245,6 +254,7 @@ struct Clockwork: ParsableCommand {
   struct Requisites: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of requisites management commands",
+      version: Clockwork.version,
       subcommands: [
         Erase.self,
         Import.self,
@@ -285,6 +295,7 @@ struct Clockwork: ParsableCommand {
   struct Review: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of review lifecycle management commands",
+      version: Clockwork.version,
       subcommands: [
         Accept.self,
         AddLabels.self,
@@ -334,6 +345,7 @@ struct Clockwork: ParsableCommand {
     struct Approver: ParsableCommand {
       static let configuration = CommandConfiguration(
         abstract: "Subset of approver manipulations commands",
+        version: Clockwork.version,
         subcommands: [
           Activate.self,
           Deactivate.self,
@@ -450,16 +462,17 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct Validate: ParsableCommand {
-    @Flag(help: "Should render json to stdout")
-    var json = false
     static let configuration = CommandConfiguration(
       abstract: "Distributed scalable monorepo management tool",
+      version: Clockwork.version,
       subcommands: [
         ConflictMarkers.self,
         FileTaboos.self,
         UnownedCode.self,
       ]
     )
+    @Flag(help: "Should render json to stdout")
+    var json = false
     struct ConflictMarkers: ClockworkCommand {
       static var abstract: String { "Ensure no conflict markers against base" }
       @OptionGroup var clockwork: Clockwork

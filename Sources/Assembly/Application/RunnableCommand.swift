@@ -5,7 +5,7 @@ import FacilityFair
 protocol RunnableCommand: ClockworkCommand {
   func run(cfg: Configuration) throws -> Bool
 }
-extension RunnableCommand {
+extension ClockworkCommand {
   mutating func run() throws {
     SideEffects.reportMayDay = { mayDay in Assembler.writeStderr("""
       ⚠️⚠️⚠️
@@ -18,12 +18,14 @@ extension RunnableCommand {
       """
     )}
     SideEffects.printDebug = Assembler.writeStderr
+    guard let runnableCommand = self as? RunnableCommand
+    else { throw MayDay("\(Self.self) not configured") }
     let cfg = try Assembler.configurator.configure(
       profile: clockwork.profile,
       env: Assembler.environment
     )
     try Lossy(cfg)
-      .map(run(cfg:))
+      .map(runnableCommand.run(cfg:))
       .reduceError(cfg, Assembler.reporter.report(cfg:error:))
       .reduce(cfg, Assembler.reporter.finish(cfg:success:))
       .get()
@@ -108,7 +110,7 @@ extension Clockwork.Pipeline.Jobs.Cancel: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
     pipeline: jobs.id,
-    names: jobs.names,
+    names: names,
     action: .cancel,
     scopes: jobs.scopes.map(\.mode)
   )}
@@ -117,7 +119,7 @@ extension Clockwork.Pipeline.Jobs.Play: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
     pipeline: jobs.id,
-    names: jobs.names,
+    names: names,
     action: .play,
     scopes: []
   )}
@@ -126,7 +128,7 @@ extension Clockwork.Pipeline.Jobs.Retry: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
     pipeline: jobs.id,
-    names: jobs.names,
+    names: names,
     action: .retry,
     scopes: jobs.scopes.map(\.mode)
   )}
