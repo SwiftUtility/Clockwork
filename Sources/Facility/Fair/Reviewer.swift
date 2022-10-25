@@ -374,8 +374,8 @@ public final class Reviewer {
     guard ctx.isActual else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
-    guard try checkIsRebased(cfg: cfg, state: ctx.review) else {
-      if let sha = try rebaseReview(cfg: cfg, fusion: fusion, state: ctx.review, review: review) {
+    guard try checkIsFastForward(cfg: cfg, state: ctx.review) else {
+      if let sha = try syncReview(cfg: cfg, fusion: fusion, state: ctx.review, review: review) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
           url: ctx.gitlab.protected.get().push,
           branch: .init(name: ctx.review.sourceBranch),
@@ -445,7 +445,7 @@ public final class Reviewer {
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
     review.resolveUtility(source: ctx.review.sourceBranch, target: ctx.review.targetBranch)
     guard
-      try checkIsRebased(cfg: cfg, state: ctx.review),
+      try checkIsFastForward(cfg: cfg, state: ctx.review),
       try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
       try checkClosers(cfg: cfg, state: ctx.review, gitlab: ctx.gitlab, kind: review.kind) == nil,
       try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) == nil,
@@ -718,7 +718,7 @@ public final class Reviewer {
     }
     return result.isEmpty.else(result)
   }
-  func checkIsRebased(
+  func checkIsFastForward(
     cfg: Configuration,
     state: Json.GitlabReviewState
   ) throws -> Bool {
@@ -751,7 +751,7 @@ public final class Reviewer {
       .map(Execute.parseText(reply:))
       .map(Git.Sha.make(value:))
       .get()
-    return parents == [fork, target]
+    return parents == [target, fork]
   }
   func listChangedFiles(
     cfg: Configuration,
@@ -831,7 +831,7 @@ public final class Reviewer {
     }
     return queue.isFirst(review: state.iid, target: state.targetBranch)
   }
-  func rebaseReview(
+  func syncReview(
     cfg: Configuration,
     fusion: Fusion,
     state: Json.GitlabReviewState,
@@ -928,7 +928,7 @@ public final class Reviewer {
     return try Git.Sha.make(value: Execute.parseText(reply: execute(cfg.git.commitTree(
       tree: .init(ref: .make(sha: .make(value: state.lastPipeline.sha))),
       message: message,
-      parents: [fork, .make(remote: merge.target)],
+      parents: [.make(remote: merge.target), fork],
       env: Git.env(
         authorName: name,
         authorEmail: email,
