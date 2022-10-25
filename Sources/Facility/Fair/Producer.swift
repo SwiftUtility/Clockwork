@@ -251,8 +251,6 @@ public final class Producer {
     let current = try generate(cfg.parseReleaseBranchVersion(product: product, ref: branch))
     let sha = try Git.Sha.make(job: gitlabCi.job)
     let versions = try loadVersions(cfg: cfg, production: production)
-    versions.debug("versions: ")
-    product.name.debug("product.name: ")
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product)") }
     let delivery = try version.deploy(version: current, sha: sha)

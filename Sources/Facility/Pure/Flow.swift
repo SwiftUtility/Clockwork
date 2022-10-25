@@ -173,20 +173,20 @@ public struct Production {
       case .review(let review): return review.sha
       }
     }
-    public static func make(build: AlphaNumeric, yaml: Yaml.Flow.Build) throws -> Self {
+    public static func make(build: String, yaml: Yaml.Flow.Build) throws -> Self {
       switch (yaml.review, yaml.target, yaml.branch, yaml.tag) {
       case (nil, nil, nil, let tag?): return .tag(.make(
-        build: build,
+        build: build.alphaNumeric,
         sha: yaml.sha,
         tag: tag
       ))
       case (nil, nil, let branch?, nil): return .branch(.make(
-        build: build,
+        build: build.alphaNumeric,
         sha: yaml.sha,
         branch: branch
       ))
       case (let review?, let target?, nil, nil): return .review(.make(
-        build: build,
+        build: build.alphaNumeric,
         sha: yaml.sha,
         review: review,
         target: target
@@ -266,11 +266,11 @@ public struct Production {
       yaml: Yaml.Flow.Version
     ) throws -> Self { try .init(
       product: product,
-      next: yaml.next,
+      next: yaml.next.alphaNumeric,
       deliveries: yaml.deliveries.get([:])
         .map(Delivery.make(version:yaml:))
         .reduce(into: [:], { $0[$1.version] = $1 }),
-      accessories: yaml.accessories.get([:])
+      accessories: yaml.accessories.get([:]).mapValues(\.alphaNumeric)
     )}
     public mutating func revoke(version: String, sha: Git.Sha) throws {
       let version = version.alphaNumeric
@@ -351,8 +351,6 @@ public struct Production {
       sha: Git.Sha
     ) throws -> Delivery {
       let version = version.alphaNumeric
-      version.debug("version: ")
-      deliveries.debug("deliveries: ")
       guard var delivery = deliveries[version] else { throw Thrown("No \(product) \(version)") }
       let delpoys = deliveries.values
         .filter({ $0.version < version })
@@ -367,10 +365,10 @@ public struct Production {
       public var deploys: Set<Git.Sha>
       public var previous: Set<Git.Sha>
       public static func make(
-        version: AlphaNumeric,
+        version: String,
         yaml: Yaml.Flow.Version.Delivery
       ) throws -> Self { try .init(
-        version: version,
+        version: version.alphaNumeric,
         thread: .make(yaml: yaml.thread),
         deploys: Set(yaml.deploys
           .get([])
