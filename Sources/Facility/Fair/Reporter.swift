@@ -31,7 +31,7 @@ public final class Reporter {
     throw error
   }
   public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
-    logMessage(.init(message: "Creating thread"))
+    logMessage(.init(message: "Creating thread for: \(query.report.context.identity)"))
     let slack = try query.report.cfg.slack.get()
     var query = query
     query.report.context.env = query.report.cfg.env
@@ -68,6 +68,7 @@ public final class Reporter {
     return true
   }
   public func report(query: Report) -> Report.Reply {
+    logMessage(.init(message: "Creating thread for: \(query.context.identity)"))
     var query = query
     query.context.env = query.cfg.env
     query.context.info = try? query.cfg.gitlabCi.get().info

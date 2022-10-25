@@ -55,6 +55,20 @@ public struct Report: Query {
       case forkNotInSource
       case forkNotInSupply
       case manual
+      public var logMessage: LogMessage {
+        switch self {
+        case .noSourceRule: return .init(message: "No rule for source")
+        case .targetNotProtected: return .init(message: "Target not protected")
+        case .targetNotDefault: return .init(message: "Target not default")
+        case .authorNotBot: return .init(message: "Not bot authored")
+        case .sourceNotProtected: return .init(message: "Source not protected")
+        case .forkInTarget: return .init(message: "Already merged")
+        case .forkParentNotInTarget: return .init(message: "Parent not merged")
+        case .forkNotInSource: return .init(message: "Fork not in source")
+        case .forkNotInSupply: return .init(message: "Fork not in supply")
+        case .manual: return .init(message: "Closed manually")
+        }
+      }
     }
   }
   public struct ReviewBlocked: GenerationContext {

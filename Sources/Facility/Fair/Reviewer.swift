@@ -302,6 +302,10 @@ public final class Reviewer {
       target: .init(name: project.defaultBranch),
       isReplication: true
     )
+    if let reason = try checkClosers(cfg: cfg, kind: .replication(merge), state: nil) {
+      logMessage(reason.logMessage)
+      return false
+    }
     try createReview(
       cfg: cfg,
       gitlab: cfg.gitlabCi.get(),
@@ -327,6 +331,10 @@ public final class Reviewer {
       target: .init(name: target),
       isReplication: false
     )
+    if let reason = try checkClosers(cfg: cfg, kind: .replication(merge), state: nil) {
+      logMessage(reason.logMessage)
+      return false
+    }
     try createReview(
       cfg: cfg,
       gitlab: cfg.gitlabCi.get(),
@@ -388,15 +396,18 @@ public final class Reviewer {
       }
       return false
     }
-    if let reason = try checkClosers(
-      cfg: cfg,
-      state: ctx.review,
-      gitlab: ctx.gitlab,
-      kind: review.kind
-    ) {
+    if let reason = try checkClosers(cfg: cfg, kind: review.kind, state: ctx.review) {
+      logMessage(reason.logMessage)
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       try closeReview(cfg: cfg, state: ctx.review)
-      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: nil, reason: .close)
+      _ = try persist(
+        statuses,
+        cfg: cfg,
+        fusion: fusion,
+        state: ctx.review,
+        status: nil,
+        reason: .close
+      )
       report(cfg.reportReviewClosed(
         status: review.status,
         state: ctx.review,
@@ -447,7 +458,7 @@ public final class Reviewer {
     guard
       try checkIsFastForward(cfg: cfg, state: ctx.review),
       try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
-      try checkClosers(cfg: cfg, state: ctx.review, gitlab: ctx.gitlab, kind: review.kind) == nil,
+      try checkClosers(cfg: cfg, kind: review.kind, state: ctx.review) == nil,
       try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) == nil,
       review.isApproved(state: ctx.review)
     else {
@@ -625,9 +636,8 @@ public final class Reviewer {
   }
   func checkClosers(
     cfg: Configuration,
-    state: Json.GitlabReviewState,
-    gitlab: GitlabCi,
-    kind: Fusion.Kind
+    kind: Fusion.Kind,
+    state: Json.GitlabReviewState?
   ) throws -> Report.ReviewClosed.Reason? {
     logMessage(.init(message: "Checking should close review"))
     switch kind {
@@ -638,17 +648,8 @@ public final class Reviewer {
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
       ))) else { return .forkParentNotInTarget }
-      let target = try resolveBranch(cfg: cfg, name: merge.target.name)
-      guard target.protected else { return .targetNotProtected }
-      guard target.default else { return .targetNotDefault }
+      fallthrough
     case .integration(let merge):
-      let target = try resolveBranch(cfg: cfg, name: merge.target.name)
-      guard target.protected else { return .targetNotProtected }
-    }
-    switch kind {
-    case .replication(let merge), .integration(let merge):
-      guard try state.author.username == gitlab.protected.get().user.username
-      else { return .authorNotBot }
       guard try !Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
@@ -657,13 +658,21 @@ public final class Reviewer {
         child: .make(remote: merge.source),
         parent: .make(sha: merge.fork)
       ))) else { return .forkNotInSource }
-      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: merge.supply),
-        parent: .make(sha: merge.fork)
-      ))) else { return .forkNotInSupply }
       let source = try resolveBranch(cfg: cfg, name: merge.source.name)
       guard source.protected else { return .sourceNotProtected }
-    default: break
+      let target = try resolveBranch(cfg: cfg, name: merge.target.name)
+      guard target.protected else { return .targetNotProtected }
+      if case .replication = kind {
+        guard target.default else { return .targetNotDefault }
+      }
+      if let state = state {
+        guard try state.author.username == cfg.gitlabCi.get().protected.get().user.username
+        else { return .authorNotBot }
+        guard try Execute.parseSuccess(reply: execute(cfg.git.check(
+          child: .make(remote: merge.supply),
+          parent: .make(sha: merge.fork)
+        ))) else { return .forkNotInSupply }
+      }
     }
     return nil
   }
@@ -1045,7 +1054,7 @@ public final class Reviewer {
     status: Fusion.Approval.Status?,
     reason: Generate.CreateFusionStatusesCommitMessage.Reason
   ) throws -> Bool {
-    logMessage(.init(message: "Persisting review status"))
+    logMessage(.init(message: "Persisting review statuses"))
     var statuses = statuses
     if let state = state { statuses[state.iid] = status }
     return try persistAsset(.init(
