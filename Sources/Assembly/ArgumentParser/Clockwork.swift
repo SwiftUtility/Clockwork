@@ -107,10 +107,6 @@ struct Clockwork: ParsableCommand {
     }
   }
   struct Pipeline: ParsableCommand {
-    struct Context: ParsableArguments {
-      @Option(help: "Pipeline id to affect")
-      var id: UInt
-    }
     static let configuration = CommandConfiguration(
       abstract: "Distributed scalable monorepo management tool",
       subcommands: [
@@ -124,12 +120,14 @@ struct Clockwork: ParsableCommand {
     struct Cancel: ClockworkCommand {
       static var abstract: String { "Cancel all pipeline jobs" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var pipeline: Context
+      @Option(help: "Pipeline id to affect")
+      var id: UInt
     }
     struct Delete: ClockworkCommand {
       static var abstract: String { "Delete pipeline" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var pipeline: Context
+      @Option(help: "Pipeline id to affect")
+      var id: UInt
     }
     struct Jobs: ParsableCommand {
       static let configuration = CommandConfiguration(
@@ -147,20 +145,23 @@ struct Clockwork: ParsableCommand {
       struct Cancel: ClockworkCommand {
         static var abstract: String { "Cancel matching jobs" }
         @OptionGroup var clockwork: Clockwork
-        @OptionGroup var pipeline: Context
         @OptionGroup var jobs: Jobs
+        @Option(help: "Pipeline id to affect")
+        var id: UInt
       }
       struct Play: ClockworkCommand {
         static var abstract: String { "Play matching jobs" }
         @OptionGroup var clockwork: Clockwork
-        @OptionGroup var pipeline: Context
         @OptionGroup var jobs: Jobs
+        @Option(help: "Pipeline id to affect")
+        var id: UInt
       }
       struct Retry: ClockworkCommand {
         static var abstract: String { "Retry matching jobs" }
         @OptionGroup var clockwork: Clockwork
-        @OptionGroup var pipeline: Context
         @OptionGroup var jobs: Jobs
+        @Option(help: "Pipeline id to affect")
+        var id: UInt
       }
       enum Scope: EnumerableFlag {
         case canceled
@@ -183,7 +184,8 @@ struct Clockwork: ParsableCommand {
     struct Retry: ClockworkCommand {
       static var abstract: String { "Retry all failed pipeline jobs" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var pipeline: Context
+      @Option(help: "Pipeline id to affect")
+      var id: UInt
     }
   }
   struct Pods: ParsableCommand {

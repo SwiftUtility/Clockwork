@@ -96,18 +96,18 @@ extension Clockwork.Flow.ReserveBuild: RunnableCommand {
 }
 extension Clockwork.Pipeline.Cancel: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .cancel)
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: id, action: .cancel)
   }
 }
 extension Clockwork.Pipeline.Delete: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .delete)
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: id, action: .delete)
   }
 }
 extension Clockwork.Pipeline.Jobs.Cancel: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: pipeline.id,
+    pipeline: id,
     names: jobs.names,
     action: .cancel,
     scopes: jobs.scopes.map(\.mode)
@@ -116,7 +116,7 @@ extension Clockwork.Pipeline.Jobs.Cancel: RunnableCommand {
 extension Clockwork.Pipeline.Jobs.Play: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: pipeline.id,
+    pipeline: id,
     names: jobs.names,
     action: .play,
     scopes: []
@@ -125,7 +125,7 @@ extension Clockwork.Pipeline.Jobs.Play: RunnableCommand {
 extension Clockwork.Pipeline.Jobs.Retry: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: pipeline.id,
+    pipeline: id,
     names: jobs.names,
     action: .retry,
     scopes: jobs.scopes.map(\.mode)
@@ -151,7 +151,7 @@ extension Clockwork.Pipeline.Trigger: RunnableCommand {
 }
 extension Clockwork.Pipeline.Retry: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .retry)
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: id, action: .retry)
   }
 }
 extension Clockwork.Pods.ResetSpecs: RunnableCommand {
