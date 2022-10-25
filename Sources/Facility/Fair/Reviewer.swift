@@ -252,17 +252,15 @@ public final class Reviewer {
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
-    let wasApproved = review.isApproved(state: ctx.review)
     try review.approve(job: ctx.job, resolution: resolution)
-    guard try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .approve)
-    else { return false }
-    if wasApproved.not, review.isApproved(state: ctx.review) { try ctx.gitlab
-      .postMrPipelines(review: ctx.review.iid)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    }
-    return true
+    return try persist(
+      statuses,
+      cfg: cfg,
+      fusion: fusion,
+      state: ctx.review,
+      status: review.status,
+      reason: .approve
+    )
   }
   public func dequeueReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
@@ -282,7 +280,14 @@ public final class Reviewer {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
     try review.setAuthor(job: ctx.job)
-    return try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .own)
+    return try persist(
+      statuses,
+      cfg: cfg,
+      fusion: fusion,
+      state: ctx.review,
+      status: review.status,
+      reason: .own
+    )
   }
   public func startReplication(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
