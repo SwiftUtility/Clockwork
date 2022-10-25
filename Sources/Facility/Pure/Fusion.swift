@@ -460,9 +460,13 @@ public struct Fusion {
           approver: String,
           yaml: [Yaml.Review.Approval.Status.Resolution: String]
         ) throws -> Self {
-          guard yaml.count == 1, let (resolution, commit) = yaml.first
+          guard yaml.count == 1, let yaml = yaml.first
           else { throw Thrown("Bad approve format") }
-          return try .init(approver: approver, commit: .make(value: commit), resolution: resolution)
+          return try .init(
+            approver: approver,
+            commit: .make(value: yaml.value),
+            resolution: yaml.key
+          )
         }
       }
     }
