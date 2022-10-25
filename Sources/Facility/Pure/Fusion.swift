@@ -490,7 +490,6 @@ public struct Fusion {
           approver: String,
           yaml: [String: String]
         ) throws -> Self {
-          print("\(yaml)")
           guard yaml.count == 1, let yaml = yaml.first else { throw Thrown("Bad approve format") }
           return try .init(
             approver: approver,
