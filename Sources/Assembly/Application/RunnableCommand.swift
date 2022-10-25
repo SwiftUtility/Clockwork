@@ -107,7 +107,7 @@ extension Clockwork.Pipeline.Delete: RunnableCommand {
 extension Clockwork.Pipeline.Jobs.Cancel: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: id,
+    pipeline: jobs.id,
     names: jobs.names,
     action: .cancel,
     scopes: jobs.scopes.map(\.mode)
@@ -116,7 +116,7 @@ extension Clockwork.Pipeline.Jobs.Cancel: RunnableCommand {
 extension Clockwork.Pipeline.Jobs.Play: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: id,
+    pipeline: jobs.id,
     names: jobs.names,
     action: .play,
     scopes: []
@@ -125,7 +125,7 @@ extension Clockwork.Pipeline.Jobs.Play: RunnableCommand {
 extension Clockwork.Pipeline.Jobs.Retry: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: id,
+    pipeline: jobs.id,
     names: jobs.names,
     action: .retry,
     scopes: jobs.scopes.map(\.mode)

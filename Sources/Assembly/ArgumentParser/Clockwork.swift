@@ -120,13 +120,13 @@ struct Clockwork: ParsableCommand {
     struct Cancel: ClockworkCommand {
       static var abstract: String { "Cancel all pipeline jobs" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Pipeline id to affect")
+      @Option(help: "Pipeline id to cancel jobs on")
       var id: UInt
     }
     struct Delete: ClockworkCommand {
       static var abstract: String { "Delete pipeline" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Pipeline id to affect")
+      @Option(help: "Pipeline id to delete")
       var id: UInt
     }
     struct Jobs: ParsableCommand {
@@ -142,26 +142,22 @@ struct Clockwork: ParsableCommand {
       var scopes: [Scope] = []
       @Argument(help: "Job names to affect")
       var names: [String]
+      @Option(help: "Pipeline id to affect job on")
+      var id: UInt
       struct Cancel: ClockworkCommand {
         static var abstract: String { "Cancel matching jobs" }
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var jobs: Jobs
-        @Option(help: "Pipeline id to affect")
-        var id: UInt
       }
       struct Play: ClockworkCommand {
         static var abstract: String { "Play matching jobs" }
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var jobs: Jobs
-        @Option(help: "Pipeline id to affect")
-        var id: UInt
       }
       struct Retry: ClockworkCommand {
         static var abstract: String { "Retry matching jobs" }
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var jobs: Jobs
-        @Option(help: "Pipeline id to affect")
-        var id: UInt
       }
       enum Scope: EnumerableFlag {
         case canceled
@@ -184,7 +180,7 @@ struct Clockwork: ParsableCommand {
     struct Retry: ClockworkCommand {
       static var abstract: String { "Retry all failed pipeline jobs" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Pipeline id to affect")
+      @Option(help: "Pipeline id to retry jobs on")
       var id: UInt
     }
   }
