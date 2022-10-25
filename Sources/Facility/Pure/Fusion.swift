@@ -7,7 +7,6 @@ public struct Fusion {
   public var integration: Integration
   public var queue: Configuration.Asset
   public var createThread: Configuration.Template
-  public var createMergeCommitMessage: Configuration.Template
   func createCommitMessage(kind: Kind) -> Configuration.Template {
     switch kind {
     case .proposition: return proposition.createCommitMessage
@@ -47,8 +46,7 @@ public struct Fusion {
       exportAvailableTargets: .make(yaml: yaml.integration.exportTargets)
     ),
     queue: .make(yaml: yaml.queue),
-    createThread: .make(yaml: yaml.createThread),
-    createMergeCommitMessage: .make(yaml: yaml.createMergeCommitMessage)
+    createThread: .make(yaml: yaml.createThread)
   )}
   public enum Kind {
     case proposition(Proposition.Rule?)

@@ -375,7 +375,7 @@ public final class Reviewer {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
     guard try checkIsRebased(cfg: cfg, state: ctx.review) else {
-      if let sha = try rebaseReview(cfg: cfg, state: ctx.review, fusion: fusion) {
+      if let sha = try rebaseReview(cfg: cfg, fusion: fusion, state: ctx.review, review: review) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
           url: ctx.gitlab.protected.get().push,
           branch: .init(name: ctx.review.sourceBranch),
@@ -419,7 +419,7 @@ public final class Reviewer {
       return false
     }
     guard try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind) else {
-      let sha = try squashReview(cfg: cfg, state: ctx.review, fusion: fusion, kind: review.kind)
+      let sha = try squashReview(cfg: cfg, state: ctx.review, fusion: fusion, review: review)
       try Execute.checkStatus(reply: execute(cfg.git.push(
         url: ctx.gitlab.protected.get().push,
         branch: .init(name: ctx.review.sourceBranch),
@@ -833,8 +833,9 @@ public final class Reviewer {
   }
   func rebaseReview(
     cfg: Configuration,
+    fusion: Fusion,
     state: Json.GitlabReviewState,
-    fusion: Fusion
+    review: Review
   ) throws -> Git.Sha? {
     logMessage(.init(message: "Merging target into source"))
     let initial = try Id(.head)
@@ -845,10 +846,23 @@ public final class Reviewer {
       .map(Git.Ref.make(sha:))
       .get()
     let sha = try Git.Ref.make(sha: .make(value: state.lastPipeline.sha))
-    let message = try generate(cfg.createFusionMergeCommitMessage(
-      fusion: fusion,
+    let message: String
+    switch review.kind {
+    case .proposition: message = try generate(cfg.createPropositionCommitMessage(
+      proposition: fusion.proposition,
       review: state
     ))
+    case .replication(let merge): message = try generate(cfg.createReplicationCommitMessage(
+      replication: fusion.replication,
+      review: state,
+      merge: merge
+    ))
+    case .integration(let merge): message = try generate(cfg.createIntegrationCommitMessage(
+      integration: fusion.integration,
+      review: state,
+      merge: merge
+    ))
+    }
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: sha)))
     let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: sha)))
     try Execute.checkStatus(reply: execute(cfg.git.detach(ref: sha)))
@@ -886,19 +900,34 @@ public final class Reviewer {
     cfg: Configuration,
     state: Json.GitlabReviewState,
     fusion: Fusion,
-    kind: Fusion.Kind
+    review: Review
   ) throws -> Git.Sha {
     logMessage(.init(message: "Squashing source commits"))
-    guard let merge = kind.merge else { throw MayDay("Squashing proposition") }
+    let message: String
+    let merge: Fusion.Merge
+    switch review.kind {
+    case .proposition: throw MayDay("Squashing proposition")
+    case .replication(let replication):
+      merge = replication
+      message = try generate(cfg.createReplicationCommitMessage(
+        replication: fusion.replication,
+        review: state,
+        merge: merge
+      ))
+    case .integration(let integration):
+      merge = integration
+      message = try generate(cfg.createIntegrationCommitMessage(
+        integration: fusion.integration,
+        review: state,
+        merge: merge
+      ))
+    }
     let fork = Git.Ref.make(sha: merge.fork)
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: fork)))
     let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: fork)))
     return try Git.Sha.make(value: Execute.parseText(reply: execute(cfg.git.commitTree(
       tree: .init(ref: .make(sha: .make(value: state.lastPipeline.sha))),
-      message: generate(cfg.createFusionMergeCommitMessage(
-        fusion: fusion,
-        review: state
-      )),
+      message: message,
       parents: [fork, .make(remote: merge.target)],
       env: Git.env(
         authorName: name,
@@ -934,9 +963,9 @@ public final class Reviewer {
     let result = try cfg.gitlabCi.get()
       .putMrMerge(
         parameters: .init(
-          mergeCommitMessage: message,
-          squashCommitMessage: message,
-          squash: state.squash,
+          mergeCommitMessage: review.kind.proposition.else(message),
+          squashCommitMessage: review.kind.proposition.then(message),
+          squash: review.kind.proposition,
           shouldRemoveSourceBranch: true,
           sha: .make(value: state.lastPipeline.sha)
         ),

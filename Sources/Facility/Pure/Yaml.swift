@@ -108,7 +108,6 @@ public enum Yaml {
     public var proposition: Proposition
     public var replication: Replication
     public var integration: Integration
-    public var createMergeCommitMessage: Template
     public struct Proposition: Decodable {
       public var createCommitMessage: Template
       public var rules: [Rule]

@@ -222,12 +222,6 @@ public struct Generate: Query {
     public var source: String
     public var target: String
   }
-  public struct CreateFusionMergeCommitMessage: GenerationContext {
-    public var event: String = Self.event
-    public var env: [String: String]
-    public var info: GitlabCi.Info?
-    public var review: Json.GitlabReviewState
-  }
 }
 public extension Configuration {
   func exportCurrentVersions(
@@ -527,19 +521,6 @@ public extension Configuration {
       fork: merge.fork.value,
       source: merge.source.name,
       target: merge.target.name
-    )
-  )}
-  func createFusionMergeCommitMessage(
-    fusion: Fusion,
-    review: Json.GitlabReviewState
-  ) -> Generate { .init(
-    allowEmpty: false,
-    template: fusion.createMergeCommitMessage,
-    templates: templates,
-    context: Generate.CreateFusionMergeCommitMessage(
-      env: env,
-      info: try? gitlabCi.get().info,
-      review: review
     )
   )}
 }
