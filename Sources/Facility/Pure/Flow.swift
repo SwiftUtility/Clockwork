@@ -200,10 +200,10 @@ public struct Production {
       public var review: UInt
       public var target: String
       public var yaml: [String] { [
-        "'\(build)':\n",
+        "'\(build.value)':\n",
         "  sha: '\(sha)'\n",
         "  review: \(review)\n",
-        "  target: \(target)\n",
+        "  target: '\(target)'\n",
       ]}
       public static func make(
         build: AlphaNumeric,
@@ -222,9 +222,9 @@ public struct Production {
       public var sha: String
       public var branch: String
       public var yaml: [String] { [
-        "'\(build)':\n",
+        "'\(build.value)':\n",
         "  sha: '\(sha)'\n",
-        "  branch: \(branch)\n",
+        "  branch: '\(branch)'\n",
       ]}
       public static func make(
         build: AlphaNumeric,
@@ -241,9 +241,9 @@ public struct Production {
       public var sha: String
       public var tag: String
       public var yaml: [String] { [
-        "'\(build)':\n",
+        "'\(build.value)':\n",
         "  sha: '\(sha)'\n",
-        "  tag: \(tag)\n"
+        "  tag: '\(tag)'\n"
       ]}
       public static func make(
         build: AlphaNumeric,
