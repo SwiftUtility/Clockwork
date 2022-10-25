@@ -412,7 +412,7 @@ public struct Fusion {
             .joined(separator: ",")
           result += "  authors: [\(authors)]\n"
           let teams = status.teams.sorted().map({ "'\($0)'" }).joined(separator: ",")
-          if teams.isEmpty.not { result += "  teams: [\(teams)]" }
+          if teams.isEmpty.not { result += "  teams: [\(teams)]\n" }
           if let verified = status.verified?.value { result += "  verified: '\(verified)'\n" }
           if let emergent = status.emergent?.value { result += "  emergent: '\(emergent)'\n" }
           let legates = status.legates.sorted().map { "'\($0)'" }.joined(separator: ",")
