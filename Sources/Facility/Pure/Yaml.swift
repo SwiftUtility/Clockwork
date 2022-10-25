@@ -158,37 +158,7 @@ public enum Yaml {
         public var verified: String?
         public var randoms: [String]?
         public var legates: [String]?
-        public var approves: [String: [Resolution: String]]?
-        public enum Resolution: String, Decodable {
-          case block
-          case fragil
-          case advance
-          case outdated
-          public var approved: Bool {
-            switch self {
-            case .fragil, .advance: return true
-            case .block, .outdated: return false
-            }
-          }
-          public var fragil: Bool {
-            switch self {
-            case .fragil: return true
-            default: return false
-            }
-          }
-          public var block: Bool {
-            switch self {
-            case .block: return true
-            default: return false
-            }
-          }
-          public var outdated: Bool {
-            switch self {
-            case .outdated: return true
-            default: return false
-            }
-          }
-        }
+        public var approves: [String: [String: String]]?
       }
       public struct Approver: Decodable {
         public var active: Bool

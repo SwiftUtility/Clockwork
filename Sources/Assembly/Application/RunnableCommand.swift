@@ -229,7 +229,7 @@ extension Clockwork.Review.Approve: RunnableCommand {
   }
 }
 extension Clockwork.Review.Approve.Resolution {
-  var status: Yaml.Review.Approval.Status.Resolution {
+  var status: Fusion.Approval.Status.Resolution {
     switch self {
     case .fragil: return .fragil
     case .advance: return .advance

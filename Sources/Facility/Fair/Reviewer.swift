@@ -241,7 +241,7 @@ public final class Reviewer {
   }
   public func approveReview(
     cfg: Configuration,
-    resolution: Yaml.Review.Approval.Status.Resolution
+    resolution: Fusion.Approval.Status.Resolution
   ) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)

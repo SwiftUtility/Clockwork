@@ -51,7 +51,7 @@ public struct Review {
   )}
   public mutating func approve(
     job: Json.GitlabJob,
-    resolution: Yaml.Review.Approval.Status.Resolution
+    resolution: Fusion.Approval.Status.Resolution
   ) throws {
     let user = try job.getLogin(approvers: approvers)
     status.approves[user] = try .init(

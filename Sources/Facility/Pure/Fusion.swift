@@ -452,21 +452,51 @@ public struct Fusion {
           .map({ .init(approver: $0, commit: fork, resolution: .fragil) })
           .reduce(into: [:], { $0[$1.approver] = $1 })
       }
+      public enum Resolution: String {
+        case block
+        case fragil
+        case advance
+        case outdated
+        public var approved: Bool {
+          switch self {
+          case .fragil, .advance: return true
+          case .block, .outdated: return false
+          }
+        }
+        public var fragil: Bool {
+          switch self {
+          case .fragil: return true
+          default: return false
+          }
+        }
+        public var block: Bool {
+          switch self {
+          case .block: return true
+          default: return false
+          }
+        }
+        public var outdated: Bool {
+          switch self {
+          case .outdated: return true
+          default: return false
+          }
+        }
+      }
       public struct Approve {
         public var approver: String
         public var commit: Git.Sha
-        public var resolution: Yaml.Review.Approval.Status.Resolution
+        public var resolution: Resolution
         public static func make(
           approver: String,
-          yaml: [Yaml.Review.Approval.Status.Resolution: String]
+          yaml: [String: String]
         ) throws -> Self {
           print("\(yaml)")
-          guard yaml.count == 1, let yaml = yaml.first
-          else { throw Thrown("Bad approve format") }
+          guard yaml.count == 1, let yaml = yaml.first else { throw Thrown("Bad approve format") }
           return try .init(
             approver: approver,
             commit: .make(value: yaml.value),
-            resolution: yaml.key
+            resolution:  .init(rawValue: yaml.key)
+              .get { throw Thrown("Bad resolution format") }
           )
         }
       }
