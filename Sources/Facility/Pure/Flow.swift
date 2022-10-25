@@ -351,6 +351,8 @@ public struct Production {
       sha: Git.Sha
     ) throws -> Delivery {
       let version = version.alphaNumeric
+      version.debug("version: ")
+      deliveries.debug("deliveries: ")
       guard var delivery = deliveries[version] else { throw Thrown("No \(product) \(version)") }
       let delpoys = deliveries.values
         .filter({ $0.version < version })
