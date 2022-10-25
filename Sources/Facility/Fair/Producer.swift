@@ -605,7 +605,7 @@ public final class Producer {
   ) throws -> Production.ReleaseNotes {
     delivery.deploys.debug()
     let previous = try Execute
-      .parseLines(reply: execute(cfg.git.excludeParents(shas: delivery.previous)))
+      .parseLines(reply: execute(cfg.git.excludeParents(shas: delivery.previous.debug())))
       .reduce(into: [], { try $0.append(Git.Ref.make(sha: .make(value: $1))) })
       .debug()
     guard previous.isEmpty.not else { return .make(uniq: [], lack: []) }

@@ -309,9 +309,9 @@ public struct Production {
         deploys: [start],
         previous: deliveries.keys
           .sorted()
-          .compactMap({ deliveries[$0] })
-          .prefix(while: { $0.version < next })
-          .reduce(into: [], { $0.formUnion($1.deploys) })
+          .prefix(while: { $0 < next })
+          .compactMap({ deliveries[$0]?.deploys })
+          .reduce(into: [], { $0.formUnion($1) })
       )
       deliveries[next] = result
       next = .make(bump)
@@ -339,9 +339,9 @@ public struct Production {
         deploys: [start],
         previous: deliveries.keys
           .sorted()
-          .compactMap({ deliveries[$0] })
-          .prefix(while: { $0.version < version })
-          .reduce(into: [], { $0.formUnion($1.deploys) })
+          .prefix(while: { $0 < version })
+          .compactMap({ deliveries[$0]?.deploys })
+          .reduce(into: [], { $0.formUnion($1) })
       )
       deliveries[version] = result
       return result
@@ -351,13 +351,15 @@ public struct Production {
       sha: Git.Sha
     ) throws -> Delivery {
       let version = version.alphaNumeric
-      guard var delivery = deliveries[version] else { throw Thrown("No \(product) \(version)") }
-      let delpoys = deliveries.values
-        .filter({ $0.version < version })
-        .reduce(into: delivery.deploys, { $0.formUnion($1.deploys) })
-      deliveries[version]?.deploys.insert(sha)
-      delivery.deploys.formUnion(delpoys)
-      return delivery
+      guard var result = deliveries[version] else { throw Thrown("No \(product) \(version)") }
+      result.previous = deliveries.keys
+        .sorted()
+        .prefix(while: { $0 < version })
+        .compactMap({ deliveries[$0]?.deploys })
+        .reduce(into: result.deploys, { $0.formUnion($1) })
+      result.deploys.insert(sha)
+      deliveries[version] = result
+      return result
     }
     public struct Delivery {
       public var version: AlphaNumeric
