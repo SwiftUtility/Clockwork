@@ -174,7 +174,7 @@ public extension Git {
     + ["\(sha.value):\(Ref.make(local: branch).value)"]
   )}
   func push(url: String, delete branch: Branch) -> Execute { proc(
-    args: ["push", url, ":\(Ref.make(local: branch))"]
+    args: ["push", url, ":\(Ref.make(local: branch).value)"]
   )}
   var updateLfs: Execute { proc(args: ["lfs", "update"]) }
   var fetch: Execute { proc(
