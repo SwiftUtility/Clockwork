@@ -3,12 +3,9 @@ import Facility
 public struct Slack {
   public var token: String
   public var signals: [String: [Signal]]
-  public static func make(
-    token: String,
-    signals: [String: Yaml.Slack.Signal]
-  ) throws -> Self { try .init(
+  public static func make(token: String, yaml: Yaml.Slack) throws -> Self { try .init(
     token: token,
-    signals: signals.reduce(into: [:], Signal.make(acc:yaml:))
+    signals: yaml.signals.reduce(into: [:], Signal.make(acc:yaml:))
   )}
   public struct Signal {
     public var mark: String

@@ -533,7 +533,7 @@ public final class Reviewer {
       review: state.iid,
       target: state.targetBranch,
       authors: authors,
-      thread: .make(yaml: thread),
+      thread: thread,
       fork: nil
     )
     _ = try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status, reason: .create)
@@ -547,7 +547,7 @@ public final class Reviewer {
     .map(\.profile)
     .reduce(.make(sha: .make(value: state.lastPipeline.sha)), Git.File.init(ref:path:))
     .map { file in try Configuration.Profile.make(
-      profile: file,
+      location: file,
       yaml: parseProfile(.init(git: cfg.git, file: file))
     )}
     .map(\.codeOwnage)

@@ -193,7 +193,7 @@ public struct Fusion {
     public struct Approver: Encodable {
       public var login: String
       public var active: Bool
-      public var slack: String
+      public var chat: String
       public var watchTeams: Set<String>
       public var watchAuthors: Set<String>
       public static func serialize(approvers this: [String: Self]) -> String {
@@ -202,7 +202,7 @@ public struct Fusion {
         for approvar in this.keys.sorted().compactMap({ this[$0] }) {
           result += "'\(approvar.login)':\n"
           result += "  active: \(approvar.active)\n"
-          result += "  slack: \(approvar.slack)\n"
+          result += "  chat: \(approvar.chat)\n"
           let watchTeams = approvar.watchTeams.sorted().map({ "'\($0)'" }).joined(separator: ",")
           if watchTeams.isEmpty.not { result += "  watchTeams: [\(watchTeams)]\n" }
           let watchAuthors = approvar.watchAuthors.sorted().map({ "'\($0)'" }).joined(separator: ",")
@@ -213,14 +213,14 @@ public struct Fusion {
       public static func make(login: String, yaml: Yaml.Review.Approval.Approver) -> Self { .init(
         login: login,
         active: yaml.active,
-        slack: yaml.slack,
+        chat: yaml.chat,
         watchTeams: Set(yaml.watchTeams.get([])),
         watchAuthors: Set(yaml.watchAuthors.get([]))
       )}
       public static func make(login: String, active: Bool, slack: String) -> Self { .init(
         login: login,
         active: active,
-        slack: slack,
+        chat: slack,
         watchTeams: [],
         watchAuthors: []
       )}

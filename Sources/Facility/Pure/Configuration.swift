@@ -23,9 +23,9 @@ public struct Configuration {
     slack: slack
   )}
   public struct Profile {
-    public var profile: Git.File
-    public var gitlabCi: GitlabCi?
-    public var slack: Slack?
+    public var location: Git.File
+    public var gitlabCi: Lossy<Git.File>
+    public var slack: Lossy<Git.File>
     public var templates: Git.Dir?
     public var fusion: Lossy<Git.File>
     public var codeOwnage: Git.File?
@@ -34,71 +34,56 @@ public struct Configuration {
     public var production: Lossy<Git.File>
     public var requisition: Lossy<Git.File>
     public static func make(
-      profile: Git.File,
+      location: Git.File,
       yaml: Yaml.Profile
     ) throws -> Self { try .init(
-      profile: profile,
+      location: location,
       gitlabCi: yaml.gitlab
-        .map(GitlabCi.make(yaml:)),
+        .map(Files.Relative.init(value:))
+        .reduce(location.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("gitlab not configured"))),
       slack: yaml.slack
-        .reduce(profile.ref, Slack.make(ref:yaml:)),
+        .map(Files.Relative.init(value:))
+        .reduce(location.ref, Git.File.init(ref:path:))
+        .map(Lossy.value(_:))
+        .get(.error(Thrown("slack not configured"))),
       templates: yaml.templates
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.Dir.init(ref:path:)),
+        .reduce(location.ref, Git.Dir.init(ref:path:)),
       fusion: yaml.review
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:))
+        .reduce(location.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("fusion not configured"))),
       codeOwnage: yaml.codeOwnage
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:)),
+        .reduce(location.ref, Git.File.init(ref:path:)),
       fileTaboos: yaml.fileTaboos
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:))
+        .reduce(location.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("fileTaboos not configured"))),
       cocoapods: yaml.cocoapods
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:))
+        .reduce(location.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("cocoapods not configured"))),
       production: yaml.flow
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:))
+        .reduce(location.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("production not configured"))),
       requisition: yaml.requisites
         .map(Files.Relative.init(value:))
-        .reduce(profile.ref, Git.File.init(ref:path:))
+        .reduce(location.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("requisites not configured")))
     )}
     public func checkSanity(criteria: Criteria?) -> Bool {
       guard let criteria = criteria else { return false }
       guard let codeOwnage = codeOwnage else { return false }
-      return criteria.isMet(profile.path.value) && criteria.isMet(codeOwnage.path.value)
-    }
-    public struct GitlabCi {
-      public var token: Secret
-      public var trigger: Yaml.Gitlab.Trigger
-      public static func make(
-        yaml: Yaml.Gitlab
-      ) throws -> Self { try .init(
-        token: .make(yaml: yaml.token),
-        trigger: yaml.trigger
-      )}
-    }
-    public struct Slack {
-      public var token: Secret
-      public var signals: Git.File
-      public static func make(
-        ref: Git.Ref,
-        yaml: Yaml.Slack
-      ) throws -> Self { try .init(
-        token: .make(yaml: yaml.token),
-        signals: .init(ref: ref, path: .init(value: yaml.signals))
-      )}
+      return criteria.isMet(location.path.value) && criteria.isMet(codeOwnage.path.value)
     }
   }
   public enum ReadStdin: Query {
@@ -152,12 +137,16 @@ public struct Configuration {
   }
   public struct Thread: Encodable {
     public var channel: String
-    public var ts: String
+    public var message: String
     public static func make(yaml: Yaml.Thread) -> Self { .init(
       channel: yaml.channel,
-      ts: yaml.ts
+      message: yaml.message
     )}
-    func serialize() -> String { "{channel: '\(channel)', ts: '\(ts)'}" }
+    public static func make(slack: Json.SlackMessage) -> Self { .init(
+      channel: slack.channel,
+      message: slack.ts
+    )}
+    func serialize() -> String { "{channel: '\(channel)', message: '\(message)'}" }
   }
   public struct ResolveProfile: Query {
     public var git: Git

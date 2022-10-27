@@ -114,6 +114,10 @@ public enum Json {
     public var httpUrlToRepo: String // http://example.com/diaspora/diaspora-project-site.git
     public var webUrl: String // http://example.com/diaspora/diaspora-project-site
   }
+  public struct SlackMessage: Codable {
+    public var channel: String
+    public var ts: String
+  }
   public struct FileTaboo: Codable {
     public var rule: String
     public var file: String

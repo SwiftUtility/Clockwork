@@ -2,8 +2,8 @@ import Foundation
 import Facility
 public enum Yaml {
   public struct Profile: Decodable {
-    public var gitlab: Gitlab?
-    public var slack: Slack?
+    public var gitlab: String?
+    public var slack: String?
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var cocoapods: String?
@@ -24,7 +24,7 @@ public enum Yaml {
   }
   public struct Slack: Decodable {
     public var token: Secret
-    public var signals: String
+    public var signals: [String: Signal]
     public struct Signal: Decodable {
       public var method: String
       public var body: Template
@@ -161,7 +161,7 @@ public enum Yaml {
       }
       public struct Approver: Decodable {
         public var active: Bool
-        public var slack: String
+        public var chat: String
         public var watchTeams: Set<String>?
         public var watchAuthors: Set<String>?
       }
@@ -189,7 +189,7 @@ public enum Yaml {
   }
   public struct Thread: Decodable {
     public var channel: String
-    public var ts: String
+    public var message: String
   }
   public struct Template: Decodable {
     public var name: String?

@@ -61,7 +61,9 @@ public final class Configurator {
       ref: .head,
       path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
     )))
-    let gitlab = Lossy(try profile.gitlabCi.get { throw Thrown("GitlabCi not configured") })
+    let gitlab = profile.gitlabCi
+      .reduce(git, parse(git:yaml:))
+      .reduce(Yaml.Gitlab.self, dialect.read(_:from:))
     let gitlabEnv = gitlab
       .map(\.trigger)
       .reduce(env, GitlabCi.Env.make(env:trigger:))
@@ -71,7 +73,7 @@ public final class Configurator {
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
     let gitlabToken = gitlab
       .map(\.token)
-      .map({ try parse(git: git, env: env, secret: $0) })
+      .map({ try parse(git: git, env: env, secret: .make(yaml: $0)) })
     return try .make(
       git: git,
       env: env,
@@ -92,15 +94,13 @@ public final class Configurator {
             .reduce(Json.GitlabUser.self, jsonDecoder.decode(success:reply:))
         ))
       )),
-      slack: Lossy(try profile.slack
+      slack: profile.slack
+        .reduce(git, parse(git:yaml:))
+        .reduce(Yaml.Slack.self, dialect.read(_:from:))
         .map { slack in try .make(
-          token: parse(git: git, env: env, secret: slack.token),
-          signals: dialect.read(
-            [String: Yaml.Slack.Signal].self,
-            from: parse(git: git, yaml: slack.signals
-          ))
+          token: parse(git: git, env: env, secret: .make(yaml: slack.token)),
+          yaml: slack
         )}
-        .get { throw Thrown("Slack not configured") })
     )
   }
   public func resolveRequisition(
@@ -135,7 +135,7 @@ public final class Configurator {
   ) throws -> Configuration.ResolveProfile.Reply { try Id(query.file)
     .reduce(query.git, parse(git:yaml:))
     .reduce(Yaml.Profile.self, dialect.read(_:from:))
-    .reduce(query.file, Configuration.Profile.make(profile:yaml:))
+    .reduce(query.file, Configuration.Profile.make(location:yaml:))
     .get()
   }
   public func resolveFileTaboos(

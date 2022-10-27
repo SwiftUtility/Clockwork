@@ -6,7 +6,7 @@ public struct Report: Query {
   public struct CreateThread: Query {
     public var template: Configuration.Template
     public var report: Report
-    public typealias Reply = Yaml.Thread
+    public typealias Reply = Configuration.Thread
   }
   public typealias Reply = Void
   public func generate(template: Configuration.Template) -> Generate { .init(

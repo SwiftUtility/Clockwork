@@ -301,11 +301,11 @@ public struct Production {
     public mutating func release(
       bump: String,
       start: Git.Sha,
-      thread: Yaml.Thread
+      thread: Configuration.Thread
     ) -> Delivery {
       let result = Delivery(
         version: next,
-        thread: .make(yaml: thread),
+        thread: thread,
         deploys: [start],
         previous: deliveries.keys
           .sorted()
@@ -330,12 +330,12 @@ public struct Production {
     public mutating func hotfix(
       version: String,
       start: Git.Sha,
-      thread: Yaml.Thread
+      thread: Configuration.Thread
     ) -> Delivery {
       let version = version.alphaNumeric
       let result = Delivery(
         version: version,
-        thread: .make(yaml: thread),
+        thread: thread,
         deploys: [start],
         previous: deliveries.keys
           .sorted()

@@ -32,19 +32,24 @@ public final class Reporter {
   }
   public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
     logMessage(.init(message: "Creating thread for: \(query.report.context.identity)"))
+    report(query: query.report)
     let slack = try query.report.cfg.slack.get()
     var query = query
     query.report.context.env = query.report.cfg.env
     query.report.context.info = try? query.report.cfg.gitlabCi.get().info
     query.report.context.mark = "createThread"
     let body = try generate(query.report.generate(template: query.template))
-    let data = try Execute.parseData(reply: execute(query.report.cfg.curlSlack(
+    return try Id
+    .make(query.report.cfg.curlSlack(
       token: slack.token,
       method: "chat.postMessage",
       body: body
-    )))
-    report(query: query.report)
-    return try jsonDecoder.decode(Yaml.Thread.self, from: data)
+    ))
+    .map(execute)
+    .map(Execute.parseData(reply:))
+    .reduce(Json.SlackMessage.self, jsonDecoder.decode(_:from:))
+    .map(Configuration.Thread.make(slack:))
+    .get()
   }
   public func readStdin(query: Configuration.ReadStdin) throws -> Configuration.ReadStdin.Reply {
     switch query {
