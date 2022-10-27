@@ -65,7 +65,10 @@ public final class Reviewer {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)
     let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    guard let status = statuses[ctx.review.iid] else { throw Thrown("No review thread") }
+    guard let status = statuses[ctx.review.iid] else {
+      logMessage(.init(message: "No review thread"))
+      return false
+    }
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     report(cfg.reportReviewThread(
       event: event,
