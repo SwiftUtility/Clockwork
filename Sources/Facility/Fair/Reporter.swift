@@ -73,7 +73,7 @@ public final class Reporter {
     return true
   }
   public func report(query: Report) -> Report.Reply {
-    logMessage(.init(message: "Creating thread for: \(query.context.identity)"))
+    logMessage(.init(message: "Creating report for: \(query.context.identity)"))
     var query = query
     query.context.env = query.cfg.env
     query.context.info = try? query.cfg.gitlabCi.get().info
@@ -85,8 +85,6 @@ public final class Reporter {
       let body: String
       do {
         body = try generate(query.generate(template: signal.body))
-        print("\(body)")
-        continue
         guard !body.isEmpty else { continue }
       } catch {
         logMessage(.init(message: "Generate report error: \(error)"))

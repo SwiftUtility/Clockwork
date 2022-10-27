@@ -603,11 +603,9 @@ public final class Producer {
     sha: Git.Sha,
     delivery: Production.Version.Delivery
   ) throws -> Production.ReleaseNotes {
-    delivery.deploys.debug()
     let previous = try Execute
-      .parseLines(reply: execute(cfg.git.excludeParents(shas: delivery.previous.debug())))
+      .parseLines(reply: execute(cfg.git.excludeParents(shas: delivery.previous)))
       .reduce(into: [], { try $0.append(Git.Ref.make(sha: .make(value: $1))) })
-      .debug()
     guard previous.isEmpty.not else { return .make(uniq: [], lack: []) }
     return try Production.ReleaseNotes.make(
       uniq: Execute
@@ -616,22 +614,18 @@ public final class Producer {
           notIn: previous,
           ignoreMissing: true
         )))
-        .debug()
         .compactMap({ sha in try production.makeNote(sha: sha, msg: Execute.parseText(
           reply: execute(cfg.git.getCommitMessage(ref: .make(sha: .make(value: sha))))
-        ))})
-        .debug(),
+        ))}),
       lack: Execute
         .parseLines(reply: execute(cfg.git.listCommits(
           in: previous,
           notIn: [.make(sha: sha)],
           ignoreMissing: true
         )))
-        .debug()
         .compactMap({ sha in try production.makeNote(sha: sha, msg: Execute.parseText(
           reply: execute(cfg.git.getCommitMessage(ref: .make(sha: .make(value: sha))))
         ))})
-        .debug()
     )
   }
   func persist(
