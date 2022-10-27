@@ -82,10 +82,10 @@ public final class Reporter {
     catch { return logMessage(.init(message: "Report failed: \(error)")) }
     for signal in slack.signals[query.context.identity].get([]) {
       query.context.mark = signal.mark
-      print("\(query.context)")
       let body: String
       do {
-        body = try generate(query.generate(template: signal.body)).debug()
+        body = try generate(query.generate(template: signal.body))
+        print("\(body)")
         continue
         guard !body.isEmpty else { continue }
       } catch {
