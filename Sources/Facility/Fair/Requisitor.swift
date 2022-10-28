@@ -126,7 +126,12 @@ public final class Requisitor {
         .get()
       guard provision.expirationDate < threshold else { continue }
       let days = min(0, Int(threshold.timeIntervalSince(provision.expirationDate) / .day))
-      items.append(.init(file: file.path.value, name: provision.name, days: "\(days)"))
+      try items.append(.init(
+        file: file.path.value,
+        branch: file.ref.value.dropPrefix("refs/remotes/origin/"),
+        name: provision.name,
+        days: "\(days)"
+      ))
     }
     for requisite in requisition.requisites.values {
       let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
@@ -173,8 +178,9 @@ public final class Requisitor {
         let name = NSMutableString(string: escaped)
         CFStringTransform(name, nil, "Any-Hex/Java" as NSString, true)
         let days = min(0, Int(threshold.timeIntervalSince(date) / .day))
-        items.append(.init(
+        try items.append(.init(
           file: requisite.pkcs12.path.value,
+          branch: requisite.pkcs12.ref.value.dropPrefix("refs/remotes/origin/"),
           name: .init(name),
           days: "\(days)")
         )

@@ -290,10 +290,12 @@ public struct Report: Query {
     public var items: [Item]
     public struct Item: Encodable {
       public var file: String
+      public var branch: String
       public var name: String
       public var days: String
-      public init(file: String, name: String, days: String) {
+      public init(file: String, branch: String, name: String, days: String) {
         self.file = file
+        self.branch = branch
         self.name = name
         self.days = days
       }
