@@ -97,7 +97,7 @@ public struct Report: Query {
       case unknownUsers
     }
   }
-  public struct ReviewUpdate: GenerationContext {
+  public struct ReviewUpdated: GenerationContext {
     public var event: String = Self.event
     public var mark: String? = nil
     public var env: [String: String] = [:]
@@ -356,7 +356,7 @@ public extension Configuration {
     review: Review,
     state: Json.GitlabReviewState,
     update: Review.Approval
-  ) -> Report { .init(cfg: self, context: Report.ReviewUpdate(
+  ) -> Report { .init(cfg: self, context: Report.ReviewUpdated(
     thread: review.status.thread,
     review: state,
     users: review.approvers,
