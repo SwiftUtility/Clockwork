@@ -98,7 +98,8 @@ public final class Requisitor {
     days: UInt
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
-    let threshold = getTime().advanced(by: .init(days) * .day)
+    let now = getTime()
+    let threshold = now.advanced(by: .init(days) * .day)
     var items: [Report.ExpiringRequisites.Item] = []
     let provisions = try getProvisions(
       git: cfg.git,
@@ -125,12 +126,11 @@ public final class Requisitor {
         .reduce(Plist.Provision.self, plistDecoder.decode(_:from:))
         .get()
       guard provision.expirationDate < threshold else { continue }
-      let days = min(0, Int(threshold.timeIntervalSince(provision.expirationDate) / .day))
       try items.append(.init(
         file: file.path.value,
         branch: file.ref.value.dropPrefix("refs/remotes/origin/"),
         name: provision.name,
-        days: "\(days)"
+        days: provision.expirationDate.timeIntervalSince(now) / .day
       ))
     }
     for requisite in requisition.requisites.values {
@@ -161,12 +161,12 @@ public final class Requisitor {
           .map(Execute.parseLines(reply:))
           .get()
           .map { $0.trimmingCharacters(in: .whitespaces) }
-        let date = try lines
+        let expirationDate = try lines
           .compactMap { try? $0.dropPrefix("notAfter=") }
           .first
           .flatMap(formatter.date(from:))
           .get { throw MayDay("openssl output") }
-        guard date < threshold else { continue }
+        guard expirationDate < threshold else { continue }
         let escaped = try lines
           .compactMap { try? $0.dropPrefix("commonName") }
           .first
@@ -177,13 +177,12 @@ public final class Requisitor {
           .replacingOccurrences(of: "\\U", with: "\\u")
         let name = NSMutableString(string: escaped)
         CFStringTransform(name, nil, "Any-Hex/Java" as NSString, true)
-        let days = min(0, Int(threshold.timeIntervalSince(date) / .day))
         try items.append(.init(
           file: requisite.pkcs12.path.value,
           branch: requisite.pkcs12.ref.value.dropPrefix("refs/remotes/origin/"),
           name: .init(name),
-          days: "\(days)")
-        )
+          days: expirationDate.timeIntervalSince(now) / .day
+        ))
       }
     }
     guard !items.isEmpty else { return true }

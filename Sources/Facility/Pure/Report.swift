@@ -292,12 +292,12 @@ public struct Report: Query {
       public var file: String
       public var branch: String
       public var name: String
-      public var days: String
-      public init(file: String, branch: String, name: String, days: String) {
+      public var days: String?
+      public init(file: String, branch: String, name: String, days: TimeInterval) {
         self.file = file
         self.branch = branch
         self.name = name
-        self.days = days
+        if days > 0 { self.days = "\(Int(days))" }
       }
     }
   }
