@@ -341,7 +341,11 @@ extension Clockwork.Review.Update: RunnableCommand {
 }
 extension Clockwork.Validate.ConflictMarkers: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.validator.validateReviewConflictMarkers(cfg: cfg, base: base, json: validate.json)
+    try Assembler.validator.validateReviewConflictMarkers(
+      cfg: cfg,
+      target: target,
+      json: validate.json
+    )
   }
 }
 extension Clockwork.Validate.FileTaboos: RunnableCommand {

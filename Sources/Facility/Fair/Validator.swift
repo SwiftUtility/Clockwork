@@ -71,13 +71,22 @@ public final class Validator {
   }
   public func validateReviewConflictMarkers(
     cfg: Configuration,
-    base: String,
+    target: String,
     json: Bool
   ) throws -> Bool {
     guard try Execute.parseLines(reply: execute(cfg.git.changesList)).isEmpty
     else { throw Thrown("Git is dirty") }
+    let fork = try Execute
+      .parseLines(reply: execute(cfg.git.listCommits(
+        in: [.head],
+        notIn: [.make(remote: .init(name: target))],
+        boundary: true
+      )))
+      .last
+      .map(Git.Sha.make(value:))
+      .get { throw Thrown("Fork point not found") }
     let initial = try Execute.parseText(reply: execute(cfg.git.getSha(ref: .head)))
-    try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: .make(sha: .make(value: base)))))
+    try Execute.checkStatus(reply: execute(cfg.git.resetSoft(ref: .make(sha: fork))))
     let result = try Execute.parseLines(reply: execute(cfg.git.listConflictMarkers))
     try Execute.checkStatus(reply: execute(cfg.git.resetHard(
       ref: .make(sha: .make(value: initial))

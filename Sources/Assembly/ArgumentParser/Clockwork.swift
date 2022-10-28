@@ -479,8 +479,8 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Ensure no conflict markers against base" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var validate: Validate
-      @Option(help: "The commit sha to diff with")
-      var base: String
+      @Option(help: "The name of target branch")
+      var target: String
     }
     struct FileTaboos: ClockworkCommand {
       static var abstract: String { "Ensure files match defined rules" }
