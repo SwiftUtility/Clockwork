@@ -130,6 +130,7 @@ public struct Report: Query {
     public var watchers: [String]?
     public var approvers: [String]?
     public var state: Review.Approval.State
+    public var subevent: String { state.rawValue }
   }
   public struct ReviewMergeError: GenerationContext {
     public var event: String = Self.event
