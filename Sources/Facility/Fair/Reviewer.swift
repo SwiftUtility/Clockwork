@@ -80,11 +80,18 @@ public final class Reviewer {
     return true
   }
   public func createReviewPipeline(
-    cfg: Configuration
+    cfg: Configuration,
+    review: String
   ) throws -> Bool {
-    let ctx = try resolveReviewContext(cfg: cfg)
-    guard ctx.isActual else { return false }
-    try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
+    let iid: UInt
+    if review.isEmpty {
+      let ctx = try resolveReviewContext(cfg: cfg)
+      guard ctx.isActual else { return false }
+      iid = ctx.review.iid
+    } else {
+      iid = try review.getUInt()
+    }
+    try cfg.gitlabCi.get().postMrPipelines(review: iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()

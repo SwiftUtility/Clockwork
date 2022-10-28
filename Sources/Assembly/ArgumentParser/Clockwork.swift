@@ -435,6 +435,8 @@ struct Clockwork: ParsableCommand {
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Create new pipeline for parent review" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Review id to trigger pipeline for or parent review pipeline")
+      var review: String = ""
     }
     struct Skip: ClockworkCommand {
       static var abstract: String { "Mark review as emergent" }

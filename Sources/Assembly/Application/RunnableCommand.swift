@@ -316,7 +316,7 @@ extension Clockwork.Review.RemoveLabels: RunnableCommand {
 }
 extension Clockwork.Review.TriggerPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.createReviewPipeline(cfg: cfg)
+    try Assembler.reviewer.createReviewPipeline(cfg: cfg, review: review)
   }
 }
 extension Clockwork.Review.Skip: RunnableCommand {
