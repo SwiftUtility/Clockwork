@@ -436,13 +436,13 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Create new pipeline for parent review" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Review id to trigger pipeline for or parent review pipeline")
-      var review: String = ""
+      var iid: String = ""
     }
     struct Skip: ClockworkCommand {
       static var abstract: String { "Mark review as emergent" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Review iid to skip approval for")
-      var id: UInt
+      var iid: UInt
     }
     struct StartReplication: ClockworkCommand {
       static var abstract: String { "Create replication review" }

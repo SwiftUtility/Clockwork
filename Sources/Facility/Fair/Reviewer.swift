@@ -81,17 +81,17 @@ public final class Reviewer {
   }
   public func createReviewPipeline(
     cfg: Configuration,
-    review: String
+    iid: String
   ) throws -> Bool {
-    let iid: UInt
-    if review.isEmpty {
+    let review: UInt
+    if iid.isEmpty {
       let ctx = try resolveReviewContext(cfg: cfg)
       guard ctx.isActual else { return false }
-      iid = ctx.review.iid
+      review = ctx.review.iid
     } else {
-      iid = try review.getUInt()
+      review = try iid.getUInt()
     }
-    try cfg.gitlabCi.get().postMrPipelines(review: iid)
+    try cfg.gitlabCi.get().postMrPipelines(review: review)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -236,16 +236,16 @@ public final class Reviewer {
   }
   public func skipReview(
     cfg: Configuration,
-    review: UInt
+    iid: UInt
   ) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let gitlabCi = try cfg.gitlabCi.get()
     let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    let state = try gitlabCi.getMrState(review: review)
+    let state = try gitlabCi.getMrState(review: iid)
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
-    guard var status = statuses[review] else { return false }
+    guard var status = statuses[iid] else { return false }
     status.emergent = try .make(value: state.lastPipeline.sha)
     return try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status, reason: .cheat)
   }
