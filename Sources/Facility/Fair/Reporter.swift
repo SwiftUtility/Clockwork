@@ -39,7 +39,6 @@ public final class Reporter {
     query.report.context.info = try? query.report.cfg.gitlabCi.get().info
     query.report.context.mark = "createThread"
     let body = try generate(query.report.generate(template: query.template))
-    body.debug()
     return try Id
     .make(query.report.cfg.curlSlack(
       token: slack.token,
@@ -86,7 +85,6 @@ public final class Reporter {
       let body: String
       do {
         body = try generate(query.generate(template: signal.body))
-        body.debug()
         guard !body.isEmpty else { continue }
       } catch {
         logMessage(.init(message: "Generate report error: \(error)"))
