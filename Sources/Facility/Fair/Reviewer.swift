@@ -713,7 +713,7 @@ public final class Reviewer {
       if let task = rule.task {
         let source = try findMatches(in: state.sourceBranch, regexp: task)
         let title = try findMatches(in: state.title, regexp: task)
-        if source.symmetricDifference(title).isEmpty { result.append(.taskMismatch) }
+        if source.symmetricDifference(title).isEmpty.not { result.append(.taskMismatch) }
       }
       try excludes = [.make(remote: .init(name: state.targetBranch))]
     case .replication(let merge), .integration(let merge):
