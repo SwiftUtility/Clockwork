@@ -151,22 +151,9 @@ public final class Reviewer {
         .map(execute)
         .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
         .get()
-      let review = try resolveReview(
-        cfg: cfg,
-        state: state,
-        fusion: fusion,
-        kind: fusion.makeKind(state: state),
-        approvers: approvers,
-        status: status
-      )
       guard state.state != "closed" else {
         report(cfg.reportReviewClosed(status: status, state: state, users: approvers))
         statuses[state.iid] = nil
-        continue
-      }
-      guard state.state != "merged" else {
-        statuses[state.iid] = nil
-        report(cfg.reportReviewMerged(review: review, state: state))
         continue
       }
       guard remind else { continue }
