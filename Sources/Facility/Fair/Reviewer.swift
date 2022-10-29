@@ -260,8 +260,21 @@ public final class Reviewer {
       .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
       .not
     else { return false }
-    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    guard let status = statuses[ctx.review.iid] else {
+      logMessage(.init(message: "No review \(ctx.review.iid)"))
+      return false
+    }
+    let kind = try fusion.makeKind(state: ctx.review)
+    let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    var review = try resolveReview(
+      cfg: cfg,
+      state: ctx.review,
+      fusion: fusion,
+      kind: kind,
+      approvers: approvers,
+      status: status
+    )
     try review.approve(job: ctx.job, resolution: resolution)
     return try persist(
       statuses,
@@ -287,8 +300,21 @@ public final class Reviewer {
       .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
       .not
     else { return false }
-    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    guard let status = statuses[ctx.review.iid] else {
+      logMessage(.init(message: "No review \(ctx.review.iid)"))
+      return false
+    }
+    let kind = try fusion.makeKind(state: ctx.review)
+    let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    var review = try resolveReview(
+      cfg: cfg,
+      state: ctx.review,
+      fusion: fusion,
+      kind: kind,
+      approvers: approvers,
+      status: status
+    )
     try review.setAuthor(job: ctx.job)
     return try persist(
       statuses,
@@ -391,7 +417,23 @@ public final class Reviewer {
     let ctx = try resolveReviewContext(cfg: cfg)
     guard ctx.isActual else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
+    let kind = try fusion.makeKind(state: ctx.review)
+    let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    var review = try resolveReview(
+      cfg: cfg,
+      state: ctx.review,
+      fusion: fusion,
+      kind: kind,
+      approvers: approvers,
+      status: resolveStatus(
+        cfg: cfg,
+        approvers: approvers,
+        state: ctx.review,
+        fusion: fusion,
+        kind: kind,
+        statuses: &statuses
+      )
+    )
     guard try checkIsFastForward(cfg: cfg, state: ctx.review) else {
       if let sha = try syncReview(cfg: cfg, fusion: fusion, state: ctx.review, review: review) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
@@ -463,8 +505,23 @@ public final class Reviewer {
     guard queue.isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    var review = try resolveReview(cfg: cfg, state: ctx.review, fusion: fusion, statuses: &statuses)
-    review.resolveUtility(source: ctx.review.sourceBranch, target: ctx.review.targetBranch)
+    let kind = try fusion.makeKind(state: ctx.review)
+    let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    let review = try resolveReview(
+      cfg: cfg,
+      state: ctx.review,
+      fusion: fusion,
+      kind: kind,
+      approvers: approvers,
+      status: resolveStatus(
+        cfg: cfg,
+        approvers: approvers,
+        state: ctx.review,
+        fusion: fusion,
+        kind: kind,
+        statuses: &statuses
+      )
+    )
     guard
       try checkIsFastForward(cfg: cfg, state: ctx.review),
       try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind),
@@ -571,21 +628,14 @@ public final class Reviewer {
     cfg: Configuration,
     state: Json.GitlabReviewState,
     fusion: Fusion,
-    statuses: inout [UInt: Fusion.Approval.Status]
+    kind: Fusion.Kind,
+    approvers: [String: Fusion.Approval.Approver],
+    status: Fusion.Approval.Status
   ) throws -> Review {
     logMessage(.init(message: "Loading status assets"))
-    let kind = try fusion.makeKind(state: state)
-    let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
-    var result = try Review.make(
+    return try Review.make(
       bot: cfg.gitlabCi.get().protected.get().user.username,
-      status: resolveStatus(
-        cfg: cfg,
-        approvers: approvers,
-        state: state,
-        fusion: fusion,
-        kind: kind,
-        statuses: &statuses
-      ),
+      status: status,
       approvers: approvers,
       review: state,
       kind: kind,
@@ -596,8 +646,6 @@ public final class Reviewer {
         .map(parseAntagonists)
         .get([:])
     )
-    result.resolveUtility(source: state.sourceBranch, target: state.targetBranch)
-    return result
   }
   func verify(
     cfg: Configuration,
@@ -650,8 +698,6 @@ public final class Reviewer {
     state: Json.GitlabReviewState?
   ) throws -> Report.ReviewClosed.Reason? {
     logMessage(.init(message: "Checking should close review"))
-    let target = try resolveBranch(cfg: cfg, name: kind.target.name)
-    guard target.protected else { return .targetNotProtected }
     let source = try resolveBranch(cfg: cfg, name: kind.source.name)
     guard source.protected.not else { return .sourceIsProtected }
     let bot = try cfg.gitlabCi.get().protected.get().user.username
@@ -660,7 +706,6 @@ public final class Reviewer {
       guard merge.rule != nil else { return .noSourceRule }
       if let state = state, state.author.username == bot { return .authorIsBot }
     case .replication(let merge):
-      guard target.default else { return .targetNotDefault }
       guard try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
@@ -680,6 +725,16 @@ public final class Reviewer {
           parent: .make(sha: merge.fork)
         ))) else { return .forkNotInSubject }
       }
+    }
+    guard kind.proposition.not else { return nil }
+    let target = try resolveBranch(cfg: cfg, name: kind.target.name)
+    switch kind {
+    case .proposition: break
+    case .replication:
+      guard target.default else { return .targetNotDefault }
+      fallthrough
+    case .integration:
+      guard target.protected else { return .targetNotProtected }
     }
     return nil
   }

@@ -7,9 +7,9 @@ public struct Review {
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
   public let haters: [String: Set<String>]
-  public let unknownUsers: Set<String>
-  public let unknownTeams: Set<String>
   public internal(set) var status: Fusion.Approval.Status
+  public internal(set) var unknownUsers: Set<String> = []
+  public internal(set) var unknownTeams: Set<String> = []
   public internal(set) var utilityTeams: Set<String> = []
   public internal(set) var changedTeams: [Git.Sha: Set<String>] = [:]
   public internal(set) var diffTeams: Set<String> = []
@@ -24,31 +24,20 @@ public struct Review {
     ownage: [String: Criteria],
     rules: Fusion.Approval.Rules,
     haters: [String: Set<String>]
-  ) -> Self { .init(
-    bot: bot,
-    approvers: approvers,
-    kind: kind,
-    ownage: ownage,
-    rules: rules,
-    haters: haters,
-    unknownUsers: status.authors
-      .union(status.approves.keys)
-      .union(haters.keys)
-      .union(haters.flatMap(\.value))
-      .union(rules.authorship.flatMap(\.value))
-      .union(rules.teams.flatMap(\.value.approvers))
-      .union(rules.teams.flatMap(\.value.random))
-      .subtracting(approvers.keys),
-    unknownTeams: Set(rules.sanity.array)
-      .union(ownage.keys)
-      .union(rules.targetBranch.keys)
-      .union(rules.sourceBranch.keys)
-      .union(rules.authorship.keys)
-      .union(rules.randoms.keys)
-      .union(rules.randoms.flatMap(\.value))
-      .filter { rules.teams[$0] == nil },
-    status: status
-  )}
+  ) -> Self {
+    var result = Self(
+      bot: bot,
+      approvers: approvers,
+      kind: kind,
+      ownage: ownage,
+      rules: rules,
+      haters: haters,
+      status: status
+    )
+    result.resolveUnknown()
+    result.resolveUtility()
+    return result
+  }
   public mutating func approve(
     job: Json.GitlabJob,
     resolution: Fusion.Approval.Status.Resolution
@@ -70,7 +59,27 @@ public struct Review {
       .reduce(into: [user], { $0.formUnion($1.approvers) })
     )
   }
-  public mutating func resolveUtility(source: String, target: String) {
+  mutating func resolveUnknown() {
+    unknownUsers = status.authors
+      .union(status.approves.keys)
+      .union(haters.keys)
+      .union(haters.flatMap(\.value))
+      .union(rules.authorship.flatMap(\.value))
+      .union(rules.teams.flatMap(\.value.approvers))
+      .union(rules.teams.flatMap(\.value.random))
+      .subtracting(approvers.keys)
+    unknownTeams = Set(rules.sanity.array)
+      .union(ownage.keys)
+      .union(rules.targetBranch.keys)
+      .union(rules.sourceBranch.keys)
+      .union(rules.authorship.keys)
+      .union(rules.randoms.keys)
+      .union(rules.randoms.flatMap(\.value))
+      .filter { rules.teams[$0] == nil }
+  }
+  mutating func resolveUtility() {
+    let source = kind.source.name
+    let target = kind.target.name
     let authorshipTeams = kind.proposition
       .then(rules.authorship)
       .get([:])
