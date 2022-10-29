@@ -382,7 +382,6 @@ public struct Fusion {
       public var authors: Set<String>
       public var randoms: Set<String>
       public var legates: Set<String>
-      public var participants: Set<String> { legates.union(randoms) }
       public var approves: [String: Approve]
       public var thread: Configuration.Thread
       mutating func invalidate(users: Set<String>) { approves

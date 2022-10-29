@@ -390,8 +390,10 @@ public extension Configuration {
     authors: review.status.authors.sorted(),
     teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
     watchers: review.watchers,
-    approvers: review.status.participants.isEmpty.else(review.status.participants.sorted()),
-    state: review.status.emergent.map({_ in .emergent}).get(.approved)
+    approvers: review.accepters,
+    state: review.status.emergent
+      .map({_ in .emergent})
+      .get(.approved)
   ))}
   func reportReviewMergeError(
     review: Review,

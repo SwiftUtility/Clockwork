@@ -296,6 +296,13 @@ public struct Review {
       .reduce(into: Set(), { $0.insert($1.login) })
     return result.isEmpty.else(result.sorted())
   }
+  public var accepters: [String]? {
+    guard status.verified != nil else { return [] }
+    let result = status.legates
+      .union(status.randoms)
+      .intersection(status.approves.filter(\.value.resolution.approved).keys)
+    return result.isEmpty.else(result.sorted())
+  }
   public struct Approval {
     public var orphaned: Bool = false
     public var unapprovable: Set<String> = []
