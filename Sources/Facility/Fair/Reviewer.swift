@@ -713,7 +713,7 @@ public final class Reviewer {
     logMessage(.init(message: "Checking blocking reasons"))
     var result: [Report.ReviewBlocked.Reason] = []
     let source = try resolveBranch(cfg: cfg, name: review.kind.source.name)
-    if source.protected.not { result.append(.sourceIsProtected) }
+    if source.protected { result.append(.sourceIsProtected) }
     let target = try resolveBranch(cfg: cfg, name: state.targetBranch)
     if target.protected.not { result.append(.targetNotProtected) }
     let bot = try cfg.gitlabCi.get().protected.get().user.username
