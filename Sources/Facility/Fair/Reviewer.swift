@@ -308,7 +308,7 @@ public final class Reviewer {
       .get()
     let merge = try Fusion.Merge.make(
       fork: .make(value: gitlabCi.job.pipeline.sha),
-      source: .init(name: gitlabCi.job.pipeline.ref),
+      subject: .init(name: gitlabCi.job.pipeline.ref),
       target: .init(name: project.defaultBranch),
       isReplication: true
     )
@@ -337,7 +337,7 @@ public final class Reviewer {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let merge = try Fusion.Merge.make(
       fork: .make(value: fork),
-      source: .init(name: source),
+      subject: .init(name: source),
       target: .init(name: target),
       isReplication: false
     )
@@ -574,7 +574,7 @@ public final class Reviewer {
     statuses: inout [UInt: Fusion.Approval.Status]
   ) throws -> Review {
     logMessage(.init(message: "Loading status assets"))
-    let kind = try fusion.makeKind(supply: state.sourceBranch)
+    let kind = try fusion.makeKind(state: state)
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     var result = try Review.make(
       bot: cfg.gitlabCi.get().protected.get().user.username,
@@ -650,10 +650,17 @@ public final class Reviewer {
     state: Json.GitlabReviewState?
   ) throws -> Report.ReviewClosed.Reason? {
     logMessage(.init(message: "Checking should close review"))
+    let target = try resolveBranch(cfg: cfg, name: kind.target.name)
+    guard target.protected else { return .targetNotProtected }
+    let source = try resolveBranch(cfg: cfg, name: kind.source.name)
+    guard source.protected.not else { return .sourceIsProtected }
+    let bot = try cfg.gitlabCi.get().protected.get().user.username
     switch kind {
-    case .proposition(let rule):
-      guard rule != nil else { return .noSourceRule }
+    case .proposition(let merge):
+      guard merge.rule != nil else { return .noSourceRule }
+      if let state = state, state.author.username == bot { return .authorIsBot }
     case .replication(let merge):
+      guard target.default else { return .targetNotDefault }
       guard try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork).make(parent: 1)
@@ -664,28 +671,28 @@ public final class Reviewer {
         child: .make(remote: merge.target),
         parent: .make(sha: merge.fork)
       ))) else { return .forkInTarget }
-      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: merge.source),
-        parent: .make(sha: merge.fork)
-      ))) else { return .forkNotInSource }
-      let source = try resolveBranch(cfg: cfg, name: merge.source.name)
-      guard source.protected else { return .sourceNotProtected }
-      let target = try resolveBranch(cfg: cfg, name: merge.target.name)
-      guard target.protected else { return .targetNotProtected }
-      if case .replication = kind {
-        guard target.default else { return .targetNotDefault }
-      }
+      let subject = try resolveBranch(cfg: cfg, name: merge.subject.name)
+      guard subject.protected else { return .subjectNotProtected }
       if let state = state {
-        guard try state.author.username == cfg.gitlabCi.get().protected.get().user.username
-        else { return .authorNotBot }
+        guard state.author.username == bot else { return .authorNotBot }
         guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-          child: .make(remote: merge.supply),
+          child: .make(remote: merge.subject),
           parent: .make(sha: merge.fork)
-        ))) else { return .forkNotInSupply }
+        ))) else { return .forkNotInSubject }
       }
     }
     return nil
   }
+  func checkCanCreate(
+    cfg: Configuration,
+    kind: Fusion.Kind,
+    replication: Bool
+  ) throws -> Report.ReviewClosed.Reason? {
+    logMessage(.init(message: "Checking should create review"))
+    return nil
+
+  }
+
   func checkReviewBlockers(
     cfg: Configuration,
     state: Json.GitlabReviewState,
@@ -704,11 +711,11 @@ public final class Reviewer {
     if review.unknownTeams.isEmpty.not { result.append(.unknownTeams) }
     let excludes: [Git.Ref]
     switch review.kind {
-    case .proposition(let rule):
+    case .proposition(let merge):
       if !state.squash { result.append(.squashStatus) }
       let target = try resolveBranch(cfg: cfg, name: state.targetBranch)
       if !target.protected { result.append(.badTarget) }
-      guard let rule = rule else { throw MayDay("no proposition rule") }
+      guard let rule = merge.rule else { throw MayDay("no proposition rule") }
       if !rule.title.isMet(state.title) { result.append(.badTitle) }
       if let task = rule.task {
         let source = try findMatches(in: state.sourceBranch, regexp: task)
@@ -1012,7 +1019,7 @@ public final class Reviewer {
   ) throws -> Fusion.Merge? {
     let fork = try Id
       .make(cfg.git.listCommits(
-        in: [.make(remote: merge.source)],
+        in: [.make(remote: merge.subject)],
         notIn: [.make(sha: merge.fork)],
         firstParents: true
       ))
@@ -1022,7 +1029,7 @@ public final class Reviewer {
       .last
       .map(Git.Sha.make(value:))
     guard let fork = fork else { return nil }
-    return try .make(fork: fork, source: merge.source, target: merge.target, isReplication: true)
+    return try .make(fork: fork, subject: merge.subject, target: merge.target, isReplication: true)
   }
   func createReview(
     cfg: Configuration,
@@ -1031,7 +1038,7 @@ public final class Reviewer {
     title: String
   ) throws {
     guard try !Execute.parseSuccess(reply: execute(cfg.git.checkObjectType(
-      ref: .make(remote: merge.supply)
+      ref: .make(remote: merge.source)
     ))) else {
       logMessage(.init(message: "Fusion already in progress"))
       return
@@ -1039,7 +1046,7 @@ public final class Reviewer {
     try Id
       .make(cfg.git.push(
         url: gitlab.protected.get().push,
-        branch: merge.supply,
+        branch: merge.source,
         sha: merge.fork,
         force: false
       ))
@@ -1048,7 +1055,7 @@ public final class Reviewer {
       .get()
     try gitlab
       .postMergeRequests(parameters: .init(
-        sourceBranch: merge.supply.name,
+        sourceBranch: merge.source.name,
         targetBranch: merge.target.name,
         title: title
       ))

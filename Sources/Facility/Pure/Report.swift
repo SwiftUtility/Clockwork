@@ -45,27 +45,31 @@ public struct Report: Query {
     public var authors: [String]
     public var reason: Reason
     public enum Reason: String, Encodable {
+      case authorIsBot
+      case authorNotBot
       case noSourceRule
       case targetNotProtected
       case targetNotDefault
-      case authorNotBot
-      case sourceNotProtected
+      case subjectNotProtected
+      case sourceIsProtected
       case forkInTarget
       case forkParentNotInTarget
+      case forkNotInSubject
       case forkNotInSource
-      case forkNotInSupply
       case manual
       public var logMessage: LogMessage {
         switch self {
-        case .noSourceRule: return .init(message: "No rule for source")
-        case .targetNotProtected: return .init(message: "Target not protected")
-        case .targetNotDefault: return .init(message: "Target not default")
-        case .authorNotBot: return .init(message: "Not bot authored")
-        case .sourceNotProtected: return .init(message: "Source not protected")
-        case .forkInTarget: return .init(message: "Already merged")
-        case .forkParentNotInTarget: return .init(message: "Parent not merged")
-        case .forkNotInSource: return .init(message: "Fork not in source")
-        case .forkNotInSupply: return .init(message: "Fork not in supply")
+        case .authorIsBot: return .init(message: "Author of proposition is bot")
+        case .authorNotBot: return .init(message: "Author of merging is not bot")
+        case .noSourceRule: return .init(message: "No rule for source branch")
+        case .targetNotProtected: return .init(message: "Target branch is not protected")
+        case .targetNotDefault: return .init(message: "Target branch is not default")
+        case .subjectNotProtected: return .init(message: "Fork subject branch is not protected")
+        case .sourceIsProtected: return .init(message: "Source branch is protected")
+        case .forkInTarget: return .init(message: "Fork commit is already in target branch")
+        case .forkParentNotInTarget: return .init(message: "Fork parent commit is not in target branch")
+        case .forkNotInSubject: return .init(message: "Fork commit is not in fork subject branch")
+        case .forkNotInSource: return .init(message: "Fork commit is not in source branch")
         case .manual: return .init(message: "Closed manually")
         }
       }

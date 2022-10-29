@@ -502,7 +502,7 @@ public extension Configuration {
       info: try? gitlabCi.get().info,
       review: review,
       fork: merge.fork.value,
-      source: merge.source.name,
+      source: merge.subject.name,
       target: merge.target.name
     )
   )}
@@ -519,7 +519,7 @@ public extension Configuration {
       info: try? gitlabCi.get().info,
       review: review,
       fork: merge.fork.value,
-      source: merge.source.name,
+      source: merge.subject.name,
       target: merge.target.name
     )
   )}

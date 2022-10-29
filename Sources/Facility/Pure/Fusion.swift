@@ -14,15 +14,22 @@ public struct Fusion {
     case .integration: return integration.createCommitMessage
     }
   }
-  public func makeKind(supply: String) throws -> Kind {
-    guard let merge = try Merge.make(supply: supply) else {
-      let rules = proposition.rules.filter { $0.source.isMet(supply) }
-      guard rules.count < 2 else { throw Thrown("\(supply) matches multiple proposition rules") }
-      return .proposition(rules.first)
+  public func makeKind(state: Json.GitlabReviewState) throws -> Kind {
+    guard let merge = try Merge.make(source: state.sourceBranch) else {
+      let rules = proposition.rules.filter { $0.source.isMet(state.sourceBranch) }
+      guard rules.count < 2
+      else { throw Thrown("\(state.sourceBranch) matches multiple proposition rules") }
+      return try .proposition(.init(
+        target: .init(name: state.targetBranch),
+        source: .init(name: state.sourceBranch),
+        rule: rules.first
+      ))
     }
-    if merge.prefix == "replicate" { return .replication(merge) }
-    if merge.prefix == "integrate" { return .integration(merge) }
-    throw Thrown("\(supply) prefix not configured")
+    switch merge.prefix {
+    case "replicate": return .replication(merge)
+    case "integrate": return .integration(merge)
+    default: throw Thrown("\(merge.prefix) prefix not configured")
+    }
   }
   public static func make(
     yaml: Yaml.Review
@@ -49,7 +56,7 @@ public struct Fusion {
     createThread: .make(yaml: yaml.createThread)
   )}
   public enum Kind {
-    case proposition(Proposition.Rule?)
+    case proposition(Proposition.Merge)
     case replication(Merge)
     case integration(Merge)
     public var merge: Merge? {
@@ -61,7 +68,19 @@ public struct Fusion {
     public var proposition: Bool {
       switch self {
       case .proposition: return true
-      case .replication, .integration: return false
+      default: return false
+      }
+    }
+    public var target: Git.Branch {
+      switch self {
+      case .proposition(let merge): return merge.target
+      case .replication(let merge), .integration(let merge): return merge.target
+      }
+    }
+    public var source: Git.Branch {
+      switch self {
+      case .proposition(let merge): return merge.source
+      case .replication(let merge), .integration(let merge): return merge.source
       }
     }
   }
@@ -72,6 +91,12 @@ public struct Fusion {
       public var title: Criteria
       public var source: Criteria
       public var task: NSRegularExpression?
+    }
+    public struct Merge {
+      public let target: Git.Branch
+      public let source: Git.Branch
+      public var rule: Rule?
+
     }
   }
   public struct Replication {
@@ -84,12 +109,12 @@ public struct Fusion {
   public struct Merge {
     public let fork: Git.Sha
     public let prefix: String
-    public let source: Git.Branch
+    public let subject: Git.Branch
     public let target: Git.Branch
-    public let supply: Git.Branch
+    public let source: Git.Branch
     public static func make(
       fork: Git.Sha,
-      source: Git.Branch,
+      subject: Git.Branch,
       target: Git.Branch,
       isReplication: Bool
     ) throws -> Self {
@@ -97,20 +122,20 @@ public struct Fusion {
       return try .init(
         fork: fork,
         prefix: prefix,
-        source: source,
+        subject: subject,
         target: target,
-        supply: .init(name: "\(prefix)/-/\(target.name)/-/\(source.name)/-/\(fork.value)")
+        source: .init(name: "\(prefix)/-/\(target.name)/-/\(subject.name)/-/\(fork.value)")
       )
     }
-    public static func make(supply: String) throws -> Self? {
-      let components = supply.components(separatedBy: "/-/")
+    public static func make(source: String) throws -> Self? {
+      let components = source.components(separatedBy: "/-/")
       guard components.count == 4 else { return nil }
       return try .init(
         fork: .make(value: components[3]),
         prefix: components[0],
-        source: .init(name: components[2]),
+        subject: .init(name: components[2]),
         target: .init(name: components[1]),
-        supply: .init(name: supply)
+        source: .init(name: source)
       )
     }
   }
