@@ -26,9 +26,8 @@ public struct Fusion {
       ))
     }
     switch merge.prefix {
-    case "replicate": return .replication(merge)
-    case "integrate": return .integration(merge)
-    default: throw Thrown("\(merge.prefix) prefix not configured")
+    case .replicate: return .replication(merge)
+    case .integrate: return .integration(merge)
     }
   }
   public static func make(
@@ -108,7 +107,7 @@ public struct Fusion {
   }
   public struct Merge {
     public let fork: Git.Sha
-    public let prefix: String
+    public let prefix: Prefix
     public let subject: Git.Branch
     public let target: Git.Branch
     public let source: Git.Branch
@@ -116,27 +115,30 @@ public struct Fusion {
       fork: Git.Sha,
       subject: Git.Branch,
       target: Git.Branch,
-      isReplication: Bool
+      prefix: Prefix
     ) throws -> Self {
-      let prefix = isReplication.then("replicate").get("integrate")
       return try .init(
         fork: fork,
         prefix: prefix,
         subject: subject,
         target: target,
-        source: .init(name: "\(prefix)/-/\(target.name)/-/\(subject.name)/-/\(fork.value)")
+        source: .init(name: "\(prefix.rawValue)/-/\(target.name)/-/\(subject.name)/-/\(fork.value)")
       )
     }
     public static func make(source: String) throws -> Self? {
       let components = source.components(separatedBy: "/-/")
-      guard components.count == 4 else { return nil }
+      guard components.count == 4, let prefix = Prefix(rawValue: components[0]) else { return nil }
       return try .init(
         fork: .make(value: components[3]),
-        prefix: components[0],
+        prefix: prefix,
         subject: .init(name: components[2]),
         target: .init(name: components[1]),
         source: .init(name: source)
       )
+    }
+    public enum Prefix: String {
+      case replicate
+      case integrate
     }
   }
   public struct Queue {

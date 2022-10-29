@@ -43,37 +43,6 @@ public struct Report: Query {
     public var review: Json.GitlabReviewState
     public var users: [String: Fusion.Approval.Approver]
     public var authors: [String]
-    public var reason: Reason
-    public enum Reason: String, Encodable {
-      case authorIsBot
-      case authorNotBot
-      case noSourceRule
-      case targetNotProtected
-      case targetNotDefault
-      case subjectNotProtected
-      case sourceIsProtected
-      case forkInTarget
-      case forkParentNotInTarget
-      case forkNotInSubject
-      case forkNotInSource
-      case manual
-      public var logMessage: LogMessage {
-        switch self {
-        case .authorIsBot: return .init(message: "Author of proposition is bot")
-        case .authorNotBot: return .init(message: "Author of merging is not bot")
-        case .noSourceRule: return .init(message: "No rule for source branch")
-        case .targetNotProtected: return .init(message: "Target branch is not protected")
-        case .targetNotDefault: return .init(message: "Target branch is not default")
-        case .subjectNotProtected: return .init(message: "Fork subject branch is not protected")
-        case .sourceIsProtected: return .init(message: "Source branch is protected")
-        case .forkInTarget: return .init(message: "Fork commit is already in target branch")
-        case .forkParentNotInTarget: return .init(message: "Fork parent commit is not in target branch")
-        case .forkNotInSubject: return .init(message: "Fork commit is not in fork subject branch")
-        case .forkNotInSource: return .init(message: "Fork commit is not in source branch")
-        case .manual: return .init(message: "Closed manually")
-        }
-      }
-    }
   }
   public struct ReviewBlocked: GenerationContext {
     public var event: String = Self.event
@@ -88,17 +57,54 @@ public struct Report: Query {
     public var unknownUsers: [String]?
     public var unknownTeams: [String]?
     public enum Reason: String, Encodable {
-      case draft
-      case workInProgress
-      case blockingDiscussions
-      case squashStatus
-      case badTarget
+      case authorIsBot
+      case authorNotBot
       case badTitle
+      case draft
+      case discussions
       case extraCommits
+      case forkInTarget
+      case forkNotInSource
+      case forkNotInSubject
+      case forkParentNotInTarget
+      case forkTargetMismatch
+      case noSourceRule
+      case targetNotDefault
+      case targetNotProtected
       case taskMismatch
       case sanity
+      case sourceIsProtected
+      case squashStatus
+      case subjectNotProtected
       case unknownTeams
       case unknownUsers
+      case workInProgress
+      public var logMessage: LogMessage {
+        switch self {
+        case .authorIsBot: return .init(message: "Author of proposition is bot")
+        case .authorNotBot: return .init(message: "Author of merging is not bot")
+        case .badTitle: return .init(message: "Title does not match rule criteria")
+        case .draft: return .init(message: "Merge request is in draft state")
+        case .discussions: return .init(message: "Merge request has unresolved discussions")
+        case .extraCommits: return .init(message: "Source branch contains non protected commits")
+        case .forkInTarget: return .init(message: "Fork commit is already in target branch")
+        case .forkNotInSource: return .init(message: "Fork commit is not in source branch")
+        case .forkNotInSubject: return .init(message: "Fork commit is not in fork subject branch")
+        case .forkParentNotInTarget: return .init(message: "Fork parent commit is not in target branch")
+        case .forkTargetMismatch: return .init(message: "Fork target branch changed")
+        case .noSourceRule: return .init(message: "No rule for source branch")
+        case .targetNotDefault: return .init(message: "Target branch is not default")
+        case .targetNotProtected: return .init(message: "Target branch is not protected")
+        case .taskMismatch: return .init(message: "Branch name and title contain different tasks")
+        case .sanity: return .init(message: "Sanity group does not track approval configuration")
+        case .sourceIsProtected: return .init(message: "Source branch is protected")
+        case .squashStatus: return .init(message: "Bad merge request squash status")
+        case .subjectNotProtected: return .init(message: "Fork subject branch is not protected")
+        case .unknownTeams: return .init(message: "Found not configured teams")
+        case .unknownUsers: return .init(message: "Found not registered users")
+        case .workInProgress: return .init(message: "Merge request is in WIP state")
+        }
+      }
     }
   }
   public struct ReviewUpdated: GenerationContext {
@@ -335,14 +341,12 @@ public extension Configuration {
   func reportReviewClosed(
     status: Fusion.Approval.Status,
     state: Json.GitlabReviewState,
-    users: [String: Fusion.Approval.Approver],
-    reason: Report.ReviewClosed.Reason
+    users: [String: Fusion.Approval.Approver]
   ) -> Report { .init(cfg: self, context: Report.ReviewClosed(
     thread: status.thread,
     review: state,
     users: users,
-    authors: status.authors.sorted(),
-    reason: reason
+    authors: status.authors.sorted()
   ))}
   func reportReviewBlocked(
     review: Review,
@@ -357,7 +361,7 @@ public extension Configuration {
     unknownUsers: review.unknownUsers.isEmpty.else(review.unknownUsers.sorted()),
     unknownTeams: review.unknownTeams.isEmpty.else(review.unknownTeams.sorted())
   ))}
-  func reportReviewUpdate(
+  func reportReviewUpdated(
     review: Review,
     state: Json.GitlabReviewState,
     update: Review.Approval
