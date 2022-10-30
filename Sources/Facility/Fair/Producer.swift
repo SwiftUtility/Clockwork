@@ -318,7 +318,7 @@ public final class Producer {
       logMessage(.init(message: "Build already exists"))
       return true
     }
-    let build = try review.makeBuild(build: generate(cfg.bumpBuildNumber(
+    let build = try job.makeBuild(review: review, build: generate(cfg.bumpBuildNumber(
       production: production,
       build: builds.keys
         .sorted()

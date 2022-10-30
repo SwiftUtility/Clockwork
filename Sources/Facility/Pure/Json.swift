@@ -38,6 +38,15 @@ public enum Json {
         return .branch(.make(build: build.alphaNumeric, sha: pipeline.sha, branch: pipeline.ref))
       }
     }
+    public func makeBuild(
+      review: GitlabReviewState,
+      build: String
+    ) -> Production.Build { .review(.make(
+      build: build.alphaNumeric,
+      sha: pipeline.sha,
+      review: review.iid,
+      target: review.targetBranch
+    ))}
     public func getLogin(approvers: [String: Fusion.Approval.Approver]) throws -> String {
       let login = user.username
       guard let approver = approvers[login] else { throw Thrown("Unknown user: \(login)") }
@@ -82,12 +91,6 @@ public enum Json {
       guard case .review(let value) = build else { return false }
       return value.sha == lastPipeline.sha && value.review == iid
     }
-    public func makeBuild(build: String) -> Production.Build { .review(.make(
-      build: .make(build),
-      sha: lastPipeline.sha,
-      review: iid,
-      target: targetBranch
-    ))}
     public struct Pipeline: Codable {
       public var id: UInt
       public var sha: String
