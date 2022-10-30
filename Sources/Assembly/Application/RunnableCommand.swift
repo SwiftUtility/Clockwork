@@ -31,6 +31,16 @@ extension ClockworkCommand {
       .get()
   }
 }
+extension Clockwork.Cocoapods.ResetSpecs: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.restoreCocoapodsSpecs(cfg: cfg)
+  }
+}
+extension Clockwork.Cocoapods.UpdateSpecs: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
+  }
+}
 extension Clockwork.Flow.ChangeVersion: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.changeVersion(cfg: cfg, product: product, next: next, version: version)
@@ -96,44 +106,39 @@ extension Clockwork.Flow.ReserveBuild: RunnableCommand {
     try Assembler.producer.reserveBranchBuild(cfg: cfg)
   }
 }
-extension Clockwork.Pipeline.Cancel: RunnableCommand {
+extension Clockwork.Gitlab.Artifacts.LoadFile: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectPipeline(cfg: cfg, id: id, action: .cancel)
+    try Assembler.mediator.loadArtifact(cfg: cfg, job: artifacts.job, path: path)
   }
 }
-extension Clockwork.Pipeline.Delete: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectPipeline(cfg: cfg, id: id, action: .delete)
-  }
-}
-extension Clockwork.Pipeline.Jobs.Cancel: RunnableCommand {
+extension Clockwork.Gitlab.Jobs.Cancel: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: jobs.id,
+    pipeline: jobs.pipeline,
     names: names,
     action: .cancel,
     scopes: jobs.scopes.map(\.mode)
   )}
 }
-extension Clockwork.Pipeline.Jobs.Play: RunnableCommand {
+extension Clockwork.Gitlab.Jobs.Play: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: jobs.id,
+    pipeline: jobs.pipeline,
     names: names,
     action: .play,
     scopes: []
   )}
 }
-extension Clockwork.Pipeline.Jobs.Retry: RunnableCommand {
+extension Clockwork.Gitlab.Jobs.Retry: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.affectJobs(
     cfg: cfg,
-    pipeline: jobs.id,
+    pipeline: jobs.pipeline,
     names: names,
     action: .retry,
     scopes: jobs.scopes.map(\.mode)
   )}
 }
-extension Clockwork.Pipeline.Jobs.Scope {
+extension Clockwork.Gitlab.Jobs.Scope {
   var mode: GitlabCi.JobScope {
     switch self {
     case .canceled: return .canceled
@@ -146,24 +151,29 @@ extension Clockwork.Pipeline.Jobs.Scope {
     }
   }
 }
-extension Clockwork.Pipeline.Trigger: RunnableCommand {
+extension Clockwork.Gitlab.Pipeline.Cancel: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .cancel)
+  }
+}
+extension Clockwork.Gitlab.Pipeline.Delete: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .delete)
+  }
+}
+extension Clockwork.Gitlab.Pipeline.Retry: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .retry)
+  }
+}
+extension Clockwork.Gitlab.TriggerPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.triggerPipeline(cfg: cfg, ref: ref, context: context)
   }
 }
-extension Clockwork.Pipeline.Retry: RunnableCommand {
+extension Clockwork.Gitlab.TriggerReviewPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.affectPipeline(cfg: cfg, id: id, action: .retry)
-  }
-}
-extension Clockwork.Pods.ResetSpecs: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.restoreCocoapodsSpecs(cfg: cfg)
-  }
-}
-extension Clockwork.Pods.UpdateSpecs: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
+    try Assembler.mediator.triggerReview(cfg: cfg, iid: review)
   }
 }
 extension Clockwork.Report.Custom: RunnableCommand {
@@ -316,7 +326,7 @@ extension Clockwork.Review.RemoveLabels: RunnableCommand {
 }
 extension Clockwork.Review.TriggerPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.createReviewPipeline(cfg: cfg, iid: iid)
+    try Assembler.reviewer.createReviewPipeline(cfg: cfg)
   }
 }
 extension Clockwork.Review.Skip: RunnableCommand {

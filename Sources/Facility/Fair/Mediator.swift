@@ -4,15 +4,42 @@ import FacilityPure
 public final class Mediator {
   let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>
+  let stdoutData: Act.Of<Data>.Go
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     logMessage: @escaping Act.Reply<LogMessage>,
+    stdoutData: @escaping Act.Of<Data>.Go,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.logMessage = logMessage
+    self.stdoutData = stdoutData
     self.jsonDecoder = jsonDecoder
+  }
+  public func loadArtifact(
+    cfg: Configuration,
+    job: UInt,
+    path: String
+  ) throws -> Bool {
+    try cfg.gitlabCi
+      .flatMap({ $0.loadArtifact(job: job, file: path) })
+      .map(execute)
+      .map(Execute.parseData(reply:))
+      .map(stdoutData)
+      .get()
+    return true
+  }
+  public func triggerReview(
+    cfg: Configuration,
+    iid: UInt
+  ) throws -> Bool {
+    try cfg.gitlabCi
+      .flatReduce(curry: iid, GitlabCi.postMrPipelines(review:))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return true
   }
   public func triggerPipeline(
     cfg: Configuration,

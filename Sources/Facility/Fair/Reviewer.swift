@@ -79,19 +79,11 @@ public final class Reviewer {
     ))
     return true
   }
-  public func createReviewPipeline(
-    cfg: Configuration,
-    iid: String
-  ) throws -> Bool {
-    let review: UInt
-    if iid.isEmpty {
-      let ctx = try resolveReviewContext(cfg: cfg)
-      guard ctx.isActual else { return false }
-      review = ctx.review.iid
-    } else {
-      review = try iid.getUInt()
-    }
-    try cfg.gitlabCi.get().postMrPipelines(review: review)
+  public func createReviewPipeline(cfg: Configuration) throws -> Bool {
+    let ctx = try resolveReviewContext(cfg: cfg)
+    guard ctx.isActual else { return false }
+    try cfg.gitlabCi
+      .flatReduce(curry: ctx.review.iid, GitlabCi.postMrPipelines(review:))
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()

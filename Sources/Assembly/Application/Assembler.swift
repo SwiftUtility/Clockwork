@@ -72,6 +72,7 @@ enum Assembler {
   static let mediator = Mediator(
     execute: execute,
     logMessage: logger.logMessage(query:),
+    stdoutData: stdoutData,
     jsonDecoder: jsonDecoder
   )
   static let producer = Producer(

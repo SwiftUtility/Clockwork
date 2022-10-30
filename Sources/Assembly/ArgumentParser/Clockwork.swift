@@ -5,9 +5,9 @@ struct Clockwork: ParsableCommand {
     abstract: "Distributed scalable monorepo management tool",
     version: Clockwork.version,
     subcommands: [
+      Cocoapods.self,
       Flow.self,
-      Pipeline.self,
-      Pods.self,
+      Gitlab.self,
       Report.self,
       Requisites.self,
       Review.self,
@@ -16,6 +16,24 @@ struct Clockwork: ParsableCommand {
   )
   @Option(help: "The path to the profile")
   var profile = ".clockwork.yml"
+  struct Cocoapods: ParsableCommand {
+    static let configuration = CommandConfiguration(
+      abstract: "Distributed scalable monorepo management tool",
+      version: Clockwork.version,
+      subcommands: [
+        ResetSpecs.self,
+        UpdateSpecs.self,
+      ]
+    )
+    struct ResetSpecs: ClockworkCommand {
+      static var abstract: String { "Reset cocoapods specs to configured commits" }
+      @OptionGroup var clockwork: Clockwork
+    }
+    struct UpdateSpecs: ClockworkCommand {
+      static var abstract: String { "Update cocoapods specs and configured commist" }
+      @OptionGroup var clockwork: Clockwork
+    }
+  }
   struct Flow: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of flow management commands",
@@ -107,29 +125,35 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
     }
   }
-  struct Pipeline: ParsableCommand {
+  struct Gitlab: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Distributed scalable monorepo management tool",
       version: Clockwork.version,
       subcommands: [
-        Cancel.self,
-        Delete.self,
+        Artifacts.self,
         Jobs.self,
-        Trigger.self,
-        Retry.self
+        Pipeline.self,
+        TriggerPipeline.self,
+        TriggerReviewPipeline.self,
       ]
     )
-    struct Cancel: ClockworkCommand {
-      static var abstract: String { "Cancel all pipeline jobs" }
-      @OptionGroup var clockwork: Clockwork
-      @Option(help: "Pipeline id to cancel jobs on")
-      var id: UInt
-    }
-    struct Delete: ClockworkCommand {
-      static var abstract: String { "Delete pipeline" }
-      @OptionGroup var clockwork: Clockwork
-      @Option(help: "Pipeline id to delete")
-      var id: UInt
+    struct Artifacts: ParsableCommand {
+      static let configuration = CommandConfiguration(
+        abstract: "Subset of jobs artifacts manipulating commands",
+        version: Clockwork.version,
+        subcommands: [
+          LoadFile.self,
+        ]
+      )
+      @Option(help: "Job id to manipulate artifacts of")
+      var job: UInt
+      struct LoadFile: ParsableCommand {
+        static var abstract: String { "Stdouts single job artifacts file" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var artifacts: Artifacts
+        @Argument(help: "Path to the file")
+        var path: String
+      }
     }
     struct Jobs: ParsableCommand {
       static let configuration = CommandConfiguration(
@@ -144,7 +168,7 @@ struct Clockwork: ParsableCommand {
       @Flag(help: "Scopes of jobs to look for")
       var scopes: [Scope] = []
       @Option(help: "Pipeline id to affect job on")
-      var id: UInt
+      var pipeline: UInt
       struct Cancel: ClockworkCommand {
         static var abstract: String { "Cancel matching jobs" }
         @OptionGroup var clockwork: Clockwork
@@ -176,7 +200,35 @@ struct Clockwork: ParsableCommand {
         case success
       }
     }
-    struct Trigger: ClockworkCommand {
+    struct Pipeline: ParsableCommand {
+      static let configuration = CommandConfiguration(
+        abstract: "Distributed scalable monorepo management tool",
+        version: Clockwork.version,
+        subcommands: [
+          Cancel.self,
+          Delete.self,
+          Retry.self
+        ]
+      )
+      @Option(help: "Pipeline id to affect")
+      var id: UInt
+      struct Cancel: ClockworkCommand {
+        static var abstract: String { "Cancel all pipeline jobs" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var pipeline: Pipeline
+      }
+      struct Delete: ClockworkCommand {
+        static var abstract: String { "Delete pipeline" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var pipeline: Pipeline
+      }
+      struct Retry: ClockworkCommand {
+        static var abstract: String { "Retry all failed pipeline jobs" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var pipeline: Pipeline
+      }
+    }
+    struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Trigger pipeline configured and custom context" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Ref to run pipeline on")
@@ -184,29 +236,11 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
       var context: [String] = []
     }
-    struct Retry: ClockworkCommand {
-      static var abstract: String { "Retry all failed pipeline jobs" }
+    struct TriggerReviewPipeline: ClockworkCommand {
+      static var abstract: String { "Create new pipeline for review" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Pipeline id to retry jobs on")
-      var id: UInt
-    }
-  }
-  struct Pods: ParsableCommand {
-    static let configuration = CommandConfiguration(
-      abstract: "Distributed scalable monorepo management tool",
-      version: Clockwork.version,
-      subcommands: [
-        ResetSpecs.self,
-        UpdateSpecs.self,
-      ]
-    )
-    struct ResetSpecs: ClockworkCommand {
-      static var abstract: String { "Reset cocoapods specs to configured commits" }
-      @OptionGroup var clockwork: Clockwork
-    }
-    struct UpdateSpecs: ClockworkCommand {
-      static var abstract: String { "Update cocoapods specs and configured commist" }
-      @OptionGroup var clockwork: Clockwork
+      @Argument(help: "Review id to trigger pipeline for")
+      var review: UInt
     }
   }
   struct Report: ParsableCommand {
@@ -435,8 +469,6 @@ struct Clockwork: ParsableCommand {
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Create new pipeline for parent review" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Review id to trigger pipeline for or parent review pipeline")
-      var iid: String = ""
     }
     struct Skip: ClockworkCommand {
       static var abstract: String { "Mark review as emergent" }

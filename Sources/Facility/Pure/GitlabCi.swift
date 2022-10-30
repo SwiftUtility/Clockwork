@@ -118,6 +118,13 @@ public extension GitlabCi {
     url: "\(project)/jobs/\(id)",
     headers: [protected.get().auth]
   ))}
+  func loadArtifact(
+    job: UInt,
+    file: String
+  ) -> Lossy<Execute> { .init(try .makeCurl(
+    url: "\(project)/jobs/\(job)/artifacts/\(file)",
+    headers: [protected.get().auth]
+  ))}
   var getProject: Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)",
     headers: [protected.get().auth]
