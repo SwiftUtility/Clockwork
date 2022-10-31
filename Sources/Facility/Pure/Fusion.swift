@@ -400,8 +400,8 @@ public struct Fusion {
         return legates
           .union(randoms)
           .union(authors)
+          .union(approves.filter(\.value.resolution.block).keys)
           .subtracting(approves.filter(\.value.resolution.approved).keys)
-          .subtracting(approves.filter(\.value.resolution.block).keys)
           .intersection(approvers.filter(\.value.active).keys)
       }
       public func isWatched(by approver: Approver) -> Bool {
