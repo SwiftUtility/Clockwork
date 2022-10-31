@@ -33,3 +33,6 @@ public struct Criteria {
     return false
   }
 }
+public extension String {
+  func isMet(criteria: Criteria) -> Bool { criteria.isMet(self) }
+}

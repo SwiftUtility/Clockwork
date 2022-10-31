@@ -1,7 +1,6 @@
 import Foundation
 import Facility
 public struct Requisition {
-  public var verbose: Bool
   public var env: [String: String]
   public var keychain: Keychain
   public var requisites: [String: Requisite]
@@ -9,13 +8,11 @@ public struct Requisition {
     try requisites[name].get { throw Thrown("No \(name) in requisition") }
   }
   public static func make(
-    verbose: Bool,
     env: [String: String],
     yaml: Yaml.Requisition
   ) throws -> Self {
     let ref = try Git.Ref.make(remote: .init(name: yaml.branch))
     return try .init(
-      verbose: verbose,
       env: env,
       keychain: .init(name: yaml.keychain.name, password: .make(yaml: yaml.keychain.password)),
       requisites: yaml.requisites
@@ -106,7 +103,6 @@ extension Requisition {
   ) -> Execute { .init(input: input, tasks: [.init(
     escalate: escalate,
     environment: self.env,
-    verbose: verbose,
     arguments: args
   )])}
 }

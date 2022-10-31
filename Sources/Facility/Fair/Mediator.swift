@@ -4,18 +4,42 @@ import FacilityPure
 public final class Mediator {
   let execute: Try.Reply<Execute>
   let logMessage: Act.Reply<LogMessage>
-  let worker: Worker
+  let stdoutData: Act.Of<Data>.Go
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    worker: Worker,
+    stdoutData: @escaping Act.Of<Data>.Go,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
     self.logMessage = logMessage
-    self.worker = worker
+    self.stdoutData = stdoutData
     self.jsonDecoder = jsonDecoder
+  }
+  public func loadArtifact(
+    cfg: Configuration,
+    job: UInt,
+    path: String
+  ) throws -> Bool {
+    try cfg.gitlabCi
+      .flatMap({ $0.loadArtifact(job: job, file: path) })
+      .map(execute)
+      .map(Execute.parseData(reply:))
+      .map(stdoutData)
+      .get()
+    return true
+  }
+  public func triggerReview(
+    cfg: Configuration,
+    iid: UInt
+  ) throws -> Bool {
+    try cfg.gitlabCi
+      .flatReduce(curry: iid, GitlabCi.postMrPipelines(review:))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return true
   }
   public func triggerPipeline(
     cfg: Configuration,
@@ -31,10 +55,10 @@ public final class Mediator {
       let value = variable[index..<variable.endIndex].dropFirst()
       variables[.init(key)] = .init(value)
     }
-    variables[cfg.profile.trigger.job] = "\(gitlabCi.job.id)"
-    variables[cfg.profile.trigger.name] = gitlabCi.job.name
-    variables[cfg.profile.trigger.profile] = cfg.profile.profile.path.value
-    variables[cfg.profile.trigger.pipeline] = "\(gitlabCi.job.pipeline.id)"
+    variables[gitlabCi.trigger.jobId] = "\(gitlabCi.job.id)"
+    variables[gitlabCi.trigger.jobName] = gitlabCi.job.name
+    variables[gitlabCi.trigger.profile] = cfg.profile.location.path.value
+    variables[gitlabCi.trigger.pipeline] = "\(gitlabCi.job.pipeline.id)"
     try gitlabCi
       .postTriggerPipeline(cfg: cfg, ref: ref, variables: variables)
       .map(execute)
@@ -42,76 +66,44 @@ public final class Mediator {
       .get()
     return true
   }
-  public func createReviewPipeline(
-    cfg: Configuration
-  ) throws -> Bool {
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
-    try ctx.gitlab.postMrPipelines(review: ctx.review.iid)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    return true
-  }
-  public func addReviewLabels(
+  public func affectPipeline(
     cfg: Configuration,
-    labels: [String]
+    id: UInt,
+    action: GitlabCi.PipelineAction
   ) throws -> Bool {
-    let ctx = try worker.resolveParentReview(cfg: cfg)
-    guard worker.isLastPipe(ctx: ctx) else { return false }
-    let labels = Set(labels).subtracting(.init(ctx.review.labels))
-    guard !labels.isEmpty else {
-      logMessage(.init(message: "No new labels"))
-      return false
+    let gitlabCi = try cfg.gitlabCi.get()
+    try gitlabCi
+      .affectPipeline(cfg: cfg, pipeline: id, action: action)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return true
+  }
+  public func affectJobs(
+    cfg: Configuration,
+    pipeline: UInt,
+    names: [String],
+    action: GitlabCi.JobAction,
+    scopes: [GitlabCi.JobScope]
+  ) throws -> Bool {
+    let gitlabCi = try cfg.gitlabCi.get()
+    var page = 1
+    var jobs: [Json.GitlabJob] = []
+    while true {
+      jobs += try gitlabCi
+        .getJobs(action: action, scopes: scopes, pipeline: pipeline, page: page, count: 100)
+        .map(execute)
+        .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
+        .get()
+      if jobs.count == page * 100 { page += 1 } else { break }
     }
-    try ctx.gitlab
-      .putMrState(
-        parameters: .init(addLabels: labels.joined(separator: ",")),
-        review: ctx.review.iid
-      )
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    logMessage(.init(message: "Labels added"))
-    return true
-  }
-  public func affectParentJob(
-    configuration cfg: Configuration,
-    action: GitlabCi.JobAction
-  ) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let parent = try gitlabCi.parent.get()
-    let job = try gitlabCi.getJob(id: parent.job)
-      .map(execute)
-      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
-      .get()
-    try gitlabCi
-      .postJobsAction(job: job.id, action: action)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    return true
-  }
-  public func affectNeighborJob(
-    configuration cfg: Configuration,
-    name: String,
-    action: GitlabCi.JobAction
-  ) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let job = try gitlabCi
-      .getJobs(action: action, pipeline: gitlabCi.job.pipeline.id)
-      .map(execute)
-      .reduce([Json.GitlabJob].self, jsonDecoder.decode(success:reply:))
-      .get()
-      .filter { $0.name == name }
-      .sorted { $0.id < $1.id }
-      .last
-      .get { throw Thrown("Job \(name) not found") }
-    try gitlabCi
-      .postJobsAction(job: job.id, action: action)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
+    let ids = jobs
+      .filter({ names.contains($0.name) })
+      .reduce(into: [:], { $0[$1.name] = max($0[$1.name].get($1.id), $1.id) })
+    guard ids.isEmpty.not else { return false }
+    for id in ids.values { try Execute.checkStatus(
+      reply: execute(gitlabCi.postJobsAction(job: id, action: action).get())
+    )}
     return true
   }
 }

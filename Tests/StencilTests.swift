@@ -3,21 +3,25 @@ import XCTest
 @testable import Facility
 @testable import FacilityPure
 extension AnyCodable: GenerationContext {
-  public var event: String { get {""} }
-  public var ctx: AnyCodable? { self }
-  public var info: GitlabCi.Info? { nil }
+  public var event: String { "" }
+  public var subevent: String { "" }
+  public var env: [String: String] { get { [:] } set {} }
+  public var ctx: AnyCodable? { get { self } set {} }
+  public var info: GitlabCi.Info? { get { nil } set {} }
+  public var mark: String? { get {""} set {} }
 }
 final class StencilTests: XCTestCase {
   func makeQuery(_ name: String) -> Generate { .init(
     allowEmpty: false,
     template: .name(name),
     templates: [
-      "testSubscript": "{{custom.members[env.login].mention}}",
-      "testRegexp": #"""
-        {% filter regexp:custom.jiraRegexp,"{{_.1}}<link|{{_.2}}>{{_.3}}" %}
-        {{ env.CI_MERGE_REQUEST_TITLE }}
+      "testJson": """
+        {% filter escapeJson %}
+        yay
+        yay
         {% endfilter %}
-        """#,
+        """,
+      "testSubscript": "{{custom.members[env.login].mention}}",
       "testFilterChaining": #"""
         {% filter regexp:"&","&amp;"|regexp:"\<","&lt;"|regexp:"\>","&gt;" %}
         {{ env.text }}
@@ -57,7 +61,6 @@ final class StencilTests: XCTestCase {
             "mention": .value(.string("<@USERID>")),
           ]),
         ]),
-        "jiraRegexp": .value(.string(#"( |^)([A-Z]+-\d+)( )"#)),
         "versionRegexp": .value(.string(#".*(\d+)\.(\d+)\.(\d+).*"#)),
         "versionString": .value(.string(#"release/1.2.4"#)),
       ]),
@@ -68,11 +71,6 @@ final class StencilTests: XCTestCase {
     let result = try StencilParser(notation: .json)
       .generate(query: makeQuery("testSubscript"))
     XCTAssertEqual(result, "<@USERID>")
-  }
-  func testRegexp() throws {
-    let result = try StencilParser(notation: .json)
-      .generate(query: makeQuery("testRegexp"))
-    XCTAssertEqual(result, #"MR-123, <link|MB-234> ME-123: asd "asdas" [MR-234], RF-345'"#)
   }
   func testFilterChaining() throws {
     let result = try StencilParser(notation: .json)
@@ -103,5 +101,10 @@ final class StencilTests: XCTestCase {
     let result = try StencilParser(notation: .json)
       .generate(query: makeQuery("testBool"))
     XCTAssertEqual(result, #"good"#)
+  }
+  func testJson() throws {
+    let result = try StencilParser(notation: .json)
+      .generate(query: makeQuery("testJson"))
+    XCTAssertEqual(result, #""yay\nyay""#)
   }
 }

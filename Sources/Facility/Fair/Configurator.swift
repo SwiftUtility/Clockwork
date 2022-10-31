@@ -9,7 +9,6 @@ public final class Configurator {
   let generate: Try.Reply<Generate>
   let writeFile: Try.Reply<Files.WriteFile>
   let logMessage: Act.Reply<LogMessage>
-  let writeStdout: Act.Of<String>.Go
   let dialect: AnyCodable.Dialect
   let jsonDecoder: JSONDecoder
   public init(
@@ -20,7 +19,6 @@ public final class Configurator {
     generate: @escaping Try.Reply<Generate>,
     writeFile: @escaping Try.Reply<Files.WriteFile>,
     logMessage: @escaping Act.Reply<LogMessage>,
-    writeStdout: @escaping Act.Of<String>.Go,
     dialect: AnyCodable.Dialect,
     jsonDecoder: JSONDecoder
   ) {
@@ -31,13 +29,11 @@ public final class Configurator {
     self.generate = generate
     self.writeFile = writeFile
     self.logMessage = logMessage
-    self.writeStdout = writeStdout
     self.dialect = dialect
     self.jsonDecoder = jsonDecoder
   }
   public func configure(
     profile: String,
-    verbose: Bool,
     env: [String: String]
   ) throws -> Configuration {
     let profilePath = try Id(profile)
@@ -50,72 +46,62 @@ public final class Configurator {
       .joined(separator: "/")
     var git = try Id(repoPath)
       .map(Files.Absolute.init(value:))
-      .reduce(verbose, Git.resolveTopLevel(verbose:path:))
+      .map(Git.resolveTopLevel(path:))
       .map(execute)
       .map(Execute.parseText(reply:))
       .map(Files.Absolute.init(value:))
-      .map { try Git.init(verbose: verbose, env: env, root: $0) }
+      .map { try Git.init(env: env, root: $0) }
       .get()
     git.lfs = try Id(git.updateLfs)
       .map(execute)
       .map(Execute.parseSuccess(reply:))
       .get()
-    try Id(git.fetch)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
+    try Execute.checkStatus(reply: execute(git.fetch))
     let profile = try resolveProfile(query: .init(git: git, file: .init(
       ref: .head,
       path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
     )))
-    var cfg = Configuration(verbose: verbose, git: git, env: env, profile: profile)
-    cfg.context = try profile.context
+    let gitlab = profile.gitlabCi
       .reduce(git, parse(git:yaml:))
-    cfg.templates = try profile.templates
-      .reduce(git, parse(git:templates:))
-      .get([:])
-    let gitlab = try Id(profile.gitlabCi)
-      .reduce(git, parse(git:yaml:))
-      .reduce(Yaml.GitlabCi.self, dialect.read(_:from:))
-      .get()
-    cfg.gitlabCi = .init(try .make(
-      verbose: verbose,
+      .reduce(Yaml.Gitlab.self, dialect.read(_:from:))
+    let gitlabEnv = gitlab
+      .map(\.trigger)
+      .reduce(env, GitlabCi.Env.make(env:trigger:))
+    let gitlabJob = gitlabEnv
+      .flatMap(\.getJob)
+      .map(execute)
+      .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
+    let gitlabToken = gitlab
+      .map(\.token)
+      .map({ try parse(git: git, env: env, secret: .make(yaml: $0)) })
+    return try .make(
+      git: git,
       env: env,
-      trigger: profile.trigger,
-      yaml: gitlab,
-      job: GitlabCi.getCurrentJob(verbose: verbose, env: env)
-        .map(execute)
-        .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:)),
-      apiToken: GitlabCi
-        .makeApiToken(env: env, yaml: gitlab)
-        .reduce(env, parse(env:secret:)),
-      pushToken: GitlabCi
-        .makePushToken(env: env, yaml: gitlab)
-        .reduce(env, parse(env:secret:))
-    ))
-    let communication = try Id(profile.communication)
-      .reduce(git, parse(git:yaml:))
-      .reduce(Yaml.Communication.self, dialect.read(_:from:))
-      .get()
-    cfg.communication.templates = try communication.templates
-      .map(Files.Relative.init(value:))
-      .reduce(profile.communication.ref, Git.Dir.init(ref:path:))
-      .reduce(git, parse(git:templates:))
-      .get([:])
-    let hooks = try communication.slackHooks
-      .mapValues { try parse(env: env, secret: .make(yaml: $0)) }
-    for yaml in communication.slackHookTextMessages.get([]) {
-      let communication = try [Communication.SlackHookTextMessage(
-        url: hooks[yaml.hook]
-          .get { throw Thrown("No \(yaml.hook) in slackHooks") },
-        yaml: yaml
-      )]
-      for event in yaml.events {
-        let present = cfg.communication.slackHookTextMessages[event].get([])
-        cfg.communication.slackHookTextMessages[event] = present + communication
-      }
-    }
-    return cfg
+      profile: profile,
+      templates: profile.templates
+        .reduce(git, parse(git:templates:))
+        .get([:]),
+      gitlabCi: Lossy(try .make(
+        trigger: gitlab.get().trigger,
+        env: gitlabEnv.get(),
+        job: gitlabJob.get(),
+        protected: .init(try .make(
+          token: gitlabToken,
+          env: gitlabEnv,
+          user: gitlabEnv
+            .flatMap { try $0.getTokenUser(token: gitlabToken.get()) }
+            .map(execute)
+            .reduce(Json.GitlabUser.self, jsonDecoder.decode(success:reply:))
+        ))
+      )),
+      slack: profile.slack
+        .reduce(git, parse(git:yaml:))
+        .reduce(Yaml.Slack.self, dialect.read(_:from:))
+        .map { slack in try .make(
+          token: parse(git: git, env: env, secret: .make(yaml: slack.token)),
+          yaml: slack
+        )}
+    )
   }
   public func resolveRequisition(
     query: Configuration.ResolveRequisition
@@ -123,7 +109,6 @@ public final class Configurator {
     .reduce(query.cfg.git, parse(git:yaml:))
     .reduce(Yaml.Requisition.self, dialect.read(_:from:))
     .map { yaml in try Requisition.make(
-      verbose: query.cfg.verbose,
       env: query.cfg.env,
       yaml: yaml
     )}
@@ -133,7 +118,7 @@ public final class Configurator {
     query: Configuration.ResolveFusion
   ) throws -> Configuration.ResolveFusion.Reply { try query.cfg.profile.fusion
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.Fusion.self, dialect.read(_:from:))
+    .reduce(Yaml.Review.self, dialect.read(_:from:))
     .map(Fusion.make(yaml:))
     .get()
   }
@@ -141,25 +126,8 @@ public final class Configurator {
     query: Configuration.ResolveProduction
   ) throws -> Configuration.ResolveProduction.Reply { try query.cfg.profile.production
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.Production.self, dialect.read(_:from:))
+    .reduce(Yaml.Flow.self, dialect.read(_:from:))
     .map(Production.make(yaml:))
-    .get()
-  }
-  public func resolveProductionBuilds(
-    query: Configuration.ResolveProductionBuilds
-  ) throws -> Configuration.ResolveProductionBuilds.Reply { try Id(query.production.builds)
-    .map(Git.File.make(asset:))
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([Yaml.Production.Build].self, dialect.read(_:from:))
-    .get()
-    .map(Production.Build.make(yaml:))
-  }
-  public func resolveProductionVersions(
-    query: Configuration.ResolveProductionVersions
-  ) throws -> Configuration.ResolveProductionVersions.Reply { try Id(query.production.versions)
-    .map(Git.File.make(asset:))
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: String].self, dialect.read(_:from:))
     .get()
   }
   public func resolveProfile(
@@ -167,16 +135,8 @@ public final class Configurator {
   ) throws -> Configuration.ResolveProfile.Reply { try Id(query.file)
     .reduce(query.git, parse(git:yaml:))
     .reduce(Yaml.Profile.self, dialect.read(_:from:))
-    .reduce(query.file, Configuration.Profile.make(profile:yaml:))
+    .reduce(query.file, Configuration.Profile.make(location:yaml:))
     .get()
-  }
-  public func resolveCodeOwnage(
-    query: Configuration.ResolveCodeOwnage
-  ) throws -> Configuration.ResolveCodeOwnage.Reply { try query.profile.codeOwnage
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Yaml.Criteria].self, dialect.read(_:from:))
-    .get()
-    .mapValues(Criteria.init(yaml:))
   }
   public func resolveFileTaboos(
     query: Configuration.ResolveFileTaboos
@@ -205,146 +165,98 @@ public final class Configurator {
       data: .init(query.cocoapods.yaml.utf8)
     ))
   }
-  public func resolveAwardApproval(
-    query: Configuration.ResolveAwardApproval
-  ) throws -> Configuration.ResolveAwardApproval.Reply { try query.cfg.profile.awardApproval
-    .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce(Yaml.AwardApproval.self, dialect.read(_:from:))
-    .map(AwardApproval.make(yaml:))
-    .get()
-  }
-  public func resolveUserActivity(
-    query: Configuration.ResolveUserActivity
-  ) throws -> Configuration.ResolveUserActivity.Reply { try query.cfg.profile.userActivity
+  public func resolveFusionStatuses(
+    query: Configuration.ResolveFusionStatuses
+  ) throws -> Configuration.ResolveFusionStatuses.Reply { try Id(query.approval.statuses)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String: Bool].self, dialect.read(_:from:))
+    .reduce([String: Yaml.Review.Approval.Status].self, dialect.read(_:from:))
     .get()
+    .map(Fusion.Approval.Status.make(review:yaml:))
+    .reduce(into: [:], { $0[$1.review] = $1 })
   }
-  public func resolveForbiddenCommits(
-    query: Configuration.ResolveForbiddenCommits
-  ) throws -> Configuration.ResolveForbiddenCommits.Reply { try query.cfg.profile.forbiddenCommits
+  public func resolveReviewQueue(
+    query: Fusion.Queue.Resolve
+  ) throws -> Fusion.Queue.Resolve.Reply { try Id(query.fusion.queue)
     .map(Git.File.make(asset:))
     .reduce(query.cfg.git, parse(git:yaml:))
-    .reduce([String].self, dialect.read(_:from:))
+    .reduce([String: [UInt]].self, dialect.read(_:from:))
+    .map(Fusion.Queue.make(queue:))
     .get()
-    .map(Git.Sha.init(value:))
   }
-  public func persistVersions(
-    query: Configuration.PersistVersions
-  ) throws -> Configuration.PersistVersions.Reply {
-    var versions = query.versions
-    versions[query.product.name] = query.version
-    let message = try generate(query.cfg.createVersionCommitMessage(
-      asset: query.production.versions,
-      product: query.product,
-      version: query.version
-    ))
+  public func parseYamlFile<T: Decodable>(
+    query: Configuration.ParseYamlFile<T>
+  ) throws -> T { try Id(query.file)
+    .reduce(query.git, parse(git:yaml:))
+    .reduce(T.self, dialect.read(_:from:))
+    .get()
+  }
+  public func parseYamlSecret<T: Decodable>(
+    query: Configuration.ParseYamlSecret<T>
+  ) throws -> T { try Id(parse(git: query.cfg.git, env: query.cfg.env, secret: query.secret))
+    .map(Yaml.Decode.init(content:))
+    .map(decodeYaml)
+    .reduce(T.self, dialect.read(_:from:))
+    .get()
+  }
+  public func persistAsset(
+    query: Configuration.PersistAsset
+  ) throws -> Configuration.PersistAsset.Reply {
+    guard let sha = try persist(
+      git: query.cfg.git,
+      asset: query.asset,
+      yaml: query.content,
+      message: query.message
+    ) else { return false }
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.pushUrl,
-      branch: query.production.versions.branch,
-      sha: persist(
-        git: query.cfg.git,
-        file: query.production.versions.file,
-        branch: query.production.versions.branch,
-        yaml: versions
-          .map { "'\($0.key)': '\($0.value)'\n" }
-          .sorted()
-          .joined(),
-        message: message
-      ),
+      url: query.cfg.gitlabCi.flatMap(\.protected).get().push,
+      branch: query.asset.branch,
+      sha: sha,
       force: false
     )))
-  }
-  public func persistBuilds(
-    query: Configuration.PersistBuilds
-  ) throws -> Configuration.PersistBuilds.Reply {
-    let builds = query.builds + [query.build]
-    let message = try generate(query.cfg.createBuildCommitMessage(
-      asset: query.production.builds,
-      build: query.build.build
-    ))
-    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.pushUrl,
-      branch: query.production.builds.branch,
-      sha: persist(
-        git: query.cfg.git,
-        file: query.production.builds.file,
-        branch: query.production.builds.branch,
-        yaml: query.production.maxBuildsCount
-          .map(builds.suffix(_:))
-          .get(builds)
-          .map(\.yaml)
-          .flatMap(makeYaml(build:))
-          .joined(),
-        message: message
-      ),
-      force: false
+    try Execute.checkStatus(reply: execute(query.cfg.git.fetchBranch(query.asset.branch)))
+    let fetched = try Execute.parseText(reply: execute(query.cfg.git.getSha(
+      ref: .make(remote: query.asset.branch)
     )))
-  }
-  public func persistUserActivity(
-    query: Configuration.PersistUserActivity
-  ) throws -> Configuration.PersistUserActivity.Reply {
-    var userActivity = query.userActivity
-    userActivity[query.user] = query.active
-    let asset = try query.cfg.profile.userActivity.get()
-    let message = try generate(query.cfg.createUserActivityCommitMessage(
-      asset: asset,
-      user: query.user,
-      active: query.active
-    ))
-    try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.pushUrl,
-      branch: asset.branch,
-      sha: persist(
-        git: query.cfg.git,
-        file: asset.file,
-        branch: asset.branch,
-        yaml: userActivity
-          .map { "'\($0.key)': \($0.value)\n" }
-          .sorted()
-          .joined(),
-        message: message
-      ),
-      force: false
-    )))
+    guard sha.value == fetched else { throw Thrown("Fetch sha mismatch") }
+    return true
   }
   public func resolveSecret(
     query: Configuration.ResolveSecret
   ) throws -> Configuration.ResolveSecret.Reply {
-    try parse(env: query.cfg.env, secret: query.secret)
+    try parse(git: query.cfg.git, env: query.cfg.env, secret: query.secret)
   }
 }
 extension Configurator {
   func persist(
     git: Git,
-    file: Files.Relative,
-    branch: Git.Branch,
+    asset: Configuration.Asset,
     yaml: String,
     message: String
-  ) throws -> Git.Sha {
+  ) throws -> Git.Sha? {
     let initial = try Id(.head)
       .map(git.getSha(ref:))
       .map(execute)
       .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
+      .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    try Execute.checkStatus(reply: execute(git.detach(ref: .make(remote: branch))))
+    try Execute.checkStatus(reply: execute(git.detach(ref: .make(remote: asset.branch))))
     try Execute.checkStatus(reply: execute(git.clean))
     try writeFile(.init(
-      file: .init(value: "\(git.root.value)/\(file.value)"),
+      file: .init(value: "\(git.root.value)/\(asset.file.value)"),
       data: .init(yaml.utf8)
     ))
-    try Execute.checkStatus(reply: execute(git.addAll))
-    try Execute.checkStatus(reply: execute(git.commit(message: message)))
-    let result = try Id(.head)
-      .map(git.getSha(ref:))
-      .map(execute)
-      .map(Execute.parseText(reply:))
-      .map(Git.Sha.init(value:))
-      .get()
+    let result: Git.Sha?
+    if try Execute.parseLines(reply: execute(git.changesList)).isEmpty.not {
+      try Execute.checkStatus(reply: execute(git.addAll))
+      try Execute.checkStatus(reply: execute(git.commit(message: message)))
+      result = try .make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+    } else {
+      result = nil
+    }
     try Execute.checkStatus(reply: execute(git.detach(ref: initial)))
+    try Execute.checkStatus(reply: execute(git.clean))
     return result
   }
   func parse(git: Git, yaml: Git.File) throws -> AnyCodable { try Id
@@ -357,6 +269,7 @@ extension Configurator {
     .get()
   }
   func parse(
+    git: Git,
     env: [String: String],
     secret: Configuration.Secret
   ) throws -> String {
@@ -370,6 +283,18 @@ extension Configurator {
       .map(readFile)
       .map(String.make(utf8:))
       .get { throw Thrown("No env \(envFile)") }
+    case .sysFile(let sysFile): return try Id(sysFile)
+      .map(git.root.makeResolve(path:))
+      .map(resolveAbsolute)
+      .map(Files.ReadFile.init(file:))
+      .map(readFile)
+      .map(String.make(utf8:))
+      .get()
+    case .gitFile(let file): return try Id(file)
+      .map(git.cat(file:))
+      .map(execute)
+      .map(Execute.parseText(reply:))
+      .get()
     }
   }
   func parse(
@@ -393,13 +318,5 @@ extension Configurator {
         .get()
     }
     return result
-  }
-  func makeYaml(build: Yaml.Production.Build) -> [String] {
-    ["- build: '\(build.build)'\n", "  sha: '\(build.sha)'\n"]
-    + build.branch.map { "  branch: '\($0)'\n" }.array
-    + build.review.map { "  review: \($0)\n" }.array
-    + build.target.map { "  target: '\($0)'\n" }.array
-    + build.product.map { "  product: '\($0)'\n" }.array
-    + build.version.map { "  version: '\($0)'\n" }.array
   }
 }

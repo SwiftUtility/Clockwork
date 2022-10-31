@@ -3,31 +3,25 @@ import Facility
 import FacilityPure
 public final class Reporter {
   let execute: Try.Reply<Execute>
-  let writeStderr: Act.Of<String>.Go
   let writeStdout: Act.Of<String>.Go
-  let getTime: Act.Do<Date>
-  let readStdin: Try.Do<Execute.Reply>
+  let readStdin: Try.Do<Data?>
   let generate: Try.Reply<Generate>
+  let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
-  let formatter: DateFormatter
   public init(
     execute: @escaping Try.Reply<Execute>,
-    writeStderr: @escaping Act.Of<String>.Go,
     writeStdout: @escaping Act.Of<String>.Go,
-    getTime: @escaping Act.Do<Date>,
-    readStdin: @escaping Try.Do<Execute.Reply>,
+    readStdin: @escaping Try.Do<Data?>,
     generate: @escaping Try.Reply<Generate>,
+    logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
-    self.writeStderr = writeStderr
     self.writeStdout = writeStdout
-    self.getTime = getTime
     self.readStdin = readStdin
     self.generate = generate
+    self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
-    self.formatter = .init()
-    formatter.dateFormat = "HH:mm:ss"
   }
   public func finish(cfg: Configuration, success: Bool) throws {
     if !success { throw Thrown("Execution considered unsuccessful") }
@@ -36,50 +30,74 @@ public final class Reporter {
     report(query: cfg.reportUnexpected(error: error))
     throw error
   }
-  public func reportCustom(cfg: Configuration, event: String, stdin: Bool) throws -> Bool {
-    let stdin = try stdin
-      .then(readStdin())
-      .map(Execute.parseLines(reply:))
-      .get([])
+  public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
+    logMessage(.init(message: "Creating thread for: \(query.report.context.identity)"))
+    report(query: query.report)
+    let slack = try query.report.cfg.slack.get()
+    var query = query
+    query.report.context.env = query.report.cfg.env
+    query.report.context.info = try? query.report.cfg.gitlabCi.get().info
+    query.report.context.mark = "createThread"
+    let body = try generate(query.report.generate(template: query.template))
+    return try Id
+    .make(query.report.cfg.curlSlack(
+      token: slack.token,
+      method: "chat.postMessage",
+      body: body
+    ))
+    .map(execute)
+    .map(Execute.parseData(reply:))
+    .reduce(Json.SlackMessage.self, jsonDecoder.decode(_:from:))
+    .map(Configuration.Thread.make(slack:))
+    .get()
+  }
+  public func readStdin(query: Configuration.ReadStdin) throws -> Configuration.ReadStdin.Reply {
+    switch query {
+    case .ignore: return nil
+    case .lines:
+      let stdin = try readStdin()
+        .map(String.make(utf8:))?
+        .trimmingCharacters(in: .newlines)
+        .components(separatedBy: .newlines)
+      return try stdin.map(AnyCodable.init(any:))
+    case .json: return try readStdin().reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
+    }
+  }
+  public func reportCustom(
+    cfg: Configuration,
+    event: String,
+    stdin: Configuration.ReadStdin
+  ) throws -> Bool {
+    let stdin = try readStdin(query: stdin)
     report(query: cfg.reportCustom(event: event, stdin: stdin))
     return true
   }
   public func report(query: Report) -> Report.Reply {
-    let encoder = JSONEncoder()
-    encoder.keyEncodingStrategy = .convertToSnakeCase
-    for value in query.cfg.communication.slackHookTextMessages[query.context.identity].get([]) {
-      let message: String
+    logMessage(.init(message: "Creating report for: \(query.context.identity)"))
+    var query = query
+    query.context.env = query.cfg.env
+    query.context.info = try? query.cfg.gitlabCi.get().info
+    let slack: Slack
+    do { slack = try query.cfg.slack.get() }
+    catch { return logMessage(.init(message: "Report failed: \(error)")) }
+    for signal in slack.signals[query.context.identity].get([]) {
+      query.context.mark = signal.mark
+      let body: String
       do {
-        message = try generate(query.generate(template: value.createMessageText))
+        body = try generate(query.generate(template: signal.body))
+        guard !body.isEmpty else { continue }
       } catch {
-        log(message: "Generate report error: \(error)")
-        message = ""
+        logMessage(.init(message: "Generate report error: \(error)"))
+        continue
       }
-      guard !message.isEmpty else { continue }
-      do { try Id(message)
-        .map(value.makePayload(text:))
-        .map(encoder.encode(_:))
-        .map(String.make(utf8:))
-        .reduce(value.url, query.cfg.curlSlackHook(url:payload:))
-        .map(execute)
-        .map(Execute.checkStatus(reply:))
-        .get()
-      } catch {
-        log(message: "Delivery error: \(error)")
-        log(message: message)
+      do { try Execute.checkStatus(reply: execute(query.cfg.curlSlack(
+        token: slack.token,
+        method: signal.method,
+        body: body
+      ))) } catch {
+        logMessage(.init(message: "Report delivery failed: \(error)"))
+        logMessage(.init(message: body))
       }
     }
-  }
-  public func logMessage(query: LogMessage) -> LogMessage.Reply { log(message: query.message) }
-}
-private extension Reporter {
-  func merge(context: inout [String: AnyCodable], element: AnyCodable) throws {
-    guard let element = element.map else { throw MayDay("wrong encodable structure") }
-    try context.merge(element) { _,_ in throw MayDay("not unique unique") }
-  }
-  func log(message: String) { message
-    .split(separator: "\n")
-    .compactMap { line in line.isEmpty.else("[\(formatter.string(from: getTime()))]: \(line)") }
-    .forEach(writeStderr)
   }
 }

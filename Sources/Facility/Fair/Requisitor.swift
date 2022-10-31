@@ -98,7 +98,8 @@ public final class Requisitor {
     days: UInt
   ) throws -> Bool {
     let requisition = try resolveRequisition(.init(cfg: cfg))
-    let threshold = getTime().advanced(by: .init(days) * .day)
+    let now = getTime()
+    let threshold = now.advanced(by: .init(days) * .day)
     var items: [Report.ExpiringRequisites.Item] = []
     let provisions = try getProvisions(
       git: cfg.git,
@@ -125,8 +126,12 @@ public final class Requisitor {
         .reduce(Plist.Provision.self, plistDecoder.decode(_:from:))
         .get()
       guard provision.expirationDate < threshold else { continue }
-      let days = min(0, Int(threshold.timeIntervalSince(provision.expirationDate) / .day))
-      items.append(.init(file: file.path.value, name: provision.name, days: "\(days)"))
+      try items.append(.init(
+        file: file.path.value,
+        branch: file.ref.value.dropPrefix("refs/remotes/origin/"),
+        name: provision.name,
+        days: provision.expirationDate.timeIntervalSince(now) / .day
+      ))
     }
     for requisite in requisition.requisites.values {
       let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
@@ -156,12 +161,12 @@ public final class Requisitor {
           .map(Execute.parseLines(reply:))
           .get()
           .map { $0.trimmingCharacters(in: .whitespaces) }
-        let date = try lines
+        let expirationDate = try lines
           .compactMap { try? $0.dropPrefix("notAfter=") }
           .first
           .flatMap(formatter.date(from:))
           .get { throw MayDay("openssl output") }
-        guard date < threshold else { continue }
+        guard expirationDate < threshold else { continue }
         let escaped = try lines
           .compactMap { try? $0.dropPrefix("commonName") }
           .first
@@ -172,12 +177,12 @@ public final class Requisitor {
           .replacingOccurrences(of: "\\U", with: "\\u")
         let name = NSMutableString(string: escaped)
         CFStringTransform(name, nil, "Any-Hex/Java" as NSString, true)
-        let days = min(0, Int(threshold.timeIntervalSince(date) / .day))
-        items.append(.init(
+        try items.append(.init(
           file: requisite.pkcs12.path.value,
+          branch: requisite.pkcs12.ref.value.dropPrefix("refs/remotes/origin/"),
           name: .init(name),
-          days: "\(days)")
-        )
+          days: expirationDate.timeIntervalSince(now) / .day
+        ))
       }
     }
     guard !items.isEmpty else { return true }
@@ -213,7 +218,7 @@ public final class Requisitor {
     guard let names = try? listFileSystem(.init(include: .directories, path: specs)) else { return }
     for name in names {
       let path = try resolveAbsolute(specs.makeResolve(path: name))
-      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      let git = try Git(env: cfg.env, root: path)
       guard let url = try? Execute.parseText(reply: execute(git.getOriginUrl)) else { continue }
       for spec in cocoapods.specs {
         guard spec.url == url else { continue }
@@ -230,7 +235,7 @@ public final class Requisitor {
   ) throws {
     for spec in cocoapods.specs {
       let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
-      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
+      let git = try Git(env: cfg.env, root: path)
       guard case nil = try? Execute.parseText(reply: execute(git.getSha(ref: .head)))
       else { continue }
       try Execute.checkStatus(reply: execute(cfg.podAddSpec(name: spec.name, url: spec.url)))
@@ -243,8 +248,8 @@ public final class Requisitor {
   ) throws {
     for spec in cocoapods.specs {
       let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
-      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
-      let sha = try Git.Sha(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+      let git = try Git(env: cfg.env, root: path)
+      let sha = try Git.Sha.make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
       guard sha != spec.sha else { continue }
       try Execute.checkStatus(reply: execute(cfg.podUpdateSpec(name: spec.name)))
       try Execute.checkStatus(reply: execute(git.resetHard(ref: .make(sha: spec.sha))))
@@ -260,8 +265,8 @@ public final class Requisitor {
     for var spec in cocoapods.specs {
       try Execute.checkStatus(reply: execute(cfg.podUpdateSpec(name: spec.name)))
       let path = try resolveAbsolute(specs.makeResolve(path: spec.name))
-      let git = try Git(verbose: cfg.verbose, env: cfg.env, root: path)
-      spec.sha = try .init(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
+      let git = try Git(env: cfg.env, root: path)
+      spec.sha = try .make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
       result.specs.append(spec)
     }
     return result

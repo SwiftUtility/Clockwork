@@ -3,11 +3,9 @@ import Facility
 public struct Git {
   public var root: Files.Absolute
   public var lfs: Bool = false
-  public var verbose: Bool
   public var env: [String: String]
-  public init(verbose: Bool, env: [String: String], root: Files.Absolute) throws {
+  public init(env: [String: String], root: Files.Absolute) throws {
     self.root = root
-    self.verbose = verbose
     self.env = env
   }
   public struct File: Hashable {
@@ -21,12 +19,8 @@ public struct Git {
       ref: .make(remote: asset.branch),
       path: asset.file
     )}
-    public static func make(preset: Yaml.Preset) throws -> Self { try .init(
-      ref: .make(remote: .init(name: preset.branch)),
-      path: .init(value: preset.path)
-    )}
   }
-  public struct Dir: Hashable {
+  public struct Dir {
     public var ref: Ref
     public var path: Files.Relative
     public init(ref: Ref, path: Files.Relative) {
@@ -58,11 +52,18 @@ public struct Git {
   }
   public struct Sha: Hashable {
     public let value: String
-    public init(value: String) throws {
-      guard value.count == 40, value.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
-        throw Thrown("not sha: \(value)")
+    public static func make(value: String) throws -> Self {
+      try validate(sha: value)
+      return .init(value: value)
+    }
+    public static func make(job: Json.GitlabJob) throws -> Self {
+      try validate(sha: job.pipeline.sha)
+      return .init(value: job.pipeline.sha)
+    }
+    static func validate(sha: String) throws {
+      guard sha.count == 40, sha.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
+        throw Thrown("Not sha: \(sha)")
       }
-      self.value = value
     }
   }
   public struct Tree {
@@ -71,19 +72,20 @@ public struct Git {
       self.value = "\(ref.value)^{tree}"
     }
     public init(sha: String) throws {
-      self.value = try Sha(value: sha).value
+      self.value = try Sha.make(value: sha).value
     }
   }
   public struct Branch {
     public let name: String
     public init(name: String) throws {
-      guard
-        !name.isEmpty,
-        !name.hasPrefix("/"),
-        !name.hasSuffix("/"),
-        !name.contains(" ")
-      else { throw Thrown("invalid branch name") }
+      guard !name.isEmpty else { throw Thrown("empty branch name") }
+      guard !name.hasPrefix("/"), !name.hasSuffix("/"), !name.contains(" ")
+      else { throw Thrown("invalid branch name \(name)") }
       self.name = name
+    }
+    public static func make(job: Json.GitlabJob) throws -> Self {
+      guard job.tag.not else { throw Thrown("Not branch job \(job.webUrl)") }
+      return try .init(name: job.pipeline.ref)
     }
   }
 }
@@ -101,9 +103,12 @@ public extension Git {
     ],
     escalate: false
   )}
-  var notCommited: Execute { proc(args: ["status", "--porcelain"]) }
+  var changesList: Execute { proc(args: ["status", "--porcelain"]) }
   var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"]) }
   var listAllRefs: Execute { proc(args: ["show-ref", "--head"]) }
+  func excludeParents(shas: Set<Git.Sha>) -> Execute { proc(
+    args: ["show-branch", "--independent"] + shas.map(\.value)
+  )}
   func check(child: Ref, parent: Ref) -> Execute { proc(
     args: ["merge-base", "--is-ancestor", parent.value, child.value]
   )}
@@ -123,14 +128,17 @@ public extension Git {
   func listCommits(
     in include: [Ref],
     notIn exclude: [Ref],
-    noMerges: Bool,
-    firstParents: Bool
+    noMerges: Bool = false,
+    firstParents: Bool = false,
+    boundary: Bool = false,
+    ignoreMissing: Bool = false
   ) -> Execute { proc(
-    args: ["log", "--format=%H"]
-    + firstParents.then(["--first-parent"]).get([])
-    + noMerges.then(["--no-merges"]).get([])
-    + include.map(\.value)
-    + exclude.map { "^\($0.value)" }
+    args: ["log", "--format=%H"] + [
+      boundary.then("--boundary"),
+      firstParents.then("--first-parent"),
+      noMerges.then("--no-merges"),
+      ignoreMissing.then("--ignore-missing"),
+    ].compactMap({ $0 }) + include.map(\.value) + exclude.map({ "^\($0.value)" })
   )}
   var writeTree: Execute { proc(args: ["write-tree"]) }
   func commitTree(
@@ -166,11 +174,14 @@ public extension Git {
     + ["\(sha.value):\(Ref.make(local: branch).value)"]
   )}
   func push(url: String, delete branch: Branch) -> Execute { proc(
-    args: ["push", url, ":\(Ref.make(local: branch))"]
+    args: ["push", url, ":\(Ref.make(local: branch).value)"]
   )}
   var updateLfs: Execute { proc(args: ["lfs", "update"]) }
   var fetch: Execute { proc(
     args: ["fetch", "origin", "--prune", "--prune-tags", "--tags", "--force"]
+  )}
+  func fetchBranch(_ branch: Branch) -> Execute { proc(
+    args: ["fetch", "origin", Ref.make(local: branch).value, "--no-tags"]
   )}
   func cat(file: File) throws -> Execute {
     var result = proc(args: ["show", "\(file.ref.value):\(file.path.value)"])
@@ -185,7 +196,7 @@ public extension Git {
   )}
   var clean: Execute { proc(args: ["clean", "-fdx"]) }
   func merge(
-    ref: Ref,
+    refs: [Ref],
     message: String?,
     noFf: Bool,
     env: [String: String] = [:],
@@ -194,7 +205,7 @@ public extension Git {
     args: ["merge"]
     + message.map { ["-m", $0] }.get(["--no-commit"])
     + noFf.then(["--no-ff"]).get([])
-    + [ref.value],
+    + refs.map(\.value),
     env: env,
     escalate: escalate
   )}
@@ -217,11 +228,9 @@ public extension Git {
     args: ["ls-remote", "--tags", "--refs"]
   )}
   static func resolveTopLevel(
-    verbose: Bool,
     path: Files.Absolute
   ) -> Execute { .init(tasks: [.init(
     environment: [:],
-    verbose: verbose,
     arguments: ["git", "-C", path.value, "rev-parse", "--show-toplevel"]
   )])}
   static func env(
@@ -251,7 +260,6 @@ extension Git {
     escalate: escalate,
     environment: self.env
       .merging(env, uniquingKeysWith: { $1 }),
-    verbose: verbose,
     arguments: ["git", "-C", root.value]
     + ["-c", "core.quotepath=false", "-c", "core.precomposeunicode=true"]
     + args

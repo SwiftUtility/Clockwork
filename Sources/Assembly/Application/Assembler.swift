@@ -5,13 +5,16 @@ import InteractivityYams
 import InteractivityStencil
 import InteractivityPathKit
 enum Assembler {
+  static let logger = Logger(
+    writeStderr: writeStderr,
+    getTime: Date.init
+  )
   static let reporter = Reporter(
     execute: execute,
-    writeStderr: writeStderr,
     writeStdout: writeStdout,
-    getTime: Date.init,
     readStdin: readStdin,
     generate: stencilParser.generate(query:),
+    logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let configurator = Configurator(
@@ -21,20 +24,18 @@ enum Assembler {
     readFile: Finder.readFile(query:),
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
-    logMessage: reporter.logMessage(query:),
-    writeStdout: writeStdout,
+    logMessage: logger.logMessage(query:),
     dialect: .json,
     jsonDecoder: jsonDecoder
   )
   static let environment = ProcessInfo.processInfo.environment
   static let validator = Validator(
     execute: execute,
-    resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
+    parseCodeOwnage: configurator.parseYamlFile(query:),
     resolveFileTaboos: configurator.resolveFileTaboos(query:),
-    resolveForbiddenCommits: configurator.resolveForbiddenCommits(query:),
     listFileLines: FileLiner.listFileLines(query:),
-    report: reporter.report(query:),
-    logMessage: reporter.logMessage(query:),
+    logMessage: logger.logMessage(query:),
+    stdoutData: stdoutData,
     jsonDecoder: jsonDecoder
   )
   static let requisitor = Requisitor(
@@ -49,33 +50,29 @@ enum Assembler {
     getTime: Date.init,
     plistDecoder: .init()
   )
-  static let approver = Approver(
-    execute: execute,
-    resolveProfile: configurator.resolveProfile(query:),
-    resolveAwardApproval: configurator.resolveAwardApproval(query:),
-    resolveUserActivity: configurator.resolveUserActivity(query:),
-    resolveCodeOwnage: configurator.resolveCodeOwnage(query:),
-    persistUserActivity: configurator.persistUserActivity(query:),
-    resolveFusion: configurator.resolveFusion(query:),
-    report: reporter.report(query:),
-    logMessage: reporter.logMessage(query:),
-    worker: worker,
-    jsonDecoder: jsonDecoder
-  )
-  static let merger = Merger(
+  static let reviewer = Reviewer(
     execute: execute,
     resolveFusion: configurator.resolveFusion(query:),
+    resolveFusionStatuses: configurator.resolveFusionStatuses(query:),
+    resolveReviewQueue: configurator.resolveReviewQueue(query:),
+    parseApprovers: configurator.parseYamlFile(query:),
+    parseApprovalRules: configurator.parseYamlFile(query:),
+    parseCodeOwnage: configurator.parseYamlFile(query:),
+    parseProfile: configurator.parseYamlFile(query:),
+    parseAntagonists: configurator.parseYamlSecret(query:),
+    persistAsset: configurator.persistAsset(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
-    logMessage: reporter.logMessage(query:),
-    worker: worker,
+    readStdin: reporter.readStdin(query:),
+    createThread: reporter.createThread(query:),
+    logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let mediator = Mediator(
     execute: execute,
-    logMessage: reporter.logMessage(query:),
-    worker: worker,
+    logMessage: logger.logMessage(query:),
+    stdoutData: stdoutData,
     jsonDecoder: jsonDecoder
   )
   static let producer = Producer(
@@ -83,19 +80,14 @@ enum Assembler {
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
     resolveProduction: configurator.resolveProduction(query:),
-    resolveProductionVersions: configurator.resolveProductionVersions(query:),
-    resolveProductionBuilds: configurator.resolveProductionBuilds(query:),
-    persistBuilds: configurator.persistBuilds(query:),
-    persistVersions: configurator.persistVersions(query:),
+    parseBuilds: configurator.parseYamlFile(query:),
+    parseVersions: configurator.parseYamlFile(query:),
+    persistAsset: configurator.persistAsset(query:),
     report: reporter.report(query:),
-    logMessage: reporter.logMessage(query:),
+    readStdin: reporter.readStdin(query:),
+    createThread: reporter.createThread(query:),
+    logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
-    worker: worker,
-    jsonDecoder: jsonDecoder
-  )
-  static let worker = Worker(
-    execute: execute,
-    logMessage: reporter.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let stencilParser = StencilParser(notation: .json)
@@ -105,6 +97,7 @@ enum Assembler {
     return result
   }()
   static let writeStdout = FileHandle.standardOutput.write(message:)
+  static let stdoutData = FileHandle.standardOutput.write(data:)
   static let writeStderr = FileHandle.standardError.write(message:)
   static let readStdin = FileHandle.readStdin
   static let execute = Processor.execute(query:)
