@@ -255,7 +255,7 @@ public final class Reviewer {
       cfg: cfg,
       state: ctx.review,
       fusion: fusion,
-      kind: fusion.makeKind(state: ctx.review),
+      kind: fusion.makeKind(state: ctx.review, project: ctx.project),
       approvers: resolveApprovers(cfg: cfg, fusion: fusion),
       status: status
     )
@@ -296,7 +296,7 @@ public final class Reviewer {
       cfg: cfg,
       state: ctx.review,
       fusion: fusion,
-      kind: fusion.makeKind(state: ctx.review),
+      kind: fusion.makeKind(state: ctx.review, project: ctx.project),
       approvers: resolveApprovers(cfg: cfg, fusion: fusion),
       status: status
     )
@@ -317,11 +317,10 @@ public final class Reviewer {
       .map(execute)
       .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
       .get()
-    let merge = try Fusion.Merge.make(
+    let merge = try Fusion.Merge.makeReplication(
       fork: .make(value: gitlabCi.job.pipeline.sha),
       subject: .init(name: gitlabCi.job.pipeline.ref),
-      target: .init(name: project.defaultBranch),
-      prefix: .replicate
+      project: project
     )
     let blockers = try checkMergeBlockers(cfg: cfg, merge: merge)
     guard blockers.isEmpty else {
@@ -347,11 +346,10 @@ public final class Reviewer {
     fork: String
   ) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
-    let merge = try Fusion.Merge.make(
+    let merge = try Fusion.Merge.makeIntegration(
       fork: .make(value: fork),
       subject: .init(name: source),
-      target: .init(name: target),
-      prefix: .integrate
+      target: .init(name: target)
     )
     let blockers = try checkMergeBlockers(cfg: cfg, merge: merge)
     guard blockers.isEmpty else {
@@ -403,7 +401,7 @@ public final class Reviewer {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)
     guard ctx.isActual else { return false }
-    let kind = try fusion.makeKind(state: ctx.review)
+    let kind = try fusion.makeKind(state: ctx.review, project: ctx.project)
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     var review = try resolveReview(
@@ -473,7 +471,7 @@ public final class Reviewer {
     guard queue.isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
     else { return false }
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    let kind = try fusion.makeKind(state: ctx.review)
+    let kind = try fusion.makeKind(state: ctx.review, project: ctx.project)
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     let review = try resolveReview(
       cfg: cfg,
@@ -527,16 +525,18 @@ public final class Reviewer {
           merge: merge
         ))
       ) else { return false }
-      if let merge = try shiftReplication(cfg: cfg, merge: merge) { try createReview(
-        cfg: cfg,
-        gitlab: ctx.gitlab,
-        merge: merge,
-        title: generate(cfg.createReplicationCommitMessage(
-          replication: fusion.replication,
-          review: nil,
-          merge: merge
-        ))
-      )}
+      if let merge = try shiftReplication(cfg: cfg, merge: merge, project: ctx.project) {
+        try createReview(
+          cfg: cfg,
+          gitlab: ctx.gitlab,
+          merge: merge,
+          title: generate(cfg.createReplicationCommitMessage(
+            replication: fusion.replication,
+            review: nil,
+            merge: merge
+          ))
+        )
+      }
     case .integration(let merge):
       guard try acceptReview(
         cfg: cfg,
@@ -1021,7 +1021,8 @@ public final class Reviewer {
   }
   func shiftReplication(
     cfg: Configuration,
-    merge: Fusion.Merge
+    merge: Fusion.Merge,
+    project: Json.GitlabProject
   ) throws -> Fusion.Merge? {
     let fork = try Id
       .make(cfg.git.listCommits(
@@ -1035,7 +1036,7 @@ public final class Reviewer {
       .last
       .map(Git.Sha.make(value:))
     guard let fork = fork else { return nil }
-    return try .make(fork: fork, subject: merge.subject, target: merge.target, prefix: .replicate)
+    return try .makeReplication(fork: fork, subject: merge.subject, project: project)
   }
   func createReview(
     cfg: Configuration,
@@ -1169,6 +1170,10 @@ public final class Reviewer {
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
+    let project = try gitlabCi.getProject
+      .map(execute)
+      .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
+      .get()
     if job.pipeline.id != review.lastPipeline.id {
       logMessage(.init(message: "Pipeline outdated"))
     }
@@ -1180,6 +1185,7 @@ public final class Reviewer {
       job: job,
       profile: parent.profile,
       review: review,
+      project: project,
       isLastPipe: job.pipeline.id == review.lastPipeline.id
     )
   }

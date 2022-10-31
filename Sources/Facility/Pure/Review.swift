@@ -334,6 +334,7 @@ public struct Review {
     public let job: Json.GitlabJob
     public let profile: Files.Relative
     public let review: Json.GitlabReviewState
+    public let project: Json.GitlabProject
     public let isLastPipe: Bool
     public var isActual: Bool { return isLastPipe && review.state == "opened" }
     public static func make(
@@ -341,12 +342,14 @@ public struct Review {
       job: Json.GitlabJob,
       profile: Files.Relative,
       review: Json.GitlabReviewState,
+      project: Json.GitlabProject,
       isLastPipe: Bool
     ) -> Self { .init(
       gitlab: gitlab,
       job: job,
       profile: profile,
       review: review,
+      project: project,
       isLastPipe: isLastPipe
     )}
   }
