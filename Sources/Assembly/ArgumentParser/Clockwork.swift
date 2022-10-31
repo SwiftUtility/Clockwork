@@ -473,7 +473,7 @@ struct Clockwork: ParsableCommand {
     struct Skip: ClockworkCommand {
       static var abstract: String { "Mark review as emergent" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Review iid to skip approval for")
+      @Argument(help: "Review iid to skip approval for")
       var iid: UInt
     }
     struct StartReplication: ClockworkCommand {
