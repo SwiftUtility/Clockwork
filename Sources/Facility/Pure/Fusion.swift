@@ -15,7 +15,7 @@ public struct Fusion {
     }
   }
   public func makeKind(state: Json.GitlabReviewState, project: Json.GitlabProject) throws -> Kind {
-    guard let merge = try Merge.make(source: state.sourceBranch, project: project) else {
+    guard let merge = Merge.make(source: state.sourceBranch, project: project) else {
       let rules = proposition.rules.filter { $0.source.isMet(state.sourceBranch) }
       guard rules.count < 2
       else { throw Thrown("\(state.sourceBranch) matches multiple proposition rules") }
