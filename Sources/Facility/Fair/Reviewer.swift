@@ -64,12 +64,16 @@ public final class Reviewer {
     let stdin = try readStdin(stdin)
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)
-    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    guard let status = statuses[ctx.review.iid] else {
-      logMessage(.init(message: "No review thread"))
-      return false
-    }
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    let status = try resolveStatus(
+      cfg: cfg,
+      approvers: approvers,
+      state: ctx.review,
+      fusion: fusion,
+      kind: fusion.makeKind(state: ctx.review, project: ctx.project),
+      statuses: &statuses
+    )
     report(cfg.reportReviewThread(
       event: event,
       status: status,
@@ -561,6 +565,7 @@ public final class Reviewer {
     statuses: inout [UInt: Fusion.Approval.Status]
   ) throws -> Fusion.Approval.Status {
     if let status = statuses[state.iid] { return status }
+    guard state.state == "opened" else { throw Thrown("Merge state: \(state.state)") }
     let authors = try resolveAuthors(cfg: cfg, state: state, kind: kind)
     let thread = try createThread(cfg.reportReviewCreated(
       fusion: fusion,
@@ -573,7 +578,7 @@ public final class Reviewer {
       target: state.targetBranch,
       authors: authors,
       thread: thread,
-      fork: nil
+      fork: kind.merge?.fork
     )
     _ = try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status, reason: .create)
     return status
