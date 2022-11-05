@@ -38,7 +38,7 @@ public final class Reporter {
     query.report.context.env = query.report.cfg.env
     query.report.context.info = try? query.report.cfg.gitlabCi.get().info
     query.report.context.mark = "createThread"
-    let body = try generate(query.report.generate(template: query.template))
+    let body = try generate(query.report.generate(template: query.template)).debug()
     return try Id
     .make(query.report.cfg.curlSlack(
       token: slack.token,
@@ -84,7 +84,7 @@ public final class Reporter {
       query.context.mark = signal.mark
       let body: String
       do {
-        body = try generate(query.generate(template: signal.body))
+        body = try generate(query.generate(template: signal.body)).debug()
         guard !body.isEmpty else {
           logMessage(.init(message: "Report is empty"))
           continue
