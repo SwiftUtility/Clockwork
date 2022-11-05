@@ -400,8 +400,8 @@ public final class Producer {
       delivery: delivery,
       ref: branch.name,
       sha: sha.value,
-      notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery))
-    )
+      notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery)
+    ))
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
