@@ -85,7 +85,10 @@ public final class Reporter {
       let body: String
       do {
         body = try generate(query.generate(template: signal.body)).debug()
-        guard !body.isEmpty else { continue }
+        guard !body.isEmpty else {
+          logMessage(.init(message: "Report is empty"))
+          continue
+        }
       } catch {
         logMessage(.init(message: "Generate report error: \(error)"))
         continue
