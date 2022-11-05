@@ -84,7 +84,7 @@ public final class Reporter {
       query.context.mark = signal.mark
       let body: String
       do {
-        body = try generate(query.generate(template: signal.body))
+        body = try generate(query.generate(template: signal.body)).debug()
         guard !body.isEmpty else { continue }
       } catch {
         logMessage(.init(message: "Generate report error: \(error)"))

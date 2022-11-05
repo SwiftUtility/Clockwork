@@ -400,8 +400,8 @@ public final class Producer {
       delivery: delivery,
       ref: branch.name,
       sha: sha.value,
-      notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery))
-    )
+      notes: makeNotes(cfg: cfg, production: production, sha: sha, delivery: delivery)
+    ))
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
@@ -616,7 +616,7 @@ public final class Producer {
         )))
         .compactMap({ sha in try production.makeNote(sha: sha, msg: Execute.parseText(
           reply: execute(cfg.git.getCommitMessage(ref: .make(sha: .make(value: sha))))
-        ))}),
+        ))}).debug(),
       lack: Execute
         .parseLines(reply: execute(cfg.git.listCommits(
           in: previous,
@@ -625,7 +625,7 @@ public final class Producer {
         )))
         .compactMap({ sha in try production.makeNote(sha: sha, msg: Execute.parseText(
           reply: execute(cfg.git.getCommitMessage(ref: .make(sha: .make(value: sha))))
-        ))})
+        ))}).debug()
     )
   }
   func persist(
