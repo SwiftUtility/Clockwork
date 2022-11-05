@@ -84,7 +84,7 @@ public final class Reporter {
       query.context.mark = signal.mark
       let body: String
       do {
-        body = try generate(query.generate(template: signal.body)).debug()
+        body = try generate(query.generate(template: signal.body))
         guard !body.isEmpty else {
           logMessage(.init(message: "Report is empty"))
           continue

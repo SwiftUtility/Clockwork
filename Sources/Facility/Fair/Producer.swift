@@ -616,7 +616,7 @@ public final class Producer {
         )))
         .compactMap({ sha in try production.makeNote(sha: sha, msg: Execute.parseText(
           reply: execute(cfg.git.getCommitMessage(ref: .make(sha: .make(value: sha))))
-        ))}).debug(),
+        ))}),
       lack: Execute
         .parseLines(reply: execute(cfg.git.listCommits(
           in: previous,
@@ -625,7 +625,7 @@ public final class Producer {
         )))
         .compactMap({ sha in try production.makeNote(sha: sha, msg: Execute.parseText(
           reply: execute(cfg.git.getCommitMessage(ref: .make(sha: .make(value: sha))))
-        ))}).debug()
+        ))})
     )
   }
   func persist(

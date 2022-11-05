@@ -311,7 +311,6 @@ public struct Production {
           .sorted()
           .prefix(while: { $0 < next })
           .compactMap({ deliveries[$0]?.deploys })
-          .debug()
           .reduce(into: [], { $0.formUnion($1) })
       )
       deliveries[next] = result
@@ -342,7 +341,6 @@ public struct Production {
           .sorted()
           .prefix(while: { $0 < version })
           .compactMap({ deliveries[$0]?.deploys })
-          .debug()
           .reduce(into: [], { $0.formUnion($1) })
       )
       deliveries[version] = result
@@ -358,7 +356,6 @@ public struct Production {
         .sorted()
         .prefix(while: { $0 < version })
         .compactMap({ deliveries[$0]?.deploys })
-        .debug()
         .reduce(into: result.deploys, { $0.formUnion($1) })
       result.deploys.insert(sha)
       deliveries[version] = result
