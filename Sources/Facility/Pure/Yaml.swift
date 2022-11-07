@@ -4,6 +4,7 @@ public enum Yaml {
   public struct Profile: Decodable {
     public var gitlab: String?
     public var slack: String?
+    public var chat: String?
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var cocoapods: String?
@@ -22,13 +23,43 @@ public enum Yaml {
       public var pipeline: String
     }
   }
+  public struct Chat: Decodable {
+    public var storage: Asset
+    public var slack: Slack
+    public struct Storage: Decodable {
+      public var tags: [String: [String: Thread]]
+      public var reviews: [String: [String: Thread]]
+      public var branches: [String: [String: Thread]]
+      public struct Thread: Decodable {
+        public var channel: String
+        public var message: String
+      }
+    }
+    public struct Slack: Decodable {
+      public var token: Secret
+      public var threads: [String: Thread]?
+
+    }
+    public struct Signal: Decodable {
+      public var method: String?
+      public var body: Template
+      public var events: [String]
+    }
+  }
   public struct Slack: Decodable {
     public var token: Secret
     public var signals: [String: Signal]
+    public var threads: Threads?
     public struct Signal: Decodable {
       public var method: String
       public var body: Template
       public var events: [String]
+      public var threads: [String]?
+    }
+    public struct Threads: Decodable {
+      public var storage: Asset
+      public var create: [String: Template]
+      public var update: [String: Template]
     }
   }
   public struct FileTaboo: Decodable {
