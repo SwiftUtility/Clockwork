@@ -429,7 +429,8 @@ public final class Reviewer {
           url: ctx.gitlab.protected.get().push,
           branch: .init(name: ctx.review.sourceBranch),
           sha: sha,
-          force: false
+          force: false,
+          secret: ctx.gitlab.protected.get().secret
         )))
       } else {
         report(cfg.reportReviewMergeConflicts(review: review, state: ctx.review))
@@ -457,7 +458,8 @@ public final class Reviewer {
         url: ctx.gitlab.protected.get().push,
         branch: .init(name: ctx.review.sourceBranch),
         sha: sha,
-        force: true
+        force: true,
+        secret: ctx.gitlab.protected.get().secret
       )))
       logMessage(.init(message: "Updating approves commits"))
       review.squashApproves(sha: sha)
@@ -985,7 +987,8 @@ public final class Reviewer {
     try Id
       .make(cfg.git.push(
         url: gitlab.protected.get().push,
-        delete: .init(name: state.sourceBranch)
+        delete: .init(name: state.sourceBranch),
+        secret: gitlab.protected.get().secret
       ))
       .map(execute)
       .map(Execute.checkStatus(reply:))
@@ -1060,7 +1063,8 @@ public final class Reviewer {
         url: gitlab.protected.get().push,
         branch: merge.source,
         sha: merge.fork,
-        force: false
+        force: false,
+        secret: gitlab.protected.get().secret
       ))
       .map(execute)
       .map(Execute.checkStatus(reply:))

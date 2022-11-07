@@ -168,13 +168,15 @@ public extension Git {
   func mergeBase(_ one: Ref, _ two: Ref) -> Execute { proc(
     args: ["merge-base", one.value, two.value]
   )}
-  func push(url: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
+  func push(url: String, branch: Branch, sha: Sha, force: Bool, secret: String) -> Execute { proc(
     args: ["push", url]
     + force.then(["--force"]).get([])
-    + ["\(sha.value):\(Ref.make(local: branch).value)"]
+    + ["\(sha.value):\(Ref.make(local: branch).value)"],
+    secrets: [secret]
   )}
-  func push(url: String, delete branch: Branch) -> Execute { proc(
-    args: ["push", url, ":\(Ref.make(local: branch).value)"]
+  func push(url: String, delete branch: Branch, secret: String) -> Execute { proc(
+    args: ["push", url, ":\(Ref.make(local: branch).value)"],
+    secrets: [secret]
   )}
   var updateLfs: Execute { proc(args: ["lfs", "update"]) }
   var fetch: Execute { proc(
@@ -231,7 +233,8 @@ public extension Git {
     path: Files.Absolute
   ) -> Execute { .init(tasks: [.init(
     environment: [:],
-    arguments: ["git", "-C", path.value, "rev-parse", "--show-toplevel"]
+    arguments: ["git", "-C", path.value, "rev-parse", "--show-toplevel"],
+    secrets: []
   )])}
   static func env(
     authorName: String? = nil,
@@ -255,13 +258,15 @@ extension Git {
   func proc(
     args: [String],
     env: [String: String] = [:],
-    escalate: Bool = true
+    escalate: Bool = true,
+    secrets: [String] = []
   ) -> Execute { .init(tasks: [.init(
     escalate: escalate,
     environment: self.env
       .merging(env, uniquingKeysWith: { $1 }),
     arguments: ["git", "-C", root.value]
     + ["-c", "core.quotepath=false", "-c", "core.precomposeunicode=true"]
-    + args
+    + args,
+    secrets: secrets
   )])}
 }
