@@ -35,6 +35,7 @@ public struct GitlabCi {
     public let profile: Files.Relative
   }
   public struct Protected {
+    public let secret: String
     public let auth: String
     public let push: String
     public let user: Json.GitlabUser
@@ -48,10 +49,12 @@ public struct GitlabCi {
       let token = try token.get()
       let user = try user.get()
       return .init(
-      auth: "Authorization: Bearer \(token)",
-      push: env.push(user: user.username, pass: token),
-      user: user
-    )}
+        secret: token,
+        auth: "Authorization: Bearer \(token)",
+        push: env.push(user: user.username, pass: token),
+        user: user
+      )
+    }
   }
   public struct Setup {
     public let api: String
@@ -79,12 +82,14 @@ public struct GitlabCi {
     public var getJob: Lossy<Execute> {
       return .init(.makeCurl(
         url: "\(api)/job",
-        headers: ["Authorization: Bearer \(token)"]
+        headers: ["Authorization: Bearer \(token)"],
+        secrets: [token]
       ))
     }
     public func getTokenUser(token: String) -> Lossy<Execute> { .init(.makeCurl(
       url: "\(api)/user",
-      headers: ["Authorization: Bearer \(token)"]
+      headers: ["Authorization: Bearer \(token)"],
+      secrets: [token]
     ))}
     public static func make(env: [String: String], trigger: Yaml.Gitlab.Trigger) throws -> Self {
       guard "true" == env["GITLAB_CI"] else { throw Thrown("Not in GitlabCI context") }
@@ -116,43 +121,50 @@ public extension GitlabCi {
     id: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/jobs/\(id)",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func loadArtifact(
     job: UInt,
     file: String
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/jobs/\(job)/artifacts/\(file)",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   var getProject: Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func getPipeline(
     pipeline: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/pipelines/\(pipeline)",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func getMrState(
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/merge_requests/\(review)?include_rebase_in_progress=true",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func getMrAwarders(
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/merge_requests/\(review)/award_emoji",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func postMrPipelines(
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/merge_requests/\(review)/pipelines",
     method: "POST",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func postMrAward(
     review: UInt,
@@ -161,7 +173,8 @@ public extension GitlabCi {
     url: "\(project)/merge_requests/\(review)/award_emoji",
     method: "POST",
     form: ["name=\(award)"],
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func putMrState(
     parameters: PutMrState,
@@ -170,7 +183,8 @@ public extension GitlabCi {
     url: "\(project)/merge_requests/\(review)",
     method: "PUT",
     data: parameters.curl.get(),
-    headers: [protected.get().auth, Json.contentType]
+    headers: [protected.get().auth, Json.contentType],
+    secrets: [protected.get().secret]
   ))}
   func putMrMerge(
     parameters: PutMrMerge,
@@ -180,7 +194,8 @@ public extension GitlabCi {
     method: "PUT",
     checkHttp: false,
     data: parameters.curl.get(),
-    headers: [protected.get().auth, Json.contentType]
+    headers: [protected.get().auth, Json.contentType],
+    secrets: [protected.get().secret]
   ))}
   func postTriggerPipeline(
     cfg: Configuration,
@@ -193,15 +208,18 @@ public extension GitlabCi {
       "token=\(env.token)",
       "ref=\(ref)",
     ] + variables
-      .map { try "variables[\($0.key)]=\($0.value.urlEncoded.get())" }
+      .map { try "variables[\($0.key)]=\($0.value.urlEncoded.get())" },
+    secrets: [env.token]
   ))}
   func affectPipeline(
     cfg: Configuration,
     pipeline: UInt,
     action: PipelineAction
-  ) -> Lossy<Execute> { .init(.makeCurl(
+  ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/pipelines/\(pipeline)\(action.path)",
-    method: action.method
+    method: action.method,
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func postMergeRequests(
     parameters: PostMergeRequests
@@ -209,13 +227,15 @@ public extension GitlabCi {
     url: "\(project)/merge_requests",
     method: "POST",
     data: parameters.curl.get(),
-    headers: [protected.get().auth, Json.contentType]
+    headers: [protected.get().auth, Json.contentType],
+    secrets: [protected.get().secret]
   ))}
   func listShaMergeRequests(
     sha: Git.Sha
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/repository/commits/\(sha.value)/merge_requests",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func getJobs(
     action: JobAction,
@@ -230,8 +250,9 @@ public extension GitlabCi {
       "per_page=\(count)",
     ] + scopes.flatMapEmpty(action.scopes).map { "scope[]=\($0.rawValue)" }
     return .init(try .makeCurl(
-        url: "\(project)/pipelines/\(pipeline)/jobs?\(query.joined(separator: "&"))",
-      headers: [protected.get().auth]
+      url: "\(project)/pipelines/\(pipeline)/jobs?\(query.joined(separator: "&"))",
+      headers: [protected.get().auth],
+      secrets: [protected.get().secret]
     ))
   }
   func postJobsAction(
@@ -240,7 +261,8 @@ public extension GitlabCi {
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/jobs/\(job)/\(action.rawValue)",
     method: "POST",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func postTags(
     name: String,
@@ -254,7 +276,8 @@ public extension GitlabCi {
       "ref=\(ref)",
       "message=\(message)",
     ],
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func postBranches(
     name: String,
@@ -266,25 +289,30 @@ public extension GitlabCi {
       "branch=\(name.urlEncoded.get())",
       "ref=\(ref)",
     ],
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func deleteBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/repository/branches/\(name.urlEncoded.get())",
     method: "DELETE",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func deleteTag(name: String) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/repository/tags/\(name.urlEncoded.get())",
     method: "DELETE",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func getBranches(page: Int, count: Int) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/repository/branches?page=\(page)&per_page=\(count)",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   func getBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(project)/repository/branches/\(name.urlEncoded.get())",
-    headers: [protected.get().auth]
+    headers: [protected.get().auth],
+    secrets: [protected.get().secret]
   ))}
   struct PutMrState: Encodable {
     public var targetBranch: String?

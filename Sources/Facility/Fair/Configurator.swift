@@ -212,7 +212,8 @@ public final class Configurator {
       url: query.cfg.gitlabCi.flatMap(\.protected).get().push,
       branch: query.asset.branch,
       sha: sha,
-      force: false
+      force: false,
+      secret: query.cfg.gitlabCi.flatMap(\.protected).get().secret
     )))
     try Execute.checkStatus(reply: execute(query.cfg.git.fetchBranch(query.asset.branch)))
     let fetched = try Execute.parseText(reply: execute(query.cfg.git.getSha(

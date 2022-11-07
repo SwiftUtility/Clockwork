@@ -11,7 +11,8 @@ public struct Execute: Query {
     data: String? = nil,
     urlencode: [String] = [],
     form: [String] = [],
-    headers: [String] = []
+    headers: [String] = [],
+    secrets: [String]
   ) -> Self {
     var arguments = ["curl", "--url", url]
     arguments += checkHttp.then(["--fail"]).get([])
@@ -24,7 +25,8 @@ public struct Execute: Query {
     return .init(tasks: [.init(
       escalate: checkHttp,
       environment: [:],
-      arguments: arguments
+      arguments: arguments,
+      secrets: secrets
     )])
   }
   public struct Task {
@@ -32,6 +34,7 @@ public struct Execute: Query {
     public var escalate: Bool = true
     public var environment: [String: String]
     public var arguments: [String]
+    public var secrets: [String]
   }
   public struct Reply {
     public var data: Data?
@@ -45,9 +48,12 @@ public struct Execute: Query {
         guard status.task.escalate, status.termination != 0 else { continue }
         let launch = ["\(status.termination): \(status.task.launch)\n"]
         + status.task.arguments.map { "  \($0)\n" }
-        let message = launch.joined() + status.stderr
+        var message = launch.joined() + status.stderr
           .flatMap { String(data: $0, encoding: .utf8) }
           .get("")
+        for secret in status.task.secrets {
+          message = message.replacingOccurrences(of: secret, with: "[MASKED]")
+        }
         throw Thrown(message)
       }
     }
@@ -91,42 +97,47 @@ public struct Execute: Query {
 }
 public extension Configuration {
   var systemTempFile: Execute { .init(tasks: [
-    .init(environment: env, arguments: ["mktemp"])
+    .init(environment: env, arguments: ["mktemp"], secrets: [])
   ])}
   func createDir(path: Files.Absolute) -> Execute { .init(tasks: [
-    .init(environment: env, arguments: ["mkdir", "-p", path.value])
+    .init(environment: env, arguments: ["mkdir", "-p", path.value], secrets: [])
   ])}
   func systemMove(file: Files.Absolute, location: Files.Absolute) -> Execute { .init(tasks: [
-    .init(environment: env, arguments: ["mv", "-f", file.value, location.value])
+    .init(environment: env, arguments: ["mv", "-f", file.value, location.value], secrets: [])
   ])}
   func systemDelete(path: Files.Absolute) -> Execute { .init(tasks: [
-    .init(escalate: false, environment: env, arguments: ["rm", "-rf", path.value])
+    .init(escalate: false, environment: env, arguments: ["rm", "-rf", path.value], secrets: [])
   ])}
   func systemWrite(file: Files.Absolute, execute: Execute) -> Execute { .init(
     input: execute.input,
-    tasks: execute.tasks + [.init(environment: env, arguments: ["tee", file.value])]
+    tasks: execute.tasks + [.init(environment: env, arguments: ["tee", file.value], secrets: [])]
   )}
   func curlSlack(token: String, method: String, body: String) throws -> Execute { .makeCurl(
     url: "https://slack.com/api/\(method)",
     method: "POST",
     retry: 2,
     data: body,
-    headers: [Json.utf8, "Authorization: Bearer \(token)"]
+    headers: [Json.utf8, "Authorization: Bearer \(token)"],
+    secrets: [token]
   )}
   func write(file: Files.Absolute, execute: Execute) -> Execute {
     var execute = execute
-    execute.tasks.append(.init(environment: env, arguments: ["tee", file.value]))
+    execute.tasks.append(.init(environment: env, arguments: ["tee", file.value], secrets: []))
     return execute
   }
   func podAddSpec(name: String, url: String) -> Execute { .init(tasks: [
     .init(
       environment: env,
-        arguments: ["bundle", "exec", "pod", "repo", "add", name, url])
+      arguments: ["bundle", "exec", "pod", "repo", "add", name, url],
+      secrets: []
+    )
   ])}
   func podUpdateSpec(name: String) -> Execute { .init(tasks: [
     .init(
       environment: env,
-        arguments: ["bundle", "exec", "pod", "repo", "update", name])
+      arguments: ["bundle", "exec", "pod", "repo", "update", name],
+      secrets: []
+    )
   ])}
 }
 public extension JSONDecoder {

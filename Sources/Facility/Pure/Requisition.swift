@@ -103,6 +103,7 @@ extension Requisition {
   ) -> Execute { .init(input: input, tasks: [.init(
     escalate: escalate,
     environment: self.env,
-    arguments: args
+    arguments: args,
+    secrets: []
   )])}
 }
