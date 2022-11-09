@@ -1,6 +1,6 @@
 import ArgumentParser
 struct Clockwork: ParsableCommand {
-  static var version: String { "0.4.4" }
+  static var version: String { "0.4.5" }
   static let configuration = CommandConfiguration(
     abstract: "Distributed scalable monorepo management tool",
     version: Clockwork.version,
@@ -475,6 +475,12 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Review iid to skip approval for")
       var iid: UInt
+    }
+    struct SkipCommit: ClockworkCommand {
+      static var abstract: String { "Mark review as emergent" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "Integrated commit sha")
+      var sha: String
     }
     struct StartReplication: ClockworkCommand {
       static var abstract: String { "Create replication review" }

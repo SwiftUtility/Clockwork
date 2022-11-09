@@ -116,6 +116,7 @@ public struct Review {
   }
   public mutating func addChanges(sha: Git.Sha, diff: [String]) {
     guard diff.isEmpty.not else { return }
+    guard status.skip.contains(sha).not else { return }
     changedTeams[sha] = diffTeams.filter({ ownage[$0]
       .map({ diff.contains(where: $0.isMet(_:)) })
       .get(false)

@@ -334,6 +334,11 @@ extension Clockwork.Review.Skip: RunnableCommand {
     try Assembler.reviewer.skipReview(cfg: cfg, iid: iid)
   }
 }
+extension Clockwork.Review.SkipCommit: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.skipCommit(cfg: cfg, sha: sha)
+  }
+}
 extension Clockwork.Review.StartReplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.startReplication(cfg: cfg)

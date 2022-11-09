@@ -256,7 +256,7 @@ public struct Fusion {
         for approvar in this.keys.sorted().compactMap({ this[$0] }) {
           result += "'\(approvar.login)':\n"
           result += "  active: \(approvar.active)\n"
-          result += "  chat: \(approvar.chat)\n"
+          result += "  chat: '\(approvar.chat)'\n"
           let watchTeams = approvar.watchTeams.sorted().map({ "'\($0)'" }).joined(separator: ",")
           if watchTeams.isEmpty.not { result += "  watchTeams: [\(watchTeams)]\n" }
           let watchAuthors = approvar.watchAuthors.sorted().map({ "'\($0)'" }).joined(separator: ",")
@@ -403,6 +403,7 @@ public struct Fusion {
     public struct Status {
       public var review: UInt
       public var target: String
+      public var skip: Set<Git.Sha>
       public var teams: Set<String>
       public var emergent: Git.Sha?
       public var verified: Git.Sha?
@@ -442,6 +443,7 @@ public struct Fusion {
       ) throws -> Self { try .init(
         review: review.getUInt(),
         target: yaml.target,
+        skip: Set(yaml.skip.get([]).map(Git.Sha.make(value:))),
         teams: Set(yaml.teams.get([])),
         emergent: yaml.emergent.map(Git.Sha.make(value:)),
         verified: yaml.verified.map(Git.Sha.make(value:)),
@@ -464,6 +466,8 @@ public struct Fusion {
             .map({ "'\($0)'" })
             .joined(separator: ",")
           result += "  authors: [\(authors)]\n"
+          let skip = status.skip.map(\.value).sorted().map({ "'\($0)'" }).joined(separator: ",")
+          if skip.isEmpty.not { result += "  skip: [\(skip)]\n" }
           let teams = status.teams.sorted().map({ "'\($0)'" }).joined(separator: ",")
           if teams.isEmpty.not { result += "  teams: [\(teams)]\n" }
           if let verified = status.verified?.value { result += "  verified: '\(verified)'\n" }
@@ -489,6 +493,7 @@ public struct Fusion {
       ) -> Self { .init(
         review: review,
         target: target,
+        skip: [],
         teams: [],
         emergent: nil,
         authors: authors,
