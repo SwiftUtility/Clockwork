@@ -152,6 +152,7 @@ public enum Yaml {
         public var thread: Thread
         public var target: String
         public var authors: [String]
+        public var skip: [String]?
         public var teams: [String]?
         public var emergent: String?
         public var verified: String?

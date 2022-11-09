@@ -221,6 +221,24 @@ public final class Reviewer {
       ))
     ))
   }
+  public func skipCommit(
+    cfg: Configuration,
+    sha: String
+  ) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try resolveReviewContext(cfg: cfg)
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    guard var status = statuses[ctx.review.iid] else { return false }
+    try status.skip.insert(.make(value: sha))
+    return try persist(
+      statuses,
+      cfg: cfg,
+      fusion: fusion,
+      state: ctx.review,
+      status: status,
+      reason: .skipCommit
+    )
+  }
   public func skipReview(
     cfg: Configuration,
     iid: UInt
@@ -234,7 +252,14 @@ public final class Reviewer {
       .get()
     guard var status = statuses[iid] else { return false }
     status.emergent = try .make(value: state.lastPipeline.sha)
-    return try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status, reason: .cheat)
+    return try persist(
+      statuses,
+      cfg: cfg,
+      fusion: fusion,
+      state: state,
+      status: status,
+      reason: .cheat
+    )
   }
   public func approveReview(
     cfg: Configuration,
