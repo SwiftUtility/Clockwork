@@ -93,11 +93,14 @@ public final class Reporter {
         logMessage(.init(message: "Generate report error: \(error)"))
         continue
       }
-      do { try Execute.checkStatus(reply: execute(query.cfg.curlSlack(
-        token: slack.token,
-        method: signal.method,
-        body: body
-      ))) } catch {
+      do {
+        try Execute.checkStatus(reply: execute(query.cfg.curlSlack(
+          token: slack.token,
+          method: signal.method,
+          body: body
+        )))
+        sleep(1)
+      } catch {
         logMessage(.init(message: "Report delivery failed: \(error)"))
         logMessage(.init(message: body))
       }
