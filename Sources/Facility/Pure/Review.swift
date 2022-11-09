@@ -148,7 +148,10 @@ public struct Review {
       .union(fragilUtility)
       .union(fragilRandoms)
       .union(status.approves.filter(\.value.resolution.fragil).keys)
-    let diffApprovers = diffTeams.reduce(into: [:], { $0[$1] = rules.teams[$1]?.approvers })
+    let fragilDiffApprovers = diffTeams
+      .compactMap({ rules.teams[$0] })
+      .filter(\.advanceApproval.not)
+      .reduce(into: [:], { $0[$1.name] = $1.approvers })
     for (sha, childs) in childCommits {
       let breakers = childs.compactMap({ changedTeams[$0] })
       guard breakers.isEmpty.not else { continue }
@@ -157,7 +160,7 @@ public struct Review {
         .map(\.approver)
       status.invalidate(users: breakers
         .reduce(into: Set(), { $0.formUnion($1) })
-        .compactMap({ diffApprovers[$0] })
+        .compactMap({ fragilDiffApprovers[$0] })
         .reduce(into: fragilUsers, { $0.formUnion($1) })
         .intersection(approvers)
       )
