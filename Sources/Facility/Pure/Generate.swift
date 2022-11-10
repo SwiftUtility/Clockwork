@@ -197,6 +197,7 @@ public struct Generate: Query {
       case approve
       case own
       case skipCommit
+      case unown
     }
   }
   public struct CreatePropositionCommitMessage: GenerationContext {

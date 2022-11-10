@@ -221,23 +221,69 @@ public final class Reviewer {
       ))
     ))
   }
-  public func skipCommit(
+  public func patchReview(
     cfg: Configuration,
-    sha: String
+    skip: Bool,
+    path: String,
+    message: String
   ) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)
+    guard ctx.isActual else { return false }
     let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     guard var status = statuses[ctx.review.iid] else { return false }
-    try status.skip.insert(.make(value: sha))
-    return try persist(
-      statuses,
-      cfg: cfg,
-      fusion: fusion,
-      state: ctx.review,
-      status: status,
-      reason: .skipCommit
-    )
+    guard try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
+      .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
+      .not
+    else {
+      logMessage(.init(message: "Review is validating"))
+      return false
+    }
+    let patch = try cfg.gitlabCi
+      .flatMap({ $0.loadArtifact(job: ctx.job.id, file: path) })
+      .map(execute)
+      .map(Execute.parseData(reply:))
+      .get()
+    let initial = try Id(.head)
+      .map(cfg.git.getSha(ref:))
+      .map(execute)
+      .map(Execute.parseText(reply:))
+      .map(Git.Sha.make(value:))
+      .map(Git.Ref.make(sha:))
+      .get()
+    let result: Git.Sha?
+    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: .make(sha: .make(job: ctx.job)))))
+    try Execute.checkStatus(reply: execute(cfg.git.clean))
+    try Execute.checkStatus(reply: execute(cfg.git.apply(patch: patch)))
+    if try Execute.parseLines(reply: execute(cfg.git.changesList)).isEmpty.not {
+      try Execute.checkStatus(reply: execute(cfg.git.addAll))
+      try Execute.checkStatus(reply: execute(cfg.git.commit(message: message)))
+      result = try .make(value: Execute.parseText(reply: execute(cfg.git.getSha(ref: .head))))
+    } else {
+      result = nil
+    }
+    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: initial)))
+    try Execute.checkStatus(reply: execute(cfg.git.clean))
+    guard let result = result else { return false }
+    if skip {
+      status.skip.insert(result)
+      _ = try persist(
+        statuses,
+        cfg: cfg,
+        fusion: fusion,
+        state: ctx.review,
+        status: status,
+        reason: .skipCommit
+      )
+    }
+    try Execute.checkStatus(reply: execute(cfg.git.push(
+      url: cfg.gitlabCi.flatMap(\.protected).get().push,
+      branch: .init(name: ctx.review.sourceBranch),
+      sha: result,
+      force: false,
+      secret: cfg.gitlabCi.flatMap(\.protected).get().secret
+    )))
+    return true
   }
   public func skipReview(
     cfg: Configuration,
@@ -337,6 +383,43 @@ public final class Reviewer {
       state: ctx.review,
       status: review.status,
       reason: .own
+    )
+  }
+  public func unownReview(cfg: Configuration) throws -> Bool {
+    let fusion = try resolveFusion(.init(cfg: cfg))
+    let ctx = try resolveReviewContext(cfg: cfg)
+    guard ctx.isActual else { return false }
+    guard try resolveReviewQueue(.init(cfg: cfg, fusion: fusion))
+      .isFirst(review: ctx.review.iid, target: ctx.review.targetBranch)
+      .not
+    else {
+      logMessage(.init(message: "Review is validating"))
+      return false
+    }
+    let statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
+    guard let status = statuses[ctx.review.iid] else {
+      logMessage(.init(message: "No review \(ctx.review.iid)"))
+      return false
+    }
+    var review = try resolveReview(
+      cfg: cfg,
+      state: ctx.review,
+      fusion: fusion,
+      kind: fusion.makeKind(state: ctx.review, project: ctx.project),
+      approvers: resolveApprovers(cfg: cfg, fusion: fusion),
+      status: status
+    )
+    guard try review.unsetAuthor(job: ctx.job) else {
+      logMessage(.init(message: "Not an author: \(ctx.job.user.username)"))
+      return false
+    }
+    return try persist(
+      statuses,
+      cfg: cfg,
+      fusion: fusion,
+      state: ctx.review,
+      status: review.status,
+      reason: .unown
     )
   }
   public func startReplication(cfg: Configuration) throws -> Bool {

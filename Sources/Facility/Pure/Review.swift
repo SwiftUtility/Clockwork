@@ -59,6 +59,10 @@ public struct Review {
       .reduce(into: [user], { $0.formUnion($1.approvers) })
     )
   }
+  public mutating func unsetAuthor(job: Json.GitlabJob) throws -> Bool {
+    let user = try job.getLogin(approvers: approvers)
+    return status.authors.remove(user) != nil
+  }
   mutating func resolveUnknown() {
     unknownUsers = status.authors
       .union(status.approves.keys)
@@ -116,11 +120,17 @@ public struct Review {
   }
   public mutating func addChanges(sha: Git.Sha, diff: [String]) {
     guard diff.isEmpty.not else { return }
-    guard status.skip.contains(sha).not else { return }
-    changedTeams[sha] = diffTeams.filter({ ownage[$0]
+    let teams = diffTeams.filter({ ownage[$0]
       .map({ diff.contains(where: $0.isMet(_:)) })
       .get(false)
     })
+    if status.skip.contains(sha) {
+      if let sanity = rules.sanity.flatMap({ rules.teams[$0]?.name }), teams.contains(sanity) {
+        changedTeams[sha] = [sanity]
+      }
+    } else {
+      changedTeams[sha] = teams
+    }
   }
   public mutating func squashApproves(sha: Git.Sha) {
     for user in status.approves.keys { status.approves[user]?.commit = sha }

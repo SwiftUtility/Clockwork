@@ -115,6 +115,7 @@ public extension Git {
   func detach(ref: Ref) -> Execute { proc(
     args: ["checkout", "--force", "--detach", ref.value]
   )}
+  func apply(patch: Data) -> Execute { proc(args: ["apply"], input: patch)}
   func listChangedOutsideFiles(source: Ref, target: Ref) -> Execute { proc(
     args: ["diff", "--name-only", "\(source.value)...\(target.value)"]
   )}
@@ -259,8 +260,9 @@ extension Git {
     args: [String],
     env: [String: String] = [:],
     escalate: Bool = true,
-    secrets: [String] = []
-  ) -> Execute { .init(tasks: [.init(
+    secrets: [String] = [],
+    input: Data? = nil
+  ) -> Execute { .init(input: input, tasks: [.init(
     escalate: escalate,
     environment: self.env
       .merging(env, uniquingKeysWith: { $1 }),
