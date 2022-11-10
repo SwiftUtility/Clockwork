@@ -339,6 +339,7 @@ struct Clockwork: ParsableCommand {
         Dequeue.self,
         ExportIntegration.self,
         Own.self,
+        Patch.self,
         ReserveBuild.self,
         RemoveLabels.self,
         TriggerPipeline.self,
@@ -453,8 +454,18 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
     }
     struct Own: ClockworkCommand {
-      static var abstract: String { "Transmith authorship to user" }
+      static var abstract: String { "Add user to authors" }
       @OptionGroup var clockwork: Clockwork
+    }
+    struct Patch: ClockworkCommand {
+      static var abstract: String { "Apply parrent job generated patch" }
+      @OptionGroup var clockwork: Clockwork
+      @Flag(help: "Should skip commit approval")
+      var skip: Bool = false
+      @Option(help: "Commit message")
+      var message: String
+      @Argument(help: "Path to the patch artifact")
+      var patch: String
     }
     struct ReserveBuild: ClockworkCommand {
       static var abstract: String { "Reserve build number for parent review pipeline" }
@@ -476,12 +487,6 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Review iid to skip approval for")
       var iid: UInt
     }
-    struct SkipCommit: ClockworkCommand {
-      static var abstract: String { "Mark review as emergent" }
-      @OptionGroup var clockwork: Clockwork
-      @Option(help: "Integrated commit sha")
-      var sha: String
-    }
     struct StartReplication: ClockworkCommand {
       static var abstract: String { "Create replication review" }
       @OptionGroup var clockwork: Clockwork
@@ -495,6 +500,10 @@ struct Clockwork: ParsableCommand {
       var target: String
       @Option(help: "Integration source branch name")
       var source: String
+    }
+    struct Unown: ClockworkCommand {
+      static var abstract: String { "Remove user from authors" }
+      @OptionGroup var clockwork: Clockwork
     }
     struct Update: ClockworkCommand {
       static var abstract: String { "Update parent review state" }
