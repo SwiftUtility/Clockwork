@@ -348,8 +348,15 @@ public final class Reviewer {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)
     guard ctx.isActual else { return false }
-    try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
-    return true
+    guard try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false).not
+    else { return true }
+    logMessage(.init(message: "Triggering new pipeline"))
+    try cfg.gitlabCi
+      .flatReduce(curry: ctx.review.iid, GitlabCi.postMrPipelines(review:))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return false
   }
   public func ownReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
@@ -967,7 +974,7 @@ public final class Reviewer {
       review: state,
       queued: enqueue
     ))
-    _ = try persistAsset(.init(
+    let result = try persistAsset(.init(
       cfg: cfg,
       asset: fusion.queue,
       content: queue.yaml,
@@ -976,6 +983,7 @@ public final class Reviewer {
     for notifiable in notifiables {
       try Execute.checkStatus(reply: execute(gitlab.postMrPipelines(review: notifiable).get()))
     }
+    guard enqueue else { return result }
     return queue.isFirst(review: state.iid, target: state.targetBranch)
   }
   func syncReview(
