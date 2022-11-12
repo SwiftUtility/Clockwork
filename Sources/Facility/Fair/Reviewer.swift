@@ -66,14 +66,17 @@ public final class Reviewer {
     let ctx = try resolveReviewContext(cfg: cfg)
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    let status = try resolveStatus(
+    guard let status = try resolveStatus(
       cfg: cfg,
       approvers: approvers,
       state: ctx.review,
       fusion: fusion,
       kind: fusion.makeKind(state: ctx.review, project: ctx.project),
       statuses: &statuses
-    )
+    ) else {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      return false
+    }
     report(cfg.reportReviewThread(
       event: event,
       status: status,
@@ -348,8 +351,15 @@ public final class Reviewer {
     let fusion = try resolveFusion(.init(cfg: cfg))
     let ctx = try resolveReviewContext(cfg: cfg)
     guard ctx.isActual else { return false }
-    try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
-    return true
+    guard try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false).not
+    else { return true }
+    logMessage(.init(message: "Triggering new pipeline"))
+    try cfg.gitlabCi
+      .flatReduce(curry: ctx.review.iid, GitlabCi.postMrPipelines(review:))
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    return false
   }
   public func ownReview(cfg: Configuration) throws -> Bool {
     let fusion = try resolveFusion(.init(cfg: cfg))
@@ -516,20 +526,24 @@ public final class Reviewer {
     let kind = try fusion.makeKind(state: ctx.review, project: ctx.project)
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    guard let status = try resolveStatus(
+      cfg: cfg,
+      approvers: approvers,
+      state: ctx.review,
+      fusion: fusion,
+      kind: kind,
+      statuses: &statuses
+    ) else {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      return false
+    }
     var review = try resolveReview(
       cfg: cfg,
       state: ctx.review,
       fusion: fusion,
       kind: kind,
       approvers: approvers,
-      status: resolveStatus(
-        cfg: cfg,
-        approvers: approvers,
-        state: ctx.review,
-        fusion: fusion,
-        kind: kind,
-        statuses: &statuses
-      )
+      status: status
     )
     guard try checkIsFastForward(cfg: cfg, state: ctx.review) else {
       if let sha = try syncReview(cfg: cfg, fusion: fusion, state: ctx.review, kind: kind) {
@@ -587,20 +601,24 @@ public final class Reviewer {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     let kind = try fusion.makeKind(state: ctx.review, project: ctx.project)
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    guard let status = try resolveStatus(
+      cfg: cfg,
+      approvers: approvers,
+      state: ctx.review,
+      fusion: fusion,
+      kind: kind,
+      statuses: &statuses
+    ) else {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      return false
+    }
     let review = try resolveReview(
       cfg: cfg,
       state: ctx.review,
       fusion: fusion,
       kind: kind,
       approvers: approvers,
-      status: resolveStatus(
-        cfg: cfg,
-        approvers: approvers,
-        state: ctx.review,
-        fusion: fusion,
-        kind: kind,
-        statuses: &statuses
-      )
+      status: status
     )
     guard
       try checkIsFastForward(cfg: cfg, state: ctx.review),
@@ -673,9 +691,12 @@ public final class Reviewer {
     fusion: Fusion,
     kind: Fusion.Kind,
     statuses: inout [UInt: Fusion.Approval.Status]
-  ) throws -> Fusion.Approval.Status {
+  ) throws -> Fusion.Approval.Status? {
     if let status = statuses[state.iid] { return status }
-    guard state.state == "opened" else { throw Thrown("Merge state: \(state.state)") }
+    guard state.state == "opened" else {
+      logMessage(.init(message: "Review state: \(state.state)"))
+      return nil
+    }
     let authors = try resolveAuthors(cfg: cfg, state: state, kind: kind)
     let thread = try createThread(cfg.reportReviewCreated(
       fusion: fusion,
@@ -967,7 +988,7 @@ public final class Reviewer {
       review: state,
       queued: enqueue
     ))
-    _ = try persistAsset(.init(
+    let result = try persistAsset(.init(
       cfg: cfg,
       asset: fusion.queue,
       content: queue.yaml,
@@ -976,6 +997,7 @@ public final class Reviewer {
     for notifiable in notifiables {
       try Execute.checkStatus(reply: execute(gitlab.postMrPipelines(review: notifiable).get()))
     }
+    guard enqueue else { return result }
     return queue.isFirst(review: state.iid, target: state.targetBranch)
   }
   func syncReview(

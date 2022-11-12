@@ -347,6 +347,7 @@ struct Clockwork: ParsableCommand {
         StartReplication.self,
         StartIntegration.self,
         Update.self,
+        Unown.self,
       ]
     )
     struct Accept: ClockworkCommand {
