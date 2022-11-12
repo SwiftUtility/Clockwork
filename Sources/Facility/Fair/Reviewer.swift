@@ -66,14 +66,17 @@ public final class Reviewer {
     let ctx = try resolveReviewContext(cfg: cfg)
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
-    let status = try resolveStatus(
+    guard let status = try resolveStatus(
       cfg: cfg,
       approvers: approvers,
       state: ctx.review,
       fusion: fusion,
       kind: fusion.makeKind(state: ctx.review, project: ctx.project),
       statuses: &statuses
-    )
+    ) else {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      return false
+    }
     report(cfg.reportReviewThread(
       event: event,
       status: status,
@@ -523,20 +526,24 @@ public final class Reviewer {
     let kind = try fusion.makeKind(state: ctx.review, project: ctx.project)
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    guard let status = try resolveStatus(
+      cfg: cfg,
+      approvers: approvers,
+      state: ctx.review,
+      fusion: fusion,
+      kind: kind,
+      statuses: &statuses
+    ) else {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      return false
+    }
     var review = try resolveReview(
       cfg: cfg,
       state: ctx.review,
       fusion: fusion,
       kind: kind,
       approvers: approvers,
-      status: resolveStatus(
-        cfg: cfg,
-        approvers: approvers,
-        state: ctx.review,
-        fusion: fusion,
-        kind: kind,
-        statuses: &statuses
-      )
+      status: status
     )
     guard try checkIsFastForward(cfg: cfg, state: ctx.review) else {
       if let sha = try syncReview(cfg: cfg, fusion: fusion, state: ctx.review, kind: kind) {
@@ -594,20 +601,24 @@ public final class Reviewer {
     var statuses = try resolveFusionStatuses(.init(cfg: cfg, approval: fusion.approval))
     let kind = try fusion.makeKind(state: ctx.review, project: ctx.project)
     let approvers = try resolveApprovers(cfg: cfg, fusion: fusion)
+    guard let status = try resolveStatus(
+      cfg: cfg,
+      approvers: approvers,
+      state: ctx.review,
+      fusion: fusion,
+      kind: kind,
+      statuses: &statuses
+    ) else {
+      try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
+      return false
+    }
     let review = try resolveReview(
       cfg: cfg,
       state: ctx.review,
       fusion: fusion,
       kind: kind,
       approvers: approvers,
-      status: resolveStatus(
-        cfg: cfg,
-        approvers: approvers,
-        state: ctx.review,
-        fusion: fusion,
-        kind: kind,
-        statuses: &statuses
-      )
+      status: status
     )
     guard
       try checkIsFastForward(cfg: cfg, state: ctx.review),
@@ -680,9 +691,12 @@ public final class Reviewer {
     fusion: Fusion,
     kind: Fusion.Kind,
     statuses: inout [UInt: Fusion.Approval.Status]
-  ) throws -> Fusion.Approval.Status {
+  ) throws -> Fusion.Approval.Status? {
     if let status = statuses[state.iid] { return status }
-    guard state.state == "opened" else { throw Thrown("Merge state: \(state.state)") }
+    guard state.state == "opened" else {
+      logMessage(.init(message: "Review state: \(state.state)"))
+      return nil
+    }
     let authors = try resolveAuthors(cfg: cfg, state: state, kind: kind)
     let thread = try createThread(cfg.reportReviewCreated(
       fusion: fusion,
