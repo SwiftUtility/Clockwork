@@ -1,6 +1,6 @@
 import ArgumentParser
 struct Clockwork: ParsableCommand {
-  static var version: String { "0.4.6" }
+  static var version: String { "0.4.7" }
   static let configuration = CommandConfiguration(
     abstract: "Distributed scalable monorepo management tool",
     version: Clockwork.version,
@@ -347,6 +347,7 @@ struct Clockwork: ParsableCommand {
         StartReplication.self,
         StartIntegration.self,
         Update.self,
+        Unown.self,
       ]
     )
     struct Accept: ClockworkCommand {
