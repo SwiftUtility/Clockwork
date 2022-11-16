@@ -65,7 +65,6 @@ enum Assembler {
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
     readStdin: reporter.readStdin(query:),
-    createThread: reporter.createThread(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -85,7 +84,6 @@ enum Assembler {
     persistAsset: configurator.persistAsset(query:),
     report: reporter.report(query:),
     readStdin: reporter.readStdin(query:),
-    createThread: reporter.createThread(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
     jsonDecoder: jsonDecoder

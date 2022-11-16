@@ -171,7 +171,7 @@ public final class Reviewer {
       .get(cfg.gitlabCi.get().job.user.username)
     if case .register(let slack) = command {
       guard approvers[user] == nil else { throw Thrown("Already exists \(user)") }
-      approvers[user] = .make(login: user, active: true, slack: slack)
+      approvers[user] = .make(login: user, active: true)
     } else {
       guard var approver = approvers[user] else { throw Thrown("No approver \(user)") }
       switch command {
@@ -989,7 +989,7 @@ public final class Reviewer {
     switch kind {
     case .proposition(let merge): message = try generate(fusion.createPropositionCommitMessage(
       cfg: cfg,
-      proposition: merge.proposition
+      proposition: merge.proposition!
     ))
     case .replication(let merge): message = try generate(fusion.createReplicationCommitMessage(
       cfg: cfg,
