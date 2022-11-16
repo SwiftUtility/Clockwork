@@ -76,7 +76,7 @@ public struct Production {
         result += "  deliveries:\n"
         for delivery in deliveries {
           result += "    '\(delivery.version)':\n"
-          result += "      thread: \(delivery.thread.serialize())\n"
+//          result += "      thread: \(delivery.thread.serialize())\n"
           if delivery.deploys.isEmpty.not {
             result += "      deploys:\n"
             result += delivery.deploys.map({ "      - '\($0.value)'\n" }).sorted().joined()
@@ -311,12 +311,12 @@ public struct Production {
     }
     public mutating func release(
       bump: String,
-      start: Git.Sha,
-      thread: Configuration.Thread
+      start: Git.Sha
+//      ,thread: Configuration.Thread
     ) -> Delivery {
       let result = Delivery(
         version: next,
-        thread: thread,
+//        thread: thread,
         deploys: [start],
         previous: deliveries.keys
           .sorted()
@@ -340,13 +340,13 @@ public struct Production {
     }
     public mutating func hotfix(
       version: String,
-      start: Git.Sha,
-      thread: Configuration.Thread
+      start: Git.Sha
+//      ,thread: Configuration.Thread
     ) -> Delivery {
       let version = version.alphaNumeric
       let result = Delivery(
         version: version,
-        thread: thread,
+//        thread: thread,
         deploys: [start],
         previous: deliveries.keys
           .sorted()
@@ -374,7 +374,7 @@ public struct Production {
     }
     public struct Delivery {
       public var version: AlphaNumeric
-      public var thread: Configuration.Thread
+//      public var thread: Configuration.Thread
       public var deploys: Set<Git.Sha>
       public var previous: Set<Git.Sha>
       public static func make(
@@ -382,7 +382,7 @@ public struct Production {
         yaml: Yaml.Flow.Version.Delivery
       ) throws -> Self { try .init(
         version: version.alphaNumeric,
-        thread: .make(yaml: yaml.thread),
+//        thread: .make(yaml: yaml.thread),
         deploys: Set(yaml.deploys
           .get([])
           .map(Git.Sha.make(value:))

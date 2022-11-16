@@ -11,7 +11,6 @@ public final class Producer {
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let report: Act.Reply<Report>
   let readStdin: Try.Reply<Configuration.ReadStdin>
-  let createThread: Try.Reply<Report.CreateThread>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
   let jsonDecoder: JSONDecoder
@@ -25,7 +24,6 @@ public final class Producer {
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     report: @escaping Act.Reply<Report>,
     readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
-    createThread: @escaping Try.Reply<Report.CreateThread>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
     jsonDecoder: JSONDecoder
@@ -39,7 +37,6 @@ public final class Producer {
     self.persistAsset = persistAsset
     self.report = report
     self.readStdin = readStdin
-    self.createThread = createThread
     self.logMessage = logMessage
     self.writeStdout = writeStdout
     self.jsonDecoder = jsonDecoder
@@ -58,8 +55,8 @@ public final class Producer {
       product = try production
         .productMatching(deploy: gitlabCi.job.pipeline.ref)
         .get { throw Thrown("Tag \(gitlabCi.job.pipeline.ref) matches no products") }
-      current = try generate(cfg.parseTagVersion(
-        product: product,
+      current = try generate(product.parseTagVersion(
+        cfg: cfg,
         ref: gitlabCi.job.pipeline.ref,
         deploy: true
       ))
@@ -67,8 +64,8 @@ public final class Producer {
       product = try production
         .productMatching(release: gitlabCi.job.pipeline.ref)
         .get { throw Thrown("Branch \(gitlabCi.job.pipeline.ref) matches no products") }
-      current = try generate(cfg.parseReleaseBranchVersion(
-        product: product,
+      current = try generate(product.parseReleaseBranchVersion(
+        cfg: cfg,
         ref: gitlabCi.job.pipeline.ref
       ))
     }
@@ -76,9 +73,9 @@ public final class Producer {
       .get { throw Thrown("Versioning not configured for \(product)") }
       .deliveries[current.alphaNumeric]
       .get { throw Thrown("No \(product.name) \(current)") }
-    report(cfg.reportReleaseThread(
+    report(product.reportReleaseCustom(
+      cfg: cfg,
       event: event,
-      product: product,
       delivery: delivery,
       ref: gitlabCi.job.pipeline.ref,
       sha: gitlabCi.job.pipeline.sha,
@@ -130,20 +127,12 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportStageTagDeleted(
-      product: product,
+    try report(product.reportStageTagDeleted(
+      cfg: cfg,
       ref: name,
       sha: gitlabCi.job.pipeline.sha,
-      version: generate(cfg.parseTagBuild(
-        product: product,
-        ref: name,
-        deploy: false
-      )),
-      build: generate(cfg.parseTagBuild(
-        product: product,
-        ref: name,
-        deploy: false
-      ))
+      version: generate(product.parseTagBuild(cfg: cfg, ref: name, deploy: false)),
+      build: generate(product.parseTagBuild(cfg: cfg, ref: name, deploy: false))
     ))
     return true
   }
@@ -172,7 +161,7 @@ public final class Producer {
       let product = try production
         .productMatching(release: branch.name)
         .get { throw Thrown("Branch \(branch) matches no products") }
-      let current = try generate(cfg.parseReleaseBranchVersion(product: product, ref: branch.name))
+      let current = try generate(product.parseReleaseBranchVersion(cfg: cfg, ref: branch.name))
       if let delivery = versions[product.name]?.deliveries[current.alphaNumeric] {
         if revoke {
           try versions[product.name]?.revoke(version: current, sha: sha)
@@ -190,8 +179,8 @@ public final class Producer {
           .map(execute)
           .map(Execute.checkStatus(reply:))
           .get()
-        report(cfg.reportReleaseBranchDeleted(
-          product: product, delivery: delivery, ref: branch.name, sha: sha.value, revoke: revoke
+        report(product.reportReleaseBranchDeleted(
+          cfg: cfg, delivery: delivery, ref: branch.name, sha: sha.value, revoke: revoke
         ))
       }
     } else {
@@ -248,7 +237,7 @@ public final class Producer {
     let product = try production
       .productMatching(release: branch)
       .get { throw Thrown("Branch \(branch) matches no products") }
-    let current = try generate(cfg.parseReleaseBranchVersion(product: product, ref: branch))
+    let current = try generate(product.parseReleaseBranchVersion(cfg: cfg, ref: branch))
     let sha = try Git.Sha.make(job: gitlabCi.job)
     let versions = try loadVersions(cfg: cfg, production: production)
     guard var version = versions[product.name]
@@ -256,17 +245,17 @@ public final class Producer {
     let delivery = try version.deploy(version: current, sha: sha)
     let builds = try loadBuilds(cfg: cfg, production: production)
     guard let build = try builds.keys.max().map(\.value)
-      .reduce(production, cfg.bumpBuildNumber(production:build:))
+      .reduce(cfg, production.bumpBuildNumber(cfg:build:))
       .map(generate)
     else { throw Thrown("No builds in asset") }
-    let tag = try generate(cfg.createTagName(
-      product: product,
+    let tag = try generate(product.createTagName(
+      cfg: cfg,
       version: current,
       build: build,
       deploy: true
     ))
-    let annotation = try generate(cfg.createTagAnnotation(
-      product: product,
+    let annotation = try generate(product.createTagAnnotation(
+      cfg: cfg,
       version: current,
       build: build,
       deploy: true
@@ -290,8 +279,8 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(cfg.reportDeployTagCreated(
-      product: product,
+    try report(product.reportDeployTagCreated(
+      cfg: cfg,
       delivery: delivery,
       ref: tag,
       sha: sha.value,
@@ -318,8 +307,8 @@ public final class Producer {
       logMessage(.init(message: "Build already exists"))
       return true
     }
-    let build = try job.makeBuild(review: review, build: generate(cfg.bumpBuildNumber(
-      production: production,
+    let build = try job.makeBuild(review: review, build: generate(production.bumpBuildNumber(
+      cfg: cfg,
       build: builds.keys
         .sorted()
         .max()
@@ -343,7 +332,7 @@ public final class Producer {
       production: production,
       builds: builds,
       update: try builds.keys.max().map(\.value)
-        .reduce(production, cfg.bumpBuildNumber(production:build:))
+        .reduce(cfg, production.bumpBuildNumber(cfg:build:))
         .map(generate)
         .map(gitlabCi.job.makeBuild(build:))
         .get { throw Thrown("No builds in asset") }
@@ -359,13 +348,13 @@ public final class Producer {
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product)") }
     let current = version.next.value
-    let branch = try Git.Branch(name: generate(cfg.createReleaseBranchName(
-      product: product,
+    let branch = try Git.Branch(name: generate(product.createReleaseBranchName(
+      cfg: cfg,
       version: current,
       hotfix: false
     )))
-    let bump = try generate(cfg.bumpReleaseVersion(
-      product: product,
+    let bump = try generate(product.bumpReleaseVersion(
+      cfg: cfg,
       version: current,
       hotfix: false
     ))
@@ -379,13 +368,13 @@ public final class Producer {
       .get()
       .protected
     else { throw Thrown("Release \(branch) not protected") }
-    let thread = try createThread(cfg.reportReleaseBranchCreated(
-      product: product,
+    report(product.reportReleaseBranchCreated(
+      cfg: cfg,
       ref: branch.name,
       version: current,
       hotfix: false
     ))
-    let delivery = version.release(bump: bump, start: sha, thread: thread)
+    let delivery = version.release(bump: bump, start: sha)
     _ = try persist(
       cfg: cfg,
       production: production,
@@ -395,8 +384,8 @@ public final class Producer {
       version: current,
       reason: .release
     )
-    try report(cfg.reportReleaseBranchSummary(
-      product: product,
+    try report(product.reportReleaseBranchSummary(
+      cfg: cfg,
       delivery: delivery,
       ref: branch.name,
       sha: sha.value,
@@ -415,18 +404,18 @@ public final class Producer {
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product.name)") }
     let sha = try Git.Sha.make(job: gitlabCi.job)
-    let current = try generate(cfg.parseTagVersion(
-      product: product,
+    let current = try generate(product.parseTagVersion(
+      cfg: cfg,
       ref: gitlabCi.job.pipeline.ref,
       deploy: true
     ))
-    let hotfix = try generate(cfg.bumpReleaseVersion(
-      product: product,
+    let hotfix = try generate(product.bumpReleaseVersion(
+      cfg: cfg,
       version: current,
       hotfix: true
     ))
-    let branch = try generate(cfg.createReleaseBranchName(
-      product: product,
+    let branch = try generate(product.createReleaseBranchName(
+      cfg: cfg,
       version: hotfix,
       hotfix: true
     ))
@@ -439,13 +428,13 @@ public final class Producer {
       .get()
       .protected
     else { throw Thrown("Hotfix \(branch) not protected") }
-    let thread = try createThread(cfg.reportReleaseBranchCreated(
-      product: product,
+    report(product.reportReleaseBranchCreated(
+      cfg: cfg,
       ref: branch,
       version: hotfix,
       hotfix: true
     ))
-    let delivery = version.hotfix(version: hotfix, start: sha, thread: thread)
+    let delivery = version.hotfix(version: hotfix, start: sha)
     _ = try persist(
       cfg: cfg,
       production: production,
@@ -455,8 +444,8 @@ public final class Producer {
       version: current,
       reason: .hotfix
     )
-    try report(cfg.reportReleaseBranchSummary(
-      product: product,
+    try report(product.reportReleaseBranchSummary(
+      cfg: cfg,
       delivery: delivery,
       ref: branch,
       sha: sha.value,
@@ -495,21 +484,18 @@ public final class Producer {
     else { throw Thrown("Can not stage tag builds") }
     var current: String = version.next.value
     if product.matchReleaseBranch.isMet(branch) {
-      current = try generate(cfg.parseReleaseBranchVersion(
-        product: product,
-        ref: branch
-      ))
+      current = try generate(product.parseReleaseBranchVersion(cfg: cfg, ref: branch))
     } else if production.matchAccessoryBranch.isMet(branch) {
       current = version.accessories[branch]?.value ?? current
     }
-    let tag = try generate(cfg.createTagName(
-      product: product,
+    let tag = try generate(product.createTagName(
+      cfg: cfg,
       version: current,
       build: build.build.value,
       deploy: false
     ))
-    let annotation = try generate(cfg.createTagAnnotation(
-      product: product,
+    let annotation = try generate(product.createTagAnnotation(
+      cfg: cfg,
       version: current,
       build: build.build.value,
       deploy: false
@@ -519,8 +505,8 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    report(cfg.reportStageTagCreated(
-      product: product,
+    report(product.reportStageTagCreated(
+      cfg: cfg,
       ref: tag,
       sha: build.sha,
       version: current,
@@ -548,13 +534,13 @@ public final class Producer {
       } else {
         throw Thrown("Not on deploy or stage tag")
       }
-      build = try generate(cfg.parseTagBuild(
-        product: product,
+      build = try generate(product.parseTagBuild(
+        cfg: cfg,
         ref: name,
         deploy: deploy
       ))
-      current[product.name] = try generate(cfg.parseTagVersion(
-        product: product,
+      current[product.name] = try generate(product.parseTagVersion(
+        cfg: cfg,
         ref: name,
         deploy: deploy
       ))
@@ -571,8 +557,8 @@ public final class Producer {
       build = resolved.build.value
       let branch = resolved.target.get(name)
       if let product = try production.productMatching(release: branch) {
-        current[product.name] = try generate(cfg.parseReleaseBranchVersion(
-          product: product,
+        current[product.name] = try generate(product.parseReleaseBranchVersion(
+          cfg: cfg,
           ref: branch
         ))
       } else if production.matchAccessoryBranch.isMet(branch) {
@@ -581,8 +567,8 @@ public final class Producer {
         }
       }
     }
-    try writeStdout(generate(cfg.exportBuildContext(
-      production: production,
+    try writeStdout(generate(production.exportBuildContext(
+      cfg: cfg,
       versions: current,
       build: build,
       kind: kind
@@ -591,8 +577,8 @@ public final class Producer {
   }
   public func renderNextVersions(cfg: Configuration) throws -> Bool {
     let production = try resolveProduction(.init(cfg: cfg))
-    try writeStdout(generate(cfg.exportCurrentVersions(
-      production: production,
+    try writeStdout(generate(production.exportCurrentVersions(
+      cfg: cfg,
       versions: loadVersions(cfg: cfg, production: production).mapValues(\.next.value)
     )))
     return true
@@ -642,10 +628,7 @@ public final class Producer {
       cfg: cfg,
       asset: production.builds,
       content: production.serialize(builds: builds),
-      message: generate(cfg.createBuildCommitMessage(
-        production: production,
-        build: update
-      ))
+      message: generate(production.createBuildCommitMessage(cfg: cfg, build: update))
     ))
   }
   func persist(
@@ -663,8 +646,8 @@ public final class Producer {
       cfg: cfg,
       asset: production.versions,
       content: production.serialize(versions: versions),
-      message: generate(cfg.createVersionsCommitMessage(
-        production: production,
+      message: generate(production.createVersionsCommitMessage(
+        cfg: cfg,
         product: product,
         version: version,
         reason: reason

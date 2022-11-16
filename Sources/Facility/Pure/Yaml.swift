@@ -4,6 +4,7 @@ public enum Yaml {
   public struct Profile: Decodable {
     public var gitlab: String?
     public var slack: String?
+    public var jira: String?
     public var codeOwnage: String?
     public var fileTaboos: String?
     public var cocoapods: String?
@@ -22,39 +23,74 @@ public enum Yaml {
       public var pipeline: String
     }
   }
-  public struct Chat: Decodable {
-    public var storage: Asset?
-    public var slack: Slack?
-    public var rocket: Rocket?
-    public struct Storage: Decodable {
-      public var tags: [String: [String: Thread]]?
-      public var reviews: [String: [String: Thread]]?
-      public var branches: [String: [String: Thread]]?
-      public struct Thread: Decodable {
-        public var channel: String
-        public var message: String
+  public struct Jira: Decodable {
+    public var url: Secret
+    public var api: Secret?
+    public var login: Secret?
+    public var password: Secret?
+    public var issues: [String: Signal]?
+    public struct Signal: Decodable {
+      public var http: String?
+      public var path: String?
+      public var body: Template
+      public var events: [String]
+    }
+  }
+  public struct Slack: Decodable {
+    public var token: Secret
+    public var storage: Asset
+    public var signals: [String: Signal]?
+    public var directs: [String: Signal]?
+    public var jira: Jira?
+    public var gitlab: Gitlab?
+    public struct Gitlab: Decodable {
+      public var storage: Asset
+      public var tags: [String: Thread]?
+      public var reviews: [String: Thread]?
+      public var branches: [String: Thread]?
+      public struct Storage: Decodable {
+        public var tags: [String: [String: Thread.Storage]]?
+        public var reviews: [String: [String: Thread.Storage]]?
+        public var branches: [String: [String: Thread.Storage]]?
       }
     }
-    public struct Slack: Decodable {
-      public var storage: Asset?
-      public var token: Secret
-      public var threads: [String: Thread]?
-      public var signals: [String: Signal]?
-    }
-    public struct Rocket: Decodable {
-      public var url: Secret
-      public var token: Secret
-      public var threads: [String: Thread]?
-      public var signals: [String: Signal]?
+    public struct Jira: Decodable {
+      public var storage: Asset
+      public var epics: [String: Thread]?
+      public var issues: [String: Thread]?
+      public struct Storage: Decodable {
+        public var epics: [String: [String: Thread.Storage]]?
+        public var issues: [String: [String: Thread.Storage]]?
+      }
     }
     public struct Thread: Decodable {
       public var create: Signal
-      public var update: [String: Signal]
+      public var update: [String: Signal]?
+      public struct Storage: Decodable {
+        public var channel: String
+        public var message: String
+      }
     }
     public struct Signal: Decodable {
       public var method: String?
       public var body: Template
       public var events: [String]
+    }
+    public struct Storage: Decodable {
+      public var users: [String: User]?
+      public var channels: [String: Channel]?
+      public var mentions: [String: Mention]?
+      public struct User: Decodable {
+        public var id: String
+        public var subscribe: [String]?
+      }
+      public struct Channel: Decodable {
+        public var id: String
+      }
+      public struct Mention: Decodable {
+        public var subteams: [String]?
+        public var users: [String]?
+      }
     }
   }
   public struct FileTaboo: Decodable {
@@ -106,7 +142,6 @@ public enum Yaml {
       public var deliveries: [String: Delivery]?
       public var accessories: [String: String]?
       public struct Delivery: Decodable {
-        public var thread: Thread
         public var deploys: [String]?
       }
     }
@@ -131,17 +166,14 @@ public enum Yaml {
     public var queue: Asset
     public var approval: Approval
     public var createThread: Template
-    public var proposition: Proposition
     public var replication: Replication
     public var integration: Integration
+    public var propositions: [String: Proposition]
     public struct Proposition: Decodable {
       public var createCommitMessage: Template
-      public var rules: [Rule]
-      public struct Rule: Decodable {
-        public var title: Criteria
-        public var source: Criteria
-        public var task: String?
-      }
+      public var source: Criteria
+      public var title: Criteria?
+      public var jiraIssue: String?
     }
     public struct Replication: Decodable {
       public var createCommitMessage: Template
@@ -151,7 +183,7 @@ public enum Yaml {
       public var exportTargets: Template
     }
     public struct Approval: Decodable {
-      public var rules: Asset
+      public var rules: Secret
       public var statuses: Asset
       public var approvers: Asset
       public var haters: Secret?
@@ -175,7 +207,6 @@ public enum Yaml {
         }
       }
       public struct Status: Decodable {
-        public var thread: Thread
         public var target: String
         public var authors: [String]
         public var skip: [String]?
@@ -188,7 +219,6 @@ public enum Yaml {
       }
       public struct Approver: Decodable {
         public var active: Bool
-        public var chat: String
         public var watchTeams: Set<String>?
         public var watchAuthors: Set<String>?
       }
@@ -213,10 +243,6 @@ public enum Yaml {
   public struct Criteria: Decodable {
     var include: [String]?
     var exclude: [String]?
-  }
-  public struct Thread: Decodable {
-    public var channel: String
-    public var message: String
   }
   public struct Template: Decodable {
     public var name: String?

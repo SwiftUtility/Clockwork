@@ -115,7 +115,6 @@ public extension Configuration {
   func curlSlack(token: String, method: String, body: String) throws -> Execute { .makeCurl(
     url: "https://slack.com/api/\(method)",
     method: "POST",
-    retry: 1,
     data: body,
     headers: [Json.utf8, "Authorization: Bearer \(token)"],
     secrets: [token]

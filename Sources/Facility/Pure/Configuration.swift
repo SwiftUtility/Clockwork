@@ -6,7 +6,7 @@ public struct Configuration {
   public var profile: Profile
   public var templates: [String: String]
   public var gitlabCi: Lossy<GitlabCi>
-  public var slack: Lossy<Slack>
+  public var slack: Lossy<Slack>?
   public static func make(
     git: Git,
     env: [String: String],
@@ -135,19 +135,19 @@ public struct Configuration {
       }
     }
   }
-  public struct Thread: Encodable {
-    public var channel: String
-    public var message: String
-    public static func make(yaml: Yaml.Thread) -> Self { .init(
-      channel: yaml.channel,
-      message: yaml.message
-    )}
-    public static func make(slack: Json.SlackMessage) -> Self { .init(
-      channel: slack.channel,
-      message: slack.ts
-    )}
-    func serialize() -> String { "{channel: '\(channel)', message: '\(message)'}" }
-  }
+//  public struct Thread: Encodable {
+//    public var channel: String
+//    public var message: String
+//    public static func make(yaml: Yaml.Thread) -> Self { .init(
+//      channel: yaml.channel,
+//      message: yaml.message
+//    )}
+//    public static func make(slack: Json.SlackMessage) -> Self { .init(
+//      channel: slack.channel,
+//      message: slack.ts
+//    )}
+//    func serialize() -> String { "{channel: '\(channel)', message: '\(message)'}" }
+//  }
   public struct ResolveProfile: Query {
     public var git: Git
     public var file: Git.File

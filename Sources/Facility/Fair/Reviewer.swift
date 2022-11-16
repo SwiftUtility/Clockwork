@@ -7,7 +7,7 @@ public final class Reviewer {
   let resolveFusionStatuses: Try.Reply<Configuration.ResolveFusionStatuses>
   let resolveReviewQueue: Try.Reply<Fusion.Queue.Resolve>
   let parseApprovers: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Review.Approval.Approver]>>
-  let parseApprovalRules: Try.Reply<Configuration.ParseYamlFile<Yaml.Review.Approval.Rules>>
+  let parseApprovalRules: Try.Reply<Configuration.ParseYamlSecret<Yaml.Review.Approval.Rules>>
   let parseCodeOwnage: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>
   let parseProfile: Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>
   let parseAntagonists: Try.Reply<Configuration.ParseYamlSecret<[String: Set<String>]>>
@@ -16,7 +16,6 @@ public final class Reviewer {
   let generate: Try.Reply<Generate>
   let report: Act.Reply<Report>
   let readStdin: Try.Reply<Configuration.ReadStdin>
-  let createThread: Try.Reply<Report.CreateThread>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
@@ -25,7 +24,7 @@ public final class Reviewer {
     resolveFusionStatuses: @escaping Try.Reply<Configuration.ResolveFusionStatuses>,
     resolveReviewQueue: @escaping Try.Reply<Fusion.Queue.Resolve>,
     parseApprovers: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Review.Approval.Approver]>>,
-    parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Review.Approval.Rules>>,
+    parseApprovalRules: @escaping Try.Reply<Configuration.ParseYamlSecret<Yaml.Review.Approval.Rules>>,
     parseCodeOwnage: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>,
     parseProfile: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Profile>>,
     parseAntagonists: @escaping Try.Reply<Configuration.ParseYamlSecret<[String: Set<String>]>>,
@@ -34,7 +33,6 @@ public final class Reviewer {
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Act.Reply<Report>,
     readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
-    createThread: @escaping Try.Reply<Report.CreateThread>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
@@ -52,7 +50,6 @@ public final class Reviewer {
     self.generate = generate
     self.report = report
     self.readStdin = readStdin
-    self.createThread = createThread
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
@@ -77,11 +74,9 @@ public final class Reviewer {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       return false
     }
-    report(cfg.reportReviewThread(
+    report(status.reportReviewCustom(
+      cfg: cfg,
       event: event,
-      status: status,
-      approvers: approvers,
-      state: ctx.review,
       stdin: stdin
     ))
     return true
@@ -151,19 +146,14 @@ public final class Reviewer {
         .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
         .get()
       guard state.state != "closed" else {
-        report(cfg.reportReviewClosed(status: status, state: state, users: approvers))
+        report(status.reportReviewClosed(cfg: cfg))
         statuses[state.iid] = nil
         continue
       }
       guard remind else { continue }
       let reminds = status.reminds(sha: state.lastPipeline.sha, approvers: approvers)
       guard reminds.isEmpty.not else { continue }
-      report(cfg.reportReviewRemind(
-        approvers: approvers,
-        status: status,
-        state: state,
-        slackers: reminds
-      ))
+      report(status.reportReviewRemind(cfg: cfg, slackers: reminds))
     }
     _ = try persist(statuses, cfg: cfg, fusion: fusion, state: nil, status: nil, reason: .clean)
     return true
@@ -217,8 +207,8 @@ public final class Reviewer {
       cfg: cfg,
       asset: fusion.approval.approvers,
       content: Fusion.Approval.Approver.serialize(approvers: approvers),
-      message: generate(cfg.createApproversCommitMessage(
-        fusion: fusion,
+      message: generate(fusion.createApproversCommitMessage(
+        cfg: cfg,
         user: user,
         command: command
       ))
@@ -453,11 +443,7 @@ public final class Reviewer {
       cfg: cfg,
       gitlab: cfg.gitlabCi.get(),
       merge: merge,
-      title: generate(cfg.createReplicationCommitMessage(
-        replication: fusion.replication,
-        review: nil,
-        merge: merge
-      ))
+      title: generate(fusion.createReplicationCommitMessage(cfg: cfg, merge: merge))
     )
     return true
   }
@@ -482,11 +468,7 @@ public final class Reviewer {
       cfg: cfg,
       gitlab: cfg.gitlabCi.get(),
       merge: merge,
-      title: generate(cfg.createIntegrationCommitMessage(
-        integration: fusion.integration,
-        review: nil,
-        merge: merge
-      ))
+      title: generate(fusion.createIntegrationCommitMessage(cfg: cfg, merge: merge))
     )
     return true
   }
@@ -511,8 +493,8 @@ public final class Reviewer {
       logMessage(.init(message: "No branches suitable for integration"))
       return false
     }
-    try writeStdout(generate(cfg.exportIntegrationTargets(
-      integration: fusion.integration,
+    try writeStdout(generate(fusion.exportIntegrationTargets(
+      cfg: cfg,
       fork: fork,
       source: source.name,
       targets: targets.map(\.name)
@@ -555,7 +537,7 @@ public final class Reviewer {
           secret: ctx.gitlab.protected.get().secret
         )))
       } else {
-        report(cfg.reportReviewMergeConflicts(review: review, state: ctx.review))
+        report(review.status.reportReviewMergeConflicts(cfg: cfg))
         try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       }
       return false
@@ -563,15 +545,22 @@ public final class Reviewer {
     if let blockers = try checkReviewBlockers(cfg: cfg, state: ctx.review, review: review) {
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
       blockers.map(\.logMessage).forEach(logMessage)
-      report(cfg.reportReviewBlocked(review: review, state: ctx.review, reasons: blockers))
+      report(review.reportReviewBlocked(cfg: cfg, reasons: blockers))
       return false
     }
     let approval = try verify(cfg: cfg, state: ctx.review, fusion: fusion, review: &review)
-    report(cfg.reportReviewUpdated(review: review, state: ctx.review, update: approval))
+    report(review.reportReviewUpdated(cfg: cfg, update: approval))
     guard approval.state.isApproved else {
       logMessage(.init(message: "Review is not approved"))
       try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
-      _ = try persist(statuses, cfg: cfg, fusion: fusion, state: ctx.review, status: review.status, reason: .update)
+      _ = try persist(
+        statuses,
+        cfg: cfg,
+        fusion: fusion,
+        state: ctx.review,
+        status: review.status,
+        reason: .update
+      )
       return false
     }
     guard try checkIsSquashed(cfg: cfg, state: ctx.review, kind: review.kind) else {
@@ -636,35 +625,27 @@ public final class Reviewer {
     }
     try changeQueue(cfg: cfg, state: ctx.review, fusion: fusion, enqueue: false)
     switch review.kind {
-    case .proposition:
+    case .proposition(let merge):
       guard try acceptReview(
         cfg: cfg,
         state: ctx.review,
         review: review,
-        message: generate(cfg.createPropositionCommitMessage(
-          proposition: fusion.proposition,
-          review: ctx.review
-        ))
+        message: generate(fusion.createPropositionCommitMessage(cfg: cfg, proposition: merge.proposition!))
       ) else { return false }
     case .replication(let merge):
       guard try acceptReview(
         cfg: cfg,
         state: ctx.review,
         review: review,
-        message: generate(cfg.createReplicationCommitMessage(
-          replication: fusion.replication,
-          review: ctx.review,
-          merge: merge
-        ))
+        message: generate(fusion.createReplicationCommitMessage(cfg: cfg, merge: merge))
       ) else { return false }
       if let merge = try shiftReplication(cfg: cfg, merge: merge, project: ctx.project) {
         try createReview(
           cfg: cfg,
           gitlab: ctx.gitlab,
           merge: merge,
-          title: generate(cfg.createReplicationCommitMessage(
-            replication: fusion.replication,
-            review: nil,
+          title: generate(fusion.createReplicationCommitMessage(
+            cfg: cfg,
             merge: merge
           ))
         )
@@ -674,9 +655,8 @@ public final class Reviewer {
         cfg: cfg,
         state: ctx.review,
         review: review,
-        message: generate(cfg.createIntegrationCommitMessage(
-          integration: fusion.integration,
-          review: ctx.review,
+        message: generate(fusion.createIntegrationCommitMessage(
+          cfg: cfg,
           merge: merge
         ))
       ) else { return false }
@@ -698,20 +678,14 @@ public final class Reviewer {
       return nil
     }
     let authors = try resolveAuthors(cfg: cfg, state: state, kind: kind)
-    let thread = try createThread(cfg.reportReviewCreated(
-      fusion: fusion,
-      review: state,
-      users: approvers,
-      authors: authors
-    ))
     let status = Fusion.Approval.Status.make(
       review: state.iid,
       target: state.targetBranch,
       authors: authors,
-      thread: thread,
       fork: kind.merge?.fork
     )
     _ = try persist(statuses, cfg: cfg, fusion: fusion, state: state, status: status, reason: .create)
+    report(status.reportReviewCreated(cfg: cfg))
     return status
   }
   func resolveOwnage(
@@ -846,11 +820,11 @@ public final class Reviewer {
     case .proposition(let merge):
       if !state.squash { result.append(.squashStatus) }
       if state.author.username == bot { result.append(.authorIsBot) }
-      if let rule = merge.rule {
-        if !rule.title.isMet(state.title) { result.append(.badTitle) }
-        if let task = rule.task {
-          let source = try findMatches(in: state.sourceBranch, regexp: task)
-          let title = try findMatches(in: state.title, regexp: task)
+      if let rule = merge.proposition {
+        if let title = rule.title, !title.isMet(state.title) { result.append(.badTitle) }
+        if let jiraIssue = rule.jiraIssue {
+          let source = try findMatches(in: state.sourceBranch, regexp: jiraIssue)
+          let title = try findMatches(in: state.title, regexp: jiraIssue)
           if source.symmetricDifference(title).isEmpty.not { result.append(.taskMismatch) }
         }
       } else { result.append(.noSourceRule) }
@@ -983,11 +957,7 @@ public final class Reviewer {
       review: state.iid,
       target: enqueue.then(state.targetBranch)
     )
-    let message = try generate(cfg.createReviewQueueCommitMessage(
-      fusion: fusion,
-      review: state,
-      queued: enqueue
-    ))
+    let message = try generate(fusion.createReviewQueueCommitMessage(cfg: cfg, queued: enqueue))
     let result = try persistAsset(.init(
       cfg: cfg,
       asset: fusion.queue,
@@ -1017,18 +987,16 @@ public final class Reviewer {
     let sha = try Git.Ref.make(sha: .make(value: state.lastPipeline.sha))
     let message: String
     switch kind {
-    case .proposition: message = try generate(cfg.createPropositionCommitMessage(
-      proposition: fusion.proposition,
-      review: state
+    case .proposition(let merge): message = try generate(fusion.createPropositionCommitMessage(
+      cfg: cfg,
+      proposition: merge.proposition
     ))
-    case .replication(let merge): message = try generate(cfg.createReplicationCommitMessage(
-      replication: fusion.replication,
-      review: state,
+    case .replication(let merge): message = try generate(fusion.createReplicationCommitMessage(
+      cfg: cfg,
       merge: merge
     ))
-    case .integration(let merge): message = try generate(cfg.createIntegrationCommitMessage(
-      integration: fusion.integration,
-      review: state,
+    case .integration(let merge): message = try generate(fusion.createIntegrationCommitMessage(
+      cfg: cfg,
       merge: merge
     ))
     }
@@ -1078,16 +1046,14 @@ public final class Reviewer {
     case .proposition: throw MayDay("Squashing proposition")
     case .replication(let replication):
       merge = replication
-      message = try generate(cfg.createReplicationCommitMessage(
-        replication: fusion.replication,
-        review: state,
+      message = try generate(fusion.createReplicationCommitMessage(
+        cfg: cfg,
         merge: merge
       ))
     case .integration(let integration):
       merge = integration
-      message = try generate(cfg.createIntegrationCommitMessage(
-        integration: fusion.integration,
-        review: state,
+      message = try generate(fusion.createIntegrationCommitMessage(
+        cfg: cfg,
         merge: merge
       ))
     }
@@ -1147,11 +1113,11 @@ public final class Reviewer {
       .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
     if case "merged"? = result?.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
-      report(cfg.reportReviewMerged(review: review, state: state))
+      report(review.reportReviewMerged(cfg: cfg))
       return true
     } else if let message = result?.map?["message"]?.value?.string {
       logMessage(.init(message: message))
-      report(cfg.reportReviewMergeError(review: review, state: state, error: message))
+      report(review.reportReviewMergeError(cfg: cfg, error: message))
       return false
     } else {
       throw MayDay("Unexpected merge response")
@@ -1224,11 +1190,7 @@ public final class Reviewer {
       cfg: cfg,
       asset: fusion.approval.statuses,
       content: Fusion.Approval.Status.serialize(statuses: statuses),
-      message: generate(cfg.createFusionStatusesCommitMessage(
-        fusion: fusion,
-        review: state,
-        reason: reason
-      ))
+      message: generate(fusion.createFusionStatusesCommitMessage(cfg: cfg, reason: reason))
     ))
   }
   func findMatches(in string: String, regexp: NSRegularExpression) throws -> Set<String> {
@@ -1339,7 +1301,7 @@ public final class Reviewer {
     .reduce(into: [:], { $0[$1.login] = $1 })
   }
   func resolveRules(cfg: Configuration, fusion: Fusion) throws -> Fusion.Approval.Rules { try Id
-    .make(.init(git: cfg.git, file: .make(asset: fusion.approval.rules)))
+    .make(.init(cfg: cfg, secret: fusion.approval.rules))
     .map(parseApprovalRules)
     .map(Fusion.Approval.Rules.make(yaml:))
     .get()

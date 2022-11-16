@@ -6,13 +6,16 @@ public struct GitlabCi {
   public var project: String
   public var trigger: Yaml.Gitlab.Trigger
   public var protected: Lossy<Protected>
-  public var info: Info { .init(
-    bot: try? protected.get().user.username,
+  public var ctx: Context { .init(
+    mr: try? job.review.get(),
     url: job.webUrl
       .components(separatedBy: "/-/")
       .first,
     job: job,
-    mr: try? job.review.get()
+    bot: try? protected.map(\.user).get(),
+    proj: try? protected.flatMap(\.proj).get(),
+    parent: try? protected.flatMap(\.parent).get(),
+    review: try? protected.flatMap(\.review).get()
   )}
   public func matches(build: Production.Build) -> Bool {
     guard case .branch(let value) = build else { return false }
@@ -30,6 +33,15 @@ public struct GitlabCi {
     trigger: trigger,
     protected: protected
   )}
+  public struct Context: Encodable {
+    public var mr: UInt?
+    public var url: String?
+    public var job: Json.GitlabJob
+    public var bot: Json.GitlabUser?
+    public var proj: Json.GitlabProject?
+    public var parent: Json.GitlabJob?
+    public var review: Json.GitlabReviewState?
+  }
   public struct Parent {
     public let job: UInt
     public let profile: Files.Relative
@@ -39,6 +51,9 @@ public struct GitlabCi {
     public let auth: String
     public let push: String
     public let user: Json.GitlabUser
+    public var proj: Lossy<Json.GitlabProject> = .error(MayDay("Not inplemented"))
+    public var parent: Lossy<Json.GitlabJob> = .error(MayDay("Not inplemented"))
+    public var review: Lossy<Json.GitlabReviewState> = .error(MayDay("Not inplemented"))
     public static func make(
       token: Lossy<String>,
       env: Lossy<Env>,
