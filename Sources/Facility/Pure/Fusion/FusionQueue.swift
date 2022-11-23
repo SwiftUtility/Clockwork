@@ -28,41 +28,5 @@ extension Fusion {
     }
     public func isFirst(review: UInt, target: String) -> Bool { queue[target]?.first == review }
     public static func make(queue: [String: [UInt]]) -> Self { .init(queue: queue) }
-    public struct Resolve: Query {
-      public var cfg: Configuration
-      public var fusion: Fusion
-      public init(
-        cfg: Configuration,
-        fusion: Fusion
-      ) {
-        self.cfg = cfg
-        self.fusion = fusion
-      }
-      public typealias Reply = Fusion.Queue
-    }
-    public struct Persist: Query {
-      public var cfg: Configuration
-      public var pushUrl: String
-      public var fusion: Fusion
-      public var reviewQueue: Fusion.Queue
-      public var review: Json.GitlabReviewState
-      public var queued: Bool
-      public init(
-        cfg: Configuration,
-        pushUrl: String,
-        fusion: Fusion,
-        reviewQueue: Fusion.Queue,
-        review: Json.GitlabReviewState,
-        queued: Bool
-      ) {
-        self.cfg = cfg
-        self.pushUrl = pushUrl
-        self.fusion = fusion
-        self.reviewQueue = reviewQueue
-        self.review = review
-        self.queued = queued
-      }
-      public typealias Reply = Void
-    }
   }
 }

@@ -36,7 +36,7 @@ public final class Reporter {
 //    let slack = try query.report.cfg.slack.get()
 //    var query = query
 //    query.report.context.env = query.report.cfg.env
-//    query.report.context.info = try? query.report.cfg.gitlabCi.get().info
+//    query.report.context.info = try? query.report.cfg.gitlab.get().info
 //    query.report.context.mark = "createThread"
 //    let body = try generate(query.report.generate(template: query.template))
 //    return try Id
@@ -76,7 +76,7 @@ public final class Reporter {
 //    logMessage(.init(message: "Creating report for: \(query.info.event)"))
 //    var query = query
 //    query.info.env = query.cfg.env
-//    query.info.gitlab = try? query.cfg.gitlabCi.get().ctx
+//    query.info.gitlab = try? query.cfg.gitlab.get().ctx
 //    do { slack = try query.cfg.slack.get() }
 //    catch { return logMessage(.init(message: "Report failed: \(error)")) }
 //    for (event, signal) in slack.signals {
@@ -106,14 +106,10 @@ public final class Reporter {
 //    }
   }
   func slack(report: Report) {
+    guard report.cfg.profile.slack != nil else { return }
     let slack: Slack
-    switch report.cfg.slack {
-    case .none: return
-    case .some(.error(let error)):
-      logMessage(.init(message: "Report \(report.info.event.joined(separator: "/")) failed: \(error)"))
-      return
-    case .some(.value(let value)): slack = value
-    }
+    do { slack = try report.cfg.slack.get() }
+    catch { return logMessage(.init(message: "Report slack failed: \(error)")) }
     var report = report
     let signals = slack.signals.filter(report.info.triggers(signal:))
     guard signals.isEmpty.not else { return }

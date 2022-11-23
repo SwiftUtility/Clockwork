@@ -25,12 +25,19 @@ extension Fusion.Approval.Rules {
       advanceApproval: yaml.advance.get(false)
     )}
     public mutating func update(active: Set<String>) {
-      required.formIntersection(active)
-      optional.formIntersection(active)
-      reserve.formIntersection(active)
+      required = required
+        .intersection(active)
+      optional = optional
+        .intersection(active)
+        .subtracting(required)
+      reserve = reserve
+        .intersection(active)
+        .subtracting(required)
+        .subtracting(optional)
       random.formIntersection(active)
     }
     public mutating func update(involved: Set<String>) {
+      #warning("tbd")
       quorum -= approvers
         .union(random)
         .intersection(involved)

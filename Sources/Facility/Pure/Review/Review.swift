@@ -3,10 +3,11 @@ import Facility
 public struct Review {
   public let bot: String
   public let approvers: [String: Fusion.Approval.Approver]
-  public let kind: Fusion.Kind
+  public let infusion: State.Infusion
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
   public let haters: [String: Set<String>]
+  public let blockers: [Report.ReviewUpdated.Blocker]
   public internal(set) var status: Fusion.Approval.Status
   public internal(set) var unknownUsers: Set<String> = []
   public internal(set) var unknownTeams: Set<String> = []
@@ -15,12 +16,16 @@ public struct Review {
   public internal(set) var diffTeams: Set<String> = []
   public internal(set) var randomTeams: Set<String> = []
   public internal(set) var childCommits: [Git.Sha: Set<Git.Sha>] = [:]
+  public var stoppers: [Report.ReviewStopped.Reason] {
+    unknownUsers.isEmpty.else(.unknownUsers).array + unknownTeams.isEmpty.else(.unknownTeams).array
+  }
   public static func make(
     bot: String,
     status: Fusion.Approval.Status,
     approvers: [String: Fusion.Approval.Approver],
     review: Json.GitlabReviewState,
-    kind: Fusion.Kind,
+    infusion: State.Infusion,
+    blockers: [Report.ReviewUpdated.Blocker],
     ownage: [String: Criteria],
     rules: Fusion.Approval.Rules,
     haters: [String: Set<String>]
@@ -28,40 +33,17 @@ public struct Review {
     var result = Self(
       bot: bot,
       approvers: approvers,
-      kind: kind,
+      infusion: infusion,
       ownage: ownage,
       rules: rules,
       haters: haters,
+      blockers: blockers,
       status: status
     )
+    result.status.makeApproves(infusion: infusion)
     result.resolveUnknown()
     result.resolveUtility()
     return result
-  }
-  public mutating func approve(
-    job: Json.GitlabJob,
-    resolution: Fusion.Approval.Status.Resolution
-  ) throws {
-    let user = try job.getLogin(approvers: approvers)
-    status.approves[user] = try .init(
-      approver: user,
-      commit: .make(job: job),
-      resolution: resolution
-    )
-  }
-  public mutating func setAuthor(job: Json.GitlabJob) throws {
-    let user = try job.getLogin(approvers: approvers)
-    status.authors.insert(user)
-    guard kind.proposition else { return }
-    status.invalidate(users: rules.authorship
-      .filter({ $0.value.contains(user) })
-      .compactMap({ rules.teams[$0.key] })
-      .reduce(into: [user], { $0.formUnion($1.approvers) })
-    )
-  }
-  public mutating func unsetAuthor(job: Json.GitlabJob) throws -> Bool {
-    let user = try job.getLogin(approvers: approvers)
-    return status.authors.remove(user) != nil
   }
   mutating func resolveUnknown() {
     unknownUsers = status.authors
@@ -82,9 +64,9 @@ public struct Review {
       .filter { rules.teams[$0] == nil }
   }
   mutating func resolveUtility() {
-    let source = kind.source.name
-    let target = kind.target.name
-    let authorshipTeams = kind.proposition
+    let source = infusion.source.name
+    let target = infusion.target.name
+    let authorshipTeams = infusion.proposition
       .then(rules.authorship)
       .get([:])
       .filter({ $0.value.intersection(status.authors).isEmpty.not })
@@ -105,11 +87,12 @@ public struct Review {
     if utilityTeams.subtracting(status.teams).isEmpty.not {
       status.verified = nil
     }
+    status.blocked = blockers.isEmpty.not
   }
   public mutating func resolveOwnage(diff: [String]) {
     diffTeams = Set(ownage.filter({ diff.contains(where: $0.value.isMet(_:)) }).keys)
     status.teams = diffTeams.union(utilityTeams)
-    guard kind.proposition else { return }
+    guard infusion.proposition else { return }
     randomTeams = rules.randoms
       .filter({ $0.value.intersection(status.teams).isEmpty.not })
       .reduce(into: [], { $0.insert($1.key) })
@@ -183,7 +166,7 @@ public struct Review {
     for index in legates.indices {
       legates[index].update(isRandom: false)
       legates[index].update(active: yetActive)
-      if kind.proposition { legates[index].update(exclude: status.authors) }
+      if infusion.proposition { legates[index].update(exclude: status.authors) }
       else { legates[index].update(involved: status.authors) }
     }
     status.legates = legates
@@ -229,6 +212,7 @@ public struct Review {
       users: randoms.reduce(into: Set(), { $0.formUnion($1.random) })
     ))
     var result = Approval()
+    result.blockers = blockers
     result.orphaned = status.authors.isDisjoint(with: yetActive)
     result.unapprovable = legates
       .filter({ $0.quorum > 0 })
@@ -239,7 +223,7 @@ public struct Review {
     result.delLabels = rules.teams
       .reduce(into: Set(), { $0.formUnion($1.value.labels) })
       .subtracting(result.addLabels)
-    result.blockers = status.authors
+    result.holders = status.authors
       .subtracting(approved)
       .union(status.approves.filter(\.value.resolution.block).keys)
       .intersection(active)
@@ -255,12 +239,17 @@ public struct Review {
       .filter(\.resolution.outdated)
       .map({ [$0.commit.value: Set([$0.approver])] })
       .reduce(into: [:], { $0.merge($1, uniquingKeysWith: { $0.union($1) }) })
-    status.verified = (result.unapprovable.isEmpty && result.orphaned.not).then(sha)
-    if status.emergent != nil { result.state = .emergent }
+    status.verified = (
+      result.unapprovable.isEmpty
+      && result.blockers.isEmpty
+      && result.orphaned.not
+    ).then(sha)
+    if result.blockers.isEmpty.not { result.state = .blocked }
+    else if status.emergent != nil { result.state = .emergent }
     else if status.verified == nil { result.state = .unapprovable }
     else if result.slackers.isEmpty.not { result.state = .slackers }
     else if result.outdaters.isEmpty.not { result.state = .outdaters }
-    else if result.blockers.isEmpty.not { result.state = result.blockers
+    else if result.holders.isEmpty.not { result.state = result.holders
       .isSubset(of: status.authors)
       .then(.authors)
       .get(.holders)
@@ -290,6 +279,7 @@ public struct Review {
     })
   }
   public func isApproved(state: Json.GitlabReviewState) -> Bool {
+    guard status.blocked.not else { return false }
     guard status.target == state.targetBranch else { return false }
     guard status.emergent?.value != state.lastPipeline.sha else { return true }
     guard status.verified?.value == state.lastPipeline.sha else { return false }
@@ -322,12 +312,14 @@ public struct Review {
     public var unapprovable: Set<String> = []
     public var addLabels: Set<String> = []
     public var delLabels: Set<String> = []
-    public var blockers: Set<String> = []
+    public var holders: Set<String> = []
     public var slackers: Set<String> = []
     public var outdaters: [String: Set<String>] = [:]
     public var approvers: Set<String> = []
+    public var blockers: [Report.ReviewUpdated.Blocker] = []
     public var state: State = .approved
     public enum State: String, Encodable {
+      case blocked
       case emergent
       case unapprovable
       case slackers
@@ -342,29 +334,5 @@ public struct Review {
         }
       }
     }
-  }
-  public struct Context {
-    public let gitlab: GitlabCi
-    public let job: Json.GitlabJob
-    public let profile: Files.Relative
-    public let review: Json.GitlabReviewState
-    public let project: Json.GitlabProject
-    public let isLastPipe: Bool
-    public var isActual: Bool { return isLastPipe && review.state == "opened" }
-    public static func make(
-      gitlab: GitlabCi,
-      job: Json.GitlabJob,
-      profile: Files.Relative,
-      review: Json.GitlabReviewState,
-      project: Json.GitlabProject,
-      isLastPipe: Bool
-    ) -> Self { .init(
-      gitlab: gitlab,
-      job: job,
-      profile: profile,
-      review: review,
-      project: project,
-      isLastPipe: isLastPipe
-    )}
   }
 }

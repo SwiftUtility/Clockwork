@@ -7,7 +7,7 @@ import XCTest
 //  public var subevent: String { "" }
 //  public var env: [String: String] { get { [:] } set {} }
 //  public var ctx: AnyCodable? { get { self } set {} }
-//  public var info: GitlabCi.Info? { get { nil } set {} }
+//  public var info: Gitlab.Info? { get { nil } set {} }
 //  public var mark: String? { get {""} set {} }
 //}
 //final class StencilTests: XCTestCase {

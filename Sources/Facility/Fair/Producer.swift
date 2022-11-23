@@ -5,9 +5,9 @@ public final class Producer {
   let execute: Try.Reply<Execute>
   let generate: Try.Reply<Generate>
   let writeFile: Try.Reply<Files.WriteFile>
-  let resolveProduction: Try.Reply<Configuration.ResolveProduction>
-  let parseBuilds: Try.Reply<Configuration.ParseYamlFile<Yaml.Flow.Builds>>
-  let parseVersions: Try.Reply<Configuration.ParseYamlFile<Yaml.Flow.Versions>>
+  let parseProduction: Try.Reply<ParseYamlFile<Production>>
+  let parseBuilds: Try.Reply<ParseYamlFile<[AlphaNumeric: Production.Build]>>
+  let parseVersions: Try.Reply<ParseYamlFile<[String: Production.Version]>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let report: Act.Reply<Report>
   let readStdin: Try.Reply<Configuration.ReadStdin>
@@ -18,9 +18,9 @@ public final class Producer {
     execute: @escaping Try.Reply<Execute>,
     generate: @escaping Try.Reply<Generate>,
     writeFile: @escaping Try.Reply<Files.WriteFile>,
-    resolveProduction: @escaping Try.Reply<Configuration.ResolveProduction>,
-    parseBuilds: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Flow.Builds>>,
-    parseVersions: @escaping Try.Reply<Configuration.ParseYamlFile<Yaml.Flow.Versions>>,
+    parseProduction: @escaping Try.Reply<ParseYamlFile<Production>>,
+    parseBuilds: @escaping Try.Reply<ParseYamlFile<[AlphaNumeric: Production.Build]>>,
+    parseVersions: @escaping Try.Reply<ParseYamlFile<[String: Production.Version]>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     report: @escaping Act.Reply<Report>,
     readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
@@ -31,7 +31,7 @@ public final class Producer {
     self.execute = execute
     self.generate = generate
     self.writeFile = writeFile
-    self.resolveProduction = resolveProduction
+    self.parseProduction = parseProduction
     self.parseBuilds = parseBuilds
     self.parseVersions = parseVersions
     self.persistAsset = persistAsset
@@ -47,29 +47,29 @@ public final class Producer {
     stdin: Configuration.ReadStdin
   ) throws -> Bool {
     let stdin = try readStdin(stdin)
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
     let product: Production.Product
     let current: String
-    if gitlabCi.job.tag {
+    if gitlab.job.tag {
       product = try production
-        .productMatching(deploy: gitlabCi.job.pipeline.ref)
-        .get { throw Thrown("Tag \(gitlabCi.job.pipeline.ref) matches no products") }
+        .productMatching(deploy: gitlab.job.pipeline.ref)
+        .get { throw Thrown("Tag \(gitlab.job.pipeline.ref) matches no products") }
       current = try generate(product.parseTagVersion(
         cfg: cfg,
-        ref: gitlabCi.job.pipeline.ref,
+        ref: gitlab.job.pipeline.ref,
         deploy: true
       ))
     } else {
       product = try production
-        .productMatching(release: gitlabCi.job.pipeline.ref)
-        .get { throw Thrown("Branch \(gitlabCi.job.pipeline.ref) matches no products") }
+        .productMatching(release: gitlab.job.pipeline.ref)
+        .get { throw Thrown("Branch \(gitlab.job.pipeline.ref) matches no products") }
       current = try generate(product.parseReleaseBranchVersion(
         cfg: cfg,
-        ref: gitlabCi.job.pipeline.ref
+        ref: gitlab.job.pipeline.ref
       ))
     }
-    let delivery = try loadVersions(cfg: cfg, production: production)[product.name]
+    let delivery = try parseVersions(cfg.parseVersions(production: production))[product.name]
       .get { throw Thrown("Versioning not configured for \(product)") }
       .deliveries[current.alphaNumeric]
       .get { throw Thrown("No \(product.name) \(current)") }
@@ -77,8 +77,8 @@ public final class Producer {
       cfg: cfg,
       event: event,
       delivery: delivery,
-      ref: gitlabCi.job.pipeline.ref,
-      sha: gitlabCi.job.pipeline.sha,
+      ref: gitlab.job.pipeline.ref,
+      sha: gitlab.job.pipeline.sha,
       stdin: stdin
     ))
     return true
@@ -89,9 +89,9 @@ public final class Producer {
     next: Bool,
     version: String
   ) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
-    let versions = try loadVersions(cfg: cfg, production: production)
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
+    let versions = try parseVersions(cfg.parseVersions(production: production))
     guard var update = versions[product]
     else { throw Thrown("Versioning not configured for \(product)") }
     let reason: Generate.CreateVersionsCommitMessage.Reason
@@ -99,8 +99,8 @@ public final class Producer {
       try update.change(next: version)
       reason = .changeNext
     } else {
-      guard gitlabCi.job.tag.not else { throw Thrown("Not branch job") }
-      let branch = gitlabCi.job.pipeline.ref
+      guard gitlab.job.tag.not else { throw Thrown("Not branch job") }
+      let branch = gitlab.job.pipeline.ref
       guard production.matchAccessoryBranch.isMet(branch)
       else { throw Thrown("Not accessory branch \(branch)") }
       update.accessories[branch] = version.alphaNumeric
@@ -117,37 +117,37 @@ public final class Producer {
     )
   }
   public func deleteStageTag(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
-    guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
-    let name = gitlabCi.job.pipeline.ref
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
+    guard gitlab.job.tag else { throw Thrown("Not on tag") }
+    let name = gitlab.job.pipeline.ref
     guard let product = try production.productMatching(stage: name)
     else { throw Thrown("Not on stage tag") }
-    try gitlabCi.deleteTag(name: name)
+    try gitlab.deleteTag(name: name)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
     try report(product.reportStageTagDeleted(
       cfg: cfg,
       ref: name,
-      sha: gitlabCi.job.pipeline.sha,
+      sha: gitlab.job.pipeline.sha,
       version: generate(product.parseTagBuild(cfg: cfg, ref: name, deploy: false)),
       build: generate(product.parseTagBuild(cfg: cfg, ref: name, deploy: false))
     ))
     return true
   }
   public func deleteBranch(cfg: Configuration, revoke: Bool?) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
-    var versions = try loadVersions(cfg: cfg, production: production)
-    guard gitlabCi.job.tag.not else { throw Thrown("Not on branch") }
-    let branch = try Git.Branch.init(name: gitlabCi.job.pipeline.ref)
-    let sha = try Git.Sha.make(job: gitlabCi.job)
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
+    var versions = try parseVersions(cfg.parseVersions(production: production))
+    guard gitlab.job.tag.not else { throw Thrown("Not on branch") }
+    let branch = try Git.Branch.init(name: gitlab.job.pipeline.ref)
+    let sha = try Git.Sha.make(job: gitlab.job)
     guard try Execute.parseSuccess(reply: execute(cfg.git.check(
       child: .make(sha: sha),
       parent: .make(remote: branch)
     ))) else { throw Thrown("Not last commit pipeline") }
-    let defaultBranch = try gitlabCi.getProject
+    let defaultBranch = try gitlab.getProject
       .map(execute)
       .map(Execute.parseData(reply:))
       .reduce(Json.GitlabProject.self, jsonDecoder.decode(_:from:))
@@ -175,7 +175,7 @@ public final class Producer {
             reason: .revokeRelease
           )
         }
-        try gitlabCi.deleteBranch(name: branch.name)
+        try gitlab.deleteBranch(name: branch.name)
           .map(execute)
           .map(Execute.checkStatus(reply:))
           .get()
@@ -187,7 +187,7 @@ public final class Producer {
       guard production.matchAccessoryBranch.isMet(branch.name)
       else { throw Thrown("Not accessory branch \(branch.name)") }
       versions.keys.forEach({ versions[$0]?.accessories[branch.name] = nil })
-      try gitlabCi.deleteBranch(name: branch.name)
+      try gitlab.deleteBranch(name: branch.name)
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
@@ -205,10 +205,10 @@ public final class Producer {
     return true
   }
   public func forwardBranch(cfg: Configuration, name: String) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    guard gitlabCi.job.tag.not else { throw Thrown("Not on branch") }
-    let sha = try Git.Sha.make(job: gitlabCi.job)
-    let forward = try gitlabCi.getBranch(name: name)
+    let gitlab = try cfg.gitlab.get()
+    guard gitlab.job.tag.not else { throw Thrown("Not on branch") }
+    let sha = try Git.Sha.make(job: gitlab.job)
+    let forward = try gitlab.getBranch(name: name)
       .map(execute)
       .map(Execute.parseData(reply:))
       .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
@@ -219,31 +219,31 @@ public final class Producer {
       child: .make(sha: sha),
       parent: .make(remote: .init(name: name))
     ))) else { throw Thrown("Not fast forward \(sha.value)") }
-    try gitlabCi.deleteBranch(name: name)
+    try gitlab.deleteBranch(name: name)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try gitlabCi.postBranches(name: name, ref: sha.value)
+    try gitlab.postBranches(name: name, ref: sha.value)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
     return true
   }
   public func createDeployTag(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
-    guard !gitlabCi.job.tag else { throw Thrown("Not on branch") }
-    let branch = gitlabCi.job.pipeline.ref
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
+    guard !gitlab.job.tag else { throw Thrown("Not on branch") }
+    let branch = gitlab.job.pipeline.ref
     let product = try production
       .productMatching(release: branch)
       .get { throw Thrown("Branch \(branch) matches no products") }
     let current = try generate(product.parseReleaseBranchVersion(cfg: cfg, ref: branch))
-    let sha = try Git.Sha.make(job: gitlabCi.job)
-    let versions = try loadVersions(cfg: cfg, production: production)
+    let sha = try Git.Sha.make(job: gitlab.job)
+    let versions = try parseVersions(cfg.parseVersions(production: production))
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product)") }
     let delivery = try version.deploy(version: current, sha: sha)
-    let builds = try loadBuilds(cfg: cfg, production: production)
+    let builds = try parseBuilds(cfg.parseBuilds(production: production))
     guard let build = try builds.keys.max().map(\.value)
       .reduce(cfg, production.bumpBuildNumber(cfg:build:))
       .map(generate)
@@ -274,8 +274,8 @@ public final class Producer {
       version: current,
       reason: .deploy
     )
-    try gitlabCi
-      .postTags(name: tag, ref: gitlabCi.job.pipeline.sha, message: annotation)
+    try gitlab
+      .postTags(name: tag, ref: gitlab.job.pipeline.sha, message: annotation)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -290,19 +290,19 @@ public final class Producer {
     return true
   }
   public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
-    let production = try resolveProduction(.init(cfg: cfg))
-    let gitlabCi = try cfg.gitlabCi.get()
-    let parent = try gitlabCi.env.parent.get()
-    let job = try gitlabCi.getJob(id: parent.job)
+    let production = try cfg.parseProduction.map(parseProduction).get()
+    let gitlab = try cfg.gitlab.get()
+    let parent = try gitlab.env.parent.get()
+    let job = try gitlab.getJob(id: parent.job)
       .map(execute)
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     let review = try job.review
-      .flatMap(gitlabCi.getMrState(review:))
+      .flatMap(gitlab.getMrState(review:))
       .map(execute)
       .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
       .get()
-    let builds = try loadBuilds(cfg: cfg, production: production)
+    let builds = try parseBuilds(cfg.parseBuilds(production: production))
     guard !builds.values.contains(where: review.matches(build:)) else {
       logMessage(.init(message: "Build already exists"))
       return true
@@ -319,11 +319,11 @@ public final class Producer {
     return true
   }
   public func reserveBranchBuild(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
-    let builds = try loadBuilds(cfg: cfg, production: production)
-    guard gitlabCi.job.tag.not else { throw Thrown("Not on branch") }
-    guard builds.values.contains(where: gitlabCi.matches(build:)).not else {
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
+    let builds = try parseBuilds(cfg.parseBuilds(production: production))
+    guard gitlab.job.tag.not else { throw Thrown("Not on branch") }
+    guard builds.values.contains(where: gitlab.matches(build:)).not else {
       logMessage(.init(message: "Build already exists"))
       return true
     }
@@ -334,17 +334,17 @@ public final class Producer {
       update: try builds.keys.max().map(\.value)
         .reduce(cfg, production.bumpBuildNumber(cfg:build:))
         .map(generate)
-        .map(gitlabCi.job.makeBuild(build:))
+        .map(gitlab.job.makeBuild(build:))
         .get { throw Thrown("No builds in asset") }
     )
     return true
   }
   public func createReleaseBranch(cfg: Configuration, product: String) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
     guard let product = production.products[product]
     else { throw Thrown("Produnc \(product) not configured") }
-    let versions = try loadVersions(cfg: cfg, production: production)
+    let versions = try parseVersions(cfg.parseVersions(production: production))
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product)") }
     let current = version.next.value
@@ -358,10 +358,10 @@ public final class Producer {
       version: current,
       hotfix: false
     ))
-    let sha = try Git.Sha.make(job: gitlabCi.job)
+    let sha = try Git.Sha.make(job: gitlab.job)
     try version.check(bump: bump)
-    guard try gitlabCi
-      .postBranches(name: branch.name, ref: gitlabCi.job.pipeline.sha)
+    guard try gitlab
+      .postBranches(name: branch.name, ref: gitlab.job.pipeline.sha)
       .map(execute)
       .map(Execute.parseData(reply:))
       .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
@@ -394,19 +394,19 @@ public final class Producer {
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
-    guard gitlabCi.job.tag else { throw Thrown("Not on tag") }
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
+    guard gitlab.job.tag else { throw Thrown("Not on tag") }
     let product = try production
-      .productMatching(deploy: gitlabCi.job.pipeline.ref)
-      .get { throw Thrown("Tag \(gitlabCi.job.pipeline.ref) matches no products") }
-    let versions = try loadVersions(cfg: cfg, production: production)
+      .productMatching(deploy: gitlab.job.pipeline.ref)
+      .get { throw Thrown("Tag \(gitlab.job.pipeline.ref) matches no products") }
+    let versions = try parseVersions(cfg.parseVersions(production: production))
     guard var version = versions[product.name]
     else { throw Thrown("Versioning not configured for \(product.name)") }
-    let sha = try Git.Sha.make(job: gitlabCi.job)
+    let sha = try Git.Sha.make(job: gitlab.job)
     let current = try generate(product.parseTagVersion(
       cfg: cfg,
-      ref: gitlabCi.job.pipeline.ref,
+      ref: gitlab.job.pipeline.ref,
       deploy: true
     ))
     let hotfix = try generate(product.bumpReleaseVersion(
@@ -420,8 +420,8 @@ public final class Producer {
       hotfix: true
     ))
     try version.check(hotfix: hotfix, of: current)
-    guard try gitlabCi
-      .postBranches(name: branch, ref: gitlabCi.job.pipeline.sha)
+    guard try gitlab
+      .postBranches(name: branch, ref: gitlab.job.pipeline.sha)
       .map(execute)
       .map(Execute.parseData(reply:))
       .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
@@ -457,11 +457,11 @@ public final class Producer {
     cfg: Configuration,
     name: String
   ) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let criteria = try resolveProduction(.init(cfg: cfg)).matchAccessoryBranch
+    let gitlab = try cfg.gitlab.get()
+    let criteria = try cfg.parseProduction.map(parseProduction).get().matchAccessoryBranch
     guard criteria.isMet(name) else { throw Thrown("\(name) does not meat accessory criteria") }
-    guard try gitlabCi
-      .postBranches(name: name, ref: gitlabCi.job.pipeline.sha)
+    guard try gitlab
+      .postBranches(name: name, ref: gitlab.job.pipeline.sha)
       .map(execute)
       .map(Execute.parseData(reply:))
       .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
@@ -472,13 +472,13 @@ public final class Producer {
     return true
   }
   public func stageBuild(cfg: Configuration, product: String, build: String) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
     guard let product = production.products[product]
     else { throw Thrown("Production not configured for \(product)") }
-    guard let version = try loadVersions(cfg: cfg, production: production)[product.name]
+    guard let version = try parseVersions(cfg.parseVersions(production: production))[product.name]
     else { throw Thrown("No versions for \(product)") }
-    guard let build = try loadBuilds(cfg: cfg, production: production)[build.alphaNumeric]
+    guard let build = try parseBuilds(cfg.parseBuilds(production: production))[build.alphaNumeric]
     else { throw Thrown("No build \(build) reserved") }
     guard let branch = build.target.flatMapNil(build.branch)
     else { throw Thrown("Can not stage tag builds") }
@@ -500,7 +500,7 @@ public final class Producer {
       build: build.build.value,
       deploy: false
     ))
-    try gitlabCi
+    try gitlab
       .postTags(name: tag, ref: build.sha, message: annotation)
       .map(execute)
       .map(Execute.checkStatus(reply:))
@@ -515,14 +515,14 @@ public final class Producer {
     return true
   }
   public func renderBuild(cfg: Configuration) throws -> Bool {
-    let gitlabCi = try cfg.gitlabCi.get()
-    let production = try resolveProduction(.init(cfg: cfg))
-    let name = gitlabCi.job.pipeline.ref
+    let gitlab = try cfg.gitlab.get()
+    let production = try cfg.parseProduction.map(parseProduction).get()
+    let name = gitlab.job.pipeline.ref
     let build: String
-    let versions = try loadVersions(cfg: cfg, production: production)
+    let versions = try parseVersions(cfg.parseVersions(production: production))
     var current = versions.mapValues(\.next.value)
     let kind: Generate.ExportBuildContext.Kind
-    if gitlabCi.job.tag {
+    if gitlab.job.tag {
       let product: Production.Product
       let deploy: Bool
       if let found = try production.productMatching(deploy: name) {
@@ -546,9 +546,9 @@ public final class Producer {
       ))
       kind = deploy.then(.deploy).get(.stage)
     } else {
-      guard let resolved = try loadBuilds(cfg: cfg, production: production)
+      guard let resolved = try parseBuilds(cfg.parseBuilds(production: production))
         .values
-        .first(where: gitlabCi.job.matches(build:))
+        .first(where: gitlab.job.matches(build:))
       else {
         logMessage(.init(message: "No build number reserved"))
         return false
@@ -576,10 +576,10 @@ public final class Producer {
     return true
   }
   public func renderNextVersions(cfg: Configuration) throws -> Bool {
-    let production = try resolveProduction(.init(cfg: cfg))
+    let production = try cfg.parseProduction.map(parseProduction).get()
     try writeStdout(generate(production.exportCurrentVersions(
       cfg: cfg,
-      versions: loadVersions(cfg: cfg, production: production).mapValues(\.next.value)
+      versions: parseVersions(cfg.parseVersions(production: production)).mapValues(\.next.value)
     )))
     return true
   }
@@ -653,21 +653,5 @@ public final class Producer {
         reason: reason
       ))
     ))
-  }
-  func loadVersions(
-    cfg: Configuration,
-    production: Production
-  ) throws -> [String: Production.Version] {
-    try parseVersions(.init(git: cfg.git, file: .make(asset: production.versions)))
-      .map(Production.Version.make(product:yaml:))
-      .reduce(into: [:], { $0[$1.product] = $1 })
-  }
-  func loadBuilds(
-    cfg: Configuration,
-    production: Production
-  ) throws -> [AlphaNumeric: Production.Build] {
-    try parseBuilds(.init(git: cfg.git, file: .make(asset: production.builds)))
-      .map(Production.Build.make(build:yaml:))
-      .reduce(into: [:], { $0[$1.build] = $1 })
   }
 }

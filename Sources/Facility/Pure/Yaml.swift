@@ -145,7 +145,6 @@ public enum Yaml {
         public var deploys: [String]?
       }
     }
-    public typealias Builds = [String: Build]
     public typealias Versions = [String: Version]
   }
   public struct Requisition: Decodable {
@@ -165,10 +164,10 @@ public enum Yaml {
   public struct Review: Decodable {
     public var queue: Asset
     public var approval: Approval
-    public var createThread: Template
     public var replication: Replication
     public var integration: Integration
     public var propositions: [String: Proposition]
+    public var createCommitMessage: Template
     public struct Proposition: Decodable {
       public var createCommitMessage: Template
       public var source: Criteria
@@ -177,10 +176,12 @@ public enum Yaml {
     }
     public struct Replication: Decodable {
       public var createCommitMessage: Template
+      public var autoApproveFork: Bool?
     }
     public struct Integration: Decodable {
       public var createCommitMessage: Template
       public var exportTargets: Template
+      public var autoApproveFork: Bool?
     }
     public struct Approval: Decodable {
       public var rules: Secret
@@ -213,6 +214,7 @@ public enum Yaml {
         public var teams: [String]?
         public var emergent: String?
         public var verified: String?
+        public var blocked: Bool?
         public var randoms: [String]?
         public var legates: [String]?
         public var approves: [String: [String: String]]?

@@ -41,58 +41,50 @@ public struct Report: Query {
   public struct ReviewClosed: ReportContext {
     public var authors: [String]
   }
-  public struct ReviewBlocked: ReportContext {
+  public struct ReviewStopped: ReportContext {
     public var authors: [String]
     public var reasons: [Reason]
     public var unknownUsers: [String]?
     public var unknownTeams: [String]?
     public enum Reason: String, Encodable {
-      case authorIsBot
-      case authorNotBot
-      case badTitle
-      case draft
-      case discussions
+      case botSquash
+      case notBotMerge
       case extraCommits
       case forkInTarget
       case forkNotInSource
-      case forkNotInSubject
+      case forkNotInOriginal
       case forkParentNotInTarget
       case forkTargetMismatch
       case noSourceRule
+      case sourceFormat
+      case multipleRules
       case targetNotDefault
       case targetNotProtected
-      case taskMismatch
-      case sanity
       case sourceIsProtected
-      case squashStatus
-      case subjectNotProtected
+      case originalNotProtected
+      case sanity
       case unknownTeams
       case unknownUsers
-      case workInProgress
       public var logMessage: LogMessage {
         switch self {
-        case .authorIsBot: return .init(message: "Author of proposition is bot")
-        case .authorNotBot: return .init(message: "Author of merging is not bot")
-        case .badTitle: return .init(message: "Title does not match rule criteria")
-        case .draft: return .init(message: "Merge request is in draft state")
-        case .discussions: return .init(message: "Merge request has unresolved discussions")
+        case .botSquash: return .init(message: "Author of proposition is bot")
+        case .notBotMerge: return .init(message: "Author of merging is not bot")
         case .extraCommits: return .init(message: "Source branch contains non protected commits")
         case .forkInTarget: return .init(message: "Fork commit is already in target branch")
         case .forkNotInSource: return .init(message: "Fork commit is not in source branch")
-        case .forkNotInSubject: return .init(message: "Fork commit is not in fork subject branch")
-        case .forkParentNotInTarget: return .init(message: "Fork parent commit is not in target branch")
+        case .forkNotInOriginal: return .init(message: "Fork commit is not in fork subject branch")
+        case .forkParentNotInTarget: return .init(message: "Fork parent is not in target branch")
         case .forkTargetMismatch: return .init(message: "Fork target branch changed")
         case .noSourceRule: return .init(message: "No rule for source branch")
+        case .sourceFormat: return .init(message: "Bad formated merge branch")
+        case .multipleRules: return .init(message: "Multiple rules for source branch")
         case .targetNotDefault: return .init(message: "Target branch is not default")
         case .targetNotProtected: return .init(message: "Target branch is not protected")
-        case .taskMismatch: return .init(message: "Branch name and title contain different tasks")
         case .sanity: return .init(message: "Sanity group does not track approval configuration")
         case .sourceIsProtected: return .init(message: "Source branch is protected")
-        case .squashStatus: return .init(message: "Bad merge request squash status")
-        case .subjectNotProtected: return .init(message: "Fork subject branch is not protected")
+        case .originalNotProtected: return .init(message: "Fork subject branch is not protected")
         case .unknownTeams: return .init(message: "Found not configured teams")
         case .unknownUsers: return .init(message: "Found not registered users")
-        case .workInProgress: return .init(message: "Merge request is in WIP state")
         }
       }
     }
@@ -101,7 +93,7 @@ public struct Report: Query {
     public var authors: [String]
     public var teams: [String]?
     public var watchers: [String]?
-    public var blockers: [String]?
+    public var holders: [String]?
     public var slackers: [String]?
     public var approvers: [String]?
     public var outdaters: [String: [String]]?
@@ -109,6 +101,15 @@ public struct Report: Query {
     public var unapprovable: [String]?
     public var state: Review.Approval.State
     public var subevent: [String] { [state.rawValue] }
+    public var blockers: [Blocker]?
+    public enum Blocker: String, Encodable {
+      case badTitle
+      case draft
+      case discussions
+      case squashStatus
+      case workInProgress
+      case taskMismatch
+    }
   }
   public struct ReviewMerged: ReportContext {
     public var authors: [String]
@@ -245,33 +246,36 @@ public extension Fusion.Approval.Status {
     ),
     subevent: event.components(separatedBy: "/")
   )}
-}
-public extension Review {
-  func reportReviewBlocked(
+  func reportReviewStopped(
     cfg: Configuration,
-    reasons: [Report.ReviewBlocked.Reason]
+    reasons: [Report.ReviewStopped.Reason],
+    unknownUsers: Set<String> = [],
+    unknownTeams: Set<String> = []
   ) -> Report { .init(
     cfg: cfg,
-    ctx: Report.ReviewBlocked(
-      authors: status.authors.sorted(),
+    ctx: Report.ReviewStopped(
+      authors: authors.sorted(),
       reasons: reasons,
       unknownUsers: unknownUsers.isEmpty.else(unknownUsers.sorted()),
-      unknownTeams: unknownTeams.isEmpty.else(unknownTeams.sorted())
+      unknownTeams: unknownTeams.isEmpty.else(unknownUsers.sorted())
     )
   )}
+}
+public extension Review {
   func reportReviewUpdated(cfg: Configuration, update: Review.Approval) -> Report { .init(
     cfg: cfg,
     ctx: Report.ReviewUpdated(
       authors: status.authors.sorted(),
       teams: status.teams.isEmpty.else(status.teams.sorted()),
       watchers: watchers,
-      blockers: update.blockers.isEmpty.else(update.blockers.sorted()),
+      holders: update.holders.isEmpty.else(update.holders.sorted()),
       slackers: update.slackers.isEmpty.else(update.slackers.sorted()),
       approvers: update.approvers.isEmpty.else(update.approvers.sorted()),
       outdaters: update.outdaters.isEmpty.else(update.outdaters.mapValues({ $0.sorted() })),
       orphaned: update.orphaned,
       unapprovable: update.unapprovable.isEmpty.else(update.unapprovable.sorted()),
-      state: update.state
+      state: update.state,
+      blockers: update.blockers.isEmpty.else(update.blockers)
     )
   )}
   func reportReviewMerged(cfg: Configuration) -> Report { .init(

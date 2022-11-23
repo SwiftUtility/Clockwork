@@ -13,7 +13,7 @@ public extension GenerateContext {
 public protocol GenerateInfo: Encodable {
   var event: [String] { get }
   var env: [String: String] { get set }
-  var gitlab: GitlabCi.Context? { get set }
+  var gitlab: Gitlab.Context? { get set }
   var mark: String? { get set }
   var jira: Jira.Context? { get set }
   var slack: Slack.Context? { get set }
@@ -38,7 +38,7 @@ public struct Generate: Query {
     public let event: [String]
     public var ctx: Context
     public var env: [String: String] = [:]
-    public var gitlab: GitlabCi.Context? = nil
+    public var gitlab: Gitlab.Context? = nil
     public var mark: String? = nil
     public var kind: String? = nil
     public var jira: Jira.Context? = nil
@@ -158,20 +158,11 @@ public struct Generate: Query {
       case unown
     }
   }
-  public struct CreatePropositionCommitMessage: GenerateContext {
+  public struct CreateMergeCommitMessage: GenerateContext {}
+  public struct CreateFusionCommitMessage: GenerateContext {
     public var kind: String
-  }
-  public struct CreateIntegrationCommitMessage: GenerateContext {
-    public var kind = Fusion.Merge.Prefix.integrate.rawValue
-    public var fork: String
-    public var source: String
-    public var target: String
-  }
-  public struct CreateReplicationCommitMessage: GenerateContext {
-    public var kind = Fusion.Merge.Prefix.replicate.rawValue
-    public var fork: String
-    public var source: String
-    public var target: String
+    public var fork: String?
+    public var original: String?
   }
 }
 public extension Production {
@@ -327,6 +318,11 @@ public extension Fusion {
     template: approval.statuses.createCommitMessage,
     ctx: Generate.CreateFusionStatusesCommitMessage(reason: reason)
   )}
+  func createMergeCommitMessage(cfg: Configuration) -> Generate { .make(
+    cfg: cfg,
+    template: createCommitMessage,
+    ctx: Generate.CreateMergeCommitMessage()
+  )}
   func exportIntegrationTargets(
     cfg: Configuration,
     fork: Git.Sha,
@@ -337,36 +333,15 @@ public extension Fusion {
     template: integration.exportAvailableTargets,
     ctx: Generate.ExportIntegrationTargets(fork: fork.value, source: source, targets: targets)
   )}
-  func createPropositionCommitMessage(
-    cfg: Configuration,
-    proposition: Proposition
-  ) -> Generate { .make(
+}
+public extension Review.State.Infusion {
+  func createFusionCommitMessage(cfg: Configuration) -> Generate { .make(
     cfg: cfg,
-    template: proposition.createCommitMessage,
-    ctx: Generate.CreatePropositionCommitMessage(kind: proposition.kind)
-  )}
-  func createIntegrationCommitMessage(
-    cfg: Configuration,
-    merge: Fusion.Merge
-  ) -> Generate { .make(
-    cfg: cfg,
-    template: integration.createCommitMessage,
-    ctx: Generate.CreateIntegrationCommitMessage(
-      fork: merge.fork.value,
-      source: merge.subject.name,
-      target: merge.target.name
-    )
-  )}
-  func createReplicationCommitMessage(
-    cfg: Configuration,
-    merge: Fusion.Merge
-  ) -> Generate { .make(
-    cfg: cfg,
-    template: replication.createCommitMessage,
-    ctx: Generate.CreateReplicationCommitMessage(
-      fork: merge.fork.value,
-      source: merge.subject.name,
-      target: merge.target.name
+    template: createCommitMessage,
+    ctx: Generate.CreateFusionCommitMessage(
+      kind: prefix,
+      fork: merge?.fork.value,
+      original: merge?.original.name
     )
   )}
 }

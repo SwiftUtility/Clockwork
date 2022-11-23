@@ -139,7 +139,7 @@ extension Clockwork.Gitlab.Jobs.Retry: RunnableCommand {
   )}
 }
 extension Clockwork.Gitlab.Jobs.Scope {
-  var mode: GitlabCi.JobScope {
+  var mode: Gitlab.JobScope {
     switch self {
     case .canceled: return .canceled
     case .created: return .created
@@ -232,7 +232,7 @@ extension Clockwork.Review.Accept: RunnableCommand {
 }
 extension Clockwork.Review.AddLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.addReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.mediator.addReviewLabels(cfg: cfg, labels: labels)
   }
 }
 extension Clockwork.Review.Approve: RunnableCommand {
@@ -326,12 +326,12 @@ extension Clockwork.Review.ReserveBuild: RunnableCommand {
 }
 extension Clockwork.Review.RemoveLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.removeReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.mediator.removeReviewLabels(cfg: cfg, labels: labels)
   }
 }
 extension Clockwork.Review.TriggerPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.createReviewPipeline(cfg: cfg)
+    try Assembler.mediator.createReviewPipeline(cfg: cfg)
   }
 }
 extension Clockwork.Review.Skip: RunnableCommand {
