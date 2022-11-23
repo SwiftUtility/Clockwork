@@ -59,11 +59,8 @@ public final class Reviewer {
     stdin: Configuration.ReadStdin
   ) throws -> Bool {
     let stdin = try readStdin(stdin)
-    let gitlab = try cfg.gitlab.get()
-    let review = try gitlab.review.get()
     let fusion = try cfg.parseFusion.map(parseFusion).get()
-    let approvers = try parseApprovers(cfg.parseApprovers(approval: fusion.approval))
-    var statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
+    let statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
     guard let status = try resolveStatus(cfg: cfg, fusion: fusion, statuses: statuses)
     else { return false }
     report(status.reportReviewCustom(
@@ -108,7 +105,7 @@ public final class Reviewer {
       .else(gitlab)
       .get(cfg.gitlab.get().job.user.username)
     if case .register(let slack) = command {
-      guard approvers[user] == nil else { throw Thrown("Already exists \(user)") }
+      #warning("register slack")
       approvers[user] = .make(login: user, active: true)
     } else {
       guard var approver = approvers[user] else { throw Thrown("No approver \(user)") }
@@ -503,7 +500,6 @@ public final class Reviewer {
   public func acceptReview(cfg: Configuration) throws -> Bool {
     let fusion = try cfg.parseFusion.map(parseFusion).get()
     let gitlab = try cfg.gitlab.get()
-    let project = try gitlab.project.get()
     let parent = try gitlab.parent.get()
     let merge = try gitlab.review.get()
     guard parent.pipeline.id == merge.lastPipeline.id else {
@@ -518,7 +514,7 @@ public final class Reviewer {
       try changeQueue(cfg: cfg, fusion: fusion, enqueue: false)
       return false
     }
-    guard var review = try resolveReview(cfg: cfg, fusion: fusion, status: status) else {
+    guard let review = try resolveReview(cfg: cfg, fusion: fusion, status: status) else {
       try changeQueue(cfg: cfg, fusion: fusion, enqueue: false)
       return false
     }
@@ -592,7 +588,7 @@ public final class Reviewer {
     let review = try gitlab.review.get()
     guard let infusion = try resolveInfusion(cfg: cfg, fusion: fusion, status: status)
     else { return nil }
-    var result = try Review.make(
+    let result = try Review.make(
       bot: cfg.gitlab.get().protected.get().user.username,
       status: status,
       approvers: parseApprovers(cfg.parseApprovers(approval: fusion.approval)),

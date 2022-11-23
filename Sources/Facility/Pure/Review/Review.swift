@@ -167,7 +167,6 @@ public struct Review {
       legates[index].update(isRandom: false)
       legates[index].update(active: yetActive)
       if infusion.proposition { legates[index].update(exclude: status.authors) }
-      else { legates[index].update(involved: status.authors) }
     }
     status.legates = legates
       .reduce(into: Set(), { $0.formUnion($1.approvers) })
@@ -183,32 +182,27 @@ public struct Review {
     status.randoms = randoms
       .reduce(into: Set(), { $0.formUnion($1.random) })
       .intersection(status.randoms)
-    for index in legates.indices {
-      legates[index].update(involved: status.randoms)
-      legates[index].update(involved: status.legates)
-    }
+    var involved = status.legates.union(status.randoms)
+    if infusion.proposition.not { involved.formUnion(status.authors) }
     var users = legates.reduce(into: Set(), { $0.formUnion($1.required) })
     status.legates.formUnion(users)
-    legates.indices.forEach({ legates[$0].update(involved: users) })
-    users = legates.reduce(into: Set(), { $0.formUnion($1.optional) })
-    legates.indices.forEach({ legates[$0].update(optional: users) })
+    involved.formUnion(users)
+    legates.indices.forEach({ legates[$0].update(involved: involved) })
     users = legates.reduce(into: Set(), { $0.formUnion($1.necessary) })
     status.legates.formUnion(users)
-    legates.indices.forEach({ legates[$0].update(involved: users) })
-    status.legates.formUnion(selectUsers(
-      teams: &legates,
-      users: legates.reduce(into: Set(), { $0.formUnion($1.reserve) })
-    ))
-    status.legates.formUnion(selectUsers(
-      teams: &legates,
-      users: legates.reduce(into: Set(), { $0.formUnion($1.optional) })
-    ))
+    involved.formUnion(users)
+    legates.indices.forEach({ legates[$0].update(involved: involved) })
+    users = legates.reduce(into: Set(), { $0.formUnion($1.approvers) })
+    users = selectUsers(teams: &legates, involved: &involved, users: users)
+    status.legates.formUnion(users)
+    involved = status.randoms
     for index in randoms.indices {
-      randoms[index].update(involved: status.randoms)
       randoms[index].update(exclude: status.legates)
+      randoms[index].update(involved: involved)
     }
     status.randoms.formUnion(selectUsers(
       teams: &randoms,
+      involved: &involved,
       users: randoms.reduce(into: Set(), { $0.formUnion($1.random) })
     ))
     var result = Approval()
@@ -256,7 +250,11 @@ public struct Review {
     } else { result.state = .approved }
     return result
   }
-  func selectUsers(teams: inout [Fusion.Approval.Rules.Team], users: Set<String>) -> Set<String> {
+  func selectUsers(
+    teams: inout [Fusion.Approval.Rules.Team],
+    involved: inout Set<String>,
+    users: Set<String>
+  ) -> Set<String> {
     var left = users
     while true {
       var weights: [String: Int] = [:]
@@ -266,7 +264,8 @@ public struct Review {
       }
       guard let user = random(weights: weights) else { return users.subtracting(left) }
       left.remove(user)
-      teams.indices.forEach({ teams[$0].update(involved: [user]) })
+      involved.insert(user)
+      teams.indices.forEach({ teams[$0].update(involved: involved) })
     }
   }
   func random(weights: [String: Int]) -> String? {

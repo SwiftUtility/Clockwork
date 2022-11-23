@@ -37,23 +37,23 @@ extension Fusion.Approval.Rules {
       random.formIntersection(active)
     }
     public mutating func update(involved: Set<String>) {
-      #warning("tbd")
-      quorum -= approvers
+      quorum -= required
+        .union(optional)
         .union(random)
         .intersection(involved)
         .count
-      update(exclude: involved)
+      required = required.subtracting(involved)
+      optional = optional.subtracting(involved)
+      random = random.subtracting(involved)
+      guard required.isEmpty, optional.isEmpty else { return }
+      quorum -= reserve.intersection(involved).count
+      reserve = reserve.subtracting(involved)
     }
     public mutating func update(exclude: Set<String>) {
       required = required.subtracting(exclude)
       optional = optional.subtracting(exclude)
       reserve = reserve.subtracting(exclude)
       random = random.subtracting(exclude)
-    }
-    public mutating func update(optional involved: Set<String>) {
-      let involved = reserve.intersection(involved)
-      optional = optional.union(involved)
-      reserve = reserve.subtracting(involved)
     }
     public mutating func update(isRandom: Bool) {
       if isRandom {
@@ -66,10 +66,10 @@ extension Fusion.Approval.Rules {
     }
     public func isNeeded(user: String) -> Bool {
       guard quorum > 0 else { return false }
-      return required.contains(user)
-      || optional.contains(user)
-      || reserve.contains(user)
-      || random.contains(user)
+      guard random.contains(user).not else { return true }
+      guard optional.contains(user).not else { return true }
+      guard optional.isEmpty else { return false }
+      return reserve.contains(user)
     }
     public var necessary: Set<String> {
       let optional = optional.union(required)
