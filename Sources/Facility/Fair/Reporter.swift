@@ -73,11 +73,21 @@ public final class Reporter {
     return true
   }
   public func report(query: Report) -> Report.Reply {
-//    logMessage(.init(message: "Creating report for: \(query.info.event)"))
-//    var query = query
-//    query.info.env = query.cfg.env
-//    query.info.gitlab = try? query.cfg.gitlab.get().ctx
-//    do { slack = try query.cfg.slack.get() }
+    logMessage(.init(message: "Reporting \(query.info.event)"))
+    var query = query
+    query.info.env = query.cfg.env
+    query.info.jira = try? query.cfg.jira.get().context
+//    query.info.slack = try? query.cfg.slack.get().context
+    query.info.gitlab = try? query.cfg.gitlab.get().context
+
+
+//    var env: [String: String] { get set }
+//    var gitlab: Gitlab.Context? { get set }
+//    var mark: String? { get set }
+//    var jira: Jira.Context? { get set }
+//    var slack: Slack.Context? { get set }
+
+    //    do { slack = try query.cfg.slack.get() }
 //    catch { return logMessage(.init(message: "Report failed: \(error)")) }
 //    for (event, signal) in slack.signals {
 //      query.info.mark = signal.mark

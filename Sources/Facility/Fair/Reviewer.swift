@@ -104,9 +104,11 @@ public final class Reviewer {
     let user = try gitlab.isEmpty
       .else(gitlab)
       .get(cfg.gitlab.get().job.user.username)
-    if case .register(let slack) = command {
-      #warning("register slack")
-      approvers[user] = .make(login: user, active: true)
+    if case .register(let chat) = command {
+      approvers[user] = approvers[user].get(.make(login: user, active: true))
+      if let slack = chat[.slack].filter(isIncluded: \.isEmpty.not) {
+        #warning("tbd")
+      }
     } else {
       guard var approver = approvers[user] else { throw Thrown("No approver \(user)") }
       switch command {

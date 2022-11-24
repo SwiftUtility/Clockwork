@@ -9,7 +9,7 @@ public struct Gitlab {
   public var project: Lossy<Json.GitlabProject> = .error(MayDay("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var review: Lossy<Json.GitlabReviewState> = .error(Thrown("Not review triggered pipeline"))
-  public var ctx: Context { .init(
+  public var context: Context { .init(
     mr: try? job.review.get(),
     url: job.webUrl
       .components(separatedBy: "/-/")

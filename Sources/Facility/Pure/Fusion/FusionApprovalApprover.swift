@@ -35,7 +35,7 @@ extension Fusion.Approval {
     public enum Command {
       case activate
       case deactivate
-      case register(String)
+      case register([Service: String])
       case unwatchAuthors([String])
       case unwatchTeams([String])
       case watchAuthors([String])
@@ -50,6 +50,9 @@ extension Fusion.Approval {
         case .watchAuthors: return .watchAuthors
         case .watchTeams: return .watchTeams
         }
+      }
+      public enum Service: String {
+        case slack
       }
     }
   }

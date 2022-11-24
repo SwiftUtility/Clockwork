@@ -7,6 +7,7 @@ public struct Configuration {
   public var templates: [String: String] = [:]
   public var gitlab: Lossy<Gitlab> = .error(MayDay())
   public var slack: Lossy<Slack> = .error(MayDay())
+  public var jira: Lossy<Jira> = .error(MayDay())
   public static func make(
     git: Git,
     env: [String: String],
@@ -20,6 +21,7 @@ public struct Configuration {
     public var location: Git.File
     public var gitlab: Git.File?
     public var slack: Git.File?
+    public var jira: Git.File?
     public var templates: Git.Dir?
     public var codeOwnage: Git.File?
     public var fusion: Lossy<Git.File>
@@ -36,6 +38,9 @@ public struct Configuration {
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:)),
       slack: yaml.slack
+        .map(Files.Relative.init(value:))
+        .reduce(location.ref, Git.File.init(ref:path:)),
+      jira: yaml.jira
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:)),
       templates: yaml.templates

@@ -409,7 +409,7 @@ struct Clockwork: ParsableCommand {
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var approver: Approver
         @Option(help: "Approver's slack id")
-        var slack: String
+        var slack: String = ""
       }
       struct UnwatchAuthors: ClockworkCommand {
         static var abstract: String { "Remove user from watchers for authors provided in arguments" }

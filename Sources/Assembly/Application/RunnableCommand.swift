@@ -263,7 +263,9 @@ extension Clockwork.Review.Approver.Register: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
     cfg: cfg,
     gitlab: approver.gitlab,
-    command: .register(slack)
+    command: .register([
+      .slack: slack,
+    ])
   )}
 }
 extension Clockwork.Review.Approver.UnwatchAuthors: RunnableCommand {

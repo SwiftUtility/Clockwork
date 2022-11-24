@@ -6,6 +6,11 @@ public struct Slack {
   public var jira: Jira?
   public var gitlab: Gitlab?
   public var signals: [Signal]
+//  public var context: Context { .init(
+//    users: <#T##[String : Storage.User]#>,
+//    channels: <#T##[String : Storage.Channel]#>,
+//    mentions: <#T##[String : Storage.Mention]#>
+//  )}
   public static func make(token: String, yaml: Yaml.Slack) throws -> Self { try .init(
     token: token,
     storage: .make(yaml: yaml.storage),

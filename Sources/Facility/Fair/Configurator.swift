@@ -71,6 +71,7 @@ public final class Configurator {
       .get([:])
     cfg.gitlab = .init(try resolveGitlab(cfg: cfg))
     cfg.slack = .init(try resolveSlack(cfg: cfg))
+    cfg.jira = .init(try resolveJira(cfg: cfg))
     return cfg
   }
   public func parseYamlFile<T>(
@@ -163,6 +164,18 @@ extension Configurator {
       .get { throw Thrown("slack not configured") }
     let token = try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.token))
     return try .make(token: token, yaml: yaml)
+  }
+  func resolveJira(cfg: Configuration) throws -> Jira {
+    let yaml = try cfg.profile.jira
+      .reduce(cfg.git, parse(git:yaml:))
+      .reduce(Yaml.Jira.self, dialect.read(_:from:))
+      .get { throw Thrown("jira not configured") }
+    return try .make(
+      url: parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.url)),
+      rest: parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.rest)),
+      token: parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.token)),
+      yaml: yaml
+    )
   }
   func persist(
     git: Git,
