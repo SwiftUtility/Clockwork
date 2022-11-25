@@ -13,10 +13,11 @@ public extension GenerateContext {
 public protocol GenerateInfo: Encodable {
   var event: [String] { get }
   var env: [String: String] { get set }
-  var gitlab: Gitlab.Context? { get set }
+  var args: [String]? { get set }
+  var gitlab: Gitlab.Info? { get set }
   var mark: String? { get set }
-  var jira: Jira.Context? { get set }
-  var slack: Slack.Context? { get set }
+  var jira: Jira.Info? { get set }
+  var slack: Slack.Info? { get set }
   var allowEmpty: Bool { get }
 }
 public struct Generate: Query {
@@ -27,35 +28,43 @@ public struct Generate: Query {
     cfg: Configuration,
     template: Configuration.Template,
     ctx: Context,
-    subevent: [String]? = nil
+    subevent: [String]? = nil,
+    args: [String]? = nil
   ) -> Self { .init(
     template: template,
     templates: cfg.templates,
-    info: Info.make(context: ctx, subevent: subevent.get(ctx.subevent))
+    info: Info.make(cfg: cfg, context: ctx, args: args)
   )}
   public typealias Reply = String
   public struct Info<Context: GenerateContext>: GenerateInfo {
     public let event: [String]
     public var ctx: Context
-    public var env: [String: String] = [:]
-    public var gitlab: Gitlab.Context? = nil
+    public var env: [String: String]
+    public var gitlab: Gitlab.Info?
+    public var jira: Jira.Info?
+    public var args: [String]?
     public var mark: String? = nil
     public var kind: String? = nil
-    public var jira: Jira.Context? = nil
-    public var slack: Slack.Context? = nil
+    public var slack: Slack.Info? = nil
     public var allowEmpty: Bool { Context.allowEmpty }
-    public static func make(context: Context, subevent: [String]) -> Self { .init(
-      event: [Context.name] + subevent,
-      ctx: context
+    public static func make(
+      cfg: Configuration,
+      context: Context,
+      args: [String]?,
+      subevent: [String]? = nil
+    ) -> Self { .init(
+      event: [Context.name] + subevent.get(context.subevent),
+      ctx: context,
+      env: cfg.env,
+      gitlab: try? cfg.gitlab.get().info,
+      jira: try? cfg.jira.get().info,
+      args: args
     )}
   }
-  public struct ExportCurrentVersions: GenerateContext {
+  public struct ExportVersions: GenerateContext {
     public var versions: [String: String]
-  }
-  public struct ExportBuildContext: GenerateContext {
-    public var versions: [String: String]
-    public var build: String
-    public var kind: Kind
+    public var build: String?
+    public var kind: Kind?
     public enum Kind: String, Encodable {
       case stage
       case deploy
@@ -166,23 +175,17 @@ public struct Generate: Query {
   }
 }
 public extension Production {
-  func exportCurrentVersions(
+  func exportVersions(
     cfg: Configuration,
-    versions: [String: String]
+    args: [String],
+    versions: [String: String],
+    build: String?,
+    kind: Generate.ExportVersions.Kind?
   ) -> Generate { .make(
     cfg: cfg,
     template: exportVersions,
-    ctx: Generate.ExportCurrentVersions(versions: versions)
-  )}
-  func exportBuildContext(
-    cfg: Configuration,
-    versions: [String: String],
-    build: String,
-    kind: Generate.ExportBuildContext.Kind
-  ) -> Generate { .make(
-    cfg: cfg,
-    template: exportBuilds,
-    ctx: Generate.ExportBuildContext(versions: versions, build: build, kind: kind)
+    ctx: Generate.ExportVersions(versions: versions, build: build, kind: kind),
+    args: args
   )}
   func createVersionsCommitMessage(
     cfg: Configuration,
@@ -292,16 +295,17 @@ public extension Production.Product {
     ctx: Generate.ParseTagBuild(product: name, ref: ref, deploy: deploy)
   )}
 }
-public extension Fusion {
-  func createApproversCommitMessage(
-    cfg: Configuration,
+public extension Configuration {
+  func createGitlabUsersCommitMessage(
     user: String,
-    command: Fusion.Approval.Approver.Command
-  ) -> Generate { .make(
-    cfg: cfg,
-    template: approval.approvers.createCommitMessage,
+    command: Gitlab.User.Command
+  ) throws -> Generate { try .make(
+    cfg: self,
+    template: gitlab.get().usersAsset.createCommitMessage,
     ctx: Generate.CreateApproversCommitMessage(user: user, reason: command.reason)
   )}
+}
+public extension Fusion {
   func createReviewQueueCommitMessage(
     cfg: Configuration,
     queued: Bool

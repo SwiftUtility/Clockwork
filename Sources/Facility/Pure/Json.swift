@@ -47,7 +47,7 @@ public enum Json {
       review: review.iid,
       target: review.targetBranch
     ))}
-    public func getLogin(approvers: [String: Fusion.Approval.Approver]) throws -> String {
+    public func getLogin(approvers: [String: Gitlab.User]) throws -> String {
       let login = user.username
       guard let approver = approvers[login] else { throw Thrown("Unknown user: \(login)") }
       guard approver.active else { throw Thrown("Inactive approver: \(login)") }

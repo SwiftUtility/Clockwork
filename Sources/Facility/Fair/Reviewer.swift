@@ -6,7 +6,6 @@ public final class Reviewer {
   let parseFusion: Try.Reply<ParseYamlFile<Fusion>>
   let parseFusionStatuses: Try.Reply<ParseYamlFile<[UInt: Fusion.Approval.Status]>>
   let parseReviewQueue: Try.Reply<ParseYamlFile<Fusion.Queue>>
-  let parseApprovers: Try.Reply<ParseYamlFile<[String: Fusion.Approval.Approver]>>
   let parseApprovalRules: Try.Reply<ParseYamlSecret<Fusion.Approval.Rules>>
   let parseCodeOwnage: Try.Reply<ParseYamlFile<[String: Criteria]>>
   let parseProfile: Try.Reply<ParseYamlFile<Configuration.Profile>>
@@ -23,7 +22,6 @@ public final class Reviewer {
     parseFusion: @escaping Try.Reply<ParseYamlFile<Fusion>>,
     parseFusionStatuses: @escaping Try.Reply<ParseYamlFile<[UInt: Fusion.Approval.Status]>>,
     parseReviewQueue: @escaping Try.Reply<ParseYamlFile<Fusion.Queue>>,
-    parseApprovers: @escaping Try.Reply<ParseYamlFile<[String: Fusion.Approval.Approver]>>,
     parseApprovalRules: @escaping Try.Reply<ParseYamlSecret<Fusion.Approval.Rules>>,
     parseCodeOwnage: @escaping Try.Reply<ParseYamlFile<[String: Criteria]>>,
     parseProfile: @escaping Try.Reply<ParseYamlFile<Configuration.Profile>>,
@@ -40,7 +38,6 @@ public final class Reviewer {
     self.parseFusion = parseFusion
     self.parseFusionStatuses = parseFusionStatuses
     self.parseReviewQueue = parseReviewQueue
-    self.parseApprovers = parseApprovers
     self.parseApprovalRules = parseApprovalRules
     self.parseCodeOwnage = parseCodeOwnage
     self.parseProfile = parseProfile
@@ -60,11 +57,12 @@ public final class Reviewer {
   ) throws -> Bool {
     let stdin = try readStdin(stdin)
     let fusion = try cfg.parseFusion.map(parseFusion).get()
+    let review = try cfg.gitlab.get().review.get()
     let statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
     guard let status = try resolveStatus(cfg: cfg, fusion: fusion, statuses: statuses)
     else { return false }
-    report(status.reportReviewCustom(
-      cfg: cfg,
+    report(cfg.reportReviewCustom(
+      status: status,
       event: event,
       stdin: stdin
     ))
@@ -72,7 +70,6 @@ public final class Reviewer {
   }
   public func cleanReviews(cfg: Configuration, remind: Bool) throws -> Bool {
     let fusion = try cfg.parseFusion.map(parseFusion).get()
-    let approvers = try parseApprovers(cfg.parseApprovers(approval: fusion.approval))
     var statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
     let gitlab = try cfg.gitlab.get()
     for status in statuses.values {
@@ -81,75 +78,19 @@ public final class Reviewer {
         .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
         .get()
       guard state.state != "closed" else {
-        report(status.reportReviewClosed(cfg: cfg))
+        report(cfg.reportReviewClosed(
+          status: status
+        ))
         statuses[state.iid] = nil
         continue
       }
       guard remind else { continue }
-      let reminds = status.reminds(sha: state.lastPipeline.sha, approvers: approvers)
+      let reminds = status.reminds(sha: state.lastPipeline.sha, approvers: gitlab.users)
       guard reminds.isEmpty.not else { continue }
-      report(status.reportReviewRemind(cfg: cfg, slackers: reminds))
+      report(cfg.reportReviewRemind(status: status, slackers: reminds))
     }
     try persist(statuses, cfg: cfg, fusion: fusion, state: nil, status: nil, reason: .clean)
     return true
-  }
-  public func updateApprover(
-    cfg: Configuration,
-    gitlab: String,
-    command: Fusion.Approval.Approver.Command
-  ) throws -> Bool {
-    let fusion = try cfg.parseFusion.map(parseFusion).get()
-    let rules = try parseApprovalRules(cfg.parseApproalRules(approval: fusion.approval))
-    var approvers = try parseApprovers(cfg.parseApprovers(approval: fusion.approval))
-    let user = try gitlab.isEmpty
-      .else(gitlab)
-      .get(cfg.gitlab.get().job.user.username)
-    if case .register(let chat) = command {
-      approvers[user] = approvers[user].get(.make(login: user, active: true))
-      if let slack = chat[.slack].filter(isIncluded: \.isEmpty.not) {
-        #warning("tbd")
-      }
-    } else {
-      guard var approver = approvers[user] else { throw Thrown("No approver \(user)") }
-      switch command {
-      case .register: break
-      case .activate: approver.active = true
-      case .deactivate: approver.active = false
-      case .unwatchAuthors(let authors):
-        let unknown = authors.filter({ approver.watchAuthors.contains($0).not })
-        guard unknown.isEmpty
-        else { throw Thrown("Not watching authors: \(unknown.joined(separator: ", "))") }
-        approver.watchAuthors = approver.watchAuthors.subtracting(authors)
-      case .unwatchTeams(let teams):
-        let unknown = teams.filter({ approver.watchTeams.contains($0).not })
-        guard unknown.isEmpty
-        else { throw Thrown("Not watching teams: \(unknown.joined(separator: ", "))") }
-        approver.watchTeams = approver.watchTeams.subtracting(teams)
-      case .watchAuthors(let authors):
-        let known = approvers.values.reduce(into: Set(), { $0.insert($1.login) })
-        let unknown = authors.filter({ known.contains($0).not })
-        guard unknown.isEmpty
-        else { throw Thrown("Unknown users: \(unknown.joined(separator: ", "))") }
-        approver.watchAuthors.formUnion(authors)
-      case .watchTeams(let teams):
-        let known = rules.teams.values.reduce(into: Set(), { $0.insert($1.name) })
-        let unknown = teams.filter({ known.contains($0).not })
-        guard unknown.isEmpty
-        else { throw Thrown("Unknown teams: \(unknown.joined(separator: ", "))") }
-        approver.watchTeams.formUnion(teams)
-      }
-      approvers[user] = approver
-    }
-    return try persistAsset(.init(
-      cfg: cfg,
-      asset: fusion.approval.approvers,
-      content: Fusion.Approval.Approver.serialize(approvers: approvers),
-      message: generate(fusion.createApproversCommitMessage(
-        cfg: cfg,
-        user: user,
-        command: command
-      ))
-    ))
   }
   public func patchReview(
     cfg: Configuration,
@@ -266,8 +207,7 @@ public final class Reviewer {
       logMessage(.init(message: "No review \(merge.iid)"))
       return false
     }
-    let approvers = try parseApprovers(cfg.parseApprovers(approval: fusion.approval))
-    try status.approve(job: parent, approvers: approvers, resolution: resolution)
+    try status.approve(job: parent, approvers: gitlab.users, resolution: resolution)
     return try persist(
       statuses,
       cfg: cfg,
@@ -317,9 +257,8 @@ public final class Reviewer {
       logMessage(.init(message: "No review \(merge.iid)"))
       return false
     }
-    let approvers = try parseApprovers(cfg.parseApprovers(approval: fusion.approval))
     let rules = try parseApprovalRules(cfg.parseApproalRules(approval: fusion.approval))
-    guard try status.setAuthor(job: parent, approvers: approvers, rules: rules)
+    guard try status.setAuthor(job: parent, approvers: gitlab.users, rules: rules)
     else {
       logMessage(.init(message: "Already is author: \(parent.user.username)"))
       return false
@@ -354,8 +293,7 @@ public final class Reviewer {
       logMessage(.init(message: "No review \(merge.iid)"))
       return false
     }
-    let approvers = try parseApprovers(cfg.parseApprovers(approval: fusion.approval))
-    guard try status.unsetAuthor(job: parent, approvers: approvers) else {
+    guard try status.unsetAuthor(job: parent, approvers: gitlab.users) else {
       logMessage(.init(message: "Not an author: \(parent.user.username)"))
       return false
     }
@@ -458,7 +396,7 @@ public final class Reviewer {
           secret: gitlab.protected.get().secret
         )))
       } else {
-        report(status.reportReviewMergeConflicts(cfg: cfg))
+        report(cfg.reportReviewMergeConflicts(status: status))
         try changeQueue(cfg: cfg, fusion: fusion, enqueue: false)
       }
       return false
@@ -468,7 +406,7 @@ public final class Reviewer {
       return false
     }
     let approval = try verify(cfg: cfg, state: merge, fusion: fusion, review: &review)
-    report(review.reportReviewUpdated(cfg: cfg, update: approval))
+    report(cfg.reportReviewUpdated(review: review, update: approval))
     guard approval.state.isApproved else {
       logMessage(.init(message: "Review is not approved"))
       try changeQueue(cfg: cfg, fusion: fusion, enqueue: false)
@@ -545,6 +483,8 @@ public final class Reviewer {
     try persist(statuses, cfg: cfg, fusion: fusion, state: merge, status: nil, reason: .merge)
     return true
   }
+}
+extension Reviewer {
   func resolveStatus(
     cfg: Configuration,
     fusion: Fusion,
@@ -563,7 +503,7 @@ public final class Reviewer {
       authors: authors
     )
     try persist(statuses, cfg: cfg, fusion: fusion, state: review, status: status, reason: .create)
-    report(status.reportReviewCreated(cfg: cfg))
+    report(cfg.reportReviewCreated(status: status))
     return status
   }
   func resolveOwnage(
@@ -593,7 +533,7 @@ public final class Reviewer {
     let result = try Review.make(
       bot: cfg.gitlab.get().protected.get().user.username,
       status: status,
-      approvers: parseApprovers(cfg.parseApprovers(approval: fusion.approval)),
+      approvers: gitlab.users,
       review: review,
       infusion: infusion,
       blockers: checkReviewBlockers(cfg: cfg, infusion: infusion),
@@ -607,8 +547,9 @@ public final class Reviewer {
     if !cfg.profile.checkSanity(criteria: result.rules.sanity.flatMap({ result.ownage[$0] }))
     { stoppers.append(.sanity) }
     guard result.stoppers.isEmpty else {
-      report(status.reportReviewStopped(
-        cfg: cfg,
+      report(cfg.reportReviewStopped(
+        status: status,
+        infusion: infusion,
         reasons: stoppers,
         unknownUsers: result.unknownUsers,
         unknownTeams: result.unknownTeams
@@ -706,7 +647,7 @@ public final class Reviewer {
     case .infusion(let value): infusion = value
     }
     guard let infusion = infusion else {
-      report(status.reportReviewStopped(cfg: cfg, reasons: reasons))
+      report(cfg.reportReviewStopped(status: status, infusion: nil, reasons: reasons))
       reasons.map(\.logMessage).forEach(logMessage)
       return nil
     }
@@ -748,7 +689,7 @@ public final class Reviewer {
       }
     }
     guard reasons.isEmpty else {
-      report(status.reportReviewStopped(cfg: cfg, reasons: reasons))
+      report(cfg.reportReviewStopped(status: status, infusion: infusion, reasons: reasons))
       reasons.map(\.logMessage).forEach(logMessage)
       return nil
     }
@@ -770,9 +711,9 @@ public final class Reviewer {
       if let title = squash.proposition.title, !title.isMet(merge.title)
       { result.append(.badTitle) }
       if let jiraIssue = squash.proposition.jiraIssue {
-        let source = try findMatches(in: merge.sourceBranch, regexp: jiraIssue)
-        let title = try findMatches(in: merge.title, regexp: jiraIssue)
-        if source.symmetricDifference(title).isEmpty.not { result.append(.taskMismatch) }
+        let source = try merge.sourceBranch.find(matches: jiraIssue)
+        let title = try merge.title.find(matches: jiraIssue)
+        if Set(source).symmetricDifference(title).isEmpty.not { result.append(.taskMismatch) }
       }
     case .merge:
       if merge.squash { result.append(.squashStatus) }
@@ -961,24 +902,6 @@ public final class Reviewer {
       )
     ))))
   }
-  func closeReview(cfg: Configuration, state: Json.GitlabReviewState) throws {
-    logMessage(.init(message: "Closing gitlab review"))
-    let gitlab = try cfg.gitlab.get()
-    try gitlab
-      .putMrState(parameters: .init(stateEvent: "close"), review: state.iid)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    try Id
-      .make(cfg.git.push(
-        url: gitlab.protected.get().push,
-        delete: .init(name: state.sourceBranch),
-        secret: gitlab.protected.get().secret
-      ))
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-  }
   func acceptReview(
     cfg: Configuration,
     state: Json.GitlabReviewState,
@@ -1002,11 +925,11 @@ public final class Reviewer {
       .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
     if case "merged"? = result?.map?["state"]?.value?.string {
       logMessage(.init(message: "Review merged"))
-      report(review.reportReviewMerged(cfg: cfg))
+      report(cfg.reportReviewMerged(review: review))
       return true
     } else if let message = result?.map?["message"]?.value?.string {
       logMessage(.init(message: message))
-      report(review.reportReviewMergeError(cfg: cfg, error: message))
+      report(cfg.reportReviewMergeError(review: review, error: message))
       return false
     } else {
       throw MayDay("Unexpected merge response")
@@ -1080,19 +1003,6 @@ public final class Reviewer {
       content: Fusion.Approval.Status.serialize(statuses: statuses),
       message: generate(fusion.createFusionStatusesCommitMessage(cfg: cfg, reason: reason))
     ))
-  }
-  func findMatches(in string: String, regexp: NSRegularExpression) throws -> Set<String> {
-    var result: Set<String> = []
-    for match in regexp.matches(
-      in: string,
-      options: .withoutAnchoringBounds,
-      range: .init(string.startIndex..<string.endIndex, in: string)
-    ) {
-      guard match.range.location != NSNotFound, let range = Range(match.range, in: string)
-      else { continue }
-      result.insert(String(string[range]))
-    }
-    return result
   }
   func resolveBranch(cfg: Configuration, name: String) throws -> Json.GitlabBranch { try cfg
       .gitlab

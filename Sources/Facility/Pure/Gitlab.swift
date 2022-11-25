@@ -5,11 +5,13 @@ public struct Gitlab {
   public let job: Json.GitlabJob
   public var api: String
   public var trigger: Yaml.Gitlab.Trigger
+  public var usersAsset: Configuration.Asset
+  public var users: [String: User] = [:]
   public var protected: Lossy<Protected> = .error(Thrown("Not protected ref pipeline"))
   public var project: Lossy<Json.GitlabProject> = .error(MayDay("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var review: Lossy<Json.GitlabReviewState> = .error(Thrown("Not review triggered pipeline"))
-  public var context: Context { .init(
+  public var info: Info { .init(
     mr: try? job.review.get(),
     url: job.webUrl
       .components(separatedBy: "/-/")
@@ -25,16 +27,75 @@ public struct Gitlab {
     return value.sha == job.pipeline.sha && value.branch == job.pipeline.ref
   }
   public static func make(
-    trigger: Yaml.Gitlab.Trigger,
     env: Env,
-    job: Json.GitlabJob
-  ) -> Self { .init(
+    job: Json.GitlabJob,
+    yaml: Yaml.Gitlab
+  ) throws -> Self { try .init(
     env: env,
     job: job,
     api: "\(env.api)/projects/\(job.pipeline.projectId)",
-    trigger: trigger
+    trigger: yaml.trigger,
+    usersAsset: .make(yaml: yaml.users)
   )}
-  public struct Context: Encodable {
+  public struct User {
+    public var login: String
+    public var active: Bool
+    public var watchTeams: Set<String>
+    public var watchAuthors: Set<String>
+    public static func make(
+      login: String,
+      yaml: Yaml.Gitlab.User
+    ) throws -> Self { .init(
+      login: login,
+      active: yaml.active,
+      watchTeams: yaml.watchTeams.get([]),
+      watchAuthors: yaml.watchAuthors.get([])
+    )}
+    public static func make(login: String) -> Self { .init(
+      login: login,
+      active: true,
+      watchTeams: [],
+      watchAuthors: []
+    )}
+    public static func serialize(approvers this: [String: Self]) -> String {
+      guard this.isEmpty.not else { return "{}" }
+      var result: String = ""
+      for approver in this.keys.sorted().compactMap({ this[$0] }) {
+        result += "'\(approver.login)':\n"
+        result += "  active: \(approver.active)\n"
+        let watchTeams = approver.watchTeams.sorted().map({ "'\($0)'" }).joined(separator: ",")
+        if watchTeams.isEmpty.not { result += "  watchTeams: [\(watchTeams)]\n" }
+        let watchAuthors = approver.watchAuthors.sorted().map({ "'\($0)'" }).joined(separator: ",")
+        if watchAuthors.isEmpty.not { result += "  watchAuthors: [\(watchAuthors)]\n" }
+        if watchAuthors.isEmpty.not { result += "  watchAuthors: [\(watchAuthors)]\n" }
+      }
+      return result
+    }
+    public enum Command {
+      case activate
+      case deactivate
+      case register([Service: String])
+      case unwatchAuthors([String])
+      case unwatchTeams([String])
+      case watchAuthors([String])
+      case watchTeams([String])
+      public var reason: Generate.CreateApproversCommitMessage.Reason {
+        switch self {
+        case .activate: return .activate
+        case .deactivate: return .deactivate
+        case .register: return .register
+        case .unwatchAuthors: return .unwatchAuthors
+        case .unwatchTeams: return .unwatchTeams
+        case .watchAuthors: return .watchAuthors
+        case .watchTeams: return .watchTeams
+        }
+      }
+      public enum Service: String {
+        case slack
+      }
+    }
+  }
+  public struct Info: Encodable {
     public var mr: UInt?
     public var url: String?
     public var job: Json.GitlabJob
@@ -103,12 +164,6 @@ public struct Gitlab {
         ))
       )
     }
-  }
-  public struct Info: Encodable {
-    public var bot: String?
-    public var url: String?
-    public var job: Json.GitlabJob
-    public var mr: UInt?
   }
 }
 public extension Gitlab {

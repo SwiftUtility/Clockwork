@@ -3,134 +3,101 @@ import Facility
 public struct Slack {
   public var token: String
   public var storage: Configuration.Asset
+  public var info: Info
   public var jira: Jira?
   public var gitlab: Gitlab?
   public var signals: [Signal]
-//  public var context: Context { .init(
-//    users: <#T##[String : Storage.User]#>,
-//    channels: <#T##[String : Storage.Channel]#>,
-//    mentions: <#T##[String : Storage.Mention]#>
-//  )}
-  public static func make(token: String, yaml: Yaml.Slack) throws -> Self { try .init(
+  public static func make(
+    token: String,
+    yaml: Yaml.Slack
+  ) throws -> Self { try .init(
     token: token,
     storage: .make(yaml: yaml.storage),
+    info: .init(users: [:], channels: [:], mentions: [:]),
     jira: yaml.jira.map(Jira.make(yaml:)),
     gitlab: yaml.gitlab.map(Gitlab.make(yaml:)),
     signals: yaml.signals.get([:]).map(Signal.make(mark:yaml:))
   )}
   public struct Gitlab {
     public var storage: Configuration.Asset
-    public var tags: [String: Thread]
-    public var reviews: [String: Thread]
-    public var branches: [String: Thread]
+    public var tags: [Thread]
+    public var reviews: [Thread]
+    public var branches: [Thread]
     public static func make(yaml: Yaml.Slack.Gitlab) throws -> Self { try .init(
       storage: .make(yaml: yaml.storage),
       tags: yaml.tags
         .get([:])
-        .reduce(into: [:], { $0[$1.key] = try .make(kind: .gitlabTag, name: $1.key, yaml: $1.value) }),
+        .map(Thread.make(name:yaml:)),
       reviews: yaml.reviews
         .get([:])
-        .reduce(into: [:], { $0[$1.key] = try .make(kind: .gitlabReview, name: $1.key, yaml: $1.value) }),
+        .map(Thread.make(name:yaml:)),
       branches: yaml.branches
         .get([:])
-        .reduce(into: [:], { $0[$1.key] = try .make(kind: .gitlabBranch, name: $1.key, yaml: $1.value) })
+        .map(Thread.make(name:yaml:))
     )}
     public struct Storage {
-      public var tags: [String: [String: Thread.Storage]]
-      public var reviews: [String: [String: Thread.Storage]]
-      public var branches: [String: [String: Thread.Storage]]
+      public var tags: [String: [Thread.Storage]]
+      public var reviews: [String: [Thread.Storage]]
+      public var branches: [String: [Thread.Storage]]
       public static func make(yaml: Yaml.Slack.Gitlab.Storage) -> Self { .init(
         tags: yaml.tags
           .get([:])
-          .mapValues({ $0.reduce(into: [:], { $0[$1.key] = .make(
-            kind: .gitlabTag,
-            name: $1.key,
-            yaml: $1.value)
-          })}),
+          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) }),
         reviews: yaml.reviews
           .get([:])
-          .mapValues({ $0.reduce(into: [:], { $0[$1.key] = .make(
-            kind: .gitlabReview,
-            name: $1.key,
-            yaml: $1.value)
-          })}),
+          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) }),
         branches: yaml.branches
           .get([:])
-          .mapValues({ $0.reduce(into: [:], { $0[$1.key] = .make(
-            kind: .gitlabBranch,
-            name: $1.key,
-            yaml: $1.value)
-          })})
+          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) })
       )}
     }
   }
   public struct Jira {
     public var storage: Configuration.Asset
-    public var epics: [String: Thread]
-    public var issues: [String: Thread]
+    public var epics: [Thread]
+    public var issues: [Thread]
     public static func make(yaml: Yaml.Slack.Jira) throws -> Self { try .init(
       storage: .make(yaml: yaml.storage),
       epics: yaml.epics
         .get([:])
-        .reduce(into: [:], { $0[$1.key] = try .make(kind: .jiraEpic, name: $1.key, yaml: $1.value) }),
+        .map(Thread.make(name:yaml:)),
       issues: yaml.issues
         .get([:])
-        .reduce(into: [:], { $0[$1.key] = try .make(kind: .jiraIssue, name: $1.key, yaml: $1.value) })
+        .map(Thread.make(name:yaml:))
     )}
     public struct Storage {
-      public var epics: [String: [String: Thread.Storage]]
-      public var issues: [String: [String: Thread.Storage]]
+      public var epics: [String: [Thread.Storage]]
+      public var issues: [String: [Thread.Storage]]
       public static func make(yaml: Yaml.Slack.Jira.Storage) -> Self { .init(
         epics: yaml.epics
           .get([:])
-          .mapValues({ $0.reduce(into: [:], { $0[$1.key] = .make(
-            kind: .jiraEpic,
-            name: $1.key,
-            yaml: $1.value)
-          })}),
+          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) }),
         issues: yaml.issues
           .get([:])
-          .mapValues({ $0.reduce(into: [:], { $0[$1.key] = .make(
-            kind: .jiraIssue,
-            name: $1.key,
-            yaml: $1.value)
-          })})
+          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) })
       )}
     }
   }
   public struct Thread {
-    public var kind: Kind
     public var name: String
     public var create: Signal
     public var update: [Signal]
     public static func make(
-      kind: Kind,
       name: String,
       yaml: Yaml.Slack.Thread
     ) throws -> Self { try .init(
-      kind: kind,
       name: name,
       create: .make(mark: name, yaml: yaml.create),
       update: yaml.update.get([:]).map(Signal.make(mark:yaml:))
     )}
-    public enum Kind: String, Encodable {
-      case gitlabTag
-      case gitlabReview
-      case gitlabBranch
-      case jiraEpic
-      case jiraIssue
-    }
     public struct Storage: Encodable {
-      public var kind: Kind
       public var name: String
       public var channel: String
       public var message: String
       public static func make(
-        kind: Kind,
         name: String,
         yaml: Yaml.Slack.Thread.Storage
       ) -> Self { .init(
-        kind: kind,
         name: name,
         channel: yaml.channel,
         message: yaml.message
@@ -152,12 +119,17 @@ public struct Slack {
       body: .make(yaml: yaml.body))
     }
   }
-  public struct Context: Encodable {
+  public struct Info: Encodable {
     var users: [String: Storage.User]
     var channels: [String: Storage.Channel]
     var mentions: [String: Storage.Mention]
     var thread: Thread.Storage?
     var person: String?
+    public static func make(storage: Storage) -> Self { .init(
+      users: storage.users,
+      channels: storage.channels,
+      mentions: storage.mentions
+    )}
   }
   public struct Storage {
     public var users: [String: User]

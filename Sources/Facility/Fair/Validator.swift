@@ -29,7 +29,6 @@ public final class Validator {
   public func validateUnownedCode(cfg: Configuration, json: Bool) throws -> Bool {
     guard try Execute.parseLines(reply: execute(cfg.git.changesList)).isEmpty
     else { throw Thrown("Git is dirty") }
-
     let approvals = try cfg.parseCodeOwnage(profile: cfg.profile)
       .map(parseCodeOwnage)
       .get { throw Thrown("No codeOwnage in profile") }

@@ -46,6 +46,10 @@ extension Review {
         guard case .merge(let merge) = self else { return nil }
         return merge
       }
+      public var squash: Squash? {
+        guard case .squash(let squash) = self else { return nil }
+        return squash
+      }
       public struct Merge {
         public var target: Git.Branch
         public var source: Git.Branch

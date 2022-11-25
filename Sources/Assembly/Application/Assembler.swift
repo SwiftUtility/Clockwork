@@ -14,6 +14,7 @@ enum Assembler {
     writeStdout: writeStdout,
     readStdin: readStdin,
     generate: stencilParser.generate(query:),
+    parseSlackStorage: configurator.parseYamlFile(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -55,7 +56,6 @@ enum Assembler {
     parseFusion: configurator.parseYamlFile(query:),
     parseFusionStatuses: configurator.parseYamlFile(query:),
     parseReviewQueue: configurator.parseYamlFile(query:),
-    parseApprovers: configurator.parseYamlFile(query:),
     parseApprovalRules: configurator.parseYamlSecret(query:),
     parseCodeOwnage: configurator.parseYamlFile(query:),
     parseProfile: configurator.parseYamlFile(query:),
@@ -70,6 +70,10 @@ enum Assembler {
   )
   static let mediator = Mediator(
     execute: execute,
+    parseFusion: configurator.parseYamlFile(query:),
+    parseApprovalRules: configurator.parseYamlSecret(query:),
+    persistAsset: configurator.persistAsset(query:),
+    generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),
     stdoutData: stdoutData,
     jsonDecoder: jsonDecoder

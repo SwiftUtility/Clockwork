@@ -48,7 +48,6 @@ struct Clockwork: ParsableCommand {
         DeleteAccessoryBranch.self,
         DeleteReleaseBranch.self,
         DeleteStageTag.self,
-        ExportBuild.self,
         ExportVersions.self,
         ForwardBranch.self,
         ReserveBuild.self,
@@ -106,13 +105,13 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Delete current stage tag" }
       @OptionGroup var clockwork: Clockwork
     }
-    struct ExportBuild: ClockworkCommand {
-      static var abstract: String { "Render reserved build and versions to stdout" }
-      @OptionGroup var clockwork: Clockwork
-    }
     struct ExportVersions: ClockworkCommand {
-      static var abstract: String { "Render current next versions to stdout" }
+      static var abstract: String { "Render versions to stdout" }
       @OptionGroup var clockwork: Clockwork
+      @Flag(help: "Render reserved build context")
+      var build: Bool = false
+      @Argument(help: "Context to make available during rendering")
+      var args: [String] = []
     }
     struct ForwardBranch: ClockworkCommand {
       static var abstract: String { "Fast forward branch to current commit" }
@@ -135,6 +134,7 @@ struct Clockwork: ParsableCommand {
         Pipeline.self,
         TriggerPipeline.self,
         TriggerReviewPipeline.self,
+        User.self,
       ]
     )
     struct Artifacts: ParsableCommand {
@@ -242,6 +242,68 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Review id to trigger pipeline for")
       var review: UInt
     }
+    struct User: ParsableCommand {
+      static let configuration = CommandConfiguration(
+        abstract: "Subset of approver manipulations commands",
+        version: Clockwork.version,
+        subcommands: [
+          Activate.self,
+          Deactivate.self,
+          Register.self,
+          UnwatchAuthors.self,
+          UnwatchTeams.self,
+          WatchAuthors.self,
+          WatchTeams.self,
+        ]
+      )
+      @Option(help: "Gitlab user login or current")
+      var login: String = ""
+      struct Activate: ClockworkCommand {
+        static var abstract: String { "Activate user" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var user: User
+      }
+      struct Deactivate: ClockworkCommand {
+        static var abstract: String { "Deactivate user" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var user: User
+      }
+      struct Register: ClockworkCommand {
+        static var abstract: String { "Add new user" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var user: User
+        @Option(help: "Approver's slack id")
+        var slack: String = ""
+      }
+      struct UnwatchAuthors: ClockworkCommand {
+        static var abstract: String { "Remove user from watchers for authors provided in arguments" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var user: User
+        @Argument(help: "List of authors to unwatch")
+        var args: [String] = []
+      }
+      struct UnwatchTeams: ClockworkCommand {
+        static var abstract: String { "Remove user from watchers for teams provided in arguments" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var user: User
+        @Argument(help: "List of teams to unwatch")
+        var args: [String] = []
+      }
+      struct WatchAuthors: ClockworkCommand {
+        static var abstract: String { "Add user to watchers for authors provided in arguments" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var user: User
+        @Argument(help: "List of authors to watch")
+        var args: [String] = []
+      }
+      struct WatchTeams: ClockworkCommand {
+        static var abstract: String { "Add user to watchers for teams provided in arguments" }
+        @OptionGroup var clockwork: Clockwork
+        @OptionGroup var user: User
+        @Argument(help: "List of teams to watch")
+        var args: [String] = []
+      }
+    }
   }
   struct Report: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -334,7 +396,6 @@ struct Clockwork: ParsableCommand {
         Accept.self,
         AddLabels.self,
         Approve.self,
-        Approver.self,
         Clean.self,
         Dequeue.self,
         ExportIntegration.self,
@@ -377,68 +438,6 @@ struct Clockwork: ParsableCommand {
       }
       @Flag(help: "Resolution for approval")
       var resolution: Resolution
-    }
-    struct Approver: ParsableCommand {
-      static let configuration = CommandConfiguration(
-        abstract: "Subset of approver manipulations commands",
-        version: Clockwork.version,
-        subcommands: [
-          Activate.self,
-          Deactivate.self,
-          Register.self,
-          UnwatchAuthors.self,
-          UnwatchTeams.self,
-          WatchAuthors.self,
-          WatchTeams.self,
-        ]
-      )
-      @Option(help: "Approver gitlab login or current")
-      var gitlab: String = ""
-      struct Activate: ClockworkCommand {
-        static var abstract: String { "Activate user" }
-        @OptionGroup var clockwork: Clockwork
-        @OptionGroup var approver: Approver
-      }
-      struct Deactivate: ClockworkCommand {
-        static var abstract: String { "Deactivate user" }
-        @OptionGroup var clockwork: Clockwork
-        @OptionGroup var approver: Approver
-      }
-      struct Register: ClockworkCommand {
-        static var abstract: String { "Add new user" }
-        @OptionGroup var clockwork: Clockwork
-        @OptionGroup var approver: Approver
-        @Option(help: "Approver's slack id")
-        var slack: String = ""
-      }
-      struct UnwatchAuthors: ClockworkCommand {
-        static var abstract: String { "Remove user from watchers for authors provided in arguments" }
-        @OptionGroup var clockwork: Clockwork
-        @OptionGroup var approver: Approver
-        @Argument(help: "List of authors to unwatch")
-        var args: [String] = []
-      }
-      struct UnwatchTeams: ClockworkCommand {
-        static var abstract: String { "Remove user from watchers for teams provided in arguments" }
-        @OptionGroup var clockwork: Clockwork
-        @OptionGroup var approver: Approver
-        @Argument(help: "List of teams to unwatch")
-        var args: [String] = []
-      }
-      struct WatchAuthors: ClockworkCommand {
-        static var abstract: String { "Add user to watchers for authors provided in arguments" }
-        @OptionGroup var clockwork: Clockwork
-        @OptionGroup var approver: Approver
-        @Argument(help: "List of authors to watch")
-        var args: [String] = []
-      }
-      struct WatchTeams: ClockworkCommand {
-        static var abstract: String { "Add user to watchers for teams provided in arguments" }
-        @OptionGroup var clockwork: Clockwork
-        @OptionGroup var approver: Approver
-        @Argument(help: "List of teams to watch")
-        var args: [String] = []
-      }
     }
     struct Clean: ClockworkCommand {
       static var abstract: String { "Clean outdated reviews" }

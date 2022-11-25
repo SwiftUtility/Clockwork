@@ -73,8 +73,8 @@ public final class Producer {
       .get { throw Thrown("Versioning not configured for \(product)") }
       .deliveries[current.alphaNumeric]
       .get { throw Thrown("No \(product.name) \(current)") }
-    report(product.reportReleaseCustom(
-      cfg: cfg,
+    report(cfg.reportReleaseCustom(
+      product: product,
       event: event,
       delivery: delivery,
       ref: gitlab.job.pipeline.ref,
@@ -127,8 +127,8 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(product.reportStageTagDeleted(
-      cfg: cfg,
+    try report(cfg.reportStageTagDeleted(
+      product: product,
       ref: name,
       sha: gitlab.job.pipeline.sha,
       version: generate(product.parseTagBuild(cfg: cfg, ref: name, deploy: false)),
@@ -179,8 +179,8 @@ public final class Producer {
           .map(execute)
           .map(Execute.checkStatus(reply:))
           .get()
-        report(product.reportReleaseBranchDeleted(
-          cfg: cfg, delivery: delivery, ref: branch.name, sha: sha.value, revoke: revoke
+        report(cfg.reportReleaseBranchDeleted(
+          product: product, delivery: delivery, ref: branch.name, sha: sha.value, revoke: revoke
         ))
       }
     } else {
@@ -279,8 +279,8 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    try report(product.reportDeployTagCreated(
-      cfg: cfg,
+    try report(cfg.reportDeployTagCreated(
+      product: product,
       delivery: delivery,
       ref: tag,
       sha: sha.value,
@@ -368,8 +368,8 @@ public final class Producer {
       .get()
       .protected
     else { throw Thrown("Release \(branch) not protected") }
-    report(product.reportReleaseBranchCreated(
-      cfg: cfg,
+    report(cfg.reportReleaseBranchCreated(
+      product: product,
       ref: branch.name,
       version: current,
       hotfix: false
@@ -384,8 +384,8 @@ public final class Producer {
       version: current,
       reason: .release
     )
-    try report(product.reportReleaseBranchSummary(
-      cfg: cfg,
+    try report(cfg.reportReleaseBranchSummary(
+      product: product,
       delivery: delivery,
       ref: branch.name,
       sha: sha.value,
@@ -428,8 +428,8 @@ public final class Producer {
       .get()
       .protected
     else { throw Thrown("Hotfix \(branch) not protected") }
-    report(product.reportReleaseBranchCreated(
-      cfg: cfg,
+    report(cfg.reportReleaseBranchCreated(
+      product: product,
       ref: branch,
       version: hotfix,
       hotfix: true
@@ -444,8 +444,8 @@ public final class Producer {
       version: current,
       reason: .hotfix
     )
-    try report(product.reportReleaseBranchSummary(
-      cfg: cfg,
+    try report(cfg.reportReleaseBranchSummary(
+      product: product,
       delivery: delivery,
       ref: branch,
       sha: sha.value,
@@ -505,8 +505,8 @@ public final class Producer {
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
-    report(product.reportStageTagCreated(
-      cfg: cfg,
+    report(cfg.reportStageTagCreated(
+      product: product,
       ref: tag,
       sha: build.sha,
       version: current,
@@ -514,14 +514,24 @@ public final class Producer {
     ))
     return true
   }
-  public func renderBuild(cfg: Configuration) throws -> Bool {
-    let gitlab = try cfg.gitlab.get()
+  public func renderVersions(cfg: Configuration, build: Bool, args: [String]) throws -> Bool {
     let production = try cfg.parseProduction.map(parseProduction).get()
+    guard build else {
+      try writeStdout(generate(production.exportVersions(
+        cfg: cfg,
+        args: args,
+        versions: parseVersions(cfg.parseVersions(production: production)).mapValues(\.next.value),
+        build: nil,
+        kind: nil
+      )))
+      return true
+    }
+    let gitlab = try cfg.gitlab.get()
     let name = gitlab.job.pipeline.ref
     let build: String
     let versions = try parseVersions(cfg.parseVersions(production: production))
     var current = versions.mapValues(\.next.value)
-    let kind: Generate.ExportBuildContext.Kind
+    let kind: Generate.ExportVersions.Kind
     if gitlab.job.tag {
       let product: Production.Product
       let deploy: Bool
@@ -567,19 +577,12 @@ public final class Producer {
         }
       }
     }
-    try writeStdout(generate(production.exportBuildContext(
+    try writeStdout(generate(production.exportVersions(
       cfg: cfg,
+      args: args,
       versions: current,
       build: build,
       kind: kind
-    )))
-    return true
-  }
-  public func renderNextVersions(cfg: Configuration) throws -> Bool {
-    let production = try cfg.parseProduction.map(parseProduction).get()
-    try writeStdout(generate(production.exportCurrentVersions(
-      cfg: cfg,
-      versions: parseVersions(cfg.parseVersions(production: production)).mapValues(\.next.value)
     )))
     return true
   }

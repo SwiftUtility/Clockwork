@@ -15,12 +15,18 @@ public enum Yaml {
   }
   public struct Gitlab: Decodable {
     public var token: Secret
+    public var users: Asset
     public var trigger: Trigger
     public struct Trigger: Decodable {
       public var jobId: String
       public var jobName: String
       public var profile: String
       public var pipeline: String
+    }
+    public struct User: Decodable {
+      public var active: Bool
+      public var watchTeams: Set<String>?
+      public var watchAuthors: Set<String>?
     }
   }
   public struct Jira: Decodable {
@@ -110,7 +116,6 @@ public enum Yaml {
     public var buildsCount: Int
     public var releasesCount: Int
     public var bumpBuildNumber: Template
-    public var exportBuilds: Template
     public var exportVersions: Template
     public var matchReleaseNote: Criteria
     public var matchAccessoryBranch: Criteria
@@ -125,7 +130,6 @@ public enum Yaml {
       public var bumpReleaseVersion: Template
       public var createTagName: Template
       public var createTagAnnotation: Template
-      public var createReleaseThread: Template
       public var createReleaseBranchName: Template
     }
     public struct Build: Decodable {
@@ -216,11 +220,6 @@ public enum Yaml {
         public var randoms: [String]?
         public var legates: [String]?
         public var approves: [String: [String: String]]?
-      }
-      public struct Approver: Decodable {
-        public var active: Bool
-        public var watchTeams: Set<String>?
-        public var watchAuthors: Set<String>?
       }
     }
   }

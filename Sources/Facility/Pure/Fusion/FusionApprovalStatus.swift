@@ -25,7 +25,7 @@ extension Fusion.Approval {
     }
     public mutating func approve(
       job: Json.GitlabJob,
-      approvers: [String: Fusion.Approval.Approver],
+      approvers: [String: Gitlab.User],
       resolution: Fusion.Approval.Status.Resolution
     ) throws {
       let user = try job.getLogin(approvers: approvers)
@@ -37,7 +37,7 @@ extension Fusion.Approval {
     }
     public mutating func setAuthor(
       job: Json.GitlabJob,
-      approvers: [String: Fusion.Approval.Approver],
+      approvers: [String: Gitlab.User],
       rules: Fusion.Approval.Rules
     ) throws -> Bool {
       let user = try job.getLogin(approvers: approvers)
@@ -52,13 +52,13 @@ extension Fusion.Approval {
     }
     public mutating func unsetAuthor(
       job: Json.GitlabJob,
-      approvers: [String: Fusion.Approval.Approver]
+      approvers: [String: Gitlab.User]
     ) throws -> Bool {
       let user = try job.getLogin(approvers: approvers)
       invalidate(users: [user])
       return authors.remove(user) != nil
     }
-    public func reminds(sha: String, approvers: [String: Approver]) -> Set<String> {
+    public func reminds(sha: String, approvers: [String: Gitlab.User]) -> Set<String> {
       guard emergent == nil else { return [] }
       guard verified?.value == sha else { return [] }
       return legates
@@ -68,7 +68,7 @@ extension Fusion.Approval {
         .subtracting(approves.filter(\.value.resolution.approved).keys)
         .intersection(approvers.filter(\.value.active).keys)
     }
-    public func isWatched(by approver: Approver) -> Bool {
+    public func isWatched(by approver: Gitlab.User) -> Bool {
       guard teams.isDisjoint(with: approver.watchTeams) else { return true }
       guard authors.isDisjoint(with: approver.watchAuthors) else { return true }
       return false

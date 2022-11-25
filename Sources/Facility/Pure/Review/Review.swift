@@ -2,7 +2,7 @@ import Foundation
 import Facility
 public struct Review {
   public let bot: String
-  public let approvers: [String: Fusion.Approval.Approver]
+  public let approvers: [String: Gitlab.User]
   public let infusion: State.Infusion
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
@@ -22,7 +22,7 @@ public struct Review {
   public static func make(
     bot: String,
     status: Fusion.Approval.Status,
-    approvers: [String: Fusion.Approval.Approver],
+    approvers: [String: Gitlab.User],
     review: Json.GitlabReviewState,
     infusion: State.Infusion,
     blockers: [Report.ReviewUpdated.Blocker],

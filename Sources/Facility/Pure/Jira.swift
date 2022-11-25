@@ -5,7 +5,7 @@ public struct Jira {
   public var rest: String
   public var token: String
   public var issues: [Signal]
-  public var context: Context { .init(url: url) }
+  public var info: Info { .init(url: url) }
   public static func make(
     url: String,
     rest: String,
@@ -19,7 +19,7 @@ public struct Jira {
       .get([:])
       .map(Signal.make(mark:yaml:))
   )}
-  public struct Context: Encodable {
+  public struct Info: Encodable {
     var url: String
     var epics: [String]?
     var issue: String?

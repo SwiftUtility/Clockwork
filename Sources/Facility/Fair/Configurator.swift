@@ -129,7 +129,8 @@ extension Configurator {
       .map(execute)
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
-    var gitlab = Gitlab.make(trigger: yaml.trigger, env: gitlabEnv, job: gitlabJob)
+    var gitlab = try Gitlab.make(env: gitlabEnv, job: gitlabJob, yaml: yaml)
+    gitlab.users = try parseYamlFile(query: cfg.parseGitlabUsers(gitlab: gitlab))
     guard gitlabEnv.isProtected else { return gitlab }
     gitlab.protected = Lossy
       .make({ try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.token)) })
@@ -163,7 +164,9 @@ extension Configurator {
       .reduce(Yaml.Slack.self, dialect.read(_:from:))
       .get { throw Thrown("slack not configured") }
     let token = try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.token))
-    return try .make(token: token, yaml: yaml)
+    var result = try Slack.make(token: token, yaml: yaml)
+    result.info = try .make(storage: parseYamlFile(query: cfg.parseSlackStorage(slack: result)))
+    return result
   }
   func resolveJira(cfg: Configuration) throws -> Jira {
     let yaml = try cfg.profile.jira

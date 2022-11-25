@@ -3,16 +3,28 @@ import Facility
 import FacilityPure
 public final class Mediator {
   let execute: Try.Reply<Execute>
+  let parseFusion: Try.Reply<ParseYamlFile<Fusion>>
+  let parseApprovalRules: Try.Reply<ParseYamlSecret<Fusion.Approval.Rules>>
+  let persistAsset: Try.Reply<Configuration.PersistAsset>
+  let generate: Try.Reply<Generate>
   let logMessage: Act.Reply<LogMessage>
   let stdoutData: Act.Of<Data>.Go
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
+    parseFusion: @escaping Try.Reply<ParseYamlFile<Fusion>>,
+    parseApprovalRules: @escaping Try.Reply<ParseYamlSecret<Fusion.Approval.Rules>>,
+    persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
+    generate: @escaping Try.Reply<Generate>,
     logMessage: @escaping Act.Reply<LogMessage>,
     stdoutData: @escaping Act.Of<Data>.Go,
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
+    self.parseFusion = parseFusion
+    self.parseApprovalRules = parseApprovalRules
+    self.persistAsset = persistAsset
+    self.generate = generate
     self.logMessage = logMessage
     self.stdoutData = stdoutData
     self.jsonDecoder = jsonDecoder
@@ -171,5 +183,63 @@ public final class Mediator {
       .get()
     logMessage(.init(message: "Labels removed: \(labels)"))
     return true
+  }
+  public func updateUser(
+    cfg: Configuration,
+    login: String,
+    command: Gitlab.User.Command
+  ) throws -> Bool {
+    let gitlab = try cfg.gitlab.get()
+    var approvers = gitlab.users
+    let login = try login.isEmpty
+      .else(login)
+      .get(cfg.gitlab.get().job.user.username)
+    if case .register(let chat) = command {
+      approvers[login] = approvers[login].get(.make(login: login))
+      if let slack = chat[.slack].filter(isIncluded: \.isEmpty.not) {
+        #warning("tbd")
+      }
+    } else {
+      guard var approver = approvers[login] else { throw Thrown("No approver \(login)") }
+      switch command {
+      case .register: break
+      case .activate: approver.active = true
+      case .deactivate: approver.active = false
+      case .unwatchAuthors(let authors):
+        let unknown = authors.filter({ approver.watchAuthors.contains($0).not })
+        guard unknown.isEmpty
+        else { throw Thrown("Not watching authors: \(unknown.joined(separator: ", "))") }
+        approver.watchAuthors = approver.watchAuthors.subtracting(authors)
+      case .unwatchTeams(let teams):
+        let unknown = teams.filter({ approver.watchTeams.contains($0).not })
+        guard unknown.isEmpty
+        else { throw Thrown("Not watching teams: \(unknown.joined(separator: ", "))") }
+        approver.watchTeams = approver.watchTeams.subtracting(teams)
+      case .watchAuthors(let authors):
+        let known = approvers.values.reduce(into: Set(), { $0.insert($1.login) })
+        let unknown = authors.filter({ known.contains($0).not })
+        guard unknown.isEmpty
+        else { throw Thrown("Unknown users: \(unknown.joined(separator: ", "))") }
+        approver.watchAuthors.formUnion(authors)
+      case .watchTeams(let teams):
+        let fusion = try cfg.parseFusion.map(parseFusion).get()
+        let rules = try parseApprovalRules(cfg.parseApproalRules(approval: fusion.approval))
+        let known = rules.teams.values.reduce(into: Set(), { $0.insert($1.name) })
+        let unknown = teams.filter({ known.contains($0).not })
+        guard unknown.isEmpty
+        else { throw Thrown("Unknown teams: \(unknown.joined(separator: ", "))") }
+        approver.watchTeams.formUnion(teams)
+      }
+      approvers[login] = approver
+    }
+    return try persistAsset(.init(
+      cfg: cfg,
+      asset: gitlab.usersAsset,
+      content: Gitlab.User.serialize(approvers: approvers),
+      message: generate(cfg.createGitlabUsersCommitMessage(
+        user: login,
+        command: command
+      ))
+    ))
   }
 }

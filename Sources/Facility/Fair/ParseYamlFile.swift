@@ -81,14 +81,14 @@ public extension Configuration {
       .reduce(into: [:], { $0[$1.review] = $1 })
     }
   )}
-  func parseApprovers(
-    approval: Fusion.Approval
-  ) -> ParseYamlFile<[String: Fusion.Approval.Approver]> { .init(
+  func parseGitlabUsers(
+    gitlab: Gitlab
+  ) -> ParseYamlFile<[String: Gitlab.User]> { .init(
     git: git,
-    file: .make(asset: approval.approvers),
+    file: .make(asset: gitlab.usersAsset),
     parse: { dialect, yaml in try dialect
-      .read([String: Yaml.Review.Approval.Approver].self, from: yaml)
-      .map(Fusion.Approval.Approver.make(login:yaml:))
+      .read([String: Yaml.Gitlab.User].self, from: yaml)
+      .map(Gitlab.User.make(login:yaml:))
       .reduce(into: [:], { $0[$1.login] = $1 })
     }
   )}
@@ -98,5 +98,12 @@ public extension Configuration {
     git: git,
     file: .make(asset: fusion.queue),
     parse: { try .make(queue: $0.read([String: [UInt]].self, from: $1)) }
+  )}
+  func parseSlackStorage(
+    slack: Slack
+  ) -> ParseYamlFile<Slack.Storage> { .init(
+    git: git,
+    file: .make(asset: slack.storage),
+    parse: { try .make(yaml: $0.read(Yaml.Slack.Storage.self, from: $1)) }
   )}
 }

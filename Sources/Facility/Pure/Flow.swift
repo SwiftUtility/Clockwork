@@ -6,7 +6,6 @@ public struct Production {
   public var buildsCount: Int
   public var releasesCount: Int
   public var bumpBuildNumber: Configuration.Template
-  public var exportBuilds: Configuration.Template
   public var exportVersions: Configuration.Template
   public var matchReleaseNote: Criteria
   public var matchAccessoryBranch: Criteria
@@ -19,7 +18,6 @@ public struct Production {
     buildsCount: yaml.buildsCount,
     releasesCount: yaml.releasesCount,
     bumpBuildNumber: .make(yaml: yaml.bumpBuildNumber),
-    exportBuilds: .make(yaml: yaml.exportBuilds),
     exportVersions: .make(yaml: yaml.exportVersions),
     matchReleaseNote: .init(yaml: yaml.matchReleaseNote),
     matchAccessoryBranch: .init(yaml: yaml.matchAccessoryBranch),
@@ -127,7 +125,6 @@ public struct Production {
     public var bumpReleaseVersion: Configuration.Template
     public var createTagName: Configuration.Template
     public var createTagAnnotation: Configuration.Template
-    public var createReleaseThread: Configuration.Template
     public var createReleaseBranchName: Configuration.Template
     public static func make(
       name: String,
@@ -143,7 +140,6 @@ public struct Production {
       bumpReleaseVersion: .make(yaml: yaml.bumpReleaseVersion),
       createTagName: .make(yaml: yaml.createTagName),
       createTagAnnotation: .make(yaml: yaml.createTagAnnotation),
-      createReleaseThread: .make(yaml: yaml.createReleaseThread),
       createReleaseBranchName: .make(yaml: yaml.createReleaseBranchName)
     )}
     public func deploy(build: AlphaNumeric, sha: String, tag: String) -> Build.Tag {

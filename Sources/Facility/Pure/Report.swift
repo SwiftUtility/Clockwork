@@ -6,32 +6,42 @@ public extension ReportContext {
 }
 public struct Report: Query {
   public var cfg: Configuration
+  public var threads: Threads
   public var info: GenerateInfo
-  public init<Context: ReportContext>(
+  public static func make<Context: ReportContext>(
     cfg: Configuration,
+    threads: Threads,
     ctx: Context,
     subevent: [String]? = nil
-  ) {
-    self.cfg = cfg
-    self.info = Generate.Info.make(context: ctx, subevent: subevent.get(ctx.subevent))
-  }
+  ) -> Self { .init(
+    cfg: cfg,
+    threads: threads,
+    info: Generate.Info.make(cfg: cfg, context: ctx, args: nil, subevent: subevent)
+  )}
   public func generate(template: Configuration.Template) -> Generate {
     .init(template: template, templates: cfg.templates, info: info)
   }
   public typealias Reply = Void
-//  public struct Threads {
-//    public var gitlab: Gitlab?
-//    public var jira: Jira?
-//    public struct Gitlab {
-//      public var tag: String?
-//      public var review: UInt?
-//      public var branch: String?
-//    }
-//    public struct Jira {
-//      public var tasks: [String]?
-//      public var epics: [String]?
-//    }
-//  }
+  public struct Threads {
+    public var jiraIssues: Set<String>
+    public var gitlabTags: Set<String>
+    public var gitlabUsers: Set<String>
+    public var gitlabReviews: Set<String>
+    public var gitlabBranches: Set<String>
+    public static func make(
+      jiraIssues: Set<String> = [],
+      gitlabTags: Set<String> = [],
+      gitlabUsers: Set<String> = [],
+      gitlabReviews: Set<String> = [],
+      gitlabBranches: Set<String> = []
+    ) -> Self { .init(
+      jiraIssues: jiraIssues,
+      gitlabTags: gitlabTags,
+      gitlabUsers: gitlabUsers,
+      gitlabReviews: gitlabReviews,
+      gitlabBranches: gitlabBranches
+    )}
+  }
   public struct ReviewCreated: ReportContext {
     public var authors: [String]
   }
@@ -214,60 +224,103 @@ public struct Report: Query {
     }
   }
 }
-public extension Fusion.Approval.Status {
-  func reportReviewCreated(cfg: Configuration) -> Report { .init(
-    cfg: cfg,
-    ctx: Report.ReviewCreated(authors: authors.sorted())
+public extension Configuration {
+  func makeThread(
+    status: Fusion.Approval.Status,
+    infusion: Review.State.Infusion?
+  ) -> Report.Threads {
+    let gitlab = try? gitlab.get()
+    let users = status.authors.intersection(gitlab
+      .map(\.users)
+      .get([:])
+      .values
+      .filter(\.active)
+      .map(\.login)
+    )
+    let review = try? gitlab?.review.get()
+    var jiraIssue: Set<String> = []
+    if let review = review, let issue = infusion?.squash?.proposition.jiraIssue {
+      try? jiraIssue.formUnion(review.sourceBranch.find(matches: issue))
+    }
+    return .init(
+      jiraIssues: jiraIssue,
+      gitlabTags: [],
+      gitlabUsers: users,
+      gitlabReviews: Set(review.map({ "\($0.iid)" }).array),
+      gitlabBranches: Set(review.map(\.targetBranch).array)
+    )
+  }
+  func reportReviewCreated(
+    status: Fusion.Approval.Status
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: status, infusion: nil),
+    ctx: Report.ReviewCreated(authors: status.authors.sorted())
   )}
-  func reportReviewMergeConflicts(cfg: Configuration) -> Report { .init(
-    cfg: cfg,
-    ctx: Report.ReviewMergeConflicts(authors: authors.sorted())
+  func reportReviewMergeConflicts(
+    status: Fusion.Approval.Status
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: status, infusion: nil),
+    ctx: Report.ReviewMergeConflicts(authors: status.authors.sorted())
   )}
-  func reportReviewClosed(cfg: Configuration) -> Report { .init(
-    cfg: cfg,
-    ctx: Report.ReviewClosed(authors: authors.sorted())
+  func reportReviewClosed(
+    status: Fusion.Approval.Status
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: status, infusion: nil),
+    ctx: Report.ReviewClosed(authors: status.authors.sorted())
   )}
-  func reportReviewRemind(cfg: Configuration, slackers: Set<String>) -> Report { .init(
-    cfg: cfg,
+  func reportReviewRemind(
+    status: Fusion.Approval.Status,
+    slackers: Set<String>
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: status, infusion: nil),
     ctx: Report.ReviewRemind(
-      authors: authors.sorted(),
+      authors: status.authors.sorted(),
       slackers: slackers.sorted()
     )
   )}
   func reportReviewCustom(
-    cfg: Configuration,
+    status: Fusion.Approval.Status,
     event: String,
     stdin: AnyCodable?
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: status, infusion: nil),
     ctx: Report.ReviewCustom(
-      authors: authors.sorted(),
+      authors: status.authors.sorted(),
       stdin: stdin
     ),
     subevent: event.components(separatedBy: "/")
   )}
   func reportReviewStopped(
-    cfg: Configuration,
+    status: Fusion.Approval.Status,
+    infusion: Review.State.Infusion?,
     reasons: [Report.ReviewStopped.Reason],
     unknownUsers: Set<String> = [],
     unknownTeams: Set<String> = []
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: status, infusion: infusion),
     ctx: Report.ReviewStopped(
-      authors: authors.sorted(),
+      authors: status.authors.sorted(),
       reasons: reasons,
       unknownUsers: unknownUsers.isEmpty.else(unknownUsers.sorted()),
       unknownTeams: unknownTeams.isEmpty.else(unknownUsers.sorted())
     )
   )}
-}
-public extension Review {
-  func reportReviewUpdated(cfg: Configuration, update: Review.Approval) -> Report { .init(
-    cfg: cfg,
+  func reportReviewUpdated(
+    review: Review,
+    update: Review.Approval
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: review.status, infusion: review.infusion),
     ctx: Report.ReviewUpdated(
-      authors: status.authors.sorted(),
-      teams: status.teams.isEmpty.else(status.teams.sorted()),
-      watchers: watchers,
+      authors: review.status.authors.sorted(),
+      teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
+      watchers: review.watchers,
       holders: update.holders.isEmpty.else(update.holders.sorted()),
       slackers: update.slackers.isEmpty.else(update.slackers.sorted()),
       approvers: update.approvers.isEmpty.else(update.approvers.sorted()),
@@ -278,167 +331,199 @@ public extension Review {
       blockers: update.blockers.isEmpty.else(update.blockers)
     )
   )}
-  func reportReviewMerged(cfg: Configuration) -> Report { .init(
-    cfg: cfg,
+  func reportReviewMerged(
+    review: Review
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: review.status, infusion: review.infusion),
     ctx: Report.ReviewMerged(
-      authors: status.authors.sorted(),
-      teams: status.teams.isEmpty.else(status.teams.sorted()),
-      watchers: watchers,
-      approvers: accepters,
-      state: status.emergent
+      authors: review.status.authors.sorted(),
+      teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
+      watchers: review.watchers,
+      approvers: review.accepters,
+      state: review.status.emergent
         .map({_ in .emergent})
         .get(.approved)
     )
   )}
-  func reportReviewMergeError(cfg: Configuration, error: String) -> Report { .init(
-    cfg: cfg,
+  func reportReviewMergeError(
+    review: Review,
+    error: String
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: review.status, infusion: review.infusion),
     ctx: Report.ReviewMergeError(
-      authors: status.authors.sorted(),
+      authors: review.status.authors.sorted(),
       error: error
     )
   )}
-}
-public extension Production.Product {
   func reportReleaseBranchCreated(
-    cfg: Configuration,
+    threads: Report.Threads = .make(),
+    product: Production.Product,
     ref: String,
     version: String,
     hotfix: Bool
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: threads,
     ctx: Report.ReleaseBranchCreated(
       ref: ref,
-      product: name,
+      product: product.name,
       version: version,
       hotfix: hotfix
     )
   )}
   func reportReleaseBranchDeleted(
-    cfg: Configuration,
+    threads: Report.Threads = .make(),
+    product: Production.Product,
     delivery: Production.Version.Delivery,
     ref: String,
     sha: String,
     revoke: Bool
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: threads,
     ctx: Report.ReleaseBranchDeleted(
       ref: ref,
       sha: sha,
-      product: name,
+      product: product.name,
       version: delivery.version.value,
       revoke: revoke
     )
   )}
   func reportReleaseBranchSummary(
-    cfg: Configuration,
+    threads: Report.Threads = .make(),
+    product: Production.Product,
     delivery: Production.Version.Delivery,
     ref: String,
     sha: String,
     notes: Production.ReleaseNotes
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: threads,
     ctx: Report.ReleaseBranchSummary(
       ref: ref,
       sha: sha,
-      product: name,
+      product: product.name,
       version: delivery.version.value,
       notes: notes.isEmpty.else(notes)
     )
   )}
   func reportDeployTagCreated(
-    cfg: Configuration,
+    threads: Report.Threads = .make(),
+    product: Production.Product,
     delivery: Production.Version.Delivery,
     ref: String,
     sha: String,
     build: String,
     notes: Production.ReleaseNotes
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: threads,
     ctx: Report.DeployTagCreated(
       ref: ref,
       sha: sha,
-      product: name,
+      product: product.name,
       version: delivery.version.value,
       build: build,
       notes: notes.isEmpty.else(notes)
     )
   )}
   func reportReleaseCustom(
-    cfg: Configuration,
+    threads: Report.Threads = .make(),
+    product: Production.Product,
     event: String,
     delivery: Production.Version.Delivery,
     ref: String,
     sha: String,
     stdin: AnyCodable?
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: threads,
     ctx: Report.ReleaseCustom(
       ref: ref,
       sha: sha,
-      product: name,
+      product: product.name,
       version: delivery.version.value,
       stdin: stdin
     ),
     subevent: event.components(separatedBy: "/")
   )}
   func reportStageTagCreated(
-    cfg: Configuration,
+    threads: Report.Threads = .make(),
+    product: Production.Product,
     ref: String,
     sha: String,
     version: String,
     build: String
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: threads,
     ctx: Report.StageTagCreated(
       ref: ref,
       sha: sha,
-      product: name,
+      product: product.name,
       version: version,
       build: build
     )
   )}
   func reportStageTagDeleted(
-    cfg: Configuration,
+    threads: Report.Threads = .make(),
+    product: Production.Product,
     ref: String,
     sha: String,
     version: String,
     build: String
-  ) -> Report { .init(
-    cfg: cfg,
+  ) -> Report { .make(
+    cfg: self,
+    threads: threads,
     ctx: Report.StageTagDeleted(
       ref: ref,
       sha: sha,
-      product: name,
+      product: product.name,
       version: version,
       build: build
     )
   )}
-}
-public extension Configuration {
   func reportCustom(
+    threads: Report.Threads = .make(),
     event: String,
     stdin: AnyCodable?
-  ) -> Report { .init(
+  ) -> Report { .make(
     cfg: self,
+    threads: threads,
     ctx: Report.Custom(stdin: stdin),
     subevent: event.components(separatedBy: "/")
   )}
   func reportUnexpected(
     error: Error
-  ) -> Report { .init(
+  ) -> Report { .make(
     cfg: self,
+    threads: .make(),
     ctx: Report.Unexpected(error: String(describing: error))
   )}
-  func reportAccessoryBranchCreated(ref: String) -> Report { .init(
+  func reportAccessoryBranchCreated(
+    threads: Report.Threads = .make(),
+    ref: String
+  ) -> Report { .make(
     cfg: self,
+    threads: threads,
     ctx: Report.AccessoryBranchCreated(ref: ref)
   )}
-  func reportAccessoryBranchDeleted(ref: String) -> Report { .init(
+  func reportAccessoryBranchDeleted(
+    threads: Report.Threads = .make(),
+    ref: String
+  ) -> Report { .make(
     cfg: self,
+    threads: threads,
     ctx: Report.AccessoryBranchDeleted(ref: ref)
   )}
-  func reportExpiringRequisites(items: [Report.ExpiringRequisites.Item]) -> Report { .init(
+  func reportExpiringRequisites(
+    threads: Report.Threads = .make(),
+    items: [Report.ExpiringRequisites.Item]
+  ) -> Report { .make(
     cfg: self,
+    threads: threads,
     ctx: Report.ExpiringRequisites(items: items)
   )}
 }

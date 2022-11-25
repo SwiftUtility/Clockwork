@@ -6,6 +6,7 @@ public final class Reporter {
   let writeStdout: Act.Of<String>.Go
   let readStdin: Try.Do<Data?>
   let generate: Try.Reply<Generate>
+  let parseSlackStorage: Try.Reply<ParseYamlFile<Slack.Storage>>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
@@ -13,6 +14,7 @@ public final class Reporter {
     writeStdout: @escaping Act.Of<String>.Go,
     readStdin: @escaping Try.Do<Data?>,
     generate: @escaping Try.Reply<Generate>,
+    parseSlackStorage: @escaping Try.Reply<ParseYamlFile<Slack.Storage>>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
@@ -20,6 +22,7 @@ public final class Reporter {
     self.writeStdout = writeStdout
     self.readStdin = readStdin
     self.generate = generate
+    self.parseSlackStorage = parseSlackStorage
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
@@ -27,7 +30,7 @@ public final class Reporter {
     if !success { throw Thrown("Execution considered unsuccessful") }
   }
   public func report(cfg: Configuration, error: Error) throws -> Bool {
-    report(query: cfg.reportUnexpected(error: error))
+    report(query:  cfg.reportUnexpected(error: error))
     throw error
   }
 //  public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
@@ -75,10 +78,14 @@ public final class Reporter {
   public func report(query: Report) -> Report.Reply {
     logMessage(.init(message: "Reporting \(query.info.event)"))
     var query = query
-    query.info.env = query.cfg.env
-    query.info.jira = try? query.cfg.jira.get().context
-//    query.info.slack = try? query.cfg.slack.get().context
-    query.info.gitlab = try? query.cfg.gitlab.get().context
+//    query.info.env = query.cfg.env
+//    query.info.jira = try? query.cfg.jira.get().context
+//    query.info.slack = try? query.cfg.slack
+//      .map(query.cfg.parseSlackStorage(slack:))
+//      .map(parseSlackStorage)
+//      .map(Slack.Context.make(storage:))
+//      .get()
+//    query.info.gitlab = try? query.cfg.gitlab.get().info
 
 
 //    var env: [String: String] { get set }
@@ -120,14 +127,19 @@ public final class Reporter {
     let slack: Slack
     do { slack = try report.cfg.slack.get() }
     catch { return logMessage(.init(message: "Report slack failed: \(error)")) }
-    var report = report
     let signals = slack.signals.filter(report.info.triggers(signal:))
     guard signals.isEmpty.not else { return }
     logMessage(.init(message: "Reporting slack \(report.info.event.joined(separator: "/"))"))
     for signal in slack.signals.filter(report.info.triggers(signal:)) {
+      var report = report
       report.info.mark = signal.mark
       do { _ = try send(report: report, slack: slack, signal: signal) }
       catch { logMessage(.init(message: "\(error)")) }
+    }
+    if let gitlab = slack.gitlab {
+      for thread in gitlab.branches {
+
+      }
     }
   }
   func send(report: Report, slack: Slack, signal: Slack.Signal) throws -> Json.SlackMessage? {

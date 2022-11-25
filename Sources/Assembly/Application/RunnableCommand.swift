@@ -86,14 +86,9 @@ extension Clockwork.Flow.DeleteStageTag: RunnableCommand {
     try Assembler.producer.deleteStageTag(cfg: cfg)
   }
 }
-extension Clockwork.Flow.ExportBuild: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.renderBuild(cfg: cfg)
-  }
-}
 extension Clockwork.Flow.ExportVersions: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.renderNextVersions(cfg: cfg)
+    try Assembler.producer.renderVersions(cfg: cfg, build: build, args: args)
   }
 }
 extension Clockwork.Flow.ForwardBranch: RunnableCommand {
@@ -176,6 +171,53 @@ extension Clockwork.Gitlab.TriggerReviewPipeline: RunnableCommand {
     try Assembler.mediator.triggerReview(cfg: cfg, iid: review)
   }
 }
+extension Clockwork.Gitlab.User.Activate: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.updateUser(cfg: cfg, login: user.login, command: .activate)
+  }
+}
+extension Clockwork.Gitlab.User.Deactivate: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.updateUser(cfg: cfg, login: user.login, command: .deactivate)
+  }
+}
+extension Clockwork.Gitlab.User.Register: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .register([
+      .slack: slack,
+    ])
+  )}
+}
+extension Clockwork.Gitlab.User.UnwatchAuthors: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .watchAuthors(args)
+  )}
+}
+extension Clockwork.Gitlab.User.UnwatchTeams: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .unwatchTeams(args)
+  )}
+}
+extension Clockwork.Gitlab.User.WatchAuthors: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .watchAuthors(args)
+  )}
+}
+extension Clockwork.Gitlab.User.WatchTeams: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .watchTeams(args)
+  )}
+}
 extension Clockwork.Report.Custom: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reporter.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
@@ -248,53 +290,6 @@ extension Clockwork.Review.Approve.Resolution {
     case .block: return .block
     }
   }
-}
-extension Clockwork.Review.Approver.Activate: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .activate)
-  }
-}
-extension Clockwork.Review.Approver.Deactivate: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .deactivate)
-  }
-}
-extension Clockwork.Review.Approver.Register: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .register([
-      .slack: slack,
-    ])
-  )}
-}
-extension Clockwork.Review.Approver.UnwatchAuthors: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchAuthors(args)
-  )}
-}
-extension Clockwork.Review.Approver.UnwatchTeams: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .unwatchTeams(args)
-  )}
-}
-extension Clockwork.Review.Approver.WatchAuthors: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchAuthors(args)
-  )}
-}
-extension Clockwork.Review.Approver.WatchTeams: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchTeams(args)
-  )}
 }
 extension Clockwork.Review.Clean: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
