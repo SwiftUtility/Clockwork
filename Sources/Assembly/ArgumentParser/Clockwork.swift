@@ -311,7 +311,6 @@ struct Clockwork: ParsableCommand {
       version: Clockwork.version,
       subcommands: [
         Custom.self,
-        ReleaseThread.self,
         ReviewThread.self,
       ]
     )
@@ -319,13 +318,10 @@ struct Clockwork: ParsableCommand {
     var stdin: Stdin = .ignore
     @Option(help: "Event name to send report for")
     var event: String
+    @Argument(help: "Context to make available during rendering")
+    var args: [String] = []
     struct Custom: ClockworkCommand {
       static var abstract: String { "Send custom preconfigured report" }
-      @OptionGroup var clockwork: Clockwork
-      @OptionGroup var report: Report
-    }
-    struct ReleaseThread: ClockworkCommand {
-      static var abstract: String { "Send preconfigured release related report" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var report: Report
     }
@@ -452,6 +448,8 @@ struct Clockwork: ParsableCommand {
     struct ExportIntegration: ClockworkCommand {
       static var abstract: String { "Render integration suitable branches to stdout" }
       @OptionGroup var clockwork: Clockwork
+      @Argument(help: "Context to make available during rendering")
+      var args: [String] = []
     }
     struct Own: ClockworkCommand {
       static var abstract: String { "Add user to authors" }

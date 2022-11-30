@@ -72,7 +72,7 @@ public struct Generate: Query {
       case branch
     }
   }
-  public struct ExportIntegrationTargets: GenerateContext {
+  public struct ExportMergeTargets: GenerateContext {
     public var fork: String
     public var source: String
     public var targets: [String]
@@ -85,13 +85,13 @@ public struct Generate: Query {
   public struct CreateTagName: GenerateContext {
     public var product: String
     public var version: String
-    public var build: String
+    public var build: String?
     public var deploy: Bool
   }
   public struct CreateTagAnnotation: GenerateContext {
     public var product: String
     public var version: String
-    public var build: String
+    public var build: String?
     public var deploy: Bool
   }
   public struct BumpReleaseVersion: GenerateContext {
@@ -102,23 +102,16 @@ public struct Generate: Query {
   public struct BumpBuildNumber: GenerateContext {
     public var build: String
   }
-  public struct ParseReleaseBranchVersion: GenerateContext {
-    public var product: String
-    public var ref: String
+  public struct CreateFlowBuildsCommitMessage: GenerateContext {
+    public var build: String
+    public var review: String?
+    public var branch: String?
+    public var tag: String?
   }
-  public struct ParseTagVersion: GenerateContext {
-    public var product: String
-    public var ref: String
-    public var deploy: Bool
-  }
-  public struct ParseTagBuild: GenerateContext {
-    public var product: String
-    public var ref: String
-    public var deploy: Bool
-  }
-  public struct CreateVersionsCommitMessage: GenerateContext {
+  public struct CreateFlowVersionsCommitMessage: GenerateContext {
     public var product: String?
     public var version: String?
+    public var ref: String?
     public var reason: Reason
     public enum Reason: String, Encodable {
       case deploy
@@ -127,16 +120,11 @@ public struct Generate: Query {
       case changeNext
       case changeAccessory
       case deleteAccessory
-      case revokeRelease
+//      case reserveReviewBuild
+//      case reserveBranchBuild
     }
   }
-  public struct CreateBuildCommitMessage: GenerateContext {
-    public var build: String
-    public var review: String?
-    public var branch: String?
-    public var tag: String?
-  }
-  public struct CreateApproversCommitMessage: GenerateContext {
+  public struct CreateGitlabUsersCommitMessage: GenerateContext {
     public var user: String
     public var reason: Reason
     public enum Reason: String, Encodable {
@@ -167,185 +155,161 @@ public struct Generate: Query {
       case unown
     }
   }
-  public struct CreateMergeCommitMessage: GenerateContext {}
-  public struct CreateFusionCommitMessage: GenerateContext {
-    public var kind: String
+  public struct CreateMergeCommitMessage: GenerateContext {
+    public var kind: String?
     public var fork: String?
     public var original: String?
   }
 }
-public extension Production {
+public extension Configuration {
   func exportVersions(
-    cfg: Configuration,
+    flow: Flow,
     args: [String],
     versions: [String: String],
     build: String?,
     kind: Generate.ExportVersions.Kind?
   ) -> Generate { .make(
-    cfg: cfg,
-    template: exportVersions,
+    cfg: self,
+    template: flow.exportVersions,
     ctx: Generate.ExportVersions(versions: versions, build: build, kind: kind),
     args: args
   )}
-  func createVersionsCommitMessage(
-    cfg: Configuration,
-    product: String?,
-    version: String?,
-    reason: Generate.CreateVersionsCommitMessage.Reason
+  func createFlowBuildsCommitMessage(
+    builds: Flow.Builds,
+    build: Flow.Build
   ) -> Generate { .make(
-    cfg: cfg,
-    template: versions.createCommitMessage,
-    ctx: Generate.CreateVersionsCommitMessage(product: product, version: version, reason: reason)
+    cfg: self,
+    template: builds.storage.createCommitMessage,
+    ctx: Generate.CreateFlowBuildsCommitMessage(
+      build: build.number.value,
+      review: build.review.map({ "\($0)" }),
+      branch: build.branch?.name,
+      tag: build.tag?.name
+    )
   )}
-  func createBuildCommitMessage(
-    cfg: Configuration,
-    build: Production.Build
+  func createFlowVersionsCommitMessage(
+    flow: Flow,
+    product: String? = nil,
+    version: String? = nil,
+    ref: String? = nil,
+    reason: Generate.CreateFlowVersionsCommitMessage.Reason
   ) -> Generate { .make(
-    cfg: cfg,
-    template: builds.createCommitMessage,
-    ctx: Generate.CreateBuildCommitMessage(
-      build: build.build.value,
-      review: build.review,
-      branch: build.branch,
-      tag: build.tag
+    cfg: self,
+    template: flow.versions.storage.createCommitMessage,
+    ctx: Generate.CreateFlowVersionsCommitMessage(
+      product: product,
+      version: version,
+      ref: ref,
+      reason: reason
     )
   )}
   func bumpBuildNumber(
-    cfg: Configuration,
+    builds: Flow.Builds,
     build: String
   ) -> Generate { .make(
-    cfg: cfg,
-    template: bumpBuildNumber,
+    cfg: self,
+    template: builds.bump,
     ctx: Generate.BumpBuildNumber(build: build)
   )}
-}
-public extension Production.Product {
   func createTagName(
-    cfg: Configuration,
+    flow: Flow,
+    product: String,
     version: String,
-    build: String,
+    build: String?,
     deploy: Bool
   ) -> Generate { .make(
-    cfg: cfg,
-    template: createTagName,
+    cfg: self,
+    template: flow.createTagName,
     ctx: Generate.CreateTagName(
-      product: name,
+      product: product,
       version: version,
       build: build,
       deploy: deploy
     )
   )}
   func createTagAnnotation(
-    cfg: Configuration,
+    flow: Flow,
+    product: String,
     version: String,
-    build: String,
+    build: String?,
     deploy: Bool
   ) -> Generate { .make(
-    cfg: cfg,
-    template: createTagAnnotation,
+    cfg: self,
+    template: flow.createTagAnnotation,
     ctx: Generate.CreateTagAnnotation(
-      product: name,
+      product: product,
       version: version,
       build: build,
       deploy: deploy
     )
   )}
   func createReleaseBranchName(
-    cfg: Configuration,
+    flow: Flow,
+    product: String,
     version: String,
     hotfix: Bool
   ) -> Generate { .make(
-    cfg: cfg,
-    template: createReleaseBranchName,
-    ctx: Generate.CreateReleaseBranchName(product: name, version: version, hotfix: hotfix)
+    cfg: self,
+    template: flow.createReleaseBranchName,
+    ctx: Generate.CreateReleaseBranchName(product: product, version: version, hotfix: hotfix)
   )}
   func bumpReleaseVersion(
-    cfg: Configuration,
+    flow: Flow,
+    product: String,
     version: String,
     hotfix: Bool
   ) -> Generate { .make(
-    cfg: cfg,
-    template: bumpReleaseVersion,
-    ctx: Generate.BumpReleaseVersion(product: name, version: version, hotfix: hotfix)
+    cfg: self,
+    template: flow.versions.bump,
+    ctx: Generate.BumpReleaseVersion(product: product, version: version, hotfix: hotfix)
   )}
-  func parseReleaseBranchVersion(
-    cfg: Configuration,
-    ref: String
-  ) -> Generate { .make(
-    cfg: cfg,
-    template: parseBranchVersion,
-    ctx: Generate.ParseReleaseBranchVersion(product: name, ref: ref)
-  )}
-  func parseTagVersion(
-    cfg: Configuration,
-    ref: String,
-    deploy: Bool
-  ) -> Generate { .make(
-    cfg: cfg,
-    template: parseTagVersion,
-    ctx: Generate.ParseTagVersion(product: name, ref: ref, deploy: deploy)
-  )}
-  func parseTagBuild(
-    cfg: Configuration,
-    ref: String,
-    deploy: Bool
-  ) -> Generate { .make(
-    cfg: cfg,
-    template: parseTagBuild,
-    ctx: Generate.ParseTagBuild(product: name, ref: ref, deploy: deploy)
-  )}
-}
-public extension Configuration {
   func createGitlabUsersCommitMessage(
     user: String,
+    gitlab: Gitlab,
     command: Gitlab.User.Command
-  ) throws -> Generate { try .make(
+  ) -> Generate { .make(
     cfg: self,
-    template: gitlab.get().usersAsset.createCommitMessage,
-    ctx: Generate.CreateApproversCommitMessage(user: user, reason: command.reason)
+    template: gitlab.usersAsset.createCommitMessage,
+    ctx: Generate.CreateGitlabUsersCommitMessage(user: user, reason: command.reason)
   )}
-}
-public extension Fusion {
   func createReviewQueueCommitMessage(
-    cfg: Configuration,
+    fusion: Fusion,
     queued: Bool
   ) -> Generate { .make(
-    cfg: cfg,
-    template: queue.createCommitMessage,
+    cfg: self,
+    template: fusion.queue.createCommitMessage,
     ctx: Generate.CreateReviewQueueCommitMessage(queued: queued)
   )}
   func createFusionStatusesCommitMessage(
-    cfg: Configuration,
+    fusion: Fusion,
     reason: Generate.CreateFusionStatusesCommitMessage.Reason
   ) -> Generate { .make(
-    cfg: cfg,
-    template: approval.statuses.createCommitMessage,
+    cfg: self,
+    template: fusion.approval.statuses.createCommitMessage,
     ctx: Generate.CreateFusionStatusesCommitMessage(reason: reason)
   )}
-  func createMergeCommitMessage(cfg: Configuration) -> Generate { .make(
-    cfg: cfg,
-    template: createCommitMessage,
-    ctx: Generate.CreateMergeCommitMessage()
+  func createMergeCommitMessage(
+    fusion: Fusion,
+    infusion: Review.State.Infusion?
+  ) -> Generate { .make(
+    cfg: self,
+    template: fusion.createCommitMessage,
+    ctx: Generate.CreateMergeCommitMessage(
+      kind: infusion?.prefix,
+      fork: infusion?.merge?.fork.value,
+      original: infusion?.merge?.original.name
+    )
   )}
-  func exportIntegrationTargets(
-    cfg: Configuration,
+  func exportMergeTargets(
+    fusion: Fusion,
     fork: Git.Sha,
     source: String,
-    targets: [String]
+    targets: [String],
+    args: [String]
   ) -> Generate { .make(
-    cfg: cfg,
-    template: integration.exportAvailableTargets,
-    ctx: Generate.ExportIntegrationTargets(fork: fork.value, source: source, targets: targets)
-  )}
-}
-public extension Review.State.Infusion {
-  func createFusionCommitMessage(cfg: Configuration) -> Generate { .make(
-    cfg: cfg,
-    template: createCommitMessage,
-    ctx: Generate.CreateFusionCommitMessage(
-      kind: prefix,
-      fork: merge?.fork.value,
-      original: merge?.original.name
-    )
+    cfg: self,
+    template: fusion.exportMergeTargets,
+    ctx: Generate.ExportMergeTargets(fork: fork.value, source: source, targets: targets),
+    args: args.isEmpty.else(args)
   )}
 }

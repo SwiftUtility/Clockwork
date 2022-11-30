@@ -22,10 +22,6 @@ public struct Gitlab {
     parent: try? parent.get(),
     review: try? review.get()
   )}
-  public func matches(build: Production.Build) -> Bool {
-    guard case .branch(let value) = build else { return false }
-    return value.sha == job.pipeline.sha && value.branch == job.pipeline.ref
-  }
   public static func make(
     env: Env,
     job: Json.GitlabJob,
@@ -79,7 +75,7 @@ public struct Gitlab {
       case unwatchTeams([String])
       case watchAuthors([String])
       case watchTeams([String])
-      public var reason: Generate.CreateApproversCommitMessage.Reason {
+      public var reason: Generate.CreateGitlabUsersCommitMessage.Reason {
         switch self {
         case .activate: return .activate
         case .deactivate: return .deactivate

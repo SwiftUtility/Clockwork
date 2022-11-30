@@ -77,7 +77,7 @@ public final class Validator {
     let fork = try Execute
       .parseLines(reply: execute(cfg.git.listCommits(
         in: [.head],
-        notIn: [.make(remote: .init(name: target))],
+        notIn: [.make(remote: .make(name: target))],
         boundary: true
       )))
       .last

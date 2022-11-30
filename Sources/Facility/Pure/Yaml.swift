@@ -111,43 +111,58 @@ public enum Yaml {
     }
   }
   public struct Flow: Decodable {
-    public var builds: Asset
-    public var versions: Asset
-    public var buildsCount: Int
-    public var releasesCount: Int
-    public var bumpBuildNumber: Template
+    public var builds: Builds?
+    public var versions: Versions
     public var exportVersions: Template
     public var matchReleaseNote: Criteria
-    public var matchAccessoryBranch: Criteria
-    public var products: [String: Product]
-    public struct Product: Decodable {
-      public var matchStageTag: Criteria
-      public var matchDeployTag: Criteria
-      public var matchReleaseBranch: Criteria
-      public var parseTagBuild: Template
-      public var parseTagVersion: Template
-      public var parseBranchVersion: Template
-      public var bumpReleaseVersion: Template
-      public var createTagName: Template
-      public var createTagAnnotation: Template
-      public var createReleaseBranchName: Template
-    }
-    public struct Build: Decodable {
-      public var sha: String
-      public var tag: String?
-      public var branch: String?
-      public var review: UInt?
-      public var target: String?
-    }
-    public struct Version: Decodable {
-      public var next: String
-      public var deliveries: [String: Delivery]?
-      public var accessories: [String: String]?
-      public struct Delivery: Decodable {
-        public var deploys: [String]?
+    public var createTagName: Template
+    public var createTagAnnotation: Template
+    public var createReleaseBranchName: Template
+    public struct Builds: Decodable {
+      public var storage: Asset
+      public var maxBuildsCount: Int
+      public var bump: Template
+      public struct Storage: Decodable {
+        public var next: String
+        public var reserved: [String: Build]?
+        public struct Build: Decodable {
+          public var commit: String
+          public var tag: String?
+          public var review: UInt?
+          public var target: String?
+          public var branch: String?
+        }
       }
     }
-    public typealias Versions = [String: Version]
+    public struct Versions: Decodable {
+      public var storage: Asset
+      public var maxReleasesCount: Int
+      public var bump: Template
+      public struct Storage: Decodable {
+        public var products: [String: Product]?
+        public var accessories: [String: Accessory]?
+        public struct Product: Decodable {
+          public var next: String
+          public var stages: [String: Stage]?
+          public var releases: [String: Release]?
+        }
+        public struct Release: Decodable {
+          public var start: String
+          public var branch: String
+          public var deploys: [String]?
+        }
+        public struct Stage: Decodable {
+          public var version: String
+          public var build: String
+          public var review: UInt?
+          public var target: String
+          public var branch: String
+        }
+        public struct Accessory: Decodable {
+          public var versions: [String: String]?
+        }
+      }
+    }
   }
   public struct Requisition: Decodable {
     public var branch: String
@@ -170,19 +185,16 @@ public enum Yaml {
     public var integration: Integration
     public var propositions: [String: Proposition]
     public var createCommitMessage: Template
+    public var exportMergeTargets: Template
     public struct Proposition: Decodable {
-      public var createCommitMessage: Template
       public var source: Criteria
       public var title: Criteria?
       public var jiraIssue: String?
     }
     public struct Replication: Decodable {
-      public var createCommitMessage: Template
       public var autoApproveFork: Bool?
     }
     public struct Integration: Decodable {
-      public var createCommitMessage: Template
-      public var exportTargets: Template
       public var autoApproveFork: Bool?
     }
     public struct Approval: Decodable {

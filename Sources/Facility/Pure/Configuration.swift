@@ -95,7 +95,7 @@ public struct Configuration {
       yaml: Yaml.Asset
     ) throws -> Self { try .init(
       file: .init(value: yaml.path),
-      branch: .init(name: yaml.branch),
+      branch: .make(name: yaml.branch),
       createCommitMessage: .make(yaml: yaml.createCommitMessage)
     )}
   }
@@ -123,7 +123,7 @@ public struct Configuration {
       case (nil, nil, let envFile?, nil, nil): return .envFile(envFile)
       case (nil, nil, nil, let sysFile?, nil): return .sysFile(sysFile)
       case (nil, nil, nil, nil, let gitFile?): return try .gitFile(.init(
-        ref: .make(remote: .init(name: gitFile.branch)),
+        ref: .make(remote: .make(name: gitFile.branch)),
         path: .init(value: gitFile.path)
       ))
       default: throw Thrown("Wrong secret format")

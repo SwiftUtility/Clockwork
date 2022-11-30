@@ -136,6 +136,7 @@ public final class Requisitor {
     for requisite in requisition.requisites.values {
       let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
       let certs = try Id(requisite.pkcs12)
+        .reduce(.make(remote: requisition.branch), Git.File.init(ref:path:))
         .map(cfg.git.cat(file:))
         .reduce(password, requisition.parsePkcs12Certs(password:execute:))
         .map(execute)
@@ -177,9 +178,9 @@ public final class Requisitor {
           .replacingOccurrences(of: "\\U", with: "\\u")
         let name = NSMutableString(string: escaped)
         CFStringTransform(name, nil, "Any-Hex/Java" as NSString, true)
-        try items.append(.init(
-          file: requisite.pkcs12.path.value,
-          branch: requisite.pkcs12.ref.value.dropPrefix("refs/remotes/origin/"),
+        items.append(.init(
+          file: requisite.pkcs12.value,
+          branch: requisition.branch.name,
           name: .init(name),
           days: expirationDate.timeIntervalSince(now) / .day
         ))
@@ -309,6 +310,7 @@ public final class Requisitor {
       .get()
     defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(path: temp))) }
     try Id(requisite.pkcs12)
+      .reduce(.make(remote: requisition.branch), Git.File.init(ref:path:))
       .map(cfg.git.cat(file:))
       .reduce(temp, cfg.write(file:execute:))
       .map(execute)
@@ -323,20 +325,22 @@ public final class Requisitor {
     git: Git,
     requisition: Requisition,
     requisites: [String]
-  ) throws -> Set<Git.File> {
-    var result: Set<Git.File> = []
+  ) throws -> [Git.File] {
+    var files: Set<Files.Relative> = []
     let dirs = try requisites
       .map(requisition.requisite(name:))
       .flatMap(\.provisions)
+    let ref = Git.Ref.make(remote: requisition.branch)
     for dir in dirs { try Id(dir)
+      .reduce(ref, Git.Dir.init(ref:path:))
       .map(git.listTreeTrackedFiles(dir:))
       .map(execute)
       .map(Execute.parseLines(reply:))
       .get()
       .map(Files.Relative.init(value:))
-      .forEach { result.insert(.init(ref: dir.ref, path: $0)) }
+      .forEach { files.insert($0) }
     }
-    return result
+    return files.map({ Git.File.init(ref: ref, path: $0) })
   }
   func prepareProvisions(cfg: Configuration) throws {
     let provisions = try Id("~/Library/MobileDevice/Provisioning Profiles")

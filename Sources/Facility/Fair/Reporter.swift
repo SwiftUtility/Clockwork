@@ -7,6 +7,7 @@ public final class Reporter {
   let readStdin: Try.Do<Data?>
   let generate: Try.Reply<Generate>
   let parseSlackStorage: Try.Reply<ParseYamlFile<Slack.Storage>>
+  let parseFusion: Try.Reply<ParseYamlFile<Fusion>>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
@@ -15,6 +16,7 @@ public final class Reporter {
     readStdin: @escaping Try.Do<Data?>,
     generate: @escaping Try.Reply<Generate>,
     parseSlackStorage: @escaping Try.Reply<ParseYamlFile<Slack.Storage>>,
+    parseFusion: @escaping Try.Reply<ParseYamlFile<Fusion>>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
@@ -23,6 +25,7 @@ public final class Reporter {
     self.readStdin = readStdin
     self.generate = generate
     self.parseSlackStorage = parseSlackStorage
+    self.parseFusion = parseFusion
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
@@ -33,27 +36,6 @@ public final class Reporter {
     report(query:  cfg.reportUnexpected(error: error))
     throw error
   }
-//  public func createThread(query: Report.CreateThread) throws -> Report.CreateThread.Reply {
-//    logMessage(.init(message: "Creating thread for: \(query.report.context.identity)"))
-//    report(query: query.report)
-//    let slack = try query.report.cfg.slack.get()
-//    var query = query
-//    query.report.context.env = query.report.cfg.env
-//    query.report.context.info = try? query.report.cfg.gitlab.get().info
-//    query.report.context.mark = "createThread"
-//    let body = try generate(query.report.generate(template: query.template))
-//    return try Id
-//    .make(query.report.cfg.curlSlack(
-//      token: slack.token,
-//      method: "chat.postMessage",
-//      body: body
-//    ))
-//    .map(execute)
-//    .map(Execute.parseData(reply:))
-//    .reduce(Json.SlackMessage.self, jsonDecoder.decode(_:from:))
-//    .map(Configuration.Thread.make(slack:))
-//    .get()
-//  }
   public func readStdin(query: Configuration.ReadStdin) throws -> Configuration.ReadStdin.Reply {
     switch query {
     case .ignore: return nil
@@ -69,10 +51,35 @@ public final class Reporter {
   public func reportCustom(
     cfg: Configuration,
     event: String,
-    stdin: Configuration.ReadStdin
+    stdin: Configuration.ReadStdin,
+    args: [String]
   ) throws -> Bool {
     let stdin = try readStdin(query: stdin)
-    report(query: cfg.reportCustom(event: event, stdin: stdin))
+    let gitlab = try cfg.gitlab.get()
+    var threads = Report.Threads.make()
+//    if let gitlab = try? cfg.gitlab.get() {
+//      if gitlab.job.tag {
+//        threads.gitlabTags.insert(gitlab.job.pipeline.ref)
+//        if let production = try? cfg.parseFusion.map(parseFusion).get() {
+//          production.productMatching(deploy: <#T##String#>)
+//        }
+//      } else {
+//        threads.gitlabBranches.insert(gitlab.job.pipeline.ref)
+//      }
+//    }
+//    if gitlab.job.tag
+//    report(query: cfg.reportCustom(
+//      event: event,
+//      threads: .make(
+//        jiraIssues: <#T##Set<String>#>,
+//        gitlabTags: <#T##Set<String>#>,
+//        gitlabUsers: <#T##Set<String>#>,
+//        gitlabReviews: <#T##Set<String>#>,
+//        gitlabBranches: <#T##Set<String>#>
+//      ),
+//      stdin: stdin,
+//      args: args
+//    ))
     return true
   }
   public func report(query: Report) -> Report.Reply {

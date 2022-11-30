@@ -8,7 +8,7 @@ public struct Git {
     self.root = root
     self.env = env
   }
-  public struct File: Hashable {
+  public struct File {
     public var ref: Ref
     public var path: Files.Relative
     public init(ref: Ref, path: Files.Relative) {
@@ -28,7 +28,7 @@ public struct Git {
       self.path = path
     }
   }
-  public struct Ref: Hashable {
+  public struct Ref {
     public let value: String
     public var tree: Tree { .init(ref: self) }
     public func make(parent number: Int) throws -> Self {
@@ -39,9 +39,8 @@ public struct Git {
     public static func make(sha: Sha) -> Self {
       return .init(value: sha.value)
     }
-    public static func make(tag: String) throws -> Self {
-      guard !tag.isEmpty else { throw Thrown("tag is empty") }
-      return .init(value: "refs/tags/\(tag)")
+    public static func make(tag: Tag) -> Self {
+      return .init(value: "refs/tags/\(tag.name)")
     }
     public static func make(remote branch: Branch) -> Self {
       return .init(value: "refs/remotes/origin/\(branch.name)")
@@ -50,21 +49,18 @@ public struct Git {
       return .init(value: "refs/heads/\(branch.name)")
     }
   }
-  public struct Sha: Hashable {
+  public struct Sha: Hashable, Comparable {
     public let value: String
+    private init(value: String) { self.value = value }
     public static func make(value: String) throws -> Self {
-      try validate(sha: value)
+      guard value.count == 40, value.trimmingCharacters(in: .hexadecimalDigits).isEmpty
+      else { throw Thrown("Not sha: \(value)") }
       return .init(value: value)
     }
     public static func make(job: Json.GitlabJob) throws -> Self {
-      try validate(sha: job.pipeline.sha)
-      return .init(value: job.pipeline.sha)
+      return try .make(value: job.pipeline.sha)
     }
-    static func validate(sha: String) throws {
-      guard sha.count == 40, sha.trimmingCharacters(in: .hexadecimalDigits).isEmpty else {
-        throw Thrown("Not sha: \(sha)")
-      }
-    }
+    public static func < (lhs: Git.Sha, rhs: Git.Sha) -> Bool { lhs.value < rhs.value }
   }
   public struct Tree {
     public let value: String
@@ -75,17 +71,36 @@ public struct Git {
       self.value = try Sha.make(value: sha).value
     }
   }
-  public struct Branch {
+  public struct Branch: Hashable, Comparable {
     public let name: String
-    public init(name: String) throws {
-      guard !name.isEmpty else { throw Thrown("empty branch name") }
-      guard !name.hasPrefix("/"), !name.hasSuffix("/"), !name.contains(" ")
+    private init(name: String) { self.name = name }
+    public static func make(name: String) throws -> Self {
+      guard !name.isEmpty, !name.hasPrefix("/"), !name.hasSuffix("/"), !name.contains(" ")
       else { throw Thrown("invalid branch name \(name)") }
-      self.name = name
+      return .init(name: name)
     }
     public static func make(job: Json.GitlabJob) throws -> Self {
       guard job.tag.not else { throw Thrown("Not branch job \(job.webUrl)") }
-      return try .init(name: job.pipeline.ref)
+      return try .make(name: job.pipeline.ref)
+    }
+    public static func < (lhs: Git.Branch, rhs: Git.Branch) -> Bool {
+      lhs.name.alphaNumeric < rhs.name.alphaNumeric
+    }
+  }
+  public struct Tag: Hashable, Comparable {
+    public let name: String
+    private init(name: String) { self.name = name }
+    public static func make(name: String) throws -> Self {
+      guard !name.isEmpty, !name.hasPrefix("/"), !name.hasSuffix("/"), !name.contains(" ")
+      else { throw Thrown("invalid tag name \(name)") }
+      return .init(name: name)
+    }
+    public static func make(job: Json.GitlabJob) throws -> Self {
+      guard job.tag else { throw Thrown("Not tag job \(job.webUrl)") }
+      return try .make(name: job.pipeline.ref)
+    }
+    public static func < (lhs: Git.Tag, rhs: Git.Tag) -> Bool {
+      lhs.name.alphaNumeric < rhs.name.alphaNumeric
     }
   }
 }
@@ -106,7 +121,7 @@ public extension Git {
   var changesList: Execute { proc(args: ["status", "--porcelain"]) }
   var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"]) }
   var listAllRefs: Execute { proc(args: ["show-ref", "--head"]) }
-  func excludeParents(shas: Set<Git.Sha>) -> Execute { proc(
+  func excludeParents(shas: [Git.Ref]) -> Execute { proc(
     args: ["show-branch", "--independent"] + shas.map(\.value)
   )}
   func check(child: Ref, parent: Ref) -> Execute { proc(

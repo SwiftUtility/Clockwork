@@ -13,7 +13,7 @@ public extension Configuration {
     file: profile.fusion.get(),
     parse: { try .make(yaml: $0.read(Yaml.Review.self, from: $1)) }
   ))}
-  var parseProduction: Lossy<ParseYamlFile<Production>> { .init(try .init(
+  var parseFlow: Lossy<ParseYamlFile<Flow>> { .init(try .init(
     git: git,
     file: profile.production.get(),
     parse: { try .make(yaml: $0.read(Yaml.Flow.self, from: $1)) }
@@ -48,27 +48,19 @@ public extension Configuration {
     file: file,
     parse: { try .make(location: file, yaml: $0.read(Yaml.Profile.self, from: $1)) }
   )}
-  func parseBuilds(
-    production: Production
-  ) -> ParseYamlFile<[AlphaNumeric: Production.Build]> { .init(
+  func parseFlowBuilds(
+    builds: Flow.Builds
+  ) -> ParseYamlFile<Flow.Builds.Storage> { .init(
     git: git,
-    file: .make(asset: production.builds),
-    parse: { dialect, yaml in try dialect
-      .read([String: Yaml.Flow.Build].self, from: yaml)
-      .map(Production.Build.make(build:yaml:))
-      .reduce(into: [:], { $0[$1.build] = $1 })
-    }
+    file: .make(asset: builds.storage),
+    parse: { try .make(yaml: $0.read(Yaml.Flow.Builds.Storage.self, from: $1)) }
   )}
-  func parseVersions(
-    production: Production
-  ) -> ParseYamlFile<[String: Production.Version]> { .init(
+  func parseFlowVersions(
+    flow: Flow
+  ) -> ParseYamlFile<Flow.Versions.Storage> { .init(
     git: git,
-    file: .make(asset: production.versions),
-    parse: { dialect, yaml in try dialect
-      .read(Yaml.Flow.Versions.self, from: yaml)
-      .map(Production.Version.make(product:yaml:))
-      .reduce(into: [:], { $0[$1.product] = $1 })
-    }
+    file: .make(asset: flow.versions.storage),
+    parse: { try .make(yaml: $0.read(Yaml.Flow.Versions.Storage.self, from: $1)) }
   )}
   func parseFusionStatuses(
     approval: Fusion.Approval

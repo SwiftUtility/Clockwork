@@ -238,6 +238,7 @@ public final class Mediator {
       content: Gitlab.User.serialize(approvers: approvers),
       message: generate(cfg.createGitlabUsersCommitMessage(
         user: login,
+        gitlab: gitlab,
         command: command
       ))
     ))

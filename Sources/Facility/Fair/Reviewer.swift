@@ -154,7 +154,7 @@ public final class Reviewer {
     }
     try Execute.checkStatus(reply: execute(cfg.git.push(
       url: cfg.gitlab.flatMap(\.protected).get().push,
-      branch: .init(name: merge.sourceBranch),
+      branch: .make(name: merge.sourceBranch),
       sha: result,
       force: false,
       secret: cfg.gitlab.flatMap(\.protected).get().secret
@@ -312,7 +312,7 @@ public final class Reviewer {
     let project = try gitlab.project.get()
     let merge = try fusion.makeReplication(
       fork: .make(value: gitlab.job.pipeline.sha),
-      original: .init(name: gitlab.job.pipeline.ref),
+      original: .make(name: gitlab.job.pipeline.ref),
       project: project
     )
     let stoppers = try checkMergeStoppers(cfg: cfg, merge: merge)
@@ -320,7 +320,7 @@ public final class Reviewer {
       stoppers.map(\.logMessage).forEach(logMessage)
       return false
     }
-    try createReview(cfg: cfg, infusion: .merge(merge))
+    try createReview(cfg: cfg, fusion: fusion, infusion: .merge(merge))
     return true
   }
   public func startIntegration(
@@ -332,18 +332,18 @@ public final class Reviewer {
     let fusion = try cfg.parseFusion.map(parseFusion).get()
     let merge = try fusion.makeIntegration(
       fork: .make(value: fork),
-      original: .init(name: source),
-      target: .init(name: target)
+      original: .make(name: source),
+      target: .make(name: target)
     )
     let stoppers = try checkMergeStoppers(cfg: cfg, merge: merge)
     guard stoppers.isEmpty else {
       stoppers.map(\.logMessage).forEach(logMessage)
       return false
     }
-    try createReview(cfg: cfg, infusion: .merge(merge))
+    try createReview(cfg: cfg, fusion: fusion, infusion: .merge(merge))
     return true
   }
-  public func renderIntegration(cfg: Configuration) throws -> Bool {
+  public func renderIntegration(cfg: Configuration, args: [String]) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
     let parent = try gitlab.env.parent.get()
     let job = try gitlab.getJob(id: parent.job)
@@ -364,11 +364,8 @@ public final class Reviewer {
       logMessage(.init(message: "No branches suitable for integration"))
       return false
     }
-    try writeStdout(generate(fusion.exportIntegrationTargets(
-      cfg: cfg,
-      fork: fork,
-      source: source.name,
-      targets: targets.map(\.name)
+    try writeStdout(generate(cfg.exportMergeTargets(
+      fusion: fusion, fork: fork, source: source.name, targets: targets.map(\.name), args: args
     )))
     return true
   }
@@ -390,7 +387,7 @@ public final class Reviewer {
       if let sha = try syncReview(cfg: cfg, fusion: fusion) {
         try Execute.checkStatus(reply: execute(cfg.git.push(
           url: gitlab.protected.get().push,
-          branch: .init(name: merge.sourceBranch),
+          branch: .make(name: merge.sourceBranch),
           sha: sha,
           force: false,
           secret: gitlab.protected.get().secret
@@ -424,7 +421,7 @@ public final class Reviewer {
       let sha = try squashReview(cfg: cfg, fusion: fusion, infusion: review.infusion)
       try Execute.checkStatus(reply: execute(cfg.git.push(
         url: gitlab.protected.get().push,
-        branch: .init(name: merge.sourceBranch),
+        branch: .make(name: merge.sourceBranch),
         sha: sha,
         force: true,
         secret: gitlab.protected.get().secret
@@ -475,10 +472,10 @@ public final class Reviewer {
       cfg: cfg,
       state: merge,
       review: review,
-      message: generate(review.infusion.createFusionCommitMessage(cfg: cfg))
+      message: generate(cfg.createMergeCommitMessage(fusion: fusion, infusion: review.infusion))
     ) else { return false }
     if let merge = try shiftReplication(cfg: cfg, fusion: fusion, infusion: review.infusion) {
-      try createReview(cfg: cfg, infusion: .merge(merge))
+      try createReview(cfg: cfg, fusion: fusion, infusion: .merge(merge))
     }
     try persist(statuses, cfg: cfg, fusion: fusion, state: merge, status: nil, reason: .merge)
     return true
@@ -569,7 +566,7 @@ extension Reviewer {
       .map(\.fork)
       .map(Git.Ref.make(sha:))
     let current = try Git.Sha.make(value: state.lastPipeline.sha)
-    let target = try Git.Ref.make(remote: .init(name: state.targetBranch))
+    let target = try Git.Ref.make(remote: .make(name: state.targetBranch))
     if let fork = review.infusion.merge?.fork {
       try review.resolveOwnage(diff: listMergeChanges(
         cfg: cfg,
@@ -659,7 +656,7 @@ extension Reviewer {
     switch infusion {
     case .squash:
       if review.author.username == bot { reasons.append(.botSquash) }
-      try excludes = [.make(remote: .init(name: review.targetBranch))]
+      try excludes = [.make(remote: .make(name: review.targetBranch))]
     case .merge(let merge):
       reasons += try checkMergeStoppers(cfg: cfg, merge: merge)
       if review.author.username != bot { reasons.append(.notBotMerge) }
@@ -727,7 +724,7 @@ extension Reviewer {
     logMessage(.init(message: "Checking fast forward state"))
     return try Execute.parseSuccess(reply: execute(cfg.git.check(
       child: .make(sha: .make(value: state.lastPipeline.sha)),
-      parent: .make(remote: .init(name: state.targetBranch))
+      parent: .make(remote: .make(name: state.targetBranch))
     )))
   }
   func checkIsSquashed(
@@ -746,7 +743,7 @@ extension Reviewer {
       .get()
       .map(Git.Sha.make(value:))
     let target = try Id(state.targetBranch)
-      .map(Git.Branch.init(name:))
+      .map(Git.Branch.make(name:))
       .map(Git.Ref.make(remote:))
       .map(cfg.git.getSha(ref:))
       .map(execute)
@@ -817,7 +814,7 @@ extension Reviewer {
       review: review.iid,
       target: enqueue.then(review.targetBranch)
     )
-    let message = try generate(fusion.createReviewQueueCommitMessage(cfg: cfg, queued: enqueue))
+    let message = try generate(cfg.createReviewQueueCommitMessage(fusion: fusion, queued: enqueue))
     let result = try persistAsset(.init(
       cfg: cfg,
       asset: fusion.queue,
@@ -844,14 +841,14 @@ extension Reviewer {
       .map(Git.Ref.make(sha:))
       .get()
     let sha = try Git.Ref.make(sha: .make(value: review.lastPipeline.sha))
-    let message = try generate(fusion.createMergeCommitMessage(cfg: cfg))
+    let message = try generate(cfg.createMergeCommitMessage(fusion: fusion, infusion: nil))
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: sha)))
     let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: sha)))
     try Execute.checkStatus(reply: execute(cfg.git.detach(ref: sha)))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     do {
       try Execute.checkStatus(reply: execute(cfg.git.merge(
-        refs: [.make(remote: .init(name: review.targetBranch))],
+        refs: [.make(remote: .make(name: review.targetBranch))],
         message: message,
         noFf: true,
         env: Git.env(
@@ -886,7 +883,7 @@ extension Reviewer {
     guard let merge = infusion.merge else { throw MayDay("Not a merge") }
     let review = try cfg.gitlab.get().review.get()
     logMessage(.init(message: "Squashing source commits"))
-    let message = try generate(infusion.createFusionCommitMessage(cfg: cfg))
+    let message = try generate(cfg.createMergeCommitMessage(fusion: fusion, infusion: infusion))
     let fork = Git.Ref.make(sha: merge.fork)
     let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: fork)))
     let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: fork)))
@@ -956,7 +953,7 @@ extension Reviewer {
     guard let fork = fork else { return nil }
     return try fusion.makeReplication(fork: fork, original: merge.original, project: project)
   }
-  func createReview(cfg: Configuration, infusion: Review.State.Infusion) throws {
+  func createReview(cfg: Configuration, fusion: Fusion, infusion: Review.State.Infusion) throws {
     guard let merge = infusion.merge else { throw MayDay("Not merge") }
     let gitlab = try cfg.gitlab.get()
     guard try !Execute.parseSuccess(reply: execute(cfg.git.checkObjectType(
@@ -980,7 +977,7 @@ extension Reviewer {
       .postMergeRequests(parameters: .init(
         sourceBranch: merge.source.name,
         targetBranch: merge.target.name,
-        title: generate(infusion.createFusionCommitMessage(cfg: cfg))
+        title: generate(cfg.createMergeCommitMessage(fusion: fusion, infusion: infusion))
       ))
       .map(execute)
       .map(Execute.checkStatus(reply:))
@@ -1001,7 +998,7 @@ extension Reviewer {
       cfg: cfg,
       asset: fusion.approval.statuses,
       content: Fusion.Approval.Status.serialize(statuses: statuses),
-      message: generate(fusion.createFusionStatusesCommitMessage(cfg: cfg, reason: reason))
+      message: generate(cfg.createFusionStatusesCommitMessage(fusion: fusion, reason: reason))
     ))
   }
   func resolveBranch(cfg: Configuration, name: String) throws -> Json.GitlabBranch { try cfg
@@ -1024,7 +1021,7 @@ extension Reviewer {
       result += try branches
         .filter(\.protected)
         .map(\.name)
-        .map(Git.Branch.init(name:))
+        .map(Git.Branch.make(name:))
       guard branches.count == 100 else { return result }
       page += 1
     }
@@ -1037,7 +1034,7 @@ extension Reviewer {
     logMessage(.init(message: "Resolving authors"))
     let commits = try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [.make(sha: .make(value: review.lastPipeline.sha))],
-      notIn: [.make(remote: .init(name: review.targetBranch))],
+      notIn: [.make(remote: .make(name: review.targetBranch))],
       noMerges: true
     )))
     var result: Set<String> = []

@@ -15,6 +15,7 @@ enum Assembler {
     readStdin: readStdin,
     generate: stencilParser.generate(query:),
     parseSlackStorage: configurator.parseYamlFile(query:),
+    parseFusion: configurator.parseYamlFile(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -82,9 +83,9 @@ enum Assembler {
     execute: execute,
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
-    parseProduction: configurator.parseYamlFile(query:),
-    parseBuilds: configurator.parseYamlFile(query:),
-    parseVersions: configurator.parseYamlFile(query:),
+    parseFlow: configurator.parseYamlFile(query:),
+    parseFlowBuilds: configurator.parseYamlFile(query:),
+    parseFlowVersions: configurator.parseYamlFile(query:),
     persistAsset: configurator.persistAsset(query:),
     report: reporter.report(query:),
     readStdin: reporter.readStdin(query:),

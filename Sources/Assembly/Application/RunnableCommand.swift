@@ -73,12 +73,12 @@ extension Clockwork.Flow.CreateStageTag: RunnableCommand {
 }
 extension Clockwork.Flow.DeleteAccessoryBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.deleteBranch(cfg: cfg, revoke: nil)
+    try Assembler.producer.deleteBranch(cfg: cfg, release: false)
   }
 }
 extension Clockwork.Flow.DeleteReleaseBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.deleteBranch(cfg: cfg, revoke: revoke)
+    try Assembler.producer.deleteBranch(cfg: cfg, release: true)
   }
 }
 extension Clockwork.Flow.DeleteStageTag: RunnableCommand {
@@ -220,12 +220,9 @@ extension Clockwork.Gitlab.User.WatchTeams: RunnableCommand {
 }
 extension Clockwork.Report.Custom: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reporter.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
-  }
-}
-extension Clockwork.Report.ReleaseThread: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
+    try Assembler.reporter.reportCustom(
+      cfg: cfg, event: report.event, stdin: report.stdin.mode, args: report.args
+    )
   }
 }
 extension Clockwork.Report.ReviewThread: RunnableCommand {
@@ -303,7 +300,7 @@ extension Clockwork.Review.Dequeue: RunnableCommand {
 }
 extension Clockwork.Review.ExportIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.renderIntegration(cfg: cfg)
+    try Assembler.reviewer.renderIntegration(cfg: cfg, args: args)
   }
 }
 extension Clockwork.Review.Own: RunnableCommand {

@@ -36,12 +36,6 @@ extension Review {
         case .merge(let merge): return merge.source
         }
       }
-      public var createCommitMessage: Configuration.Template {
-        switch self {
-        case .merge(let merge): return merge.createCommitMessage
-        case .squash(let squash): return squash.proposition.createCommitMessage
-        }
-      }
       public var merge: Merge? {
         guard case .merge(let merge) = self else { return nil }
         return merge
@@ -56,7 +50,6 @@ extension Review {
         public var fork: Git.Sha
         public var prefix: Prefix
         public var original: Git.Branch
-        public var createCommitMessage: Configuration.Template
         public var autoApproveFork: Bool
       }
       public struct Squash {

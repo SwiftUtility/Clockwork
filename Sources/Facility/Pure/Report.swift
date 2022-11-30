@@ -12,11 +12,12 @@ public struct Report: Query {
     cfg: Configuration,
     threads: Threads,
     ctx: Context,
-    subevent: [String]? = nil
+    subevent: [String]? = nil,
+    args: [String]? = nil
   ) -> Self { .init(
     cfg: cfg,
     threads: threads,
-    info: Generate.Info.make(cfg: cfg, context: ctx, args: nil, subevent: subevent)
+    info: Generate.Info.make(cfg: cfg, context: ctx, args: args, subevent: subevent)
   )}
   public func generate(template: Configuration.Template) -> Generate {
     .init(template: template, templates: cfg.templates, info: info)
@@ -26,13 +27,13 @@ public struct Report: Query {
     public var jiraIssues: Set<String>
     public var gitlabTags: Set<String>
     public var gitlabUsers: Set<String>
-    public var gitlabReviews: Set<String>
+    public var gitlabReviews: Set<UInt>
     public var gitlabBranches: Set<String>
     public static func make(
       jiraIssues: Set<String> = [],
       gitlabTags: Set<String> = [],
       gitlabUsers: Set<String> = [],
-      gitlabReviews: Set<String> = [],
+      gitlabReviews: Set<UInt> = [],
       gitlabBranches: Set<String> = []
     ) -> Self { .init(
       jiraIssues: jiraIssues,
@@ -40,6 +41,24 @@ public struct Report: Query {
       gitlabUsers: gitlabUsers,
       gitlabReviews: gitlabReviews,
       gitlabBranches: gitlabBranches
+    )}
+//    public static func make(
+//      build: Flow.Build
+//    ) -> Self { .init(
+//      jiraIssues: [],
+//      gitlabTags: [],
+//      gitlabUsers: [],
+//      gitlabReviews: Set(build.review.array),
+//      gitlabBranches: Set(build.branch.array)
+//    )}
+    public static func make(
+      stage: Flow.Product.Stage
+    ) -> Self { .init(
+      jiraIssues: [],
+      gitlabTags: [stage.tag.name],
+      gitlabUsers: [],
+      gitlabReviews: Set(stage.review.array),
+      gitlabBranches: Set(stage.branch.array.map(\.name))
     )}
   }
   public struct ReviewCreated: ReportContext {
@@ -142,58 +161,43 @@ public struct Report: Query {
     public var stdin: AnyCodable?
   }
   public struct ReleaseBranchCreated: ReportContext {
-    public var ref: String
     public var product: String
     public var version: String
     public var hotfix: Bool
     public var subevent: [String] { [product] }
   }
   public struct ReleaseBranchDeleted: ReportContext {
-    public var ref: String
-    public var sha: String
     public var product: String
     public var version: String
-    public var revoke: Bool
     public var subevent: [String] { [product] }
   }
   public struct ReleaseBranchSummary: ReportContext {
-    public var ref: String
-    public var sha: String
     public var product: String
     public var version: String
-    public var notes: Production.ReleaseNotes?
+    public var notes: Flow.ReleaseNotes?
     public var subevent: [String] { [product] }
   }
   public struct DeployTagCreated: ReportContext {
-    public var ref: String
-    public var sha: String
     public var product: String
     public var version: String
-    public var build: String
-    public var notes: Production.ReleaseNotes?
+    public var build: String?
+    public var notes: Flow.ReleaseNotes?
     public var subevent: [String] { [product] }
   }
   public struct ReleaseCustom: ReportContext {
-    public var ref: String
-    public var sha: String
     public var product: String
     public var version: String
     public var stdin: AnyCodable?
   }
   public struct StageTagCreated: ReportContext {
-    public var ref: String
-    public var sha: String
     public var product: String
     public var version: String
     public var build: String
     public var subevent: [String] { [product] }
   }
   public struct StageTagDeleted: ReportContext {
-    public var ref: String
-    public var sha: String
     public var product: String
     public var version: String
-    public var build: String
     public var subevent: [String] { [product] }
   }
   public struct Custom: ReportContext {
@@ -239,14 +243,17 @@ public extension Configuration {
     )
     let review = try? gitlab?.review.get()
     var jiraIssue: Set<String> = []
-    if let review = review, let issue = infusion?.squash?.proposition.jiraIssue {
+    if let review = review,
+      review.iid == status.review,
+      let issue = infusion?.squash?.proposition.jiraIssue
+    {
       try? jiraIssue.formUnion(review.sourceBranch.find(matches: issue))
     }
     return .init(
       jiraIssues: jiraIssue,
       gitlabTags: [],
       gitlabUsers: users,
-      gitlabReviews: Set(review.map({ "\($0.iid)" }).array),
+      gitlabReviews: [status.review],
       gitlabBranches: Set(review.map(\.targetBranch).array)
     )
   }
@@ -358,142 +365,88 @@ public extension Configuration {
     )
   )}
   func reportReleaseBranchCreated(
-    threads: Report.Threads = .make(),
-    product: Production.Product,
-    ref: String,
-    version: String,
+    release: Flow.Product.Release,
     hotfix: Bool
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(gitlabBranches: [release.branch.name]),
     ctx: Report.ReleaseBranchCreated(
-      ref: ref,
-      product: product.name,
-      version: version,
+      product: release.product,
+      version: release.version.value,
       hotfix: hotfix
     )
   )}
   func reportReleaseBranchDeleted(
-    threads: Report.Threads = .make(),
-    product: Production.Product,
-    delivery: Production.Version.Delivery,
-    ref: String,
-    sha: String,
-    revoke: Bool
+    release: Flow.Product.Release
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(gitlabBranches: [release.branch.name]),
     ctx: Report.ReleaseBranchDeleted(
-      ref: ref,
-      sha: sha,
-      product: product.name,
-      version: delivery.version.value,
-      revoke: revoke
+      product: release.product,
+      version: release.version.value
     )
   )}
   func reportReleaseBranchSummary(
-    threads: Report.Threads = .make(),
-    product: Production.Product,
-    delivery: Production.Version.Delivery,
-    ref: String,
-    sha: String,
-    notes: Production.ReleaseNotes
+    release: Flow.Product.Release,
+    notes: Flow.ReleaseNotes
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(gitlabBranches: [release.branch.name]),
     ctx: Report.ReleaseBranchSummary(
-      ref: ref,
-      sha: sha,
-      product: product.name,
-      version: delivery.version.value,
+      product: release.product,
+      version: release.version.value,
       notes: notes.isEmpty.else(notes)
     )
   )}
   func reportDeployTagCreated(
-    threads: Report.Threads = .make(),
-    product: Production.Product,
-    delivery: Production.Version.Delivery,
-    ref: String,
-    sha: String,
-    build: String,
-    notes: Production.ReleaseNotes
+    release: Flow.Product.Release,
+    build: Flow.Build?,
+    notes: Flow.ReleaseNotes
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(
+      gitlabTags: Set(build.flatMap(\.tag?.name).array),
+      gitlabBranches: [release.branch.name]
+    ),
     ctx: Report.DeployTagCreated(
-      ref: ref,
-      sha: sha,
-      product: product.name,
-      version: delivery.version.value,
-      build: build,
+      product: release.product,
+      version: release.version.value,
+      build: build?.number.value,
       notes: notes.isEmpty.else(notes)
     )
   )}
-  func reportReleaseCustom(
-    threads: Report.Threads = .make(),
-    product: Production.Product,
-    event: String,
-    delivery: Production.Version.Delivery,
-    ref: String,
-    sha: String,
-    stdin: AnyCodable?
-  ) -> Report { .make(
-    cfg: self,
-    threads: threads,
-    ctx: Report.ReleaseCustom(
-      ref: ref,
-      sha: sha,
-      product: product.name,
-      version: delivery.version.value,
-      stdin: stdin
-    ),
-    subevent: event.components(separatedBy: "/")
-  )}
   func reportStageTagCreated(
-    threads: Report.Threads = .make(),
-    product: Production.Product,
-    ref: String,
-    sha: String,
-    version: String,
-    build: String
+    stage: Flow.Product.Stage
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(stage: stage),
     ctx: Report.StageTagCreated(
-      ref: ref,
-      sha: sha,
-      product: product.name,
-      version: version,
-      build: build
+      product: stage.product,
+      version: stage.version.value,
+      build: stage.build.value
     )
   )}
   func reportStageTagDeleted(
-    threads: Report.Threads = .make(),
-    product: Production.Product,
-    ref: String,
-    sha: String,
-    version: String,
-    build: String
+    stage: Flow.Product.Stage
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(stage: stage),
     ctx: Report.StageTagDeleted(
-      ref: ref,
-      sha: sha,
-      product: product.name,
-      version: version,
-      build: build
+      product: stage.product,
+      version: stage.version.value
     )
   )}
   func reportCustom(
-    threads: Report.Threads = .make(),
     event: String,
-    stdin: AnyCodable?
+    threads: Report.Threads,
+    stdin: AnyCodable?,
+    args: [String]
   ) -> Report { .make(
     cfg: self,
     threads: threads,
     ctx: Report.Custom(stdin: stdin),
-    subevent: event.components(separatedBy: "/")
+    subevent: event.components(separatedBy: "/"),
+    args: args.isEmpty.else(args)
   )}
   func reportUnexpected(
     error: Error
@@ -503,27 +456,24 @@ public extension Configuration {
     ctx: Report.Unexpected(error: String(describing: error))
   )}
   func reportAccessoryBranchCreated(
-    threads: Report.Threads = .make(),
     ref: String
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(gitlabBranches: [ref]),
     ctx: Report.AccessoryBranchCreated(ref: ref)
   )}
   func reportAccessoryBranchDeleted(
-    threads: Report.Threads = .make(),
     ref: String
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(gitlabBranches: [ref]),
     ctx: Report.AccessoryBranchDeleted(ref: ref)
   )}
   func reportExpiringRequisites(
-    threads: Report.Threads = .make(),
     items: [Report.ExpiringRequisites.Item]
   ) -> Report { .make(
     cfg: self,
-    threads: threads,
+    threads: .make(),
     ctx: Report.ExpiringRequisites(items: items)
   )}
 }

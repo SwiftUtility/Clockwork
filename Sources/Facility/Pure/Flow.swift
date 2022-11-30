@@ -1,95 +1,345 @@
 import Foundation
 import Facility
-public struct Production {
-  public var builds: Configuration.Asset
-  public var versions: Configuration.Asset
-  public var buildsCount: Int
-  public var releasesCount: Int
-  public var bumpBuildNumber: Configuration.Template
-  public var exportVersions: Configuration.Template
+public struct Flow {
+  public var builds: Builds?
+  public var versions: Versions
   public var matchReleaseNote: Criteria
-  public var matchAccessoryBranch: Criteria
-  public var products: [String: Product]
+  public var exportVersions: Configuration.Template
+  public var createTagName: Configuration.Template
+  public var createTagAnnotation: Configuration.Template
+  public var createReleaseBranchName: Configuration.Template
   public static func make(
     yaml: Yaml.Flow
   ) throws -> Self { try .init(
-    builds: .make(yaml: yaml.builds),
+    builds: yaml.builds.map(Builds.make(yaml:)),
     versions: .make(yaml: yaml.versions),
-    buildsCount: yaml.buildsCount,
-    releasesCount: yaml.releasesCount,
-    bumpBuildNumber: .make(yaml: yaml.bumpBuildNumber),
-    exportVersions: .make(yaml: yaml.exportVersions),
     matchReleaseNote: .init(yaml: yaml.matchReleaseNote),
-    matchAccessoryBranch: .init(yaml: yaml.matchAccessoryBranch),
-    products: yaml.products
-      .map(Product.make(name:yaml:))
-      .reduce(into: [:], { $0[$1.name] = $1 })
+    exportVersions: .make(yaml: yaml.exportVersions),
+    createTagName: .make(yaml: yaml.createTagName),
+    createTagAnnotation: .make(yaml: yaml.createTagAnnotation),
+    createReleaseBranchName: .make(yaml: yaml.createReleaseBranchName)
   )}
-  public func productMatching(deploy: String) throws -> Product? {
-    let products = products.values.filter({ $0.matchDeployTag.isMet(deploy) })
-    guard products.count < 2 else { throw Thrown("Tag \(deploy) matches multiple products") }
-    return products.first
-  }
-  public func productMatching(stage: String) throws -> Product? {
-    let products = products.values.filter({ $0.matchStageTag.isMet(stage) })
-    guard products.count < 2 else { throw Thrown("Tag \(stage) matches multiple products") }
-    return products.first
-  }
-  public func productMatching(release: String) throws -> Product? {
-    let products = products.values.filter({ $0.matchReleaseBranch.isMet(release) })
-    guard products.count < 2 else { throw Thrown("Branch \(release) matches multiple products") }
-    return products.first
-  }
   public func makeNote(sha: String, msg: String) -> ReleaseNotes.Note? {
     guard msg.isMet(criteria: matchReleaseNote) else { return nil }
     return .init(sha: sha, msg: msg)
   }
-  public func serialize(builds: [AlphaNumeric: Build]) -> String {
-    let builds = builds.keys
-      .sorted()
-      .compactMap({ builds[$0] })
-      .suffix(buildsCount)
-    guard builds.isEmpty.not else { return "{}\n" }
-    var result: String = ""
-    for build in builds {
-      switch build {
-      case .tag(let tag): result += tag.yaml.joined()
-      case .branch(let branch): result += branch.yaml.joined()
-      case .review(let review): result += review.yaml.joined()
-      }
-    }
-    return result
-  }
-  public func serialize(versions: [String: Version]) -> String {
-    guard versions.isEmpty.not else { return "{}\n" }
-    var result: String = ""
-    for version in versions.keys.sorted().compactMap({ versions[$0] }) {
-      result += "'\(version.product)':\n"
-      result += "  next: '\(version.next)'\n"
-      let deliveries = version.deliveries.keys
+  public struct Builds {
+    public var storage: Configuration.Asset
+    public var maxBuildsCount: Int
+    public var bump: Configuration.Template
+    public static func make(yaml: Yaml.Flow.Builds) throws -> Self { try .init(
+      storage: .make(yaml: yaml.storage),
+      maxBuildsCount: yaml.maxBuildsCount,
+      bump: .make(yaml: yaml.bump)
+    )}
+    public struct Storage {
+      public var next: AlphaNumeric
+      public var reserved: [AlphaNumeric: Build]
+      public var recent: [Build] { reserved.keys
         .sorted()
-        .compactMap({ version.deliveries[$0] })
-        .suffix(releasesCount)
-      if deliveries.isEmpty.not {
-        result += "  deliveries:\n"
-        for delivery in deliveries {
-          result += "    '\(delivery.version)':\n"
-//          result += "      thread: \(delivery.thread.serialize())\n"
-          if delivery.deploys.isEmpty.not {
-            result += "      deploys:\n"
-            result += delivery.deploys.map({ "      - '\($0.value)'\n" }).sorted().joined()
+        .reversed()
+        .compactMap({ reserved[$0] })
+      }
+      public mutating func reserve(
+        tag: Git.Tag,
+        sha: Git.Sha,
+        bump: String
+      ) throws -> Build { try reserve(
+        bump: bump.alphaNumeric,
+        build: .init(number: next, commit: sha, tag: tag)
+      )}
+      public mutating func reserve(
+        review: Json.GitlabReviewState,
+        job: Json.GitlabJob,
+        bump: String
+      ) throws -> Build { try reserve(
+        bump: bump.alphaNumeric,
+        build: .init(
+          number: next,
+          commit: .make(job: job),
+          review: review.iid,
+          target: .make(name: review.targetBranch)
+        )
+      )}
+      public mutating func reserve(
+        branch: Git.Branch,
+        sha: Git.Sha,
+        bump: String
+      ) throws -> Build { try reserve(
+        bump: bump.alphaNumeric,
+        build: .init(number: next, commit: sha, branch: branch)
+      )}
+      mutating func reserve(bump: AlphaNumeric, build: Build) throws -> Build {
+        guard bump > next else { throw Thrown("Bump is not the latest") }
+        guard reserved.keys.contains(where: { $0 >= next }).not
+        else { throw Thrown("Next build is not the latest") }
+        reserved[next] = build
+        next = bump
+        return build
+      }
+      public func serialized(builds: Builds) -> String {
+        var result: String = ""
+        result += "next: '\(next.value)'\n"
+        if reserved.isEmpty.not {
+          result += "reserved:\n"
+          for build in reserved.keys
+            .sorted()
+            .compactMap({ reserved[$0] })
+            .suffix(builds.maxBuildsCount)
+          {
+            result += "  '\(build.number.value)':\n"
+            result += "    commit: '\(build.commit.value)'\n"
+            result += build.tag.map({ "    tag: '\($0)'\n" }).get("")
+            result += build.branch.map({ "    branch: '\($0)'\n" }).get("")
+            result += build.review.map({ "    review: \($0)\n" }).get("")
+            result += build.target.map({ "    target: '\($0)'\n" }).get("")
           }
         }
+        return result
       }
-      if version.accessories.isEmpty.not {
-        result += "  accessories:\n"
-        result += version.accessories.keys
-          .sorted()
-          .compactMap({ try? "    '\($0)': '\(?!version.accessories[$0])'\n" })
-          .joined()
-      }
+      public static func make(yaml: Yaml.Flow.Builds.Storage) throws -> Self { try .init(
+        next: yaml.next.alphaNumeric,
+        reserved: yaml.reserved
+          .get([:])
+          .map(Build.make(build:yaml:))
+          .reduce(into: [:], { $0[$1.number] = $1 })
+      )}
     }
-    return result
+  }
+  public struct Versions {
+    public var storage: Configuration.Asset
+    public var maxReleasesCount: Int
+    public var bump: Configuration.Template
+    public static func make(yaml: Yaml.Flow.Versions) throws -> Self { try .init(
+      storage: .make(yaml: yaml.storage),
+      maxReleasesCount: yaml.maxReleasesCount,
+      bump: .make(yaml: yaml.bump)
+    )}
+    public struct Storage {
+      public var products: [String: Product]
+      public var accessories: [Git.Branch: Accessory]
+      public func serialized(versions: Versions) -> String {
+        var result: String = ""
+        if products.isEmpty.not { result += "products:\n" }
+        for product in products.keys.sorted().compactMap({ products[$0] }) {
+          result += "  '\(product.name)':\n"
+          result += "    next: '\(product.next.value)'\n"
+          if product.stages.isEmpty.not { result += "    stages:\n" }
+          for stage in product.stages.keys.sorted().compactMap({ product.stages[$0] }) {
+            result += "      '\(stage.tag.name)':\n"
+            result += "        version: '\(stage.version.value)'\n"
+            result += "        build: '\(stage.build.value)'\n"
+            if let review = stage.review {
+              result += "        review: \(review)\n"
+            }
+            if let target = stage.target {
+              result += "        target: '\(target.name)'\n"
+            }
+            if let branch = stage.branch {
+              result += "        branch: '\(branch.name)'\n"
+            }
+          }
+          if product.releases.isEmpty.not { result += "    releases:\n" }
+          for release in product.releases.keys
+            .sorted()
+            .compactMap({ product.releases[$0] })
+            .suffix(versions.maxReleasesCount)
+          {
+            result += "      '\(release.version.value)':\n"
+            result += "        start: '\(release.start.value)'\n"
+            result += "        branch: '\(release.branch.name)'\n"
+            if release.deploys.isEmpty.not {
+              result += "        deploys:\n"
+            }
+            for deploy in release.deploys.sorted() {
+              result += "        - '\(deploy.name)'\n"
+            }
+          }
+        }
+        if accessories.isEmpty.not { result += "accessories:\n" }
+        for accessory in accessories.keys.sorted().compactMap({ accessories[$0] }) {
+          if accessory.versions.isEmpty {
+            result += "  '\(accessory.branch.name)': {}\n"
+          } else {
+            result += "  '\(accessory.branch.name)':\n"
+            result += "    versions:\n"
+          }
+          for version in accessory.versions.keys.sorted().compactMap({ accessory.versions[$0] }) {
+            result += "      '\(version.product)': '\(version.version.value)'\n"
+          }
+        }
+        return result
+      }
+      public var versions: [String: String] {
+        products.mapValues(\.next.value)
+      }
+      public func versions(stage: Product.Stage) -> [String: String] {
+        [stage].reduce(into: versions, { $0[$1.product] = $1.version.value })
+      }
+      public func versions(release: Product.Release) -> [String: String] {
+        [release].reduce(into: versions, { $0[$1.product] = $1.version.value })
+      }
+      public func versions(build: Build) -> [String: String] {
+        if let release = build.tag.flatMap(find(deploy:)) { return versions(release: release) }
+        let branch = build.branch.flatMapNil(build.target)
+        if let release = branch.flatMap(find(release:)) { return versions(release: release) }
+        return branch.flatMap({ accessories[$0]?.versions }).get([:]).values
+          .reduce(into: versions, { $0[$1.product] = $1.version.value })
+      }
+      public mutating func change(product: String, next bump: String) throws {
+        guard var product = products[product]
+        else { throw Thrown("Not configured product: \(product)") }
+        let bump = bump.alphaNumeric
+        guard product.next != bump
+        else { throw Thrown("\(product.name) nextVersion is already \(bump)") }
+        guard product.releases.map(\.value.version).filter({ $0 >= bump }).isEmpty
+        else { throw Thrown("\(product.name) \(bump) is not the latest") }
+        product.next = bump
+        products[product.name] = product
+      }
+      public mutating func change(accessory: String, product: String, version: String) throws {
+        guard products[product] != nil
+        else { throw Thrown("Not configured product: \(product)") }
+        guard var accessory = try accessories[.make(name: accessory)]
+        else { throw Thrown("Not configured accessory: \(accessory)") }
+        accessory.versions[product] = .make(product: product, version: version)
+        accessories[accessory.branch] = accessory
+      }
+      public mutating func create(accessory branch: String) throws -> Accessory {
+        let branch = try Git.Branch.make(name: branch)
+        guard accessories[branch] == nil
+        else { throw Thrown("Already exists \(branch.name)") }
+        let accessory = Accessory(branch: branch, versions: [:])
+        accessories[branch] = accessory
+        return accessory
+      }
+      public mutating func delete(stage: Git.Tag) throws -> Product.Stage {
+        for var product in products.values {
+          guard let stage = product.stages[stage] else { continue }
+          product.stages[stage.tag] = nil
+          products[product.name] = product
+          return stage
+        }
+        throw Thrown("No stage tag \(stage.name)")
+      }
+      public mutating func release(
+        product: String,
+        branch: Git.Branch,
+        sha: Git.Sha,
+        hotfix: Bool,
+        bump: String
+      ) throws -> Product.Release {
+        let bump = bump.alphaNumeric
+        guard var product = products[product]
+        else { throw Thrown("No product \(product)") }
+        guard product.releases[bump] == nil
+        else { throw Thrown("Already released \(product.name) \(product.next.value)") }
+        guard product.releases[product.next] == nil
+        else { throw Thrown("Already released \(product.name) \(product.next.value)") }
+        let version: AlphaNumeric
+        if hotfix {
+          guard bump < product.next
+          else { throw Thrown("Hotfix \(bump.value) in not before \(product.next.value)") }
+          version = bump
+        } else {
+          guard bump > product.next
+          else { throw Thrown("Release \(bump.value) in not after \(product.next.value)") }
+          version = product.next
+          product.next = bump
+        }
+        var release = Product.Release(
+          product: product.name,
+          start: sha,
+          branch: branch,
+          version: version,
+          deploys: [],
+          previous: []
+        )
+        release.previous = product.releases.keys
+          .filter({ $0 < version })
+          .compactMap({ product.releases[$0]?.deploys })
+          .reduce(into: release.deploys, { $0.formUnion($1) })
+        product.releases[version] = release
+        products[product.name] = product
+        return release
+      }
+      public mutating func deploy(
+        product: String,
+        version: AlphaNumeric,
+        tag: Git.Tag
+      ) throws -> Product.Release {
+        guard var product = products[product]
+        else { throw Thrown("No product \(product)") }
+        guard var release = product.releases[version]
+        else { throw Thrown("No release version \(version.value)") }
+        release.deploys.insert(tag)
+        product.releases[release.version] = release
+        products[product.name] = product
+        release.previous = product.releases.keys
+          .filter({ $0 < version })
+          .compactMap({ product.releases[$0]?.deploys })
+          .reduce(into: release.deploys, { $0.formUnion($1) })
+        return release
+      }
+      public mutating func stage(
+        product: String,
+        version: AlphaNumeric?,
+        build: Build,
+        tag: Git.Tag
+      ) throws -> Product.Stage {
+        guard var product = products[product]
+        else { throw Thrown("No product \(product)") }
+        guard product.stages[tag] == nil
+        else { throw Thrown("Alredy staged \(tag.name)") }
+        let stage = Product.Stage(
+          product: product.name,
+          tag: tag,
+          version: version.get(product.next),
+          build: build.number,
+          review: build.review,
+          target: build.target,
+          branch: build.branch
+        )
+        product.stages[tag] = stage
+        products[product.name] = product
+        return stage
+      }
+      public func find(
+        release branch: Git.Branch
+      ) -> Product.Release? { products.values
+        .flatMap(\.recent)
+        .first(where: { $0.branch == branch })
+      }
+      public func find(
+        deploy tag: Git.Tag
+      ) -> Product.Release? { products.values
+        .flatMap(\.recent)
+        .first(where: { $0.deploys.contains(tag) })
+      }
+      public func find(
+        stage tag: Git.Tag
+      ) -> Product.Stage? { products
+        .values
+        .compactMap({ $0.stages[tag] })
+        .first
+      }
+      public mutating func delete(accessory branch: Git.Branch) throws -> Accessory {
+        guard let accessory = accessories[branch]
+        else { throw Thrown("No accessory \(branch.name)") }
+        accessories[branch] = nil
+        return accessory
+      }
+      public static func make(yaml: Yaml.Flow.Versions.Storage) throws -> Self { try .init(
+        products: yaml.products
+          .get([:])
+          .map(Product.make(name:yaml:))
+          .reduce(into: [:], { $0[$1.name] = $1 }),
+        accessories: yaml.accessories
+          .get([:])
+          .map(Accessory.make(branch:yaml:))
+          .reduce(into: [:], { $0[$1.branch] = $1 })
+      )}
+    }
   }
   public struct ReleaseNotes: Encodable {
     public var uniq: [Note]?
@@ -114,277 +364,120 @@ public struct Production {
       public var msg: String
     }
   }
+  public struct Build {
+    public var number: AlphaNumeric
+    public var commit: Git.Sha
+    public var tag: Git.Tag?
+    public var review: UInt?
+    public var target: Git.Branch?
+    public var branch: Git.Branch?
+    public var kind: Generate.ExportVersions.Kind? {
+      if tag != nil { return .deploy }
+      if branch != nil { return .branch }
+      if review != nil { return .review }
+      return nil
+    }
+    public static func make(
+      build: String,
+      yaml: Yaml.Flow.Builds.Storage.Build
+    ) throws -> Self { try .init(
+      number: build.alphaNumeric,
+      commit: .make(value: yaml.commit),
+      tag: yaml.tag.map(Git.Tag.make(name:)),
+      review: yaml.review,
+      target: yaml.target.map(Git.Branch.make(name:)),
+      branch: yaml.branch.map(Git.Branch.make(name:))
+    )}
+  }
+  public struct Accessory {
+    public var branch: Git.Branch
+    public var versions: [String: Version]
+    public static func make(
+      branch: String,
+      yaml: Yaml.Flow.Versions.Storage.Accessory
+    ) throws -> Self { try .init(
+      branch: .make(name: branch),
+      versions: yaml.versions
+        .get([:])
+        .map(Version.make(product:version:))
+        .reduce(into: [:], { $0[$1.product] = $1 })
+    )}
+    public struct Version {
+      public var product: String
+      public var version: AlphaNumeric
+      public static func make(
+        product: String,
+        version: String
+      ) -> Self { .init(
+        product: product,
+        version: version.alphaNumeric
+      )}
+    }
+  }
   public struct Product {
     public var name: String
-    public var matchStageTag: Criteria
-    public var matchDeployTag: Criteria
-    public var matchReleaseBranch: Criteria
-    public var parseTagBuild: Configuration.Template
-    public var parseTagVersion: Configuration.Template
-    public var parseBranchVersion: Configuration.Template
-    public var bumpReleaseVersion: Configuration.Template
-    public var createTagName: Configuration.Template
-    public var createTagAnnotation: Configuration.Template
-    public var createReleaseBranchName: Configuration.Template
+    public var next: AlphaNumeric
+    public var stages: [Git.Tag: Stage] = [:]
+    public var releases: [AlphaNumeric: Release] = [:]
+    public var recent: [Release] { releases.keys
+      .sorted()
+      .reversed()
+      .compactMap({ releases[$0] })
+    }
     public static func make(
       name: String,
-      yaml: Yaml.Flow.Product
-    ) throws -> Self { try .init(
-      name: name,
-      matchStageTag: .init(yaml: yaml.matchStageTag),
-      matchDeployTag: .init(yaml: yaml.matchDeployTag),
-      matchReleaseBranch: .init(yaml: yaml.matchReleaseBranch),
-      parseTagBuild: .make(yaml: yaml.parseTagBuild),
-      parseTagVersion: .make(yaml: yaml.parseTagVersion),
-      parseBranchVersion: .make(yaml: yaml.parseBranchVersion),
-      bumpReleaseVersion: .make(yaml: yaml.bumpReleaseVersion),
-      createTagName: .make(yaml: yaml.createTagName),
-      createTagAnnotation: .make(yaml: yaml.createTagAnnotation),
-      createReleaseBranchName: .make(yaml: yaml.createReleaseBranchName)
+      yaml: Yaml.Flow.Versions.Storage.Product
+    ) throws -> Self {
+      var result = Self(name: name, next: yaml.next.alphaNumeric)
+      result.stages = try yaml.stages
+        .get([:])
+        .map(result.makeStage(tag:yaml:))
+        .reduce(into: [:], { $0[$1.tag] = $1 })
+      result.releases = try yaml.releases
+        .get([:])
+        .map(result.makeRelease(version:yaml:))
+        .reduce(into: [:], { $0[$1.version] = $1 })
+      return result
+    }
+    public func makeStage(
+      tag: String,
+      yaml: Yaml.Flow.Versions.Storage.Stage
+    ) throws -> Stage { try .init(
+      product: name,
+      tag: .make(name: tag),
+      version: yaml.version.alphaNumeric,
+      build: yaml.build.alphaNumeric,
+      review: yaml.review,
+      target: .make(name: yaml.target),
+      branch: .make(name: yaml.branch)
     )}
-    public func deploy(build: AlphaNumeric, sha: String, tag: String) -> Build.Tag {
-      .init(build: build, sha: sha, tag: tag)
-    }
-  }
-  public enum Build {
-    case tag(Tag)
-    case branch(Branch)
-    case review(Review)
-    public var build: AlphaNumeric {
-      switch self {
-      case .tag(let tag): return tag.build
-      case .branch(let branch): return branch.build
-      case .review(let review): return review.build
-      }
-    }
-    public var review: String? {
-      guard case .review(let review) = self else { return nil }
-      return "\(review.review)"
-    }
-    public var target: String? {
-      guard case .review(let review) = self else { return nil }
-      return review.target
-    }
-    public var branch: String? {
-      guard case .branch(let branch) = self else { return nil }
-      return "\(branch.branch)"
-    }
-    public var tag: String? {
-      guard case .tag(let tag) = self else { return nil }
-      return "\(tag.tag)"
-    }
-    public var sha: String {
-      switch self {
-      case .tag(let tag): return tag.sha
-      case .branch(let branch): return branch.sha
-      case .review(let review): return review.sha
-      }
-    }
-    public static func make(build: String, yaml: Yaml.Flow.Build) throws -> Self {
-      switch (yaml.review, yaml.target, yaml.branch, yaml.tag) {
-      case (nil, nil, nil, let tag?): return .tag(.make(
-        build: build.alphaNumeric,
-        sha: yaml.sha,
-        tag: tag
-      ))
-      case (nil, nil, let branch?, nil): return .branch(.make(
-        build: build.alphaNumeric,
-        sha: yaml.sha,
-        branch: branch
-      ))
-      case (let review?, let target?, nil, nil): return .review(.make(
-        build: build.alphaNumeric,
-        sha: yaml.sha,
-        review: review,
-        target: target
-      ))
-      default: throw Thrown("Wrong build format")
-      }
-    }
-    public struct Review: Encodable {
-      public var build: AlphaNumeric
-      public var sha: String
-      public var review: UInt
-      public var target: String
-      public var yaml: [String] { [
-        "'\(build.value)':\n",
-        "  sha: '\(sha)'\n",
-        "  review: \(review)\n",
-        "  target: '\(target)'\n",
-      ]}
-      public static func make(
-        build: AlphaNumeric,
-        sha: String,
-        review: UInt,
-        target: String
-      ) -> Self { .init(
-        build: build,
-        sha: sha,
-        review: review,
-        target: target
-      )}
-    }
-    public struct Branch: Encodable {
-      public var build: AlphaNumeric
-      public var sha: String
-      public var branch: String
-      public var yaml: [String] { [
-        "'\(build.value)':\n",
-        "  sha: '\(sha)'\n",
-        "  branch: '\(branch)'\n",
-      ]}
-      public static func make(
-        build: AlphaNumeric,
-        sha: String,
-        branch: String
-      ) -> Self { .init(
-        build: build,
-        sha: sha,
-        branch: branch
-      )}
-    }
-    public struct Tag: Encodable {
-      public var build: AlphaNumeric
-      public var sha: String
-      public var tag: String
-      public var yaml: [String] { [
-        "'\(build.value)':\n",
-        "  sha: '\(sha)'\n",
-        "  tag: '\(tag)'\n"
-      ]}
-      public static func make(
-        build: AlphaNumeric,
-        sha: String,
-        tag: String
-      ) -> Self { .init(
-        build: build,
-        sha: sha,
-        tag: tag
-      )}
-    }
-  }
-  public struct Version {
-    public internal(set) var product: String
-    public internal(set) var next: AlphaNumeric
-    public internal(set) var deliveries: [AlphaNumeric: Delivery]
-    public var accessories: [String: AlphaNumeric]
-    public static func make(
-      product: String,
-      yaml: Yaml.Flow.Version
-    ) throws -> Self { try .init(
-      product: product,
-      next: yaml.next.alphaNumeric,
-      deliveries: yaml.deliveries.get([:])
-        .map(Delivery.make(version:yaml:))
-        .reduce(into: [:], { $0[$1.version] = $1 }),
-      accessories: yaml.accessories.get([:]).mapValues(\.alphaNumeric)
+    public func makeRelease(
+      version: String,
+      yaml: Yaml.Flow.Versions.Storage.Release
+    ) throws -> Release { try .init(
+      product: name,
+      start: .make(value: yaml.start),
+      branch: .make(name: yaml.branch),
+      version: version.alphaNumeric,
+      deploys: Set(yaml.deploys.get([]).map(Git.Tag.make(name:))),
+      previous: []
     )}
-    public mutating func revoke(version: String, sha: Git.Sha) throws {
-      let version = version.alphaNumeric
-      guard let delivery = deliveries[version] else { return }
-      guard deliveries.keys.max() == version, delivery.deploys == [sha]
-      else { throw Thrown("Unable to revoke \(product) \(version)") }
-      deliveries[version] = nil
-      next = version
-    }
-    public mutating func change(next bump: String) throws {
-      let bump = bump.alphaNumeric
-      guard deliveries[bump] == nil
-      else { throw Thrown("\(product) \(bump) already exists") }
-      if let max = deliveries.keys.max() {
-        guard bump > max else { throw Thrown("\(product) \(bump) is not the latest") }
-      }
-      next = bump
-    }
-    public func check(bump: String) throws {
-      let bump = bump.alphaNumeric
-      guard deliveries[next] == nil
-      else { throw Thrown("\(product) \(next) already exists") }
-      guard deliveries[bump] == nil
-      else { throw Thrown("\(product) \(bump) already exists") }
-      guard bump > next
-      else { throw Thrown("\(product) \(bump) is not after \(next)") }
-    }
-    public mutating func release(
-      bump: String,
-      start: Git.Sha
-//      ,thread: Configuration.Thread
-    ) -> Delivery {
-      let result = Delivery(
-        version: next,
-//        thread: thread,
-        deploys: [start],
-        previous: deliveries.keys
-          .sorted()
-          .prefix(while: { $0 < next })
-          .compactMap({ deliveries[$0]?.deploys })
-          .reduce(into: [], { $0.formUnion($1) })
-      )
-      deliveries[next] = result
-      next = .make(bump)
-      return result
-    }
-    public func check(hotfix: String, of previous: String) throws {
-      let previous = previous.alphaNumeric
-      let hotfix = hotfix.alphaNumeric
-      guard deliveries[previous] != nil
-      else { throw Thrown("No \(product) \(previous) ") }
-      guard deliveries[hotfix] == nil
-      else { throw Thrown("\(product) \(previous) already exists") }
-      guard !deliveries.values.contains(where: { $0.version > previous && $0.version < hotfix })
-      else { throw Thrown("\(product) \(hotfix) is not the latest hotfix") }
-    }
-    public mutating func hotfix(
-      version: String,
-      start: Git.Sha
-//      ,thread: Configuration.Thread
-    ) -> Delivery {
-      let version = version.alphaNumeric
-      let result = Delivery(
-        version: version,
-//        thread: thread,
-        deploys: [start],
-        previous: deliveries.keys
-          .sorted()
-          .prefix(while: { $0 < version })
-          .compactMap({ deliveries[$0]?.deploys })
-          .reduce(into: [], { $0.formUnion($1) })
-      )
-      deliveries[version] = result
-      return result
-    }
-    public mutating func deploy(
-      version: String,
-      sha: Git.Sha
-    ) throws -> Delivery {
-      let version = version.alphaNumeric
-      guard var result = deliveries[version] else { throw Thrown("No \(product) \(version)") }
-      result.previous = deliveries.keys
-        .sorted()
-        .prefix(while: { $0 < version })
-        .compactMap({ deliveries[$0]?.deploys })
-        .reduce(into: result.deploys, { $0.formUnion($1) })
-      result.deploys.insert(sha)
-      deliveries[version] = result
-      return result
-    }
-    public struct Delivery {
+    public struct Stage {
+      public var product: String
+      public var tag: Git.Tag
       public var version: AlphaNumeric
-//      public var thread: Configuration.Thread
-      public var deploys: Set<Git.Sha>
-      public var previous: Set<Git.Sha>
-      public static func make(
-        version: String,
-        yaml: Yaml.Flow.Version.Delivery
-      ) throws -> Self { try .init(
-        version: version.alphaNumeric,
-//        thread: .make(yaml: yaml.thread),
-        deploys: Set(yaml.deploys
-          .get([])
-          .map(Git.Sha.make(value:))
-        ),
-        previous: []
-      )}
+      public var build: AlphaNumeric
+      public var review: UInt?
+      public var target: Git.Branch?
+      public var branch: Git.Branch?
+    }
+    public struct Release {
+      public var product: String
+      public var start: Git.Sha
+      public var branch: Git.Branch
+      public var version: AlphaNumeric
+      public var deploys: Set<Git.Tag>
+      public var previous: Set<Git.Tag>
     }
   }
 }
