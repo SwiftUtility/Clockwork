@@ -4,15 +4,17 @@ extension Fusion.Approval {
   public struct Status {
     public var review: UInt
     public var target: String
-    public var skip: Set<Git.Sha>
-    public var teams: Set<String>
+    public var authors: Set<String>
+    public var blocked: Bool = false
+    public var skip: Set<Git.Sha> = []
+    public var teams: Set<String> = []
     public var emergent: Git.Sha?
     public var verified: Git.Sha?
-    public var blocked: Bool
-    public var authors: Set<String>
-    public var randoms: Set<String>
-    public var legates: Set<String>
-    public var approves: [String: Approve]
+    public var randoms: Set<String> = []
+    public var legates: Set<String> = []
+    public var replicate: Git.Branch?
+    public var integrate: Git.Branch?
+    public var approves: [String: Approve] = [:]
     mutating func invalidate(users: Set<String>) { approves
       .filter(\.value.resolution.approved)
       .keys
@@ -73,28 +75,22 @@ extension Fusion.Approval {
       guard authors.isDisjoint(with: approver.watchAuthors) else { return true }
       return false
     }
-    public mutating func makeApproves(infusion: Review.State.Infusion) {
-      guard case .merge(let merge) = infusion else { return }
-      guard merge.autoApproveFork else { return }
-      approves = authors
-        .subtracting(approves.keys)
-        .map({ .init(approver: $0, commit: merge.fork, resolution: .fragil) })
-        .reduce(into: approves, { $0[$1.approver] = $1 })
-    }
     public static func make(
       review: String,
       yaml: Yaml.Review.Approval.Status
     ) throws -> Self { try .init(
       review: review.getUInt(),
       target: yaml.target,
+      authors: Set(yaml.authors),
+      blocked: yaml.blocked.get(false),
       skip: Set(yaml.skip.get([]).map(Git.Sha.make(value:))),
       teams: Set(yaml.teams.get([])),
       emergent: yaml.emergent.map(Git.Sha.make(value:)),
       verified: yaml.verified.map(Git.Sha.make(value:)),
-      blocked: yaml.blocked.get(false),
-      authors: Set(yaml.authors),
       randoms: Set(yaml.randoms.get([])),
       legates: Set(yaml.legates.get([])),
+      replicate: yaml.replicate.map(Git.Branch.make(name:)),
+      integrate: yaml.integrate.map(Git.Branch.make(name:)),
       approves: yaml.approves.get([:])
         .map(Approve.make(approver:yaml:))
         .reduce(into: [:], { $0[$1.approver] = $1 })
@@ -120,6 +116,8 @@ extension Fusion.Approval {
         if legates.isEmpty.not { result += "  legates: [\(legates)]\n" }
         let randoms = status.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
         if randoms.isEmpty.not { result += "  randoms: [\(randoms)]\n" }
+        if let replicate = status.replicate { result += "  replicate: '\(replicate.name)'\n" }
+        if let integrate = status.integrate { result += "  integrate: '\(integrate.name)'\n" }
         let approves = status.approves.keys
           .sorted()
           .compactMap({ status.approves[$0] })
@@ -129,20 +127,27 @@ extension Fusion.Approval {
       return result.isEmpty.then("{}\n").get(result)
     }
     public static func make(
-      review: UInt,
-      target: String,
-      authors: Set<String>
+      review: Json.GitlabReviewState,
+      bot: Json.GitlabUser
     ) -> Self { .init(
-      review: review,
-      target: target,
-      skip: [],
-      teams: [],
-      emergent: nil,
-      blocked: false,
-      authors: authors,
-      randoms: [],
-      legates: [],
-      approves: [:]
+      review: review.iid,
+      target: review.targetBranch,
+      authors: Set([review.author.username]).filter({ $0 != bot.username })
+    )}
+    public static func make(
+      review: Json.GitlabReviewState,
+      bot: Json.GitlabUser,
+      authors: Set<String>,
+      merge: Review.State.Infusion.Merge
+    ) -> Self { .init(
+      review: review.iid,
+      target: review.targetBranch,
+      authors: authors.filter({ $0 != bot.username }),
+      replicate: merge.replicate.then(merge.original),
+      integrate: merge.integrate.then(merge.original),
+      approves: authors.reduce(into: [:], {
+        $0[$1] = .init(approver: $1, commit: merge.fork, resolution: .fragil)
+      })
     )}
     public enum Resolution: String {
       case block

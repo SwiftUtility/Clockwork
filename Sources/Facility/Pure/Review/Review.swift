@@ -40,7 +40,6 @@ public struct Review {
       blockers: blockers,
       status: status
     )
-    result.status.makeApproves(infusion: infusion)
     result.resolveUnknown()
     result.resolveUtility()
     return result

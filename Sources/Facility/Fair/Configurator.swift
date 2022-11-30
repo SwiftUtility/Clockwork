@@ -99,11 +99,11 @@ public final class Configurator {
       message: query.message
     ) else { return false }
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.cfg.gitlab.flatMap(\.protected).get().push,
+      url: query.cfg.gitlab.flatMap(\.rest).get().push,
       branch: query.asset.branch,
       sha: sha,
       force: false,
-      secret: query.cfg.gitlab.flatMap(\.protected).get().secret
+      secret: query.cfg.gitlab.flatMap(\.rest).get().secret
     )))
     try Execute.checkStatus(reply: execute(query.cfg.git.fetchBranch(query.asset.branch)))
     let fetched = try Execute.parseText(reply: execute(query.cfg.git.getSha(
@@ -132,7 +132,7 @@ extension Configurator {
     var gitlab = try Gitlab.make(env: gitlabEnv, job: gitlabJob, yaml: yaml)
     gitlab.users = try parseYamlFile(query: cfg.parseGitlabUsers(gitlab: gitlab))
     guard gitlabEnv.isProtected else { return gitlab }
-    gitlab.protected = Lossy
+    gitlab.rest = Lossy
       .make({ try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.token)) })
       .map({ token in try .make(
         token: token,

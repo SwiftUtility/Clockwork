@@ -51,6 +51,9 @@ extension Review {
         public var prefix: Prefix
         public var original: Git.Branch
         public var autoApproveFork: Bool
+        public var allowOrphaned: Bool
+        public var replicate: Bool { return prefix == .replicate }
+        public var integrate: Bool { return prefix == .integrate }
       }
       public struct Squash {
         public var target: Git.Branch

@@ -5,7 +5,7 @@ extension Fusion {
     public var kind: String
     public var source: Criteria
     public var title: Criteria?
-    public var jiraIssue: NSRegularExpression?
+    public var task: NSRegularExpression?
     public struct Merge {
       public let target: Git.Branch
       public let source: Git.Branch
@@ -15,7 +15,7 @@ extension Fusion {
       kind: kind,
       source: .init(yaml: yaml.source),
       title: yaml.title.map(Criteria.init(yaml:)),
-      jiraIssue: yaml.jiraIssue
+      task: yaml.task
         .map({ try NSRegularExpression(pattern: $0, options: [.anchorsMatchLines]) })
     )}
   }

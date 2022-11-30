@@ -189,13 +189,15 @@ public enum Yaml {
     public struct Proposition: Decodable {
       public var source: Criteria
       public var title: Criteria?
-      public var jiraIssue: String?
+      public var task: String?
     }
     public struct Replication: Decodable {
       public var autoApproveFork: Bool?
+      public var allowOrphaned: Bool?
     }
     public struct Integration: Decodable {
       public var autoApproveFork: Bool?
+      public var allowOrphaned: Bool?
     }
     public struct Approval: Decodable {
       public var rules: Secret
@@ -224,13 +226,15 @@ public enum Yaml {
       public struct Status: Decodable {
         public var target: String
         public var authors: [String]
+        public var blocked: Bool?
         public var skip: [String]?
         public var teams: [String]?
         public var emergent: String?
         public var verified: String?
-        public var blocked: Bool?
         public var randoms: [String]?
         public var legates: [String]?
+        public var replicate: String?
+        public var integrate: String?
         public var approves: [String: [String: String]]?
       }
     }

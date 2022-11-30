@@ -245,9 +245,9 @@ public extension Configuration {
     var jiraIssue: Set<String> = []
     if let review = review,
       review.iid == status.review,
-      let issue = infusion?.squash?.proposition.jiraIssue
+      let task = infusion?.squash?.proposition.task
     {
-      try? jiraIssue.formUnion(review.sourceBranch.find(matches: issue))
+      try? jiraIssue.formUnion(review.sourceBranch.find(matches: task))
     }
     return .init(
       jiraIssues: jiraIssue,

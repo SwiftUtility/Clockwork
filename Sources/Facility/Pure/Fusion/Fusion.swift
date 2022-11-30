@@ -16,16 +16,19 @@ public struct Fusion {
       .map(Proposition.make(kind:yaml:))
       .reduce(into: [:], { $0[$1.kind] = $1 }),
     replication: .init(
-      autoApproveFork: yaml.replication.autoApproveFork.get(false)
+      autoApproveFork: yaml.replication.autoApproveFork.get(false),
+      allowOrphaned: yaml.replication.allowOrphaned.get(false)
     ),
     integration: .init(
-      autoApproveFork: yaml.replication.autoApproveFork.get(false)
+      autoApproveFork: yaml.integration.autoApproveFork.get(false),
+      allowOrphaned: yaml.integration.allowOrphaned.get(false)
     ),
     queue: .make(yaml: yaml.queue),
     createCommitMessage: .make(yaml: yaml.createCommitMessage),
     exportMergeTargets: .make(yaml: yaml.exportMergeTargets)
   )}
   public func makeReviewState(
+    status: Approval.Status,
     review: Json.GitlabReviewState,
     project: Json.GitlabProject
   ) throws -> Review.State {
@@ -33,30 +36,42 @@ public struct Fusion {
     var infusions: [Infusion] = []
     let source = try Git.Branch.make(name: review.sourceBranch)
     let target = try Git.Branch.make(name: review.targetBranch)
-    let components = source.name.components(separatedBy: "/-/")
-    if let prefix = components.first.flatMap(Infusion.Prefix.init(rawValue:)) {
-      switch prefix {
-      case .replicate:
-        guard components.count == 3, let infusion = try? Infusion.merge(.init(
-          target: target,
-          source: source,
-          fork: .make(value: components[2]),
-          prefix: prefix,
-          original: .make(name: components[1]),
-          autoApproveFork: replication.autoApproveFork
-        )) else { return .confusion(.sourceFormat) }
-        infusions.append(infusion)
-      case .integrate:
-        guard components.count == 4, let infusion = try? Infusion.merge(.init(
-          target: target,
-          source: source,
-          fork: .make(value: components[3]),
-          prefix: prefix,
-          original: .make(name: components[2]),
-          autoApproveFork: replication.autoApproveFork
-        )) else { return .confusion(.sourceFormat) }
-        infusions.append(infusion)
-      }
+    if let replicate = status.replicate {
+      let components = source.name.components(separatedBy: "/")
+      guard
+        components.count == 2,
+        components[0] == Infusion.Prefix.replicate.rawValue,
+        let fork = try? Git.Sha.make(value: components[1])
+      else { return .confusion(.sourceFormat) }
+      infusions.append(.merge(.init(
+        target: target,
+        source: source,
+        fork: fork,
+        prefix: .replicate,
+        original: replicate,
+        autoApproveFork: replication.autoApproveFork,
+        allowOrphaned: replication.allowOrphaned
+      )))
+    }
+    if let integrate = status.integrate {
+      let components = source.name.components(separatedBy: "/")
+      guard
+        components.count > 2,
+        components[0] == Infusion.Prefix.integrate.rawValue,
+        let fork = try? Git.Sha.make(value: components[1]),
+        let target = try? Git.Branch.make(
+          name: source.name.dropPrefix("\(components[0])/\(fork.value)/")
+        )
+      else { return .confusion(.sourceFormat) }
+      infusions.append(.merge(.init(
+        target: target,
+        source: source,
+        fork: fork,
+        prefix: .integrate,
+        original: integrate,
+        autoApproveFork: integration.autoApproveFork,
+        allowOrphaned: integration.allowOrphaned
+      )))
     }
     for proposition in propositions.values {
       guard proposition.source.isMet(source.name) else { continue }
@@ -75,39 +90,32 @@ public struct Fusion {
     fork: Git.Sha,
     original: Git.Branch,
     target: Git.Branch
-  ) throws -> Review.State.Infusion.Merge {
-    let components = [
-      Review.State.Infusion.Prefix.integrate.rawValue,
-      target.name,
-      original.name,
-      fork.value,
-    ]
-    return try .init(
-      target: target,
-      source: .make(name: components.joined(separator: "/-/")),
-      fork: fork,
-      prefix: .integrate,
-      original: original,
-      autoApproveFork: integration.autoApproveFork
-    )
-  }
+  ) throws -> Review.State.Infusion.Merge { try .init(
+    target: target,
+    source: .make(
+      name: [Review.State.Infusion.Prefix.integrate.rawValue, fork.value, target.name]
+        .joined(separator: "/")
+    ),
+    fork: fork,
+    prefix: .integrate,
+    original: original,
+    autoApproveFork: integration.autoApproveFork,
+    allowOrphaned: integration.allowOrphaned
+  )}
   public func makeReplication(
     fork: Git.Sha,
     original: Git.Branch,
     project: Json.GitlabProject
-  ) throws -> Review.State.Infusion.Merge {
-    let components = [
-      Review.State.Infusion.Prefix.replicate.rawValue,
-      original.name,
-      fork.value,
-    ]
-    return try .init(
-      target: .make(name: project.defaultBranch),
-      source: .make(name: components.joined(separator: "/-/")),
-      fork: fork,
-      prefix: .replicate,
-      original: original,
-      autoApproveFork: replication.autoApproveFork
-    )
-  }
+  ) throws -> Review.State.Infusion.Merge { try .init(
+    target: .make(name: project.defaultBranch),
+    source: .make(
+      name: [Review.State.Infusion.Prefix.replicate.rawValue, fork.value]
+        .joined(separator: "/")
+    ),
+    fork: fork,
+    prefix: .replicate,
+    original: original,
+    autoApproveFork: replication.autoApproveFork,
+    allowOrphaned: replication.allowOrphaned
+  )}
 }

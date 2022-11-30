@@ -7,7 +7,7 @@ public struct Gitlab {
   public var trigger: Yaml.Gitlab.Trigger
   public var usersAsset: Configuration.Asset
   public var users: [String: User] = [:]
-  public var protected: Lossy<Protected> = .error(Thrown("Not protected ref pipeline"))
+  public var rest: Lossy<Protected> = .error(Thrown("Not protected ref pipeline"))
   public var project: Lossy<Json.GitlabProject> = .error(MayDay("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var review: Lossy<Json.GitlabReviewState> = .error(Thrown("Not review triggered pipeline"))
@@ -17,7 +17,7 @@ public struct Gitlab {
       .components(separatedBy: "/-/")
       .first,
     job: job,
-    bot: try? protected.map(\.user).get(),
+    bot: try? rest.map(\.user).get(),
     proj: try? project.get(),
     parent: try? parent.get(),
     review: try? review.get()
@@ -167,50 +167,50 @@ public extension Gitlab {
     id: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/jobs/\(id)",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func loadArtifact(
     job: UInt,
     file: String
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/jobs/\(job)/artifacts/\(file)",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   var getProject: Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func getPipeline(
     pipeline: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/pipelines/\(pipeline)",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func getMrState(
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/merge_requests/\(review)?include_rebase_in_progress=true",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func getMrAwarders(
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/merge_requests/\(review)/award_emoji",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func postMrPipelines(
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/merge_requests/\(review)/pipelines",
     method: "POST",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func postMrAward(
     review: UInt,
@@ -219,8 +219,8 @@ public extension Gitlab {
     url: "\(api)/merge_requests/\(review)/award_emoji",
     method: "POST",
     form: ["name=\(award)"],
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func putMrState(
     parameters: PutMrState,
@@ -229,8 +229,8 @@ public extension Gitlab {
     url: "\(api)/merge_requests/\(review)",
     method: "PUT",
     data: parameters.curl.get(),
-    headers: [protected.get().auth, Json.contentType],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth, Json.contentType],
+    secrets: [rest.get().secret]
   ))}
   func putMrMerge(
     parameters: PutMrMerge,
@@ -240,8 +240,8 @@ public extension Gitlab {
     method: "PUT",
     checkHttp: false,
     data: parameters.curl.get(),
-    headers: [protected.get().auth, Json.contentType],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth, Json.contentType],
+    secrets: [rest.get().secret]
   ))}
   func postTriggerPipeline(
     cfg: Configuration,
@@ -264,8 +264,8 @@ public extension Gitlab {
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/pipelines/\(pipeline)\(action.path)",
     method: action.method,
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func postMergeRequests(
     parameters: PostMergeRequests
@@ -273,15 +273,15 @@ public extension Gitlab {
     url: "\(api)/merge_requests",
     method: "POST",
     data: parameters.curl.get(),
-    headers: [protected.get().auth, Json.contentType],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth, Json.contentType],
+    secrets: [rest.get().secret]
   ))}
   func listShaMergeRequests(
     sha: Git.Sha
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/commits/\(sha.value)/merge_requests",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func getJobs(
     action: JobAction,
@@ -297,8 +297,8 @@ public extension Gitlab {
     ] + scopes.flatMapEmpty(action.scopes).map { "scope[]=\($0.rawValue)" }
     return .init(try .makeCurl(
       url: "\(api)/pipelines/\(pipeline)/jobs?\(query.joined(separator: "&"))",
-      headers: [protected.get().auth],
-      secrets: [protected.get().secret]
+      headers: [rest.get().auth],
+      secrets: [rest.get().secret]
     ))
   }
   func postJobsAction(
@@ -307,8 +307,8 @@ public extension Gitlab {
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/jobs/\(job)/\(action.rawValue)",
     method: "POST",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func postTags(
     name: String,
@@ -322,8 +322,8 @@ public extension Gitlab {
       "ref=\(ref)",
       "message=\(message)",
     ],
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func postBranches(
     name: String,
@@ -335,30 +335,30 @@ public extension Gitlab {
       "branch=\(name.urlEncoded.get())",
       "ref=\(ref)",
     ],
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func deleteBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/branches/\(name.urlEncoded.get())",
     method: "DELETE",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func deleteTag(name: String) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/tags/\(name.urlEncoded.get())",
     method: "DELETE",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func getBranches(page: Int, count: Int) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/branches?page=\(page)&per_page=\(count)",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   func getBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/branches/\(name.urlEncoded.get())",
-    headers: [protected.get().auth],
-    secrets: [protected.get().secret]
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
   ))}
   struct PutMrState: Encodable {
     public var targetBranch: String?

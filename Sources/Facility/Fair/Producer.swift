@@ -228,7 +228,7 @@ public final class Producer {
       build: builds?.next.value,
       deploy: true
     ))
-    let deploys = try versions.deploy(
+    release = try versions.deploy(
       product: release.product,
       version: release.version,
       tag: tag
