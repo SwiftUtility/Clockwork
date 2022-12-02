@@ -12,6 +12,7 @@ public enum Yaml {
     public var flow: String?
     public var requisites: String?
     public var review: String?
+    public var obsolescence: Criteria?
   }
   public struct Gitlab: Decodable {
     public var token: Secret
@@ -226,7 +227,7 @@ public enum Yaml {
       public struct Status: Decodable {
         public var target: String
         public var authors: [String]
-        public var blocked: Bool?
+        public var state: State = .normal
         public var skip: [String]?
         public var teams: [String]?
         public var emergent: String?
@@ -236,6 +237,11 @@ public enum Yaml {
         public var replicate: String?
         public var integrate: String?
         public var approves: [String: [String: String]]?
+        public enum State: String, Decodable {
+          case blocked
+          case stopped
+          case normal
+        }
       }
     }
   }

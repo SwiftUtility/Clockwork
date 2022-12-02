@@ -11,7 +11,7 @@ public struct Gitlab {
   public var project: Lossy<Json.GitlabProject> = .error(MayDay("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var review: Lossy<Json.GitlabReviewState> = .error(Thrown("Not review triggered pipeline"))
-  public var info: Info { .init(
+  public func info(review state: Json.GitlabReviewState?) -> Info { .init(
     mr: try? job.review.get(),
     url: job.webUrl
       .components(separatedBy: "/-/")
@@ -20,7 +20,7 @@ public struct Gitlab {
     bot: try? rest.map(\.user).get(),
     proj: try? project.get(),
     parent: try? parent.get(),
-    review: try? review.get()
+    review: state.flatMapNil(try? review.get())
   )}
   public static func make(
     env: Env,
@@ -128,7 +128,7 @@ public struct Gitlab {
     public let scheme: String
     public let token: String
     public let isProtected: Bool
-    public let parent: Lossy<Parent>
+    public let parent: Lossy<UInt>
     func push(user: String, pass: String) -> String {
       "\(scheme)://\(user):\(pass)@\(host):\(port)/\(path).git"
     }
@@ -154,10 +154,7 @@ public struct Gitlab {
         scheme: "CI_SERVER_PROTOCOL".get(env: env),
         token: "CI_JOB_TOKEN".get(env: env),
         isProtected: env["CI_COMMIT_REF_PROTECTED"] == "true",
-        parent: .init(try .init(
-          job: trigger.jobId.get(env: env).getUInt(),
-          profile: .init(value: trigger.profile.get(env: env))
-        ))
+        parent: .init(try trigger.jobId.get(env: env).getUInt())
       )
     }
   }

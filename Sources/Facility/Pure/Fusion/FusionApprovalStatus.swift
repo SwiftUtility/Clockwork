@@ -5,7 +5,7 @@ extension Fusion.Approval {
     public var review: UInt
     public var target: String
     public var authors: Set<String>
-    public var blocked: Bool = false
+    public var state: Yaml.Review.Approval.Status.State
     public var skip: Set<Git.Sha> = []
     public var teams: Set<String> = []
     public var emergent: Git.Sha?
@@ -15,6 +15,7 @@ extension Fusion.Approval {
     public var replicate: Git.Branch?
     public var integrate: Git.Branch?
     public var approves: [String: Approve] = [:]
+    public var merge: Bool { replicate != nil || integrate != nil }
     mutating func invalidate(users: Set<String>) { approves
       .filter(\.value.resolution.approved)
       .keys
@@ -82,7 +83,7 @@ extension Fusion.Approval {
       review: review.getUInt(),
       target: yaml.target,
       authors: Set(yaml.authors),
-      blocked: yaml.blocked.get(false),
+      state: yaml.state,
       skip: Set(yaml.skip.get([]).map(Git.Sha.make(value:))),
       teams: Set(yaml.teams.get([])),
       emergent: yaml.emergent.map(Git.Sha.make(value:)),
@@ -97,21 +98,21 @@ extension Fusion.Approval {
     )}
     public static func serialize(statuses: [UInt: Self]) -> String {
       var result = ""
-      for (review, status) in statuses.sorted(by: { $0.key < $1.key }) {
-        result += "'\(review)':\n"
+      for status in statuses.values.sorted(by: { $0.review < $1.review }) {
+        result += "'\(status.review)':\n"
         result += "  target: '\(status.target)'\n"
         let authors = status.authors
           .sorted()
           .map({ "'\($0)'" })
           .joined(separator: ",")
         result += "  authors: [\(authors)]\n"
+        result += "  state: \(status.state.rawValue)\n"
         let skip = status.skip.map(\.value).sorted().map({ "'\($0)'" }).joined(separator: ",")
         if skip.isEmpty.not { result += "  skip: [\(skip)]\n" }
         let teams = status.teams.sorted().map({ "'\($0)'" }).joined(separator: ",")
         if teams.isEmpty.not { result += "  teams: [\(teams)]\n" }
         if let verified = status.verified?.value { result += "  verified: '\(verified)'\n" }
         if let emergent = status.emergent?.value { result += "  emergent: '\(emergent)'\n" }
-        if status.blocked { result += "  blocked: true\n" }
         let legates = status.legates.sorted().map { "'\($0)'" }.joined(separator: ",")
         if legates.isEmpty.not { result += "  legates: [\(legates)]\n" }
         let randoms = status.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
@@ -132,7 +133,8 @@ extension Fusion.Approval {
     ) -> Self { .init(
       review: review.iid,
       target: review.targetBranch,
-      authors: Set([review.author.username]).filter({ $0 != bot.username })
+      authors: Set([review.author.username]).filter({ $0 != bot.username }),
+      state: .normal
     )}
     public static func make(
       review: Json.GitlabReviewState,
@@ -143,6 +145,7 @@ extension Fusion.Approval {
       review: review.iid,
       target: review.targetBranch,
       authors: authors.filter({ $0 != bot.username }),
+      state: .normal,
       replicate: merge.replicate.then(merge.original),
       integrate: merge.integrate.then(merge.original),
       approves: authors.reduce(into: [:], {

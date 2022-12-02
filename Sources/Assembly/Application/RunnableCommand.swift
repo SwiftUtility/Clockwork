@@ -298,6 +298,11 @@ extension Clockwork.Review.Dequeue: RunnableCommand {
     try Assembler.reviewer.dequeueReview(cfg: cfg)
   }
 }
+extension Clockwork.Review.Enqueue: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.enqueueReview(cfg: cfg)
+  }
+}
 extension Clockwork.Review.ExportIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.renderIntegration(cfg: cfg, args: args)
@@ -346,11 +351,6 @@ extension Clockwork.Review.StartIntegration: RunnableCommand {
 extension Clockwork.Review.Unown: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.unownReview(cfg: cfg)
-  }
-}
-extension Clockwork.Review.Update: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateReview(cfg: cfg)
   }
 }
 extension Clockwork.Validate.ConflictMarkers: RunnableCommand {

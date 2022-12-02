@@ -394,6 +394,7 @@ struct Clockwork: ParsableCommand {
         Approve.self,
         Clean.self,
         Dequeue.self,
+        Enqueue.self,
         ExportIntegration.self,
         Own.self,
         Patch.self,
@@ -403,7 +404,6 @@ struct Clockwork: ParsableCommand {
         Skip.self,
         StartReplication.self,
         StartIntegration.self,
-        Update.self,
         Unown.self,
       ]
     )
@@ -443,6 +443,10 @@ struct Clockwork: ParsableCommand {
     }
     struct Dequeue: ClockworkCommand {
       static var abstract: String { "Dequeue parent review" }
+      @OptionGroup var clockwork: Clockwork
+    }
+    struct Enqueue: ClockworkCommand {
+      static var abstract: String { "Update parent review state" }
       @OptionGroup var clockwork: Clockwork
     }
     struct ExportIntegration: ClockworkCommand {
@@ -501,10 +505,6 @@ struct Clockwork: ParsableCommand {
     }
     struct Unown: ClockworkCommand {
       static var abstract: String { "Remove user from authors" }
-      @OptionGroup var clockwork: Clockwork
-    }
-    struct Update: ClockworkCommand {
-      static var abstract: String { "Update parent review state" }
       @OptionGroup var clockwork: Clockwork
     }
   }

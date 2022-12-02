@@ -7,7 +7,7 @@ public struct Review {
   public let ownage: [String: Criteria]
   public let rules: Fusion.Approval.Rules
   public let haters: [String: Set<String>]
-  public let blockers: [Report.ReviewUpdated.Blocker]
+  public internal(set) var blockers: [Report.ReviewUpdated.Blocker]
   public internal(set) var status: Fusion.Approval.Status
   public internal(set) var unknownUsers: Set<String> = []
   public internal(set) var unknownTeams: Set<String> = []
@@ -86,7 +86,7 @@ public struct Review {
     if utilityTeams.subtracting(status.teams).isEmpty.not {
       status.verified = nil
     }
-    status.blocked = blockers.isEmpty.not
+    if blockers.isEmpty.not { status.state = .blocked }
   }
   public mutating func resolveOwnage(diff: [String]) {
     diffTeams = Set(ownage.filter({ diff.contains(where: $0.value.isMet(_:)) }).keys)
@@ -114,7 +114,7 @@ public struct Review {
       changedTeams[sha] = teams
     }
   }
-  public mutating func squashApproves(sha: Git.Sha) {
+  public mutating func squashCommits(sha: Git.Sha) {
     for user in status.approves.keys { status.approves[user]?.commit = sha }
     if status.emergent != nil { status.emergent = sha }
     if status.verified != nil { status.verified = sha }
@@ -206,7 +206,7 @@ public struct Review {
     ))
     var result = Approval()
     result.blockers = blockers
-    result.orphaned = status.authors.isDisjoint(with: yetActive)
+    result.orphaned = infusion.allowOrphaned || status.authors.isDisjoint(with: yetActive)
     result.unapprovable = legates
       .filter({ $0.quorum > 0 })
       .reduce(into: Set(), { $0.insert($1.name) })
@@ -232,11 +232,7 @@ public struct Review {
       .filter(\.resolution.outdated)
       .map({ [$0.commit.value: Set([$0.approver])] })
       .reduce(into: [:], { $0.merge($1, uniquingKeysWith: { $0.union($1) }) })
-    status.verified = (
-      result.unapprovable.isEmpty
-      && result.blockers.isEmpty
-      && result.orphaned.not
-    ).then(sha)
+    status.verified = (result.unapprovable.isEmpty && result.orphaned.not).then(sha)
     if result.blockers.isEmpty.not { result.state = .blocked }
     else if status.emergent != nil { result.state = .emergent }
     else if status.verified == nil { result.state = .unapprovable }
@@ -277,7 +273,7 @@ public struct Review {
     })
   }
   public func isApproved(state: Json.GitlabReviewState) -> Bool {
-    guard status.blocked.not else { return false }
+    guard status.state == .normal else { return false }
     guard status.target == state.targetBranch else { return false }
     guard status.emergent?.value != state.lastPipeline.sha else { return true }
     guard status.verified?.value == state.lastPipeline.sha else { return false }

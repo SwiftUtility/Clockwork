@@ -44,6 +44,10 @@ extension Review {
         guard case .squash(let squash) = self else { return nil }
         return squash
       }
+      public var allowOrphaned: Bool {
+        guard case .merge(let merge) = self else { return false }
+        return merge.allowOrphaned
+      }
       public struct Merge {
         public var target: Git.Branch
         public var source: Git.Branch

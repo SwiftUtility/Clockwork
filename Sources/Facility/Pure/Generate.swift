@@ -29,11 +29,12 @@ public struct Generate: Query {
     template: Configuration.Template,
     ctx: Context,
     subevent: [String]? = nil,
-    args: [String]? = nil
+    args: [String]? = nil,
+    review: Json.GitlabReviewState? = nil
   ) -> Self { .init(
     template: template,
     templates: cfg.templates,
-    info: Info.make(cfg: cfg, context: ctx, args: args)
+    info: Info.make(cfg: cfg, context: ctx, args: args, review: review)
   )}
   public typealias Reply = String
   public struct Info<Context: GenerateContext>: GenerateInfo {
@@ -51,12 +52,13 @@ public struct Generate: Query {
       cfg: Configuration,
       context: Context,
       args: [String]?,
-      subevent: [String]? = nil
+      subevent: [String]? = nil,
+      review: Json.GitlabReviewState?
     ) -> Self { .init(
       event: [Context.name] + subevent.get(context.subevent),
       ctx: context,
       env: cfg.env,
-      gitlab: try? cfg.gitlab.get().info,
+      gitlab: try? cfg.gitlab.get().info(review: review),
       jira: try? cfg.jira.get().info,
       args: args
     )}
@@ -75,7 +77,9 @@ public struct Generate: Query {
   public struct ExportMergeTargets: GenerateContext {
     public var fork: String
     public var source: String
-    public var targets: [String]
+    public var merge: [String]?
+    public var forward: [String]?
+    public var targets: [Fusion.Target]
   }
   public struct CreateReleaseBranchName: GenerateContext {
     public var product: String
@@ -273,11 +277,11 @@ public extension Configuration {
     ctx: Generate.CreateGitlabUsersCommitMessage(user: user, reason: command.reason)
   )}
   func createReviewQueueCommitMessage(
-    fusion: Fusion,
+    queue: Fusion.Queue,
     queued: Bool
   ) -> Generate { .make(
     cfg: self,
-    template: fusion.queue.createCommitMessage,
+    template: queue.asset.createCommitMessage,
     ctx: Generate.CreateReviewQueueCommitMessage(queued: queued)
   )}
   func createFusionStatusesCommitMessage(
@@ -288,6 +292,7 @@ public extension Configuration {
     template: fusion.approval.statuses.createCommitMessage,
     ctx: Generate.CreateFusionStatusesCommitMessage(reason: reason)
   )}
+  #warning("tbd add context")
   func createMergeCommitMessage(
     fusion: Fusion,
     infusion: Review.State.Infusion?
@@ -304,12 +309,18 @@ public extension Configuration {
     fusion: Fusion,
     fork: Git.Sha,
     source: String,
-    targets: [String],
+    targets: [Fusion.Target],
     args: [String]
   ) -> Generate { .make(
     cfg: self,
     template: fusion.exportMergeTargets,
-    ctx: Generate.ExportMergeTargets(fork: fork.value, source: source, targets: targets),
+    ctx: Generate.ExportMergeTargets(
+      fork: fork.value,
+      source: source,
+      merge: Fusion.Target.merges(targets: targets),
+      forward: Fusion.Target.forwards(targets: targets),
+      targets: Fusion.Target.sorted(targets: targets)
+    ),
     args: args.isEmpty.else(args)
   )}
 }

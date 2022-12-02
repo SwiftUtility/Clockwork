@@ -43,11 +43,14 @@ public extension Configuration {
       parse: { try $0.read([String: Yaml.Criteria].self, from: $1).mapValues(Criteria.init(yaml:)) }
     ))
   }
-  func parseProfile(file: Git.File) -> ParseYamlFile<Configuration.Profile> { .init(
-    git: git,
-    file: file,
-    parse: { try .make(location: file, yaml: $0.read(Yaml.Profile.self, from: $1)) }
-  )}
+  func parseProfile(
+    ref: Git.Ref
+  ) -> ParseYamlFile<Configuration.Profile> {
+    let profile = Git.File(ref: ref, path: profile.location.path)
+    return .init(git: git, file: profile, parse: {
+      try .make(location: profile, yaml: $0.read(Yaml.Profile.self, from: $1))
+    })
+  }
   func parseFlowBuilds(
     builds: Flow.Builds
   ) -> ParseYamlFile<Flow.Builds.Storage> { .init(
@@ -89,7 +92,7 @@ public extension Configuration {
   ) -> ParseYamlFile<Fusion.Queue> { .init(
     git: git,
     file: .make(asset: fusion.queue),
-    parse: { try .make(queue: $0.read([String: [UInt]].self, from: $1)) }
+    parse: { try .make(fusion: fusion, queue: $0.read([String: [UInt]].self, from: $1)) }
   )}
   func parseSlackStorage(
     slack: Slack

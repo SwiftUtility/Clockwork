@@ -2,6 +2,7 @@ import Foundation
 import Facility
 extension Fusion {
   public struct Queue {
+    public var asset: Configuration.Asset
     public internal(set) var queue: [String: [UInt]]
     public var yaml: String {
       guard queue.isEmpty.not else { return "{}\n" }
@@ -26,7 +27,18 @@ extension Fusion {
       if let target = target, queue[target] == nil { queue[target] = [review] }
       return result
     }
-    public func isFirst(review: UInt, target: String) -> Bool { queue[target]?.first == review }
-    public static func make(queue: [String: [UInt]]) -> Self { .init(queue: queue) }
+    public func isFirst(review: Json.GitlabReviewState) -> Bool {
+      queue[review.targetBranch]?.first == review.iid
+    }
+    public func isQueued(review: Json.GitlabReviewState) -> Bool {
+      queue[review.targetBranch].get([]).contains(review.iid)
+    }
+    public static func make(
+      fusion: Fusion,
+      queue: [String: [UInt]]
+    ) -> Self { .init(
+      asset: fusion.queue,
+      queue: queue
+    )}
   }
 }

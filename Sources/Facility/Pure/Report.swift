@@ -13,11 +13,12 @@ public struct Report: Query {
     threads: Threads,
     ctx: Context,
     subevent: [String]? = nil,
-    args: [String]? = nil
+    args: [String]? = nil,
+    review: Json.GitlabReviewState? = nil
   ) -> Self { .init(
     cfg: cfg,
     threads: threads,
-    info: Generate.Info.make(cfg: cfg, context: ctx, args: args, subevent: subevent)
+    info: Generate.Info.make(cfg: cfg, context: ctx, args: args, subevent: subevent, review: review)
   )}
   public func generate(template: Configuration.Template) -> Generate {
     .init(template: template, templates: cfg.templates, info: info)
@@ -156,6 +157,9 @@ public struct Report: Query {
     public var authors: [String]
     public var slackers: [String]
   }
+  public struct ReviewObsolete: ReportContext {
+    public var authors: [String]
+  }
   public struct ReviewCustom: ReportContext {
     public var authors: [String]
     public var stdin: AnyCodable?
@@ -258,11 +262,13 @@ public extension Configuration {
     )
   }
   func reportReviewCreated(
-    status: Fusion.Approval.Status
+    status: Fusion.Approval.Status,
+    review: Json.GitlabReviewState?
   ) -> Report { .make(
     cfg: self,
     threads: makeThread(status: status, infusion: nil),
-    ctx: Report.ReviewCreated(authors: status.authors.sorted())
+    ctx: Report.ReviewCreated(authors: status.authors.sorted()),
+    review: review
   )}
   func reportReviewMergeConflicts(
     status: Fusion.Approval.Status
@@ -272,21 +278,34 @@ public extension Configuration {
     ctx: Report.ReviewMergeConflicts(authors: status.authors.sorted())
   )}
   func reportReviewClosed(
-    status: Fusion.Approval.Status
+    status: Fusion.Approval.Status,
+    review: Json.GitlabReviewState?
   ) -> Report { .make(
     cfg: self,
     threads: makeThread(status: status, infusion: nil),
-    ctx: Report.ReviewClosed(authors: status.authors.sorted())
+    ctx: Report.ReviewClosed(authors: status.authors.sorted()),
+    review: review
   )}
   func reportReviewRemind(
     status: Fusion.Approval.Status,
-    slackers: Set<String>
+    slackers: Set<String>,
+    review: Json.GitlabReviewState?
   ) -> Report { .make(
     cfg: self,
     threads: makeThread(status: status, infusion: nil),
     ctx: Report.ReviewRemind(
       authors: status.authors.sorted(),
       slackers: slackers.sorted()
+    ),
+    review: review
+  )}
+  func reportReviewObsolete(
+    status: Fusion.Approval.Status
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(status: status, infusion: nil),
+    ctx: Report.ReviewObsolete(
+      authors: status.authors.sorted()
     )
   )}
   func reportReviewCustom(
