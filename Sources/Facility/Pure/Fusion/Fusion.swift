@@ -2,9 +2,10 @@ import Foundation
 import Facility
 public struct Fusion {
   public var approval: Approval
-  public var propositions: [String: Proposition]
   public var replication: Replication
   public var integration: Integration
+  public var propositions: [String: Proposition]
+  public var storage: Configuration.Asset
   public var queue: Configuration.Asset
   public var createCommitMessage: Configuration.Template
   public var exportMergeTargets: Configuration.Template
@@ -12,9 +13,6 @@ public struct Fusion {
     yaml: Yaml.Review
   ) throws -> Self { try .init(
     approval: .make(yaml: yaml.approval),
-    propositions: yaml.propositions
-      .map(Proposition.make(kind:yaml:))
-      .reduce(into: [:], { $0[$1.kind] = $1 }),
     replication: .init(
       autoApproveFork: yaml.replication.autoApproveFork.get(false),
       allowOrphaned: yaml.replication.allowOrphaned.get(false)
@@ -23,6 +21,10 @@ public struct Fusion {
       autoApproveFork: yaml.integration.autoApproveFork.get(false),
       allowOrphaned: yaml.integration.allowOrphaned.get(false)
     ),
+    propositions: yaml.propositions
+      .map(Proposition.make(kind:yaml:))
+      .reduce(into: [:], { $0[$1.kind] = $1 }),
+    storage: .make(yaml: yaml.storage),
     queue: .make(yaml: yaml.queue),
     createCommitMessage: .make(yaml: yaml.createCommitMessage),
     exportMergeTargets: .make(yaml: yaml.exportMergeTargets)

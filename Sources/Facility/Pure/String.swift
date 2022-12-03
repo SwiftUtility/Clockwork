@@ -7,7 +7,7 @@ public extension String {
   func getUInt() throws -> UInt {
     try UInt(self).get { throw Thrown("Not UInt: \(self)") }
   }
-  func find(matches regexp: NSRegularExpression) throws -> [String] {
+  func find(matches regexp: NSRegularExpression) -> [String] {
     var result: [String] = []
     for match in regexp.matches(
       in: self,

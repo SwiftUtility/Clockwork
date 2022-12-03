@@ -11,6 +11,10 @@ public struct Gitlab {
   public var project: Lossy<Json.GitlabProject> = .error(MayDay("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var review: Lossy<Json.GitlabReviewState> = .error(Thrown("Not review triggered pipeline"))
+  public var activeUsers: Set<String> { users.values
+    .filter(\.active)
+    .reduce(into: [], { $0.insert($1.login) })
+  }
   public func info(review state: Json.GitlabReviewState?) -> Info { .init(
     mr: try? job.review.get(),
     url: job.webUrl

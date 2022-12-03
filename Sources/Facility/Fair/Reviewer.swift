@@ -382,6 +382,10 @@ public final class Reviewer {
       logMessage(.pipelineOutdated)
       return false
     }
+    guard try checkObsolete(cfg: cfg, review: merge) else {
+      report(cfg.reportReviewObsolete(review: merge))
+      return false
+    }
     var statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
     guard let status = try resolveStatus(cfg: cfg, fusion: fusion, statuses: &statuses)
     else { return false }
@@ -389,10 +393,6 @@ public final class Reviewer {
     guard try !parseReviewQueue(cfg.parseReviewQueue(fusion: fusion)).isQueued(review: merge) else {
       #warning("report")
       logMessage(.init(message: "Review is in queue"))
-      return false
-    }
-    guard try checkObsolete(cfg: cfg, review: merge) else {
-      report(cfg.reportReviewObsolete(status: status))
       return false
     }
 
@@ -408,21 +408,14 @@ public final class Reviewer {
       logMessage(.pipelineOutdated)
       return false
     }
+    guard try checkObsolete(cfg: cfg, review: merge) else {
+      report(cfg.reportReviewObsolete(review: merge))
+      return false
+    }
     var statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
     var queue = try parseReviewQueue(cfg.parseReviewQueue(fusion: fusion))
     guard let status = try resolveStatus(cfg: cfg, fusion: fusion, statuses: &statuses) else {
       try changeQueue(queue: &queue, cfg: cfg, enqueue: false)
-      return false
-    }
-    guard try checkObsolete(cfg: cfg, review: merge) else {
-      guard status.merge || queue.isQueued(review: merge) else {
-        report(cfg.reportReviewObsolete(status: status))
-        return false
-      }
-      if try syncReview(cfg: cfg, fusion: fusion).not {
-        report(cfg.reportReviewMergeConflicts(status: status))
-        try changeQueue(queue: &queue, cfg: cfg, enqueue: false)
-      }
       return false
     }
     guard var review = try resolveReview(cfg: cfg, fusion: fusion, status: status) else {

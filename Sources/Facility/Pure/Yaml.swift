@@ -180,6 +180,7 @@ public enum Yaml {
     }
   }
   public struct Review: Decodable {
+    public var storage: Asset
     public var queue: Asset
     public var approval: Approval
     public var replication: Replication
@@ -187,6 +188,40 @@ public enum Yaml {
     public var propositions: [String: Proposition]
     public var createCommitMessage: Template
     public var exportMergeTargets: Template
+    public struct Storage: Decodable {
+      public var queues: [String: [UInt]]
+      public var states: [String: State]
+      public struct State: Decodable {
+        public var target: String
+        public var authors: [String]
+        public var status: Status?
+        public var skip: [String]?
+        public var teams: [String]?
+        public var emergent: String?
+        public var verified: String?
+        public var randoms: [String]?
+        public var legates: [String]?
+        public var replicate: String?
+        public var integrate: String?
+        public var reviewers: [String: Reviewer]?
+      }
+      public struct Reviewer: Decodable {
+        public var comments: Int?
+        public var commit: String?
+        public var resolution: Resolution?
+      }
+      public enum Resolution: String, Decodable {
+        case fragil
+        case advance
+        case obsolete
+      }
+      public enum Status: String, Decodable {
+        case queued
+        case wanted
+        case blocked
+        case stopped
+      }
+    }
     public struct Proposition: Decodable {
       public var source: Criteria
       public var title: Criteria?

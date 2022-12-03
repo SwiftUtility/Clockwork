@@ -28,19 +28,16 @@ public struct Report: Query {
     public var jiraIssues: Set<String>
     public var gitlabTags: Set<String>
     public var gitlabUsers: Set<String>
-    public var gitlabReviews: Set<UInt>
     public var gitlabBranches: Set<String>
     public static func make(
       jiraIssues: Set<String> = [],
       gitlabTags: Set<String> = [],
       gitlabUsers: Set<String> = [],
-      gitlabReviews: Set<UInt> = [],
       gitlabBranches: Set<String> = []
     ) -> Self { .init(
       jiraIssues: jiraIssues,
       gitlabTags: gitlabTags,
       gitlabUsers: gitlabUsers,
-      gitlabReviews: gitlabReviews,
       gitlabBranches: gitlabBranches
     )}
 //    public static func make(
@@ -58,7 +55,6 @@ public struct Report: Query {
       jiraIssues: [],
       gitlabTags: [stage.tag.name],
       gitlabUsers: [],
-      gitlabReviews: Set(stage.review.array),
       gitlabBranches: Set(stage.branch.array.map(\.name))
     )}
   }
@@ -158,7 +154,6 @@ public struct Report: Query {
     public var slackers: [String]
   }
   public struct ReviewObsolete: ReportContext {
-    public var authors: [String]
   }
   public struct ReviewCustom: ReportContext {
     public var authors: [String]
@@ -234,39 +229,29 @@ public struct Report: Query {
 }
 public extension Configuration {
   func makeThread(
-    status: Fusion.Approval.Status,
+    review: Json.GitlabReviewState?,
+    status: Fusion.Approval.Status?,
     infusion: Review.State.Infusion?
   ) -> Report.Threads {
+    var result = Report.Threads.make()
     let gitlab = try? gitlab.get()
-    let users = status.authors.intersection(gitlab
-      .map(\.users)
-      .get([:])
-      .values
-      .filter(\.active)
-      .map(\.login)
-    )
-    let review = try? gitlab?.review.get()
-    var jiraIssue: Set<String> = []
-    if let review = review,
-      review.iid == status.review,
-      let task = infusion?.squash?.proposition.task
-    {
-      try? jiraIssue.formUnion(review.sourceBranch.find(matches: task))
+    let review = review.flatMapNil(try? gitlab?.review.get())
+    result.gitlabBranches.formUnion(review.map(\.targetBranch).array)
+    result.gitlabUsers = status
+      .map(\.authors)
+      .get(Set(review.map(\.author.username).array))
+      .intersection(gitlab.map(\.activeUsers).get([]))
+    if let infusion = infusion, let task = infusion.squash?.proposition.task {
+      result.jiraIssues.formUnion(infusion.source.name.find(matches: task))
     }
-    return .init(
-      jiraIssues: jiraIssue,
-      gitlabTags: [],
-      gitlabUsers: users,
-      gitlabReviews: [status.review],
-      gitlabBranches: Set(review.map(\.targetBranch).array)
-    )
+    return result
   }
   func reportReviewCreated(
     status: Fusion.Approval.Status,
     review: Json.GitlabReviewState?
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: status, infusion: nil),
+    threads: makeThread(review: review, status: status, infusion: nil),
     ctx: Report.ReviewCreated(authors: status.authors.sorted()),
     review: review
   )}
@@ -274,7 +259,7 @@ public extension Configuration {
     status: Fusion.Approval.Status
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: status, infusion: nil),
+    threads: makeThread(review: nil, status: status, infusion: nil),
     ctx: Report.ReviewMergeConflicts(authors: status.authors.sorted())
   )}
   func reportReviewClosed(
@@ -282,7 +267,7 @@ public extension Configuration {
     review: Json.GitlabReviewState?
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: status, infusion: nil),
+    threads: makeThread(review: review, status: status, infusion: nil),
     ctx: Report.ReviewClosed(authors: status.authors.sorted()),
     review: review
   )}
@@ -292,7 +277,7 @@ public extension Configuration {
     review: Json.GitlabReviewState?
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: status, infusion: nil),
+    threads: makeThread(review: review, status: status, infusion: nil),
     ctx: Report.ReviewRemind(
       authors: status.authors.sorted(),
       slackers: slackers.sorted()
@@ -300,13 +285,11 @@ public extension Configuration {
     review: review
   )}
   func reportReviewObsolete(
-    status: Fusion.Approval.Status
+    review: Json.GitlabReviewState
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: status, infusion: nil),
-    ctx: Report.ReviewObsolete(
-      authors: status.authors.sorted()
-    )
+    threads: makeThread(review: review, status: nil, infusion: nil),
+    ctx: Report.ReviewObsolete()
   )}
   func reportReviewCustom(
     status: Fusion.Approval.Status,
@@ -314,7 +297,7 @@ public extension Configuration {
     stdin: AnyCodable?
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: status, infusion: nil),
+    threads: makeThread(review: nil, status: status, infusion: nil),
     ctx: Report.ReviewCustom(
       authors: status.authors.sorted(),
       stdin: stdin
@@ -329,7 +312,7 @@ public extension Configuration {
     unknownTeams: Set<String> = []
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: status, infusion: infusion),
+    threads: makeThread(review: nil, status: status, infusion: infusion),
     ctx: Report.ReviewStopped(
       authors: status.authors.sorted(),
       reasons: reasons,
@@ -342,7 +325,7 @@ public extension Configuration {
     update: Review.Approval
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: review.status, infusion: review.infusion),
+    threads: makeThread(review: nil, status: review.status, infusion: review.infusion),
     ctx: Report.ReviewUpdated(
       authors: review.status.authors.sorted(),
       teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
@@ -361,7 +344,7 @@ public extension Configuration {
     review: Review
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: review.status, infusion: review.infusion),
+    threads: makeThread(review: nil, status: review.status, infusion: review.infusion),
     ctx: Report.ReviewMerged(
       authors: review.status.authors.sorted(),
       teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
@@ -377,7 +360,7 @@ public extension Configuration {
     error: String
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(status: review.status, infusion: review.infusion),
+    threads: makeThread(review: nil, status: review.status, infusion: review.infusion),
     ctx: Report.ReviewMergeError(
       authors: review.status.authors.sorted(),
       error: error
