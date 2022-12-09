@@ -1,6 +1,6 @@
 import Foundation
 import Facility
-extension Fusion {
+extension Review {
   public struct Target: Encodable {
     public var name: String
     public var kind: Kind
@@ -31,7 +31,7 @@ extension Fusion {
   }
 }
 extension Git.Branch {
-  public func makeTarget(forward: Bool) -> Fusion.Target { .init(
+  public func makeTarget(forward: Bool) -> Review.Target { .init(
     name: name,
     kind: forward.then(.forward).get(.merge)
   )}

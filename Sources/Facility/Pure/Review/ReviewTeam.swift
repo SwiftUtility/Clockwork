@@ -1,6 +1,6 @@
 import Foundation
 import Facility
-extension Fusion.Approval.Rules {
+extension Review {
   public struct Team {
     public var name: String
     public var quorum: Int
@@ -13,7 +13,7 @@ extension Fusion.Approval.Rules {
     public var approvers: Set<String> { reserve.union(optional).union(required) }
     public static func make(
       name: String,
-      yaml: Yaml.Review.Approval.Rules.Team
+      yaml: Yaml.Review.Rules.Team
     ) -> Self { .init(
       name: name,
       quorum: yaml.quorum,

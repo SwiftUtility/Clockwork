@@ -7,7 +7,6 @@ public final class Reporter {
   let readStdin: Try.Do<Data?>
   let generate: Try.Reply<Generate>
   let parseSlackStorage: Try.Reply<ParseYamlFile<Slack.Storage>>
-  let parseFusion: Try.Reply<ParseYamlFile<Fusion>>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
@@ -16,7 +15,6 @@ public final class Reporter {
     readStdin: @escaping Try.Do<Data?>,
     generate: @escaping Try.Reply<Generate>,
     parseSlackStorage: @escaping Try.Reply<ParseYamlFile<Slack.Storage>>,
-    parseFusion: @escaping Try.Reply<ParseYamlFile<Fusion>>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
@@ -25,7 +23,6 @@ public final class Reporter {
     self.readStdin = readStdin
     self.generate = generate
     self.parseSlackStorage = parseSlackStorage
-    self.parseFusion = parseFusion
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }

@@ -8,9 +8,9 @@ public struct ParseYamlFile<T>: Query {
   public typealias Reply = T
 }
 public extension Configuration {
-  var parseFusion: Lossy<ParseYamlFile<Fusion>> { .init(try .init(
+  var parseReview: Lossy<ParseYamlFile<Review>> { .init(try .init(
     git: git,
-    file: profile.fusion.get(),
+    file: profile.review.get(),
     parse: { try .make(yaml: $0.read(Yaml.Review.self, from: $1)) }
   ))}
   var parseFlow: Lossy<ParseYamlFile<Flow>> { .init(try .init(
@@ -65,17 +65,6 @@ public extension Configuration {
     file: .make(asset: flow.versions.storage),
     parse: { try .make(yaml: $0.read(Yaml.Flow.Versions.Storage.self, from: $1)) }
   )}
-  func parseFusionStatuses(
-    approval: Fusion.Approval
-  ) -> ParseYamlFile<[UInt: Fusion.Approval.Status]> { .init(
-    git: git,
-    file: .make(asset: approval.statuses),
-    parse: { dialect, yaml in try dialect
-      .read([String: Yaml.Review.Approval.Status].self, from: yaml)
-      .map(Fusion.Approval.Status.make(review:yaml:))
-      .reduce(into: [:], { $0[$1.review] = $1 })
-    }
-  )}
   func parseGitlabUsers(
     gitlab: Gitlab
   ) -> ParseYamlFile<[String: Gitlab.User]> { .init(
@@ -87,12 +76,12 @@ public extension Configuration {
       .reduce(into: [:], { $0[$1.login] = $1 })
     }
   )}
-  func parseReviewQueue(
-    fusion: Fusion
-  ) -> ParseYamlFile<Fusion.Queue> { .init(
+  func parseReviewStorage(
+    review: Review
+  ) -> ParseYamlFile<Review.Storage> { .init(
     git: git,
-    file: .make(asset: fusion.queue),
-    parse: { try .make(fusion: fusion, queue: $0.read([String: [UInt]].self, from: $1)) }
+    file: .make(asset: review.storage),
+    parse: { try .make(review: review, yaml: $0.read(Yaml.Review.Storage.self, from: $1)) }
   )}
   func parseSlackStorage(
     slack: Slack

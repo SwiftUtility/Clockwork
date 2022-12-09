@@ -25,7 +25,7 @@ public struct Configuration {
     public var jira: Git.File?
     public var templates: Git.Dir?
     public var codeOwnage: Git.File?
-    public var fusion: Lossy<Git.File>
+    public var review: Lossy<Git.File>
     public var fileTaboos: Lossy<Git.File>
     public var cocoapods: Lossy<Git.File>
     public var production: Lossy<Git.File>
@@ -52,7 +52,7 @@ public struct Configuration {
       codeOwnage: yaml.codeOwnage
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:)),
-      fusion: yaml.review
+      review: yaml.review
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))

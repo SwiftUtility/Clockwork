@@ -11,6 +11,17 @@ public enum Json {
     public var tag: Bool
     public var user: GitlabUser
   }
+  public struct GitlabDiscussion: Codable {
+    public var id: String
+    public var individualNote: Bool
+    public var notes: [GitlabNote]
+  }
+  public struct GitlabNote: Codable {
+    public var id: UInt
+    public var author: GitlabUser
+    public var resolved: Bool?
+    public var resolvable: Bool
+  }
   public struct GitlabJob: Codable {
     public var id: UInt
     public var name: String
@@ -96,6 +107,7 @@ public enum Json {
   }
   public struct GitlabProject: Codable {
     public var defaultBranch: String
+    public var sshUrlToRepo: String // git@example.com:diaspora/diaspora-project-site.git
     public var httpUrlToRepo: String // http://example.com/diaspora/diaspora-project-site.git
     public var webUrl: String // http://example.com/diaspora/diaspora-project-site
   }

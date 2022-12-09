@@ -180,21 +180,43 @@ public enum Yaml {
     }
   }
   public struct Review: Decodable {
+    public var rules: Secret
     public var storage: Asset
-    public var queue: Asset
-    public var approval: Approval
+    public var exportTargets: Template
+    public var createMessage: Template
     public var replication: Replication
+    public var duplication: Duplication
     public var integration: Integration
+    public var propogation: Propogation
     public var propositions: [String: Proposition]
-    public var createCommitMessage: Template
-    public var exportMergeTargets: Template
+    public struct Rules: Decodable {
+      public var hold: String
+      public var baseWeight: Int
+      public var sanity: String?
+      public var weights: [String: Int]?
+      public var teams: [String: Team]?
+      public var randoms: [String: Set<String>]?
+      public var authorship: [String: Set<String>]?
+      public var ignore: [String: Set<String>]?
+      public var sourceBranch: [String: Criteria]?
+      public var targetBranch: [String: Criteria]?
+      public struct Team: Decodable {
+        public var quorum: Int
+        public var advance: Bool?
+        public var labels: [String]?
+        public var random: [String]?
+        public var reserve: [String]?
+        public var optional: [String]?
+        public var required: [String]?
+      }
+    }
     public struct Storage: Decodable {
       public var queues: [String: [UInt]]
       public var states: [String: State]
       public struct State: Decodable {
         public var target: String
         public var authors: [String]
-        public var status: Status?
+        public var phase: Phase?
         public var skip: [String]?
         public var teams: [String]?
         public var emergent: String?
@@ -206,20 +228,20 @@ public enum Yaml {
         public var reviewers: [String: Reviewer]?
       }
       public struct Reviewer: Decodable {
-        public var comments: Int?
-        public var commit: String?
-        public var resolution: Resolution?
+        public var commit: String
+        public var resolution: Resolution
       }
       public enum Resolution: String, Decodable {
         case fragil
         case advance
         case obsolete
       }
-      public enum Status: String, Decodable {
-        case queued
-        case wanted
-        case blocked
-        case stopped
+      public enum Phase: String, Decodable {
+        case block
+        case stuck
+        case amend
+        case queue
+        case check
       }
     }
     public struct Proposition: Decodable {
@@ -231,53 +253,17 @@ public enum Yaml {
       public var autoApproveFork: Bool?
       public var allowOrphaned: Bool?
     }
+    public struct Duplication: Decodable {
+      public var autoApproveFork: Bool?
+      public var allowOrphaned: Bool?
+    }
     public struct Integration: Decodable {
       public var autoApproveFork: Bool?
       public var allowOrphaned: Bool?
     }
-    public struct Approval: Decodable {
-      public var rules: Secret
-      public var statuses: Asset
-      public var approvers: Asset
-      public var haters: Secret?
-      public struct Rules: Decodable {
-        public var sanity: String?
-        public var weights: [String: Int]?
-        public var baseWeight: Int
-        public var teams: [String: Team]?
-        public var randoms: [String: [String]]?
-        public var authorship: [String: [String]]?
-        public var sourceBranch: [String: Criteria]?
-        public var targetBranch: [String: Criteria]?
-        public struct Team: Decodable {
-          public var quorum: Int
-          public var advance: Bool?
-          public var labels: [String]?
-          public var random: [String]?
-          public var reserve: [String]?
-          public var optional: [String]?
-          public var required: [String]?
-        }
-      }
-      public struct Status: Decodable {
-        public var target: String
-        public var authors: [String]
-        public var state: State = .normal
-        public var skip: [String]?
-        public var teams: [String]?
-        public var emergent: String?
-        public var verified: String?
-        public var randoms: [String]?
-        public var legates: [String]?
-        public var replicate: String?
-        public var integrate: String?
-        public var approves: [String: [String: String]]?
-        public enum State: String, Decodable {
-          case blocked
-          case stopped
-          case normal
-        }
-      }
+    public struct Propogation: Decodable {
+      public var autoApproveFork: Bool?
+      public var allowOrphaned: Bool?
     }
   }
   public struct Asset: Decodable {

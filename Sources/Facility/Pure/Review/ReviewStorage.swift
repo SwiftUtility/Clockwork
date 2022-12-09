@@ -6,10 +6,10 @@ extension Review {
     public var queues: [String: [UInt]]
     public var states: [UInt: State]
     public static func make(
-      fusion: Fusion,
+      review: Review,
       yaml: Yaml.Review.Storage
     ) throws -> Self { try .init(
-      asset: fusion.storage,
+      asset: review.storage,
       queues: yaml.queues,
       states: yaml.states
         .map(State.make(review:yaml:))
@@ -19,7 +19,7 @@ extension Review {
       public var review: UInt
       public var target: Git.Branch
       public var authors: Set<String>
-      public var status: Yaml.Review.Storage.Status? = nil
+      public var phase: Phase? = nil
       public var skip: Set<Git.Sha> = []
       public var teams: Set<String> = []
       public var emergent: Git.Sha? = nil
@@ -28,7 +28,25 @@ extension Review {
       public var legates: Set<String> = []
       public var replicate: Git.Branch? = nil
       public var integrate: Git.Branch? = nil
+      public var duplicate: Git.Branch? = nil
       public var reviewers: [String: Reviewer] = [:]
+      public var squash: Bool { replicate == nil && integrate == nil }
+      mutating func block() {
+        phase = .block
+        emergent = nil
+        verified = nil
+      }
+      mutating func update(target branch: Git.Branch, rules: Rules) {
+        guard branch != target else { return }
+        target = branch
+        emergent = nil
+        verified = nil
+        reviewers = rules.targetBranch
+          .filter({ $0.value.isMet(branch.name) })
+          .compactMap({ rules.teams[$0.key]?.approvers })
+          .reduce(into: Set(), { $0.formUnion($1) })
+          .reduce(into: reviewers, { $0[$1]?.resolution = .obsolete })
+      }
       public static func make(
         review: String,
         yaml: Yaml.Review.Storage.State
@@ -36,7 +54,7 @@ extension Review {
         review: review.getUInt(),
         target: .make(name: yaml.target),
         authors: Set(yaml.authors),
-        status: yaml.status,
+        phase: yaml.phase.map(Phase.make(yaml:)),
         skip: Set(yaml.skip.get([]).map(Git.Sha.make(value:))),
         teams: Set(yaml.teams.get([])),
         emergent: yaml.emergent.map(Git.Sha.make(value:)),
@@ -52,18 +70,46 @@ extension Review {
     }
     public struct Reviewer {
       public var login: String
-      public var comments: Int
-      public var commit: Git.Sha?
-      public var resolution: Yaml.Review.Storage.Resolution?
+      public var hold: Bool = false
+      public var comments: Int = 0
+      public var commit: Git.Sha
+      public var resolution: Resolution
       public static func make(
         login: String,
         yaml: Yaml.Review.Storage.Reviewer
       ) throws -> Self { try .init(
         login: login,
-        comments: yaml.comments.get(0),
-        commit: yaml.commit.map(Git.Sha.make(value:)),
-        resolution: yaml.resolution
+        commit: .make(value: yaml.commit),
+        resolution: .make(yaml: yaml.resolution)
       )}
+    }
+    public enum Resolution: String, Encodable {
+      case fragil
+      case advance
+      case obsolete
+      public static func make(yaml: Yaml.Review.Storage.Resolution) -> Self {
+        switch yaml {
+        case .fragil: return .fragil
+        case .advance: return .advance
+        case .obsolete: return .obsolete
+        }
+      }
+    }
+    public enum Phase: String, Encodable {
+      case block
+      case stuck
+      case amend
+      case queue
+      case check
+      public static func make(yaml: Yaml.Review.Storage.Phase) -> Self {
+        switch yaml {
+        case .block: return .block
+        case .stuck: return .stuck
+        case .amend: return .amend
+        case .queue: return .queue
+        case .check: return .check
+        }
+      }
     }
   }
 }

@@ -79,7 +79,7 @@ public struct Generate: Query {
     public var source: String
     public var merge: [String]?
     public var forward: [String]?
-    public var targets: [Fusion.Target]
+    public var targets: [Review.Target]
   }
   public struct CreateReleaseBranchName: GenerateContext {
     public var product: String
@@ -141,22 +141,21 @@ public struct Generate: Query {
       case watchTeams
     }
   }
-  public struct CreateReviewQueueCommitMessage: GenerateContext {
-    public var queued: Bool
-  }
-  public struct CreateFusionStatusesCommitMessage: GenerateContext {
+  public struct CreateReviewStorageCommitMessage: GenerateContext {
     public var reason: Reason
     public enum Reason: String, Encodable {
       case create
       case merge
       case close
-      case update
-      case clean
+//      case update
+//      case clean
       case cheat
       case approve
       case own
-      case skipCommit
+      case patch
       case unown
+      case dequeue
+      case enqueue
     }
   }
   public struct CreateMergeCommitMessage: GenerateContext {
@@ -276,50 +275,42 @@ public extension Configuration {
     template: gitlab.usersAsset.createCommitMessage,
     ctx: Generate.CreateGitlabUsersCommitMessage(user: user, reason: command.reason)
   )}
-  func createReviewQueueCommitMessage(
-    queue: Fusion.Queue,
-    queued: Bool
+  func createReviewStorageCommitMessage(
+    storage: Review.Storage,
+    reason: Generate.CreateReviewStorageCommitMessage.Reason
   ) -> Generate { .make(
     cfg: self,
-    template: queue.asset.createCommitMessage,
-    ctx: Generate.CreateReviewQueueCommitMessage(queued: queued)
-  )}
-  func createFusionStatusesCommitMessage(
-    fusion: Fusion,
-    reason: Generate.CreateFusionStatusesCommitMessage.Reason
-  ) -> Generate { .make(
-    cfg: self,
-    template: fusion.approval.statuses.createCommitMessage,
-    ctx: Generate.CreateFusionStatusesCommitMessage(reason: reason)
+    template: storage.asset.createCommitMessage,
+    ctx: Generate.CreateReviewStorageCommitMessage(reason: reason)
   )}
   #warning("tbd add context")
   func createMergeCommitMessage(
-    fusion: Fusion,
-    infusion: Review.State.Infusion?
+    review: Review,
+    fusion: Review.Fusion?
   ) -> Generate { .make(
     cfg: self,
-    template: fusion.createCommitMessage,
+    template: review.createMessage,
     ctx: Generate.CreateMergeCommitMessage(
-      kind: infusion?.prefix,
-      fork: infusion?.merge?.fork.value,
-      original: infusion?.merge?.original.name
+      kind: fusion?.kind,
+      fork: fusion?.fork?.value,
+      original: fusion?.original?.name
     )
   )}
-  func exportMergeTargets(
-    fusion: Fusion,
+  func exportTargets(
+    review: Review,
     fork: Git.Sha,
     source: String,
-    targets: [Fusion.Target],
+    targets: [Review.Target],
     args: [String]
   ) -> Generate { .make(
     cfg: self,
-    template: fusion.exportMergeTargets,
+    template: review.exportTargets,
     ctx: Generate.ExportMergeTargets(
       fork: fork.value,
       source: source,
-      merge: Fusion.Target.merges(targets: targets),
-      forward: Fusion.Target.forwards(targets: targets),
-      targets: Fusion.Target.sorted(targets: targets)
+      merge: Review.Target.merges(targets: targets),
+      forward: Review.Target.forwards(targets: targets),
+      targets: Review.Target.sorted(targets: targets)
     ),
     args: args.isEmpty.else(args)
   )}
