@@ -34,12 +34,13 @@ public final class Mediator {
     job: UInt,
     path: String
   ) throws -> Bool {
-    try cfg.gitlab
+    guard let data = try? cfg.gitlab
       .flatMap({ $0.loadArtifact(job: job, file: path) })
       .map(execute)
       .map(Execute.parseData(reply:))
-      .map(stdoutData)
       .get()
+    else { return false }
+    stdoutData(data)
     return true
   }
   public func triggerReview(

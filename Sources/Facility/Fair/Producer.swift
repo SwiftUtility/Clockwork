@@ -41,11 +41,12 @@ public final class Producer {
     self.writeStdout = writeStdout
     self.jsonDecoder = jsonDecoder
   }
-//  public func reportCustom(
-//    cfg: Configuration,
-//    event: String,
-//    stdin: Configuration.ReadStdin
-//  ) throws -> Bool {
+  public func signal(
+    cfg: Configuration,
+    event: String,
+    stdin: Configuration.ReadStdin,
+    args: [String]
+  ) throws -> Bool {
 //    let stdin = try readStdin(stdin)
 //    let gitlab = try cfg.gitlab.get()
 //    let flow = try cfg.parseFlow.map(parseFlow).get()
@@ -82,7 +83,9 @@ public final class Producer {
 //      stdin: stdin
 //    ))
 //    return true
-//  }
+    #warning("tbd")
+    return false
+  }
   public func changeVersion(
     cfg: Configuration,
     product: String,

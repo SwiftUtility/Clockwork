@@ -45,7 +45,7 @@ public final class Reporter {
     case .json: return try readStdin().reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
     }
   }
-  public func reportCustom(
+  public func signal(
     cfg: Configuration,
     event: String,
     stdin: Configuration.ReadStdin,

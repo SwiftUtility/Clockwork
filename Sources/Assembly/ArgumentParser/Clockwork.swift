@@ -8,7 +8,6 @@ struct Clockwork: ParsableCommand {
       Cocoapods.self,
       Flow.self,
       Gitlab.self,
-      Report.self,
       Requisites.self,
       Review.self,
       Validate.self,
@@ -34,6 +33,26 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
     }
   }
+  struct CommonSignal: ParsableCommand {
+    @Flag(help: "Should read stdin and pass as a context for generation")
+    var stdin: Stdin = .ignore
+    @Option(help: "Event name to send report for")
+    var event: String
+    @Argument(help: "Context to make available during rendering")
+    var args: [String] = []
+    enum Stdin: EnumerableFlag {
+      case ignore
+      case lines
+      case json
+      static func help(for value: Self) -> ArgumentHelp? {
+        switch value {
+        case .ignore: return "Do not read stdin"
+        case .lines: return "Interpret stdin as lines array"
+        case .json: return "Interpret stdin as json"
+        }
+      }
+    }
+  }
   struct Flow: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of flow management commands",
@@ -51,6 +70,7 @@ struct Clockwork: ParsableCommand {
         ExportVersions.self,
         ForwardBranch.self,
         ReserveBuild.self,
+        Signal.self,
       ]
     )
     struct ChangeVersion: ClockworkCommand {
@@ -123,6 +143,11 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Reserve build number for current protected branch pipeline" }
       @OptionGroup var clockwork: Clockwork
     }
+    struct Signal: ClockworkCommand {
+      static var abstract: String { "Send custom preconfigured report in flow context" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var common: CommonSignal
+    }
   }
   struct Gitlab: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -132,6 +157,7 @@ struct Clockwork: ParsableCommand {
         Artifacts.self,
         Jobs.self,
         Pipeline.self,
+        Signal.self,
         TriggerPipeline.self,
         TriggerReviewPipeline.self,
         User.self,
@@ -228,6 +254,11 @@ struct Clockwork: ParsableCommand {
         @OptionGroup var pipeline: Pipeline
       }
     }
+    struct Signal: ClockworkCommand {
+      static var abstract: String { "Send custom preconfigured report" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var common: CommonSignal
+    }
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Trigger pipeline configured and custom context" }
       @OptionGroup var clockwork: Clockwork
@@ -305,44 +336,6 @@ struct Clockwork: ParsableCommand {
       }
     }
   }
-  struct Report: ParsableCommand {
-    static let configuration = CommandConfiguration(
-      abstract: "Subset preconfigured report sending commands",
-      version: Clockwork.version,
-      subcommands: [
-        Custom.self,
-        ReviewThread.self,
-      ]
-    )
-    @Flag(help: "Should read stdin and pass as a context for generation")
-    var stdin: Stdin = .ignore
-    @Option(help: "Event name to send report for")
-    var event: String
-    @Argument(help: "Context to make available during rendering")
-    var args: [String] = []
-    struct Custom: ClockworkCommand {
-      static var abstract: String { "Send custom preconfigured report" }
-      @OptionGroup var clockwork: Clockwork
-      @OptionGroup var report: Report
-    }
-    struct ReviewThread: ClockworkCommand {
-      static var abstract: String { "Send preconfigured review related report" }
-      @OptionGroup var clockwork: Clockwork
-      @OptionGroup var report: Report
-    }
-    enum Stdin: EnumerableFlag {
-      case ignore
-      case lines
-      case json
-      static func help(for value: Self) -> ArgumentHelp? {
-        switch value {
-        case .ignore: return "Do not read stdin"
-        case .lines: return "Interpret stdin as lines array"
-        case .json: return "Interpret stdin as json"
-        }
-      }
-    }
-  }
   struct Requisites: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of requisites management commands",
@@ -401,6 +394,7 @@ struct Clockwork: ParsableCommand {
         ReserveBuild.self,
         RemoveLabels.self,
         TriggerPipeline.self,
+        Signal.self,
         Skip.self,
         StartReplication.self,
         StartIntegration.self,
@@ -470,6 +464,11 @@ struct Clockwork: ParsableCommand {
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Create new pipeline for parent review" }
       @OptionGroup var clockwork: Clockwork
+    }
+    struct Signal: ClockworkCommand {
+      static var abstract: String { "Send custom preconfigured report in review context" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var common: CommonSignal
     }
     struct Skip: ClockworkCommand {
       static var abstract: String { "Mark review as emergent" }

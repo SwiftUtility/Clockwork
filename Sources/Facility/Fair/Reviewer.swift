@@ -44,10 +44,11 @@ public final class Reviewer {
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
-  public func reportCustom(
+  public func signal(
     cfg: Configuration,
     event: String,
-    stdin: Configuration.ReadStdin
+    stdin: Configuration.ReadStdin,
+    args: [String]
   ) throws -> Bool {
 //    let stdin = try readStdin(stdin)
 //    let fusion = try cfg.parseFusion.map(parseFusion).get()
