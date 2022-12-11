@@ -2,7 +2,7 @@ import Foundation
 import Facility
 extension Review {
   public struct Update {
-    let merge: Json.GitlabReviewState
+    let merge: Json.GitlabMergeState
     var state: Storage.State
     var fusion: Fusion?
     var problems: [Problem] = []
@@ -143,7 +143,7 @@ extension Review {
       return [fusion]
     }
     public static func make(
-      merge: Json.GitlabReviewState,
+      merge: Json.GitlabMergeState,
       review: Review,
       storage: Storage
     ) throws -> Self? {
@@ -183,7 +183,7 @@ extension Review {
       return result
     }
     public static func make(
-      merge: Json.GitlabReviewState,
+      merge: Json.GitlabMergeState,
       fusion: Fusion,
       authors: Set<String>
     ) -> Self {

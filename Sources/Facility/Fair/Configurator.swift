@@ -153,9 +153,9 @@ extension Configurator {
         .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
     }
     if let review = try? gitlab.parent.flatMap(\.review).get() {
-      gitlab.review = gitlab.getMrState(review: review)
+      gitlab.merge = gitlab.getMrState(review: review)
         .map(execute)
-        .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
+        .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
     }
     return gitlab
   }

@@ -14,11 +14,11 @@ public struct Report: Query {
     ctx: Context,
     subevent: [String]? = nil,
     args: [String]? = nil,
-    review: Json.GitlabReviewState? = nil
+    merge: Json.GitlabMergeState? = nil
   ) -> Self { .init(
     cfg: cfg,
     threads: threads,
-    info: Generate.Info.make(cfg: cfg, context: ctx, args: args, subevent: subevent, review: review)
+    info: Generate.Info.make(cfg: cfg, context: ctx, args: args, subevent: subevent, merge: merge)
   )}
   public func generate(template: Configuration.Template) -> Generate {
     .init(template: template, templates: cfg.templates, info: info)

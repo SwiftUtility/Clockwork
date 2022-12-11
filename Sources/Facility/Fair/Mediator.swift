@@ -158,12 +158,12 @@ public final class Mediator {
   public func createReviewPipeline(cfg: Configuration) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
     let parent = try gitlab.parent.get()
-    let review = try gitlab.review.get()
-    guard parent.pipeline.id == review.lastPipeline.id else {
+    let merge = try gitlab.merge.get()
+    guard parent.pipeline.id == merge.lastPipeline.id else {
       logMessage(.pipelineOutdated)
       return false
     }
-    try gitlab.postMrPipelines(review: review.iid)
+    try gitlab.postMrPipelines(review: merge.iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -175,20 +175,20 @@ public final class Mediator {
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
     let parent = try gitlab.parent.get()
-    let review = try gitlab.review.get()
-    guard parent.pipeline.id == review.lastPipeline.id else {
+    let merge = try gitlab.merge.get()
+    guard parent.pipeline.id == merge.lastPipeline.id else {
       logMessage(.pipelineOutdated)
       return false
     }
     let labels = Set(labels)
-      .subtracting(review.labels)
+      .subtracting(merge.labels)
       .joined(separator: ",")
     guard !labels.isEmpty else {
       logMessage(.init(message: "No new labels"))
       return false
     }
     try gitlab
-      .putMrState(parameters: .init(addLabels: labels), review: review.iid)
+      .putMrState(parameters: .init(addLabels: labels), review: merge.iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -201,20 +201,20 @@ public final class Mediator {
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
     let parent = try gitlab.parent.get()
-    let review = try gitlab.review.get()
-    guard parent.pipeline.id == review.lastPipeline.id else {
+    let merge = try gitlab.merge.get()
+    guard parent.pipeline.id == merge.lastPipeline.id else {
       logMessage(.pipelineOutdated)
       return false
     }
     let labels = Set(labels)
-      .intersection(review.labels)
+      .intersection(merge.labels)
       .joined(separator: ",")
     guard !labels.isEmpty else {
       logMessage(.init(message: "Labels not present"))
       return false
     }
     try gitlab
-      .putMrState(parameters: .init(removeLabels: labels), review: review.iid)
+      .putMrState(parameters: .init(removeLabels: labels), review: merge.iid)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()

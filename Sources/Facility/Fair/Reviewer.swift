@@ -64,7 +64,7 @@ public final class Reviewer {
     #warning("tbd")
     return false
   }
-  public func cleanReviews(cfg: Configuration, remind: Bool) throws -> Bool {
+  public func updateReviews(cfg: Configuration, remind: Bool) throws -> Bool {
 //    let fusion = try cfg.parseFusion.map(parseFusion).get()
 //    var statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
 //    let gitlab = try cfg.gitlab.get()
@@ -332,6 +332,15 @@ public final class Reviewer {
     #warning("tbd")
     return false
   }
+  public func startDuplication(
+    cfg: Configuration,
+    source: String,
+    target: String,
+    fork: String
+  ) throws -> Bool {
+    #warning("tbd")
+    return false
+  }
   public func startIntegration(
     cfg: Configuration,
     source: String,
@@ -354,7 +363,16 @@ public final class Reviewer {
     #warning("tbd")
     return false
   }
-  public func renderIntegration(cfg: Configuration, args: [String]) throws -> Bool {
+  public func startPropogation(
+    cfg: Configuration,
+    source: String,
+    target: String,
+    fork: String
+  ) throws -> Bool {
+    #warning("tbd")
+    return false
+  }
+  public func renderTargets(cfg: Configuration, args: [String]) throws -> Bool {
 //    let gitlab = try cfg.gitlab.get()
 //    let parent = try gitlab.parent.get()
 //    let fusion = try cfg.parseFusion.map(parseFusion).get()
@@ -389,7 +407,15 @@ public final class Reviewer {
     #warning("tbd")
     return false
   }
-  public func rebaseReview(cfg: Configuration, squash: Bool) throws -> Bool {
+  public func remindReview(cfg: Configuration) throws -> Bool {
+    #warning("tbd")
+    return false
+  }
+  public func listReview(cfg: Configuration, batch: Bool) throws -> Bool {
+    #warning("tbd")
+    return false
+  }
+  public func rebaseReview(cfg: Configuration) throws -> Bool {
 //    let fusion = try cfg.parseFusion.map(parseFusion).get()
 //    let gitlab = try cfg.gitlab.get()
 //    let parent = try gitlab.parent.get()
@@ -539,22 +565,28 @@ public final class Reviewer {
   }
 }
 extension Reviewer {
-//  func checkObsolete(
-//    cfg: Configuration,
-//    review: Json.GitlabReviewState
-//  ) throws -> Bool {
-//    let target = try Git.Ref.make(remote: .make(name: review.targetBranch))
-//    let source = try Git.Ref.make(sha: .make(value: review.lastPipeline.sha))
-//    guard let obsolescence = try? parseProfile(cfg.parseProfile(ref: target)).obsolescence
-//    else { return false }
-//    return try Id
-//      .make(cfg.git.listChangedOutsideFiles(source: source, target: target))
-//      .map(execute)
-//      .map(Execute.parseLines(reply:))
-//      .get()
-//      .filter(obsolescence.isMet(_:))
-//      .isEmpty
-//  }
+  func checkActual(
+    cfg: Configuration,
+    merge: Json.GitlabMergeState
+  ) throws -> Bool {
+    let gitlab = try cfg.gitlab.get()
+    let parent = try gitlab.parent.get()
+    guard parent.pipeline.id == merge.lastPipeline.id else {
+      logMessage(.pipelineOutdated)
+      return false
+    }
+    let target = try Git.Ref.make(remote: .make(name: merge.targetBranch))
+    let source = try Git.Ref.make(sha: .make(value: merge.lastPipeline.sha))
+    guard let obsolescence = try? parseProfile(cfg.parseProfile(ref: target)).obsolescence
+    else { return false }
+    return try Id
+      .make(cfg.git.listChangedOutsideFiles(source: source, target: target))
+      .map(execute)
+      .map(Execute.parseLines(reply:))
+      .get()
+      .filter(obsolescence.isMet(_:))
+      .isEmpty
+  }
 //  func resolveStatus(
 //    cfg: Configuration,
 //    fusion: Fusion,

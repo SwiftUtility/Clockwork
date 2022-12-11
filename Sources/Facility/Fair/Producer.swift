@@ -276,46 +276,38 @@ public final class Producer {
     ))
     return true
   }
-  public func reserveReviewBuild(cfg: Configuration) throws -> Bool {
-    let flow = try cfg.parseFlow.map(parseFlow).get()
+  public func reserveBuild(cfg: Configuration, review: Bool) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    let parent = try gitlab.parent.get()
-    let review = try gitlab.review.get()
+    let flow = try cfg.parseFlow.map(parseFlow).get()
     guard let flowBuilds = flow.builds else { throw Thrown("Builds not configured") }
     var builds = try parseFlowBuilds(cfg.parseFlowBuilds(builds: flowBuilds))
-    if let build = builds.recent.first(where: parent.matches(build:)) {
-      guard build.target?.name != review.targetBranch else {
+    let build: Flow.Build
+    if review {
+      let parent = try gitlab.parent.get()
+      let merge = try gitlab.merge.get()
+      if let build = builds.recent.first(where: parent.matches(build:)) {
+        guard build.target?.name != merge.targetBranch else {
+          logMessage(.init(message: "Build already exists"))
+          return true
+        }
+      }
+      build = try builds.reserve(merge: merge, job: parent, bump: generate(cfg.bumpBuildNumber(
+        builds: flowBuilds,
+        build: builds.next.value
+      )))
+    } else {
+      let branch = try Git.Branch.make(job: gitlab.job)
+      let flow = try cfg.parseFlow.map(parseFlow).get()
+      guard builds.recent.contains(where: gitlab.job.matches(build:)).not else {
         logMessage(.init(message: "Build already exists"))
         return true
       }
+      build = try builds.reserve(
+        branch: branch,
+        sha: .make(job: gitlab.job),
+        bump: generate(cfg.bumpBuildNumber(builds: flowBuilds, build: builds.next.value))
+      )
     }
-    let build = try builds.reserve(review: review, job: parent, bump: generate(cfg.bumpBuildNumber(
-      builds: flowBuilds,
-      build: builds.next.value
-    )))
-    _ = try persistAsset(.init(
-      cfg: cfg,
-      asset: flowBuilds.storage,
-      content: builds.serialized(builds: flowBuilds),
-      message: generate(cfg.createFlowBuildsCommitMessage(builds: flowBuilds, build: build))
-    ))
-    return true
-  }
-  public func reserveBranchBuild(cfg: Configuration) throws -> Bool {
-    let gitlab = try cfg.gitlab.get()
-    let branch = try Git.Branch.make(job: gitlab.job)
-    let flow = try cfg.parseFlow.map(parseFlow).get()
-    guard let flowBuilds = flow.builds else { throw Thrown("Builds not configured") }
-    var builds = try parseFlowBuilds(cfg.parseFlowBuilds(builds: flowBuilds))
-    guard builds.recent.contains(where: gitlab.job.matches(build:)).not else {
-      logMessage(.init(message: "Build already exists"))
-      return true
-    }
-    let build = try builds.reserve(
-      branch: branch,
-      sha: .make(job: gitlab.job),
-      bump: generate(cfg.bumpBuildNumber(builds: flowBuilds, build: builds.next.value))
-    )
     _ = try persistAsset(.init(
       cfg: cfg,
       asset: flowBuilds.storage,

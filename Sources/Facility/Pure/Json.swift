@@ -63,7 +63,7 @@ public enum Json {
     public var projectId: UInt
     public var author: GitlabUser
   }
-  public struct GitlabReviewState: Codable {
+  public struct GitlabMergeState: Codable {
     public var title: String
     public var state: String
     public var targetBranch: String

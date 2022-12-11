@@ -49,7 +49,7 @@ public struct Flow {
         build: .init(number: next, commit: sha, tag: tag)
       )}
       public mutating func reserve(
-        review: Json.GitlabReviewState,
+        merge: Json.GitlabMergeState,
         job: Json.GitlabJob,
         bump: String
       ) throws -> Build { try reserve(
@@ -57,8 +57,8 @@ public struct Flow {
         build: .init(
           number: next,
           commit: .make(job: job),
-          review: review.iid,
-          target: .make(name: review.targetBranch)
+          review: merge.iid,
+          target: .make(name: merge.targetBranch)
         )
       )}
       public mutating func reserve(

@@ -14,7 +14,7 @@ enum Assembler {
     writeStdout: writeStdout,
     readStdin: readStdin,
     generate: stencilParser.generate(query:),
-    parseSlackStorage: configurator.parseYamlFile(query:),
+//    parseSlackStorage: configurator.parseYamlFile(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )

@@ -30,11 +30,11 @@ public struct Generate: Query {
     ctx: Context,
     subevent: [String]? = nil,
     args: [String]? = nil,
-    review: Json.GitlabReviewState? = nil
+    merge: Json.GitlabMergeState? = nil
   ) -> Self { .init(
     template: template,
     templates: cfg.templates,
-    info: Info.make(cfg: cfg, context: ctx, args: args, review: review)
+    info: Info.make(cfg: cfg, context: ctx, args: args, merge: merge)
   )}
   public typealias Reply = String
   public struct Info<Context: GenerateContext>: GenerateInfo {
@@ -53,12 +53,12 @@ public struct Generate: Query {
       context: Context,
       args: [String]?,
       subevent: [String]? = nil,
-      review: Json.GitlabReviewState?
+      merge: Json.GitlabMergeState?
     ) -> Self { .init(
       event: [Context.name] + subevent.get(context.subevent),
       ctx: context,
       env: cfg.env,
-      gitlab: try? cfg.gitlab.get().info(review: review),
+      gitlab: try? cfg.gitlab.get().info(merge: merge),
       jira: try? cfg.jira.get().info,
       args: args
     )}

@@ -142,6 +142,8 @@ struct Clockwork: ParsableCommand {
     struct ReserveBuild: ClockworkCommand {
       static var abstract: String { "Reserve build number for current protected branch pipeline" }
       @OptionGroup var clockwork: Clockwork
+      @Flag(help: "Is build for merge request")
+      var review: Bool = false
     }
     struct Signal: ClockworkCommand {
       static var abstract: String { "Send custom preconfigured report in flow context" }
@@ -385,20 +387,25 @@ struct Clockwork: ParsableCommand {
         Accept.self,
         AddLabels.self,
         Approve.self,
-        Clean.self,
+        Close.self,
         Dequeue.self,
         Enqueue.self,
-        ExportIntegration.self,
+        ExportTargets.self,
+        List.self,
         Own.self,
         Patch.self,
-        ReserveBuild.self,
+        Rebase.self,
+        Remind.self,
         RemoveLabels.self,
         TriggerPipeline.self,
         Signal.self,
         Skip.self,
-        StartReplication.self,
+        StartDuplication.self,
         StartIntegration.self,
+        StartPropogation.self,
+        StartReplication.self,
         Unown.self,
+        Update.self,
       ]
     )
     struct Accept: ClockworkCommand {
@@ -417,11 +424,9 @@ struct Clockwork: ParsableCommand {
       @Flag(help: "Should approve persist regardless of further commits")
       var advance: Bool = false
     }
-    struct Clean: ClockworkCommand {
-      static var abstract: String { "Clean outdated reviews" }
+    struct Close: ClockworkCommand {
+      static var abstract: String { "Close parent review" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Should ping slackers")
-      var remind: Bool = false
     }
     struct Dequeue: ClockworkCommand {
       static var abstract: String { "Dequeue parent review" }
@@ -431,11 +436,17 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Update parent review state" }
       @OptionGroup var clockwork: Clockwork
     }
-    struct ExportIntegration: ClockworkCommand {
+    struct ExportTargets: ClockworkCommand {
       static var abstract: String { "Render integration suitable branches to stdout" }
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Context to make available during rendering")
       var args: [String] = []
+    }
+    struct List: ClockworkCommand {
+      static var abstract: String { "List all reviews to be approved" }
+      @OptionGroup var clockwork: Clockwork
+      @Flag(help: "Should list for every user")
+      var batch: Bool = false
     }
     struct Own: ClockworkCommand {
       static var abstract: String { "Add user to authors" }
@@ -451,8 +462,12 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Path to the patch artifact")
       var patch: String
     }
-    struct ReserveBuild: ClockworkCommand {
-      static var abstract: String { "Reserve build number for parent review pipeline" }
+    struct Rebase: ClockworkCommand {
+      static var abstract: String { "Rebase parent review" }
+      @OptionGroup var clockwork: Clockwork
+    }
+    struct Remind: ClockworkCommand {
+      static var abstract: String { "Ask approvers to pay attention" }
       @OptionGroup var clockwork: Clockwork
     }
     struct RemoveLabels: ClockworkCommand {
@@ -476,9 +491,15 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Review iid to skip approval for")
       var iid: UInt
     }
-    struct StartReplication: ClockworkCommand {
-      static var abstract: String { "Create replication review" }
+    struct StartDuplication: ClockworkCommand {
+      static var abstract: String { "Create duplication review" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Duplicated commit sha")
+      var fork: String
+      @Option(help: "Duplication target branch name")
+      var target: String
+      @Option(help: "Duplication source branch name")
+      var source: String
     }
     struct StartIntegration: ClockworkCommand {
       static var abstract: String { "Create integration review" }
@@ -490,9 +511,29 @@ struct Clockwork: ParsableCommand {
       @Option(help: "Integration source branch name")
       var source: String
     }
+    struct StartPropogation: ClockworkCommand {
+      static var abstract: String { "Create propogation review" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "Propogated commit sha")
+      var fork: String
+      @Option(help: "Propogation target branch name")
+      var target: String
+      @Option(help: "Propogation source branch name")
+      var source: String
+    }
+    struct StartReplication: ClockworkCommand {
+      static var abstract: String { "Create replication review" }
+      @OptionGroup var clockwork: Clockwork
+    }
     struct Unown: ClockworkCommand {
       static var abstract: String { "Remove user from authors" }
       @OptionGroup var clockwork: Clockwork
+    }
+    struct Update: ClockworkCommand {
+      static var abstract: String { "Clean outdated reviews" }
+      @OptionGroup var clockwork: Clockwork
+      @Flag(help: "Should ping slackers")
+      var remind: Bool = false
     }
   }
   struct Validate: ParsableCommand {
