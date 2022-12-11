@@ -420,20 +420,8 @@ struct Clockwork: ParsableCommand {
     struct Approve: ClockworkCommand {
       static var abstract: String { "Approve parent review" }
       @OptionGroup var clockwork: Clockwork
-      enum Resolution: EnumerableFlag {
-        case block
-        case fragil
-        case advance
-        static func help(for value: Self) -> ArgumentHelp? {
-          switch value {
-          case .block: return "Block review"
-          case .fragil: return "Approve current commit only"
-          case .advance: return "Approve review in advance"
-          }
-        }
-      }
-      @Flag(help: "Resolution for approval")
-      var resolution: Resolution
+      @Flag(help: "Should approve persist regardless of further commits")
+      var advance: Bool = false
     }
     struct Clean: ClockworkCommand {
       static var abstract: String { "Clean outdated reviews" }

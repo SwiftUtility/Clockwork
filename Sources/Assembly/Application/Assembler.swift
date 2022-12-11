@@ -15,7 +15,6 @@ enum Assembler {
     readStdin: readStdin,
     generate: stencilParser.generate(query:),
     parseSlackStorage: configurator.parseYamlFile(query:),
-    parseFusion: configurator.parseYamlFile(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -54,13 +53,11 @@ enum Assembler {
   )
   static let reviewer = Reviewer(
     execute: execute,
-    parseFusion: configurator.parseYamlFile(query:),
-    parseFusionStatuses: configurator.parseYamlFile(query:),
-    parseReviewQueue: configurator.parseYamlFile(query:),
-    parseApprovalRules: configurator.parseYamlSecret(query:),
+    parseReview: configurator.parseYamlFile(query:),
+    parseReviewStorage: configurator.parseYamlFile(query:),
+    parseReviewRules: configurator.parseYamlSecret(query:),
     parseCodeOwnage: configurator.parseYamlFile(query:),
     parseProfile: configurator.parseYamlFile(query:),
-    parseHaters: configurator.parseYamlSecret(query:),
     persistAsset: configurator.persistAsset(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
@@ -71,8 +68,8 @@ enum Assembler {
   )
   static let mediator = Mediator(
     execute: execute,
-    parseFusion: configurator.parseYamlFile(query:),
-    parseApprovalRules: configurator.parseYamlSecret(query:),
+    parseReview: configurator.parseYamlFile(query:),
+    parseReviewRules: configurator.parseYamlSecret(query:),
     persistAsset: configurator.persistAsset(query:),
     generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),

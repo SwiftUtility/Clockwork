@@ -5,16 +5,12 @@ public struct Gitlab {
   public let job: Json.GitlabJob
   public var api: String
   public var trigger: Yaml.Gitlab.Trigger
-  public var usersAsset: Configuration.Asset
-  public var users: [String: User] = [:]
-  public var rest: Lossy<Protected> = .error(Thrown("Not protected ref pipeline"))
+  public var storage: Storage
+  public var rest: Lossy<Rest> = .error(Thrown("Not protected ref pipeline"))
+  public var ssh: Lossy<String> = .error(Thrown("Not protected ref pipeline"))
   public var project: Lossy<Json.GitlabProject> = .error(MayDay("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var review: Lossy<Json.GitlabReviewState> = .error(Thrown("Not review triggered pipeline"))
-  public var activeUsers: Set<String> { users.values
-    .filter(\.active)
-    .reduce(into: [], { $0.insert($1.login) })
-  }
   public func info(review state: Json.GitlabReviewState?) -> Info { .init(
     mr: try? job.review.get(),
     url: job.webUrl
@@ -29,47 +25,65 @@ public struct Gitlab {
   public static func make(
     env: Env,
     job: Json.GitlabJob,
+    storage: Storage,
     yaml: Yaml.Gitlab
-  ) throws -> Self { try .init(
+  ) -> Self { .init(
     env: env,
     job: job,
     api: "\(env.api)/projects/\(job.pipeline.projectId)",
     trigger: yaml.trigger,
-    usersAsset: .make(yaml: yaml.users)
+    storage: storage
   )}
-  public struct User {
-    public var login: String
-    public var active: Bool
-    public var watchTeams: Set<String>
-    public var watchAuthors: Set<String>
-    public static func make(
-      login: String,
-      yaml: Yaml.Gitlab.User
-    ) throws -> Self { .init(
-      login: login,
-      active: yaml.active,
-      watchTeams: yaml.watchTeams.get([]),
-      watchAuthors: yaml.watchAuthors.get([])
-    )}
-    public static func make(login: String) -> Self { .init(
-      login: login,
-      active: true,
-      watchTeams: [],
-      watchAuthors: []
-    )}
-    public static func serialize(approvers this: [String: Self]) -> String {
-      guard this.isEmpty.not else { return "{}" }
+  public struct Storage {
+    public var asset: Configuration.Asset
+    public var bots: Set<String>
+    public var users: [String: User]
+    public func serialize() -> String {
       var result: String = ""
-      for approver in this.keys.sorted().compactMap({ this[$0] }) {
-        result += "'\(approver.login)':\n"
-        result += "  active: \(approver.active)\n"
-        let watchTeams = approver.watchTeams.sorted().map({ "'\($0)'" }).joined(separator: ",")
-        if watchTeams.isEmpty.not { result += "  watchTeams: [\(watchTeams)]\n" }
-        let watchAuthors = approver.watchAuthors.sorted().map({ "'\($0)'" }).joined(separator: ",")
-        if watchAuthors.isEmpty.not { result += "  watchAuthors: [\(watchAuthors)]\n" }
-        if watchAuthors.isEmpty.not { result += "  watchAuthors: [\(watchAuthors)]\n" }
+      let bots = bots.sorted().map({ "'\($0)'" }).joined(separator: ",")
+      result += "bots: [\(bots)]\n"
+      let users = users.keys.sorted().compactMap({ self.users[$0] })
+      result += "users:\(users.isEmpty.then(" {}").get(""))\n"
+      for user in users {
+        result += "  '\(user.login)':\n"
+        result += "    active: \(user.active)\n"
+        let watchTeams = user.watchTeams.sorted().map({ "'\($0)'" }).joined(separator: ",")
+        if watchTeams.isEmpty.not { result += "    watchTeams: [\(watchTeams)]\n" }
+        let watchAuthors = user.watchAuthors.sorted().map({ "'\($0)'" }).joined(separator: ",")
+        if watchAuthors.isEmpty.not { result += "    watchAuthors: [\(watchAuthors)]\n" }
       }
       return result
+    }
+    public static func make(
+      asset: Configuration.Asset,
+      yaml: Yaml.Gitlab.Storage
+    ) -> Self { .init(
+      asset: asset,
+      bots: Set(yaml.bots),
+      users: yaml.users
+        .map(User.make(login:yaml:))
+        .reduce(into: [:], { $0[$1.login] = $1 })
+    )}
+    public struct User {
+      public var login: String
+      public var active: Bool
+      public var watchTeams: Set<String>
+      public var watchAuthors: Set<String>
+      public static func make(
+        login: String,
+        yaml: Yaml.Gitlab.Storage.User
+      ) -> Self { .init(
+        login: login,
+        active: yaml.active,
+        watchTeams: yaml.watchTeams.get([]),
+        watchAuthors: yaml.watchAuthors.get([])
+      )}
+      public static func make(login: String) -> Self { .init(
+        login: login,
+        active: true,
+        watchTeams: [],
+        watchAuthors: []
+      )}
     }
     public enum Command {
       case activate
@@ -79,7 +93,7 @@ public struct Gitlab {
       case unwatchTeams([String])
       case watchAuthors([String])
       case watchTeams([String])
-      public var reason: Generate.CreateGitlabUsersCommitMessage.Reason {
+      public var reason: Generate.CreateGitlabStorageCommitMessage.Reason {
         switch self {
         case .activate: return .activate
         case .deactivate: return .deactivate
@@ -108,7 +122,7 @@ public struct Gitlab {
     public let job: UInt
     public let profile: Files.Relative
   }
-  public struct Protected {
+  public struct Rest {
     public let secret: String
     public let auth: String
     public let push: String
@@ -133,6 +147,7 @@ public struct Gitlab {
     public let token: String
     public let isProtected: Bool
     public let parent: Lossy<UInt>
+    public let storage: Configuration.Asset
     func push(user: String, pass: String) -> String {
       "\(scheme)://\(user):\(pass)@\(host):\(port)/\(path).git"
     }
@@ -148,7 +163,7 @@ public struct Gitlab {
       headers: ["Authorization: Bearer \(token)"],
       secrets: [token]
     ))}
-    public static func make(env: [String: String], trigger: Yaml.Gitlab.Trigger) throws -> Self {
+    public static func make(env: [String: String], yaml: Yaml.Gitlab) throws -> Self {
       guard "true" == env["GITLAB_CI"] else { throw Thrown("Not in GitlabCI context") }
       return try .init(
         api: "CI_API_V4_URL".get(env: env),
@@ -158,7 +173,8 @@ public struct Gitlab {
         scheme: "CI_SERVER_PROTOCOL".get(env: env),
         token: "CI_JOB_TOKEN".get(env: env),
         isProtected: env["CI_COMMIT_REF_PROTECTED"] == "true",
-        parent: .init(try trigger.jobId.get(env: env).getUInt())
+        parent: .init(try yaml.trigger.jobId.get(env: env).getUInt()),
+        storage: .make(yaml: yaml.storage)
       )
     }
   }

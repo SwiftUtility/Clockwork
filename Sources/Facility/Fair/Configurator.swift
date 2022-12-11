@@ -124,20 +124,20 @@ extension Configurator {
       .reduce(cfg.git, parse(git:yaml:))
       .reduce(Yaml.Gitlab.self, dialect.read(_:from:))
       .get { throw Thrown("gitlab not configured") }
-    let gitlabEnv = try Gitlab.Env.make(env: cfg.env, trigger: yaml.trigger)
-    let gitlabJob = try gitlabEnv.getJob
+    let env = try Gitlab.Env.make(env: cfg.env, yaml: yaml)
+    let job = try env.getJob
       .map(execute)
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
-    var gitlab = try Gitlab.make(env: gitlabEnv, job: gitlabJob, yaml: yaml)
-    gitlab.users = try parseYamlFile(query: cfg.parseGitlabUsers(gitlab: gitlab))
-    guard gitlabEnv.isProtected else { return gitlab }
+    let storage = try parseYamlFile(query: cfg.parseGitlabStorage(asset: env.storage))
+    var gitlab = Gitlab.make(env: env, job: job, storage: storage, yaml: yaml)
+    guard env.isProtected else { return gitlab }
     gitlab.rest = Lossy
-      .make({ try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.token)) })
+      .make({ try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.apiToken)) })
       .map({ token in try .make(
         token: token,
-        env: gitlabEnv,
-        user: gitlabEnv.getTokenUser(token: token)
+        env: env,
+        user: env.getTokenUser(token: token)
           .map(execute)
           .reduce(Json.GitlabUser.self, jsonDecoder.decode(success:reply:))
           .get()
@@ -145,8 +145,9 @@ extension Configurator {
     gitlab.project = gitlab.getProject
       .map(execute)
       .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
-    if let parentJob = try? yaml.trigger.jobId.get(env: cfg.env) {
-      gitlab.parent = Lossy(try parentJob.getUInt())
+    gitlab.ssh = .init(try parse(git: cfg.git, env: cfg.env, secret: .envFile(yaml.deployKey)))
+    if let parent = try? yaml.trigger.jobId.get(env: cfg.env) {
+      gitlab.parent = Lossy(try parent.getUInt())
         .flatMap(gitlab.getJob(id:))
         .map(execute)
         .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))

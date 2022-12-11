@@ -41,7 +41,7 @@ public enum Json {
         return build.commit.value == pipeline.sha && build.branch?.name == pipeline.ref
       }
     }
-    public func getLogin(approvers: [String: Gitlab.User]) throws -> String {
+    public func getLogin(approvers: [String: Gitlab.Storage.User]) throws -> String {
       let login = user.username
       guard let approver = approvers[login] else { throw Thrown("Unknown user: \(login)") }
       guard approver.active else { throw Thrown("Inactive approver: \(login)") }

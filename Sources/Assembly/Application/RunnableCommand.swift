@@ -276,16 +276,7 @@ extension Clockwork.Review.AddLabels: RunnableCommand {
 }
 extension Clockwork.Review.Approve: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.approveReview(cfg: cfg, resolution: resolution.status)
-  }
-}
-extension Clockwork.Review.Approve.Resolution {
-  var status: Fusion.Approval.Status.Resolution {
-    switch self {
-    case .fragil: return .fragil
-    case .advance: return .advance
-    case .block: return .block
-    }
+    try Assembler.reviewer.approveReview(cfg: cfg, advance: advance)
   }
 }
 extension Clockwork.Review.Clean: RunnableCommand {

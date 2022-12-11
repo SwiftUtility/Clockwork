@@ -86,15 +86,16 @@ extension Review {
       }
     }
     public func gitCheck(branches: [Json.GitlabBranch]) throws -> GitCheck {
-    let branches = try branches
-      .filter(\.protected)
-      .map(\.name)
-      .map(Git.Branch.make(name:))
-      .filter({ $0 != target })
+      let target = target
+      let branches = try branches
+        .filter(\.protected)
+        .map(\.name)
+        .map(Git.Branch.make(name:))
+        .filter({ $0 != target })
       switch self {
-      case .propose: return .extras(branches, nil)
-      case .replicate(let replicate): return .extras(branches, replicate.fork)
-      case .integrate(let integrate): return .extras(branches, integrate.fork)
+      case .propose: return .extras(branches, [])
+      case .replicate(let replicate): return .extras(branches, [replicate.fork])
+      case .integrate(let integrate): return .extras(branches, [integrate.fork])
       case .duplicate(let duplicate): return .cherry(duplicate.fork)
       case .propogate(let propogate): return .forward(propogate.fork)
       }
@@ -253,7 +254,7 @@ extension Review {
       public var propogation: Propogation
     }
     public enum GitCheck {
-      case extras([Git.Branch], Git.Sha?)
+      case extras([Git.Branch], [Git.Sha])
       case cherry(Git.Sha)
       case forward(Git.Sha)
     }

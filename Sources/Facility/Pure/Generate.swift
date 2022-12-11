@@ -128,7 +128,7 @@ public struct Generate: Query {
 //      case reserveBranchBuild
     }
   }
-  public struct CreateGitlabUsersCommitMessage: GenerateContext {
+  public struct CreateGitlabStorageCommitMessage: GenerateContext {
     public var user: String
     public var reason: Reason
     public enum Reason: String, Encodable {
@@ -266,14 +266,14 @@ public extension Configuration {
     template: flow.versions.bump,
     ctx: Generate.BumpReleaseVersion(product: product, version: version, hotfix: hotfix)
   )}
-  func createGitlabUsersCommitMessage(
+  func createGitlabStorageCommitMessage(
     user: String,
     gitlab: Gitlab,
-    command: Gitlab.User.Command
+    command: Gitlab.Storage.Command
   ) -> Generate { .make(
     cfg: self,
-    template: gitlab.usersAsset.createCommitMessage,
-    ctx: Generate.CreateGitlabUsersCommitMessage(user: user, reason: command.reason)
+    template: gitlab.storage.asset.createCommitMessage,
+    ctx: Generate.CreateGitlabStorageCommitMessage(user: user, reason: command.reason)
   )}
   func createReviewStorageCommitMessage(
     storage: Review.Storage,

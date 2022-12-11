@@ -3,8 +3,8 @@ import Facility
 import FacilityPure
 public final class Mediator {
   let execute: Try.Reply<Execute>
-  let parseFusion: Try.Reply<ParseYamlFile<Fusion>>
-  let parseApprovalRules: Try.Reply<ParseYamlSecret<Fusion.Approval.Rules>>
+  let parseReview: Try.Reply<ParseYamlFile<Review>>
+  let parseReviewRules: Try.Reply<ParseYamlSecret<Review.Rules>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let generate: Try.Reply<Generate>
   let logMessage: Act.Reply<LogMessage>
@@ -12,8 +12,8 @@ public final class Mediator {
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    parseFusion: @escaping Try.Reply<ParseYamlFile<Fusion>>,
-    parseApprovalRules: @escaping Try.Reply<ParseYamlSecret<Fusion.Approval.Rules>>,
+    parseReview: @escaping Try.Reply<ParseYamlFile<Review>>,
+    parseReviewRules: @escaping Try.Reply<ParseYamlSecret<Review.Rules>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     generate: @escaping Try.Reply<Generate>,
     logMessage: @escaping Act.Reply<LogMessage>,
@@ -21,8 +21,8 @@ public final class Mediator {
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
-    self.parseFusion = parseFusion
-    self.parseApprovalRules = parseApprovalRules
+    self.parseReview = parseReview
+    self.parseReviewRules = parseReviewRules
     self.persistAsset = persistAsset
     self.generate = generate
     self.logMessage = logMessage
@@ -69,7 +69,6 @@ public final class Mediator {
     }
     variables[gitlab.trigger.jobId] = "\(gitlab.job.id)"
     variables[gitlab.trigger.jobName] = gitlab.job.name
-    variables[gitlab.trigger.profile] = cfg.profile.location.path.value
     variables[gitlab.trigger.pipeline] = "\(gitlab.job.pipeline.id)"
     try gitlab
       .postTriggerPipeline(cfg: cfg, ref: ref, variables: variables)
@@ -187,56 +186,57 @@ public final class Mediator {
   public func updateUser(
     cfg: Configuration,
     login: String,
-    command: Gitlab.User.Command
+    command: Gitlab.Storage.Command
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    var approvers = gitlab.users
-    let login = try login.isEmpty
+    var storage = gitlab.storage
+    try storage.bots.formUnion([gitlab.rest.get().user.username])
+    let login = login.isEmpty
       .else(login)
-      .get(cfg.gitlab.get().job.user.username)
+      .get(gitlab.job.user.username)
     if case .register(let chat) = command {
-      approvers[login] = approvers[login].get(.make(login: login))
+      storage.users[login] = storage.users[login].get(.make(login: login))
       if let slack = chat[.slack].filter(isIncluded: \.isEmpty.not) {
         #warning("tbd")
       }
     } else {
-      guard var approver = approvers[login] else { throw Thrown("No approver \(login)") }
+      guard var user = storage.users[login] else { throw Thrown("No approver \(login)") }
       switch command {
       case .register: break
-      case .activate: approver.active = true
-      case .deactivate: approver.active = false
+      case .activate: user.active = true
+      case .deactivate: user.active = false
       case .unwatchAuthors(let authors):
-        let unknown = authors.filter({ approver.watchAuthors.contains($0).not })
+        let unknown = authors.filter({ user.watchAuthors.contains($0).not })
         guard unknown.isEmpty
         else { throw Thrown("Not watching authors: \(unknown.joined(separator: ", "))") }
-        approver.watchAuthors = approver.watchAuthors.subtracting(authors)
+        user.watchAuthors = user.watchAuthors.subtracting(authors)
       case .unwatchTeams(let teams):
-        let unknown = teams.filter({ approver.watchTeams.contains($0).not })
+        let unknown = teams.filter({ user.watchTeams.contains($0).not })
         guard unknown.isEmpty
         else { throw Thrown("Not watching teams: \(unknown.joined(separator: ", "))") }
-        approver.watchTeams = approver.watchTeams.subtracting(teams)
+        user.watchTeams = user.watchTeams.subtracting(teams)
       case .watchAuthors(let authors):
-        let known = approvers.values.reduce(into: Set(), { $0.insert($1.login) })
+        let known = storage.users.values.reduce(into: Set(), { $0.insert($1.login) })
         let unknown = authors.filter({ known.contains($0).not })
         guard unknown.isEmpty
         else { throw Thrown("Unknown users: \(unknown.joined(separator: ", "))") }
-        approver.watchAuthors.formUnion(authors)
+        user.watchAuthors.formUnion(authors)
       case .watchTeams(let teams):
-        let fusion = try cfg.parseFusion.map(parseFusion).get()
-        let rules = try parseApprovalRules(cfg.parseApproalRules(approval: fusion.approval))
+        let review = try cfg.parseReview.map(parseReview).get()
+        let rules = try parseReviewRules(cfg.parseReviewRules(review: review))
         let known = rules.teams.values.reduce(into: Set(), { $0.insert($1.name) })
         let unknown = teams.filter({ known.contains($0).not })
         guard unknown.isEmpty
         else { throw Thrown("Unknown teams: \(unknown.joined(separator: ", "))") }
-        approver.watchTeams.formUnion(teams)
+        user.watchTeams.formUnion(teams)
       }
-      approvers[login] = approver
+      storage.users[login] = user
     }
     return try persistAsset(.init(
       cfg: cfg,
-      asset: gitlab.usersAsset,
-      content: Gitlab.User.serialize(approvers: approvers),
-      message: generate(cfg.createGitlabUsersCommitMessage(
+      asset: storage.asset,
+      content: storage.serialize(),
+      message: generate(cfg.createGitlabStorageCommitMessage(
         user: login,
         gitlab: gitlab,
         command: command

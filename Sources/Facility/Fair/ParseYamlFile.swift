@@ -65,16 +65,12 @@ public extension Configuration {
     file: .make(asset: flow.versions.storage),
     parse: { try .make(yaml: $0.read(Yaml.Flow.Versions.Storage.self, from: $1)) }
   )}
-  func parseGitlabUsers(
-    gitlab: Gitlab
-  ) -> ParseYamlFile<[String: Gitlab.User]> { .init(
+  func parseGitlabStorage(
+    asset: Configuration.Asset
+  ) -> ParseYamlFile<Gitlab.Storage> { .init(
     git: git,
-    file: .make(asset: gitlab.usersAsset),
-    parse: { dialect, yaml in try dialect
-      .read([String: Yaml.Gitlab.User].self, from: yaml)
-      .map(Gitlab.User.make(login:yaml:))
-      .reduce(into: [:], { $0[$1.login] = $1 })
-    }
+    file: .make(asset: asset),
+    parse: { try .make(asset: asset, yaml: $0.read(Yaml.Gitlab.Storage.self, from: $1)) }
   )}
   func parseReviewStorage(
     review: Review

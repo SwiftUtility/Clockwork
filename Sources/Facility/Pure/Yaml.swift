@@ -15,19 +15,23 @@ public enum Yaml {
     public var obsolescence: Criteria?
   }
   public struct Gitlab: Decodable {
-    public var token: Secret
-    public var users: Asset
+    public var apiToken: Secret
+    public var deployKey: String
+    public var storage: Asset
     public var trigger: Trigger
     public struct Trigger: Decodable {
       public var jobId: String
       public var jobName: String
-      public var profile: String
       public var pipeline: String
     }
-    public struct User: Decodable {
-      public var active: Bool
-      public var watchTeams: Set<String>?
-      public var watchAuthors: Set<String>?
+    public struct Storage: Decodable {
+      public var bots: [String]
+      public var users: [String: User]
+      public struct User: Decodable {
+        public var active: Bool
+        public var watchTeams: Set<String>?
+        public var watchAuthors: Set<String>?
+      }
     }
   }
   public struct Jira: Decodable {
@@ -225,6 +229,8 @@ public enum Yaml {
         public var legates: [String]?
         public var replicate: String?
         public var integrate: String?
+        public var duplicate: String?
+        public var propogate: String?
         public var reviewers: [String: Reviewer]?
       }
       public struct Reviewer: Decodable {

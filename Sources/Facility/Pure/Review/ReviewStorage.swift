@@ -29,12 +29,17 @@ extension Review {
       public var replicate: Git.Branch? = nil
       public var integrate: Git.Branch? = nil
       public var duplicate: Git.Branch? = nil
+      public var propogate: Git.Branch? = nil
       public var reviewers: [String: Reviewer] = [:]
       public var squash: Bool { replicate == nil && integrate == nil }
       mutating func block() {
         phase = .block
         emergent = nil
         verified = nil
+      }
+      mutating func stuck() {
+        guard phase != .block else { return }
+        phase = .stuck
       }
       mutating func update(target branch: Git.Branch, rules: Rules) {
         guard branch != target else { return }
@@ -63,6 +68,8 @@ extension Review {
         legates: Set(yaml.legates.get([])),
         replicate: yaml.replicate.map(Git.Branch.make(name:)),
         integrate: yaml.integrate.map(Git.Branch.make(name:)),
+        duplicate: yaml.duplicate.map(Git.Branch.make(name:)),
+        propogate: yaml.propogate.map(Git.Branch.make(name:)),
         reviewers: yaml.reviewers.get([:])
           .map(Reviewer.make(login:yaml:))
           .reduce(into: [:], { $0[$1.login] = $1 })
