@@ -71,6 +71,7 @@ enum Assembler {
     parseReview: configurator.parseYamlFile(query:),
     parseReviewRules: configurator.parseYamlSecret(query:),
     persistAsset: configurator.persistAsset(query:),
+    readStdin: reporter.readStdin(query:),
     generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),
     stdoutData: stdoutData,

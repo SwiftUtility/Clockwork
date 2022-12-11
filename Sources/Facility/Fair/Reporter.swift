@@ -45,40 +45,6 @@ public final class Reporter {
     case .json: return try readStdin().reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
     }
   }
-  public func signal(
-    cfg: Configuration,
-    event: String,
-    stdin: Configuration.ReadStdin,
-    args: [String]
-  ) throws -> Bool {
-    let stdin = try readStdin(query: stdin)
-    let gitlab = try cfg.gitlab.get()
-    var threads = Report.Threads.make()
-//    if let gitlab = try? cfg.gitlab.get() {
-//      if gitlab.job.tag {
-//        threads.gitlabTags.insert(gitlab.job.pipeline.ref)
-//        if let production = try? cfg.parseFusion.map(parseFusion).get() {
-//          production.productMatching(deploy: <#T##String#>)
-//        }
-//      } else {
-//        threads.gitlabBranches.insert(gitlab.job.pipeline.ref)
-//      }
-//    }
-//    if gitlab.job.tag
-//    report(query: cfg.reportCustom(
-//      event: event,
-//      threads: .make(
-//        jiraIssues: <#T##Set<String>#>,
-//        gitlabTags: <#T##Set<String>#>,
-//        gitlabUsers: <#T##Set<String>#>,
-//        gitlabReviews: <#T##Set<String>#>,
-//        gitlabBranches: <#T##Set<String>#>
-//      ),
-//      stdin: stdin,
-//      args: args
-//    ))
-    return true
-  }
   public func report(query: Report) -> Report.Reply {
     logMessage(.init(message: "Reporting \(query.info.event)"))
     var query = query

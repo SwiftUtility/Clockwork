@@ -179,7 +179,7 @@ extension Clockwork.Gitlab.Pipeline.Retry: RunnableCommand {
 }
 extension Clockwork.Gitlab.Signal: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reporter.signal(
+    try Assembler.mediator.signal(
       cfg: cfg, event: common.event, stdin: common.stdin.mode, args: common.args
     )
   }

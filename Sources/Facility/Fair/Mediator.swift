@@ -6,6 +6,7 @@ public final class Mediator {
   let parseReview: Try.Reply<ParseYamlFile<Review>>
   let parseReviewRules: Try.Reply<ParseYamlSecret<Review.Rules>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
+  let readStdin: Try.Reply<Configuration.ReadStdin>
   let generate: Try.Reply<Generate>
   let logMessage: Act.Reply<LogMessage>
   let stdoutData: Act.Of<Data>.Go
@@ -15,6 +16,7 @@ public final class Mediator {
     parseReview: @escaping Try.Reply<ParseYamlFile<Review>>,
     parseReviewRules: @escaping Try.Reply<ParseYamlSecret<Review.Rules>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
+    readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
     generate: @escaping Try.Reply<Generate>,
     logMessage: @escaping Act.Reply<LogMessage>,
     stdoutData: @escaping Act.Of<Data>.Go,
@@ -24,10 +26,45 @@ public final class Mediator {
     self.parseReview = parseReview
     self.parseReviewRules = parseReviewRules
     self.persistAsset = persistAsset
+    self.readStdin = readStdin
     self.generate = generate
     self.logMessage = logMessage
     self.stdoutData = stdoutData
     self.jsonDecoder = jsonDecoder
+  }
+  public func signal(
+    cfg: Configuration,
+    event: String,
+    stdin: Configuration.ReadStdin,
+    args: [String]
+  ) throws -> Bool {
+    let stdin = try readStdin(stdin)
+    let gitlab = try cfg.gitlab.get()
+    var threads = Report.Threads.make()
+//    if let gitlab = try? cfg.gitlab.get() {
+//      if gitlab.job.tag {
+//        threads.gitlabTags.insert(gitlab.job.pipeline.ref)
+//        if let production = try? cfg.parseFusion.map(parseFusion).get() {
+//          production.productMatching(deploy: <#T##String#>)
+//        }
+//      } else {
+//        threads.gitlabBranches.insert(gitlab.job.pipeline.ref)
+//      }
+//    }
+//    if gitlab.job.tag
+//    report(query: cfg.reportCustom(
+//      event: event,
+//      threads: .make(
+//        jiraIssues: <#T##Set<String>#>,
+//        gitlabTags: <#T##Set<String>#>,
+//        gitlabUsers: <#T##Set<String>#>,
+//        gitlabReviews: <#T##Set<String>#>,
+//        gitlabBranches: <#T##Set<String>#>
+//      ),
+//      stdin: stdin,
+//      args: args
+//    ))
+    return true
   }
   public func loadArtifact(
     cfg: Configuration,
