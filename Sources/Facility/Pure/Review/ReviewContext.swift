@@ -11,6 +11,7 @@ extension Review {
     public var storage: Review.Storage
     public var originalStorage: Review.Storage
     public var reports: [Report] = []
+    public var trigger: [UInt] = []
     public enum StateChange {
       case delete(UInt)
     }

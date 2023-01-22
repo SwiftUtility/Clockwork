@@ -454,34 +454,31 @@ public final class Reviewer {
       try storeContext(ctx: ctx)
       return false
     }
-    try update
-      .makeGitCheck(branches: resolveBranches(cfg: cfg))
-      .flatMap({ try perform(cfg: cfg, check: $0) })
-      .forEach({ update.add(problem: $0) })
-    try checkApproves(ctx: ctx, update: &update)
-    try update.update(
-      ctx: ctx,
-      awards: resolveAwards(cfg: cfg, review: update.state.review),
-      discussions: resolveDiscussions(cfg: cfg, review: update.state.review)
-    )
-    if let award = update.addAward { try gitlab
-      .postMrAward(review: merge.iid, award: award)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    }
-    ctx.apply(update: update)
-    guard ctx.isFirst(merge: update.merge) else {
+    guard try performUpdate(ctx: &ctx, update: &update) else {
       try storeContext(ctx: ctx)
       return false
     }
-    guard try normalize(ctx: ctx, update: &update) else {
-      try storeContext(ctx: ctx)
-      return false
-    }
+    try storeContext(ctx: ctx)
     return true
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
+    let gitlab = try cfg.gitlab.get()
+    let merge = try gitlab.merge.get()
+    guard try checkActual(cfg: cfg, merge: merge) else { return false }
+    var ctx = try makeContext(cfg: cfg)
+    guard ctx.isFirst(merge: merge) else { return true }
+    guard var update = try makeUpdate(ctx: &ctx, merge: merge) else {
+      logMessage(.reviewClosed)
+      try storeContext(ctx: ctx)
+      return true
+    }
+    guard try performUpdate(ctx: &ctx, update: &update) else {
+      try storeContext(ctx: ctx)
+      return true
+    }
+    try acceptReview(ctx: &ctx, update: update)
+    try storeContext(ctx: ctx)
+    return true
 //    let fusion = try cfg.parseFusion.map(parseFusion).get()
 //    let gitlab = try cfg.gitlab.get()
 //    let parent = try gitlab.parent.get()
@@ -530,8 +527,8 @@ public final class Reviewer {
 //      _ = try createReview(cfg: cfg, fusion: fusion, statuses: &statuses, merge: merge)
 //    }
 //    return true
-    #warning("tbd")
-    return false
+//    #warning("tbd")
+//    return false
   }
 }
 extension Reviewer {
@@ -650,12 +647,37 @@ extension Reviewer {
       storage: parseReviewStorage(cfg.parseReviewStorage(review: review))
     )
   }
+  func performUpdate(
+    ctx: inout Review.Context,
+    update: inout Review.Update
+  ) throws -> Bool {
+    let gitlab = try ctx.cfg.gitlab.get()
+    try update
+      .makeGitCheck(branches: resolveBranches(cfg: ctx.cfg))
+      .flatMap({ try perform(cfg: ctx.cfg, check: $0) })
+      .forEach({ update.add(problem: $0) })
+    try checkApproves(ctx: ctx, update: &update)
+    try update.update(
+      ctx: ctx,
+      awards: resolveAwards(cfg: ctx.cfg, review: update.state.review),
+      discussions: resolveDiscussions(cfg: ctx.cfg, review: update.state.review)
+    )
+    if let award = update.addAward { try gitlab
+      .postMrAward(review: update.merge.iid, award: award)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    }
+    ctx.apply(update: update)
+    guard update.state.phase == .ready else { return false }
+    guard try normalize(ctx: &ctx, update: &update) else { return false }
+    return ctx.isFirst(merge: update.merge)
+  }
   func makeUpdate(
     ctx: inout Review.Context,
     merge: Json.GitlabMergeState
   ) throws -> Review.Update? {
     guard let state = try ctx.makeState(merge: merge) else { return nil }
-    let gitlab = try ctx.cfg.gitlab.get()
     let sha = try Git.Ref.make(sha: .make(value: merge.lastPipeline.sha))
     let profile = try parseProfile(ctx.cfg.parseProfile(ref: sha))
     return try .make(
@@ -679,11 +701,13 @@ extension Reviewer {
       return false
     }
     let target = try Git.Ref.make(remote: .make(name: merge.targetBranch))
-    let source = try Git.Ref.make(sha: .make(value: merge.lastPipeline.sha))
     guard
       let obsolescence = try? parseProfile(cfg.parseProfile(ref: target)).obsolescence,
       try Id
-        .make(cfg.git.listChangedOutsideFiles(source: source, target: target))
+        .make(cfg.git.listChangedOutsideFiles(
+          source: .make(sha: .make(merge: merge)),
+          target: target
+        ))
         .map(execute)
         .map(Execute.parseLines(reply:))
         .get()
@@ -694,21 +718,6 @@ extension Reviewer {
       return false
     }
     return true
-  }
-  func checkBlockers(cfg: Configuration, update: inout Review.Update) throws -> Bool {
-//    guard update.blockers.isEmpty.not else { return true }
-
-    
-    #warning("tbd")
-    return false
-  }
-  func checkApproved(cfg: Configuration, update: inout Review.Update) throws -> Bool {
-    #warning("tbd")
-    return false
-  }
-  func checkSquashed(cfg: Configuration, update: inout Review.Update) throws -> Bool {
-    #warning("tbd")
-    return false
   }
 //  func resolveStatus(
 //    cfg: Configuration,
@@ -961,10 +970,18 @@ extension Reviewer {
 //      parent: .make(remote: .make(name: state.targetBranch))
 //    )))
 //  }
-  func normalize(
+  func isNormalized(
     ctx: Review.Context,
+    update: Review.Update
+  ) throws -> Bool {
+    #warning("tbd")
+    return false
+  }
+  func normalize(
+    ctx: inout Review.Context,
     update: inout Review.Update
   ) throws -> Bool {
+    guard try isNormalized(ctx: ctx, update: update).not else { return true }
     #warning("tbd")
     return false
 
@@ -1162,13 +1179,12 @@ extension Reviewer {
 //    )))
 //    return sha
 //  }
-//  func acceptReview(
-//    cfg: Configuration,
-//    state: Json.GitlabReviewState,
-//    review: Review,
-//    message: String
-//  ) throws -> Bool {
-//    let result = try cfg.gitlab.get()
+  func acceptReview(
+    ctx: inout Review.Context,
+    update: Review.Update
+  ) throws {
+    #warning("tbd")
+//    let result = try ctx.cfg.gitlab.get()
 //      .putMrMerge(
 //        parameters: .init(
 //          mergeCommitMessage: review.infusion.proposition.else(message),
@@ -1194,7 +1210,7 @@ extension Reviewer {
 //    } else {
 //      throw MayDay("Unexpected merge response")
 //    }
-//  }
+  }
 //  func shiftReplication(
 //    cfg: Configuration,
 //    fusion: Fusion,
