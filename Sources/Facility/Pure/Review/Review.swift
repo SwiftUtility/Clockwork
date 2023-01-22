@@ -58,6 +58,10 @@ public struct Review {
     public var source: Criteria
     public var title: Criteria?
     public var task: NSRegularExpression?
+    func makePropose(source branch: Git.Branch, target: Git.Branch) -> Fusion? {
+      guard self.source.isMet(branch.name) else { return nil }
+      return .propose(.init(source: branch, target: target, proposition: self))
+    }
     public static func make(name: String, yaml: Yaml.Review.Proposition) throws -> Self { try .init(
       name: name,
       source: .init(yaml: yaml.source),
@@ -65,5 +69,9 @@ public struct Review {
       task: yaml.task
         .map({ try NSRegularExpression(pattern: $0, options: [.anchorsMatchLines]) })
     )}
+  }
+  public struct Action {
+    public var trigger: [UInt] = []
+    public var reports: [Report] = []
   }
 }

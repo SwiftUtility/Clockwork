@@ -10,7 +10,8 @@ extension Review {
     public var optional: Set<String>
     public var required: Set<String>
     public var advanceApproval: Bool
-    public var approvers: Set<String> { reserve.union(optional).union(required) }
+    public var approvers: Set<String> { reserve.union(optional).union(required).union(random) }
+    var isUnapprovable: Bool { approvers.count < quorum }
     public static func make(
       name: String,
       yaml: Yaml.Review.Rules.Team
@@ -37,32 +38,28 @@ extension Review {
       random.formIntersection(active)
     }
     public mutating func update(involved: Set<String>) {
-      quorum -= required
-        .union(optional)
-        .union(random)
-        .intersection(involved)
-        .count
-      required = required.subtracting(involved)
-      optional = optional.subtracting(involved)
-      random = random.subtracting(involved)
-      guard required.isEmpty, optional.isEmpty else { return }
-      quorum -= reserve.intersection(involved).count
-      reserve = reserve.subtracting(involved)
+      if required.isEmpty.not {
+        quorum -= required.intersection(involved).count
+        required = required.subtracting(involved)
+      }
+      if required.isEmpty {
+        quorum -= optional.intersection(involved).count
+        optional = optional.subtracting(involved)
+      }
+      if optional.isEmpty {
+        quorum -= reserve.intersection(involved).count
+        reserve = reserve.subtracting(involved)
+      }
+      if random.isEmpty.not {
+        quorum -= random.intersection(involved).count
+        random = random.subtracting(involved)
+      }
     }
     public mutating func update(exclude: Set<String>) {
       required = required.subtracting(exclude)
       optional = optional.subtracting(exclude)
       reserve = reserve.subtracting(exclude)
       random = random.subtracting(exclude)
-    }
-    public mutating func update(isRandom: Bool) {
-      if isRandom {
-        required = []
-        optional = []
-        reserve = []
-      } else {
-        random = []
-      }
     }
     public func isNeeded(user: String) -> Bool {
       guard quorum > 0 else { return false }
@@ -76,7 +73,7 @@ extension Review {
       let reserve = reserve.union(optional)
       guard reserve.count > quorum else { return reserve }
       guard optional.count > quorum else { return optional }
-      return []
+      return required
     }
   }
 }

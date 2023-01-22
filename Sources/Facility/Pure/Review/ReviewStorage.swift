@@ -3,8 +3,8 @@ import Facility
 extension Review {
   public struct Storage {
     public var asset: Configuration.Asset
-    public var queues: [String: [UInt]]
-    public var states: [UInt: State]
+    var queues: [String: [UInt]]
+    var states: [UInt: State]
     public static func make(
       review: Review,
       yaml: Yaml.Review.Storage
@@ -15,6 +15,10 @@ extension Review {
         .map(State.make(review:yaml:))
         .reduce(into: [:], { $0[$1.review] = $1 })
     )}
+    public mutating func delete(merge: Json.GitlabMergeState) {
+      states[merge.iid] = nil
+      queues = queues.reduce(into: [:], { $0[$1.key] = $1.value.filter({ $0 != merge.iid }) })
+    }
     public struct State {
       public var review: UInt
       public var target: Git.Branch
@@ -31,26 +35,27 @@ extension Review {
       public var duplicate: Git.Branch? = nil
       public var propogate: Git.Branch? = nil
       public var reviewers: [String: Reviewer] = [:]
-      public var squash: Bool { replicate == nil && integrate == nil }
-      mutating func block() {
-        phase = .block
-        emergent = nil
-        verified = nil
-      }
-      mutating func stuck() {
-        guard phase != .block else { return }
-        phase = .stuck
-      }
+      public var squash: Bool { replicate == nil && integrate == nil && propogate == nil }
       mutating func update(target branch: Git.Branch, rules: Rules) {
         guard branch != target else { return }
         target = branch
         emergent = nil
         verified = nil
-        reviewers = rules.targetBranch
+        rules.targetBranch
           .filter({ $0.value.isMet(branch.name) })
           .compactMap({ rules.teams[$0.key]?.approvers })
           .reduce(into: Set(), { $0.formUnion($1) })
-          .reduce(into: reviewers, { $0[$1]?.resolution = .obsolete })
+          .forEach({ reviewers[$0]?.resolution = .obsolete })
+      }
+      func isUnapproved(user: String) -> Bool {
+        guard let user = reviewers[user] else { return true }
+        return user.resolution.approved.not
+      }
+      var isApproved: Bool { authors
+        .union(legates)
+        .union(randoms)
+        .contains(where: isUnapproved(user:))
+        .not
       }
       public static func make(
         review: String,
@@ -77,8 +82,6 @@ extension Review {
     }
     public struct Reviewer {
       public var login: String
-      public var hold: Bool = false
-      public var comments: Int = 0
       public var commit: Git.Sha
       public var resolution: Resolution
       public static func make(
@@ -94,6 +97,12 @@ extension Review {
       case fragil
       case advance
       case obsolete
+      public var approved: Bool {
+        if case .obsolete = self { return false } else { return true }
+      }
+      public var fragil: Bool {
+        if case .fragil = self { return true } else { return false }
+      }
       public static func make(yaml: Yaml.Review.Storage.Resolution) -> Self {
         switch yaml {
         case .fragil: return .fragil
@@ -106,15 +115,13 @@ extension Review {
       case block
       case stuck
       case amend
-      case queue
-      case check
+      case ready
       public static func make(yaml: Yaml.Review.Storage.Phase) -> Self {
         switch yaml {
         case .block: return .block
         case .stuck: return .stuck
         case .amend: return .amend
-        case .queue: return .queue
-        case .check: return .check
+        case .ready: return .ready
         }
       }
     }

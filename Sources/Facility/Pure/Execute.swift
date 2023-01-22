@@ -14,7 +14,7 @@ public struct Execute: Query {
     headers: [String] = [],
     secrets: [String]
   ) -> Self {
-    var arguments = ["curl", "--url", url]
+    var arguments = ["curl", "--no-progress-meter", "--url", url]
     arguments += checkHttp.then(["--fail"]).get([])
     arguments += (retry > 0).then(["--retry", "\(retry)"]).get([])
     arguments += (method == "GET").else(["--request", method]).get([])

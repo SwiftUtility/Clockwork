@@ -303,7 +303,7 @@ extension Clockwork.Review.ExportTargets: RunnableCommand {
 }
 extension Clockwork.Review.List: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.listReview(cfg: cfg, batch: batch)
+    try Assembler.reviewer.listReviews(cfg: cfg, batch: batch)
   }
 }
 extension Clockwork.Review.Own: RunnableCommand {

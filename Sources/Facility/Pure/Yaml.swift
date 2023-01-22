@@ -246,8 +246,7 @@ public enum Yaml {
         case block
         case stuck
         case amend
-        case queue
-        case check
+        case ready
       }
     }
     public struct Proposition: Decodable {

@@ -215,9 +215,20 @@ public extension Gitlab {
     secrets: [rest.get().secret]
   ))}
   func getMrAwarders(
-    review: UInt
+    review: UInt,
+    page: Int,
+    count: Int
   ) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(api)/merge_requests/\(review)/award_emoji",
+    url: "\(api)/merge_requests/\(review)/award_emoji?page=\(page)&per_page=\(count)",
+    headers: [rest.get().auth],
+    secrets: [rest.get().secret]
+  ))}
+  func getMrDiscussions(
+    review: UInt,
+    page: Int,
+    count: Int
+  ) -> Lossy<Execute> { .init(try .makeCurl(
+    url: "\(api)/merge_requests/\(review)/discussions?page=\(page)&per_page=\(count)",
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}

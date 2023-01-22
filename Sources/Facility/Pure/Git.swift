@@ -60,6 +60,9 @@ public struct Git {
     public static func make(job: Json.GitlabJob) throws -> Self {
       return try .make(value: job.pipeline.sha)
     }
+    public static func make(merge: Json.GitlabMergeState) throws -> Self {
+      return try .make(value: merge.lastPipeline.sha)
+    }
     public static func < (lhs: Git.Sha, rhs: Git.Sha) -> Bool { lhs.value < rhs.value }
   }
   public struct Tree {
@@ -141,6 +144,11 @@ public extension Git {
     args: ["ls-tree", "-r", "--name-only", "--full-tree", dir.ref.value, dir.path.value]
   )}
   func checkObjectType(ref: Ref) -> Execute { proc(args: ["cat-file", "-t", ref.value]) }
+  func patchId(ref: Git.Ref) -> Execute {
+    var result = proc(args: ["show", ref.value])
+    result.tasks += proc(args: ["patch-id", "--stable"]).tasks
+    return result
+  }
   func listCommits(
     in include: [Ref],
     notIn exclude: [Ref],
@@ -189,6 +197,17 @@ public extension Git {
     + force.then(["--force"]).get([])
     + ["\(sha.value):\(Ref.make(local: branch).value)"],
     secrets: [secret]
+  )}
+  func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
+    args: [
+      "-c",
+      "core.sshCommand=ssh -q -F /dev/null -o IdentitiesOnly=yes -i /dev/stdin <<< \"\(key)\"",
+      "push",
+      ssh
+    ]
+      + force.then(["--force"]).get([])
+      + ["\(sha.value):\(Ref.make(local: branch).value)"],
+    secrets: [key]
   )}
   func push(url: String, delete branch: Branch, secret: String) -> Execute { proc(
     args: ["push", url, ":\(Ref.make(local: branch).value)"],

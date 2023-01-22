@@ -228,12 +228,13 @@ public struct Report: Query {
   }
 }
 public extension Configuration {
-//  func makeThread(
-//    review: Json.GitlabReviewState?,
-//    status: Fusion.Approval.Status?,
-//    infusion: Review.State.Infusion?
-//  ) -> Report.Threads {
-//    var result = Report.Threads.make()
+  func makeThread(
+    merge: Json.GitlabMergeState?,
+    state: Review.Storage.State?,
+    fusion: Review.Fusion?
+  ) -> Report.Threads {
+    var result = Report.Threads.make()
+    #warning("tbd")
 //    let gitlab = try? gitlab.get()
 //    let review = review.flatMapNil(try? gitlab?.review.get())
 //    result.gitlabBranches.formUnion(review.map(\.targetBranch).array)
@@ -244,8 +245,8 @@ public extension Configuration {
 //    if let infusion = infusion, let task = infusion.squash?.proposition.task {
 //      result.jiraIssues.formUnion(infusion.source.name.find(matches: task))
 //    }
-//    return result
-//  }
+    return result
+  }
 //  func reportReviewCreated(
 //    status: Fusion.Approval.Status,
 //    review: Json.GitlabReviewState?
@@ -262,15 +263,15 @@ public extension Configuration {
 //    threads: makeThread(review: nil, status: status, infusion: nil),
 //    ctx: Report.ReviewMergeConflicts(authors: status.authors.sorted())
 //  )}
-//  func reportReviewClosed(
-//    status: Fusion.Approval.Status,
-//    review: Json.GitlabReviewState?
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: review, status: status, infusion: nil),
-//    ctx: Report.ReviewClosed(authors: status.authors.sorted()),
-//    review: review
-//  )}
+  func reportReviewClosed(
+    state: Review.Storage.State,
+    merge: Json.GitlabMergeState
+  ) -> Report { .make(
+    cfg: self,
+    threads: makeThread(merge: merge, state: state, fusion: nil),
+    ctx: Report.ReviewClosed(authors: state.authors.sorted()),
+    merge: merge
+  )}
 //  func reportReviewRemind(
 //    status: Fusion.Approval.Status,
 //    slackers: Set<String>,

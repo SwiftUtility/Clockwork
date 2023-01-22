@@ -67,7 +67,7 @@ extension Review {
       case .propogate(let propogate): return propogate.original
       }
     }
-    public var autoApproveFork: Bool {
+    public var allowOrphaned: Bool {
       switch self {
       case .propose: return false
       case .replicate(let replicate): return replicate.replication.allowOrphaned
@@ -76,30 +76,66 @@ extension Review {
       case .propogate(let propogate): return propogate.propogation.allowOrphaned
       }
     }
-    public var allowOrphaned: Bool {
+    public var autoApproveFork: Git.Sha? {
       switch self {
-      case .propose: return false
-      case .replicate(let replicate): return replicate.replication.autoApproveFork
-      case .integrate(let integrate): return integrate.integration.autoApproveFork
-      case .duplicate(let duplicate): return duplicate.duplication.autoApproveFork
-      case .propogate(let propogate): return propogate.propogation.autoApproveFork
+      case .propose: return nil
+      case .replicate(let replicate):
+        return replicate.replication.autoApproveFork.then(replicate.fork)
+      case .integrate(let integrate):
+        return integrate.integration.autoApproveFork.then(integrate.fork)
+      case .duplicate: return nil
+      case .propogate(let propogate):
+        return propogate.propogation.autoApproveFork.then(propogate.fork)
       }
     }
-    public func gitCheck(branches: [Json.GitlabBranch]) throws -> GitCheck {
-      let target = target
-      let branches = try branches
-        .filter(\.protected)
-        .map(\.name)
-        .map(Git.Branch.make(name:))
-        .filter({ $0 != target })
+    public var selfApproval: Bool {
+      if case .propose = self { return false } else { return true }
+    }
+    public var diffApproval: Bool {
       switch self {
-      case .propose: return .extras(branches, [])
-      case .replicate(let replicate): return .extras(branches, [replicate.fork])
-      case .integrate(let integrate): return .extras(branches, [integrate.fork])
-      case .duplicate(let duplicate): return .cherry(duplicate.fork)
-      case .propogate(let propogate): return .forward(propogate.fork)
+      case .propose: return true
+      case .replicate: return true
+      case .integrate: return true
+      case .duplicate: return false
+      case .propogate: return false
       }
     }
+    public var authorshipApproval: Bool {
+      switch self {
+      case .propose: return true
+      case .replicate: return false
+      case .integrate: return false
+      case .duplicate: return false
+      case .propogate: return false
+      }
+    }
+    public var randomApproval: Bool {
+      switch self {
+      case .propose: return true
+      case .replicate: return false
+      case .integrate: return false
+      case .duplicate: return false
+      case .propogate: return false
+      }
+    }
+//    public func gitCheck(branches: [Json.GitlabBranch]) throws -> GitCheck {
+//      let target = target
+//      let branches = try branches
+//        .filter(\.protected)
+//        .map(\.name)
+//        .map(Git.Branch.make(name:))
+//        .filter({ $0 != target })
+//      var result: [GitCheck] = [
+//
+//      ]
+//      switch self {
+//      case .propose: return .extras(branches, [])
+//      case .replicate(let replicate): return .extras(branches, [replicate.fork])
+//      case .integrate(let integrate): return .extras(branches, [integrate.fork])
+//      case .duplicate(let duplicate): return .cherry(duplicate.fork)
+//      case .propogate(let propogate): return .forward(propogate.fork)
+//      }
+//    }
 //    public struct Infusion {
 //      public let review: Review
 //      public let merge: Json.GitlabReviewState
@@ -254,9 +290,22 @@ extension Review {
       public var propogation: Propogation
     }
     public enum GitCheck {
-      case extras([Git.Branch], [Git.Sha])
-      case cherry(Git.Sha)
-      case forward(Git.Sha)
+      case extraCommits(branches: [Git.Branch], exclude: [Git.Ref], head: Git.Sha)
+      case notCherry(fork: Git.Sha, head: Git.Sha, target: Git.Branch)
+      case notForward(fork: Git.Sha, head: Git.Sha, target: Git.Branch)
+      case forkInTarget(fork: Git.Sha, target: Git.Branch)
+      case forkNotInOriginal(fork: Git.Sha, original: Git.Branch)
+      case forkNotInSource(fork: Git.Sha, head: Git.Sha)
+      case forkParentNotInTarget(fork: Git.Sha, target: Git.Branch)
+    }
+    public struct ApprovesCheck {
+      public var checkDiff: Bool
+      public var head: Git.Sha
+      public var target: Git.Branch
+      public var fork: Git.Sha?
+      public var diff: [String] = []
+      public var changes: [Git.Sha: [String]] = [:]
+      public var childs: [Git.Sha: Set<Git.Sha>] = [:]
     }
     public enum Prefix: String {
       case replicate
@@ -302,6 +351,14 @@ extension Review {
       }
       func makeSource(target: Git.Branch, fork: Git.Sha) -> String {
         "\(rawValue)/\(target.name)/\(fork.value)"
+      }
+      var original: KeyPath<Storage.State, Git.Branch?> {
+        switch self {
+        case .duplicate: return \.duplicate
+        case .integrate: return \.integrate
+        case .propogate: return \.propogate
+        case .replicate: return \.replicate
+        }
       }
 //      func makeFork(source: Git.Branch) throws -> Git.Sha {
 //        switch self {
