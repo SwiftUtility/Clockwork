@@ -218,7 +218,9 @@ public enum Yaml {
       public var queues: [String: [UInt]]
       public var states: [String: State]
       public struct State: Decodable {
+        public var source: String
         public var target: String
+        public var original: String?
         public var authors: [String]
         public var phase: Phase?
         public var skip: [String]?
@@ -227,10 +229,6 @@ public enum Yaml {
         public var verified: String?
         public var randoms: [String]?
         public var legates: [String]?
-        public var replicate: String?
-        public var integrate: String?
-        public var duplicate: String?
-        public var propogate: String?
         public var reviewers: [String: Reviewer]?
       }
       public struct Reviewer: Decodable {

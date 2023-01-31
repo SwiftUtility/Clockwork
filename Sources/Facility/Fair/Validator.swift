@@ -59,7 +59,7 @@ public final class Validator {
       let lines = try listFileLines(.init(file: .init(value: "\(cfg.git.root.value)/\(file)")))
       for (row, line) in lines.enumerated() {
         for rule in lineRules where rule.lines.isMet(line) {
-          result.append(.make(rule: rule.rule, file: file, line: row))
+          result.append(.make(rule: rule.rule, file: file, line: row + 1))
         }
       }
     }}

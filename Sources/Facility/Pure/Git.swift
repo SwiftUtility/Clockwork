@@ -180,6 +180,12 @@ public extension Git {
   func getAuthorEmail(ref: Ref) -> Execute { proc(
     args: ["show", "-s", "--format=%aE", ref.value]
   )}
+  func getCommiterName(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%cN", ref.value]
+  )}
+  func getCommiterEmail(ref: Ref) -> Execute { proc(
+    args: ["show", "-s", "--format=%cE", ref.value]
+  )}
   func getAuthorTimestamp(ref: Ref) -> Execute { proc(
     args: ["show", "-s", "--format=%at", ref.value]
   )}
@@ -249,6 +255,8 @@ public extension Git {
   var quitMerge: Execute { proc(
     args: ["merge", "--quit"]
   )}
+  func cherry(ref: Ref) -> Execute { proc(args: ["cherry-pick", "--no-commit", ref.value]) }
+  var quitCherry: Execute { proc(args: ["cherry-pick", "--quit"]) }
   var addAll: Execute { proc(
     args: ["add", "--all"]
   )}
@@ -258,7 +266,10 @@ public extension Git {
   func resetSoft(ref: Ref) -> Execute { proc(
     args: ["reset", "--soft", ref.value]
   )}
-  func commit(message: String) -> Execute { proc(
+  func commit(
+    message: String,
+    env: [String: String] = [:]
+  ) -> Execute { proc(
     args: ["commit", "-m", message]
   )}
   var listTags: Execute { proc(

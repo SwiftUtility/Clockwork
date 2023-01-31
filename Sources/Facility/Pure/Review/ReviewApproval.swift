@@ -4,7 +4,7 @@
 //  public struct Approval {
 //    public let fusion: Fusion
 //    public internal(set) var ctx: Context
-//    public internal(set) var state: Storage.State
+//    public internal(set) var state: State
 //    public internal(set) var diffTeams: Set<String> = []
 //    public internal(set) var authorshipTeams: Set<String> = []
 //    public internal(set) var sourceTeams: Set<String> = []
@@ -21,7 +21,7 @@
 //    public internal(set) var commenters: [String: Set<String>] = [:]
 //    static func make(
 //      ctx: Context,
-//      state: Storage.State,
+//      state: State,
 //      fusion: Fusion,
 //      diff: [String]
 //    ) -> Self {

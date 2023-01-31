@@ -15,18 +15,26 @@ extension Review {
     public enum StateChange {
       case delete(UInt)
     }
-    public mutating func makeState(merge: Json.GitlabMergeState) throws -> Storage.State? {
+    public mutating func makeState(merge: Json.GitlabMergeState) throws -> State? {
       guard merge.isClosed.not else {
         storage.delete(merge: merge)
+        #warning("tbd")
         return nil
       }
       return try storage.states[merge.iid].get(.init(
         review: merge.iid,
+        source: .make(name: merge.sourceBranch),
         target: .make(name: merge.targetBranch),
         authors: [merge.author.username]
       ))
     }
-    public mutating func apply(update: Update) {
+    public mutating func merge(merge: Json.GitlabMergeState) {
+      #warning("tbd")
+    }
+    public mutating func dequeue(merge: Json.GitlabMergeState) {
+      #warning("tbd")
+    }
+    public mutating func update(state: State) {
       #warning("tbd")
     }
     public func isFirst(merge: Json.GitlabMergeState) -> Bool {

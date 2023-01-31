@@ -304,6 +304,14 @@ public extension Gitlab {
     headers: [rest.get().auth, Json.contentType],
     secrets: [rest.get().secret]
   ))}
+  func deleteMergeRequest(
+    review: UInt
+  ) -> Lossy<Execute> { .init(try .makeCurl(
+    url: "\(api)/merge_requests/\(review)",
+    method: "DELETE",
+    headers: [rest.get().auth, Json.contentType],
+    secrets: [rest.get().secret]
+  ))}
   func listShaMergeRequests(
     sha: Git.Sha
   ) -> Lossy<Execute> { .init(try .makeCurl(

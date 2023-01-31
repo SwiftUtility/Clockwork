@@ -230,7 +230,7 @@ public struct Report: Query {
 public extension Configuration {
   func makeThread(
     merge: Json.GitlabMergeState?,
-    state: Review.Storage.State?,
+    state: Review.State?,
     fusion: Review.Fusion?
   ) -> Report.Threads {
     var result = Report.Threads.make()
@@ -264,7 +264,7 @@ public extension Configuration {
 //    ctx: Report.ReviewMergeConflicts(authors: status.authors.sorted())
 //  )}
   func reportReviewClosed(
-    state: Review.Storage.State,
+    state: Review.State,
     merge: Json.GitlabMergeState
   ) -> Report { .make(
     cfg: self,

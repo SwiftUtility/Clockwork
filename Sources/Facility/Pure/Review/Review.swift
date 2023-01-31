@@ -70,8 +70,132 @@ public struct Review {
         .map({ try NSRegularExpression(pattern: $0, options: [.anchorsMatchLines]) })
     )}
   }
-  public struct Action {
-    public var trigger: [UInt] = []
-    public var reports: [Report] = []
+  public struct Reviewer {
+    public var login: String
+    public var commit: Git.Sha
+    public var resolution: Resolution
+    public static func make(
+      login: String,
+      yaml: Yaml.Review.Storage.Reviewer
+    ) throws -> Self { try .init(
+      login: login,
+      commit: .make(value: yaml.commit),
+      resolution: .make(yaml: yaml.resolution)
+    )}
+  }
+  public enum Resolution: String, Encodable {
+    case fragil
+    case advance
+    case obsolete
+    public var approved: Bool {
+      if case .obsolete = self { return false } else { return true }
+    }
+    public var fragil: Bool {
+      if case .fragil = self { return true } else { return false }
+    }
+    public static func make(yaml: Yaml.Review.Storage.Resolution) -> Self {
+      switch yaml {
+      case .fragil: return .fragil
+      case .advance: return .advance
+      case .obsolete: return .obsolete
+      }
+    }
+  }
+  public enum Phase: String, Encodable {
+    case block
+    case stuck
+    case amend
+    case ready
+    public static func make(yaml: Yaml.Review.Storage.Phase) -> Self {
+      switch yaml {
+      case .block: return .block
+      case .stuck: return .stuck
+      case .amend: return .amend
+      case .ready: return .ready
+      }
+    }
+  }
+  public struct Change {
+    public var head: Git.Sha
+    public var merge: Json.GitlabMergeState
+    public var ownage: [String: Criteria]
+    public var fusion: Fusion
+    public var addAward: String? = nil
+  }
+  public enum Problem {
+    case badSource(String)
+    case targetNotProtected
+    case targetMismatch
+    case sourceIsProtected
+    case multipleKinds([String])
+    case undefinedKind
+    case authorIsBot
+    case authorIsNotBot(String)
+    case sanity(String)
+    case extraCommits(Set<Git.Branch>)
+    case notCherry
+    case notForward
+    case forkInTarget
+    case forkNotInOriginal
+    case forkParentNotInTarget
+    case sourceNotAtFrok
+    case conflicts
+    case obsolete
+    case squashCheck
+    case draft
+    case discussions([String: Int])
+    case badTitle
+    case taskMismatch
+    case holders(Set<String>)
+    case unknownUsers(Set<String>)
+    case unknownTeams(Set<String>)
+    case confusedTeams(Set<String>)
+    case orphaned(Set<String>)
+    case unapprovableTeams(Set<String>)
+    var blocking: Bool {
+      switch self {
+      case .badSource: return true
+      case .targetNotProtected: return true
+      case .targetMismatch: return true
+      case .sourceIsProtected: return true
+      case .multipleKinds: return true
+      case .undefinedKind: return true
+      case .authorIsBot: return true
+      case .authorIsNotBot: return true
+      case .sanity: return true
+      case .extraCommits: return true
+      case .notCherry: return true
+      case .notForward: return true
+      case .forkInTarget: return true
+      case .forkNotInOriginal: return true
+      case .forkParentNotInTarget: return true
+      case .sourceNotAtFrok: return true
+      case .conflicts: return true
+      case .obsolete: return true
+      default: return false
+      }
+    }
+    var verifiable: Bool {
+      switch self {
+      case .squashCheck: return true
+      case .draft: return true
+      case .discussions: return true
+      case .badTitle: return true
+      case .taskMismatch: return true
+      case .holders: return true
+      default: return false
+      }
+    }
+    var skippable: Bool {
+      switch self {
+      case .holders: return true
+      case .unknownUsers: return true
+      case .unknownTeams: return true
+      case .confusedTeams: return true
+      case .orphaned: return true
+      case .unapprovableTeams: return true
+      default: return false
+      }
+    }
   }
 }
