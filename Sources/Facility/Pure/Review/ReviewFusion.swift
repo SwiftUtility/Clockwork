@@ -161,7 +161,6 @@ extension Review {
       case forkParentNotInTarget(fork: Git.Sha, target: Git.Branch)
     }
     public struct ApprovesCheck {
-      public var checkDiff: Bool
       public var head: Git.Sha
       public var target: Git.Branch
       public var fork: Git.Sha?

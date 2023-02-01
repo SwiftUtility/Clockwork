@@ -101,6 +101,15 @@ public struct Review {
       }
     }
   }
+  public enum Kind {
+    case squash(Proposition)
+    case merge(Merge)
+    public struct Merge {
+      public var fork: Git.Sha
+      public var original: Git.Branch
+      public var prefix: Fusion.Prefix
+    }
+  }
   public enum Phase: String, Encodable {
     case block
     case stuck

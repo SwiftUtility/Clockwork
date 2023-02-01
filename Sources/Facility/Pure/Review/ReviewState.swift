@@ -33,6 +33,9 @@ extension Review {
       if emergent != nil { emergent = sha }
       if verified != nil { verified = sha }
     }
+    public mutating func squashApproves(sha: Git.Sha) {
+      reviewers.keys.forEach({ reviewers[$0]?.commit = sha })
+    }
     func isUnapproved(user: String) -> Bool {
       guard let user = reviewers[user] else { return true }
       return user.resolution.approved.not
@@ -197,32 +200,26 @@ extension Review {
     public func makeApprovesCheck() throws -> Fusion.ApprovesCheck? {
       guard let change = change, problems.get([]).contains(where: \.blocking).not
       else { return nil }
-      guard emergent.flatMapNil(verified) != change.head else { return nil }
       switch change.fusion {
       case .propose(let propose): return .init(
-        checkDiff: true,
         head: change.head,
         target: propose.target
       )
       case .replicate(let replicate): return .init(
-        checkDiff: true,
         head: change.head,
         target: replicate.target,
         fork: replicate.fork
       )
       case .integrate(let integrate): return .init(
-        checkDiff: true,
         head: change.head,
         target: integrate.target,
         fork: integrate.fork
       )
       case .duplicate(let duplicate): return .init(
-        checkDiff: false,
         head: change.head,
         target: duplicate.target
       )
       case .propogate(let propogate): return .init(
-        checkDiff: false,
         head: change.head,
         target: propogate.target
       )}
@@ -231,13 +228,17 @@ extension Review {
       ctx: Context,
       approvesCheck: Fusion.ApprovesCheck?
     ) {
-      guard let change = change, problems.get([]).contains(where: \.blocking).not else { return }
-      var changes = approvesCheck.map(\.changes).get([:])
+      guard
+        let change = change,
+        let approvesCheck = approvesCheck,
+        emergent.flatMapNil(verified) != change.head || isApproved.not || phase != .ready
+      else { return }
+      var changes = approvesCheck.changes
       for (sha, diff) in changes {
         if skip.contains(sha) || diff.isEmpty { changes[sha] = nil }
       }
-      let childs = approvesCheck.map(\.childs).get([:])
-      let diff = approvesCheck.map(\.diff).get([])
+      let childs = approvesCheck.childs
+      let diff = approvesCheck.diff
       verified = nil
       emergent = emergent
         .flatMap({ childs[$0] })
