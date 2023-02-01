@@ -146,10 +146,10 @@ public struct Review {
     case notForward
     case forkInTarget
     case forkNotInOriginal
+    case forkNotInSource
     case forkParentNotInTarget
     case sourceNotAtFrok
     case conflicts
-    case obsolete
     case squashCheck
     case draft
     case discussions([String: Int])
@@ -177,10 +177,10 @@ public struct Review {
       case .notForward: return true
       case .forkInTarget: return true
       case .forkNotInOriginal: return true
+      case .forkNotInSource: return true
       case .forkParentNotInTarget: return true
       case .sourceNotAtFrok: return true
       case .conflicts: return true
-      case .obsolete: return true
       default: return false
       }
     }

@@ -105,57 +105,11 @@ extension Review {
       guard let change = change else { return [] }
       var protected = branches
         .filter(\.protected)
-        .reduce(into: [:], { $0[$1.name] = $1 })
-      if protected[change.fusion.source.name] != nil { add(problem: .sourceIsProtected) }
-      if protected[change.fusion.target.name] == nil { add(problem: .targetNotProtected) }
+        .reduce(into: Set(), { $0.insert($1.name) })
+      if protected.contains(change.fusion.source.name) { add(problem: .sourceIsProtected) }
+      if protected.contains(change.fusion.target.name).not { add(problem: .targetNotProtected) }
       guard problems.get([]).contains(where: \.blocking).not else { return [] }
-      protected[change.fusion.target.name] = nil
-      switch change.fusion {
-      case .propose(let propose): return try [
-        .extraCommits(
-          branches: protected.values
-            .map(\.name)
-            .map(Git.Branch.make(name:)),
-          exclude: [.make(remote: propose.target)],
-          head: change.head
-        ),
-      ]
-      case .replicate(let replicate): return try [
-        .extraCommits(
-          branches: protected.values
-            .map(\.name)
-            .map(Git.Branch.make(name:)),
-          exclude: [.make(remote: replicate.target), .make(sha: replicate.fork)],
-          head: change.head
-        ),
-        .forkInTarget(fork: replicate.fork, target: replicate.target),
-        .forkNotInOriginal(fork: replicate.fork, original: replicate.original),
-        .forkNotInSource(fork: replicate.fork, head: change.head),
-        .forkParentNotInTarget(fork: replicate.fork, target: replicate.target),
-      ]
-      case .integrate(let integrate): return try [
-        .extraCommits(
-          branches: protected.values
-            .map(\.name)
-            .map(Git.Branch.make(name:)),
-          exclude: [.make(remote: integrate.target), .make(sha: integrate.fork)],
-          head: change.head
-        ),
-        .forkInTarget(fork: integrate.fork, target: integrate.target),
-        .forkNotInOriginal(fork: integrate.fork, original: integrate.original),
-        .forkNotInSource(fork: integrate.fork, head: change.head),
-      ]
-      case .duplicate(let duplicate): return [
-        .notCherry(fork: duplicate.fork, head: change.head, target: duplicate.target),
-        .forkInTarget(fork: duplicate.fork, target: duplicate.target),
-        .forkNotInOriginal(fork: duplicate.fork, original: duplicate.original),
-      ]
-      case .propogate(let propogate): return [
-        .notForward(fork: propogate.fork, head: change.head, target: propogate.target),
-        .forkInTarget(fork: propogate.fork, target: propogate.target),
-        .forkNotInOriginal(fork: propogate.fork, original: propogate.original),
-        .forkNotInSource(fork: propogate.fork, head: change.head),
-      ]}
+      return try change.fusion.makeGitChecks(head: change.head, protected: protected)
     }
     public mutating func update(
       ctx: Context,

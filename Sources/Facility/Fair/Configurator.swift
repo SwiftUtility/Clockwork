@@ -201,11 +201,11 @@ extension Configurator {
       data: .init(yaml.utf8)
     ))
     let result: Git.Sha?
-    if try Execute.parseLines(reply: execute(git.changesList)).isEmpty.not {
+    do {
       try Execute.checkStatus(reply: execute(git.addAll))
-      try Execute.checkStatus(reply: execute(git.commit(message: message)))
+      try Execute.checkStatus(reply: execute(git.commit(message: message, allowEmpty: false)))
       result = try .make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
-    } else {
+    } catch {
       result = nil
     }
     try Execute.checkStatus(reply: execute(git.detach(ref: initial)))

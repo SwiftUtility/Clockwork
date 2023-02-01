@@ -19,7 +19,6 @@ public struct Configuration {
   )}
   public struct Profile {
     public var location: Git.File
-    public var obsolescence: Criteria?
     public var gitlab: Git.File?
     public var slack: Git.File?
     public var jira: Git.File?
@@ -35,8 +34,6 @@ public struct Configuration {
       yaml: Yaml.Profile
     ) throws -> Self { try .init(
       location: location,
-      obsolescence: yaml.obsolescence
-        .map(Criteria.init(yaml:)),
       gitlab: yaml.gitlab
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:)),

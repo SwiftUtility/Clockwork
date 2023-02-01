@@ -118,6 +118,64 @@ extension Review {
       case .propogate: return false
       }
     }
+    public func makeGitChecks(
+      head: Git.Sha,
+      protected: Set<String>
+    ) throws -> [GitCheck] {
+      switch self {
+      case .propose(let propose): return try [
+        .extraCommits(
+          branches: protected
+            .subtracting([propose.target.name])
+            .map(Git.Branch.make(name:)),
+          exclude: [.make(remote: propose.target)],
+          head: head
+        ),
+      ]
+      case .replicate(let replicate): return try [
+        .extraCommits(
+          branches: protected
+            .subtracting([replicate.target.name])
+            .map(Git.Branch.make(name:)),
+          exclude: [.make(remote: replicate.target), .make(sha: replicate.fork)],
+          head: head
+        ),
+        .forkInTarget(fork: replicate.fork, target: replicate.target),
+        .forkNotInOriginal(fork: replicate.fork, original: replicate.original),
+        .forkNotInSource(fork: replicate.fork, head: head),
+        .forkParentNotInTarget(fork: replicate.fork, target: replicate.target),
+      ]
+      case .integrate(let integrate): return try [
+        .extraCommits(
+          branches: protected
+            .subtracting([integrate.target.name])
+            .map(Git.Branch.make(name:)),
+          exclude: [.make(remote: integrate.target), .make(sha: integrate.fork)],
+          head: head
+        ),
+        .forkInTarget(fork: integrate.fork, target: integrate.target),
+        .forkNotInOriginal(fork: integrate.fork, original: integrate.original),
+        .forkNotInSource(fork: integrate.fork, head: head),
+      ]
+      case .duplicate(let duplicate): return try [
+        .extraCommits(
+          branches: protected
+            .subtracting([duplicate.target.name])
+            .map(Git.Branch.make(name:)),
+          exclude: [.make(remote: duplicate.target)],
+          head: head
+        ),
+        .notCherry(fork: duplicate.fork, head: head, target: duplicate.target),
+        .forkInTarget(fork: duplicate.fork, target: duplicate.target),
+        .forkNotInOriginal(fork: duplicate.fork, original: duplicate.original),
+      ]
+      case .propogate(let propogate): return [
+        .notForward(fork: propogate.fork, head: head, target: propogate.target),
+        .forkInTarget(fork: propogate.fork, target: propogate.target),
+        .forkNotInOriginal(fork: propogate.fork, original: propogate.original),
+        .forkNotInSource(fork: propogate.fork, head: head),
+      ]}
+    }
     public struct Propose {
       public var source: Git.Branch
       public var target: Git.Branch

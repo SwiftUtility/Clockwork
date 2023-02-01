@@ -21,6 +21,11 @@ extension Review {
         #warning("tbd")
         return nil
       }
+      guard merge.isMerged.not else {
+        storage.delete(merge: merge)
+        #warning("tbd")
+        return nil
+      }
       return try storage.states[merge.iid].get(.init(
         review: merge.iid,
         source: .make(name: merge.sourceBranch),
@@ -38,6 +43,10 @@ extension Review {
       #warning("tbd")
     }
     public func isFirst(merge: Json.GitlabMergeState) -> Bool {
+      #warning("tbd")
+      return false
+    }
+    public func isQueued(merge: Json.GitlabMergeState) -> Bool {
       #warning("tbd")
       return false
     }

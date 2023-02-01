@@ -85,6 +85,7 @@ public enum Json {
     public var iid: UInt
     public var webUrl: String
     public var isClosed: Bool { state == "closed" }
+    public var isMerged: Bool { state == "merged" }
     public struct Pipeline: Codable {
       public var id: UInt
       public var sha: String

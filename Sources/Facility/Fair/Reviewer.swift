@@ -421,6 +421,21 @@ public final class Reviewer {
     return false
   }
   public func rebaseReview(cfg: Configuration) throws -> Bool {
+    let gitlab = try cfg.gitlab.get()
+    let merge = try gitlab.merge.get()
+    guard try checkActual(cfg: cfg, merge: merge) else { return false }
+    var ctx = try makeContext(cfg: cfg)
+    guard var state = try ctx.makeState(merge: merge) else {
+      try storeContext(ctx: ctx)
+      return false
+    }
+    guard try performUpdate(ctx: &ctx, state: &state, merge: merge).not else { return false }
+    guard state.phase != .block else { return false }
+    var commit = try Git.Sha.make(value: Execute.parseText(reply: execute(cfg.git.mergeBase(
+      .make(remote: .make(name: merge.targetBranch)),
+      .make(sha: .make(merge: merge))
+    ))))
+
 //    let fusion = try cfg.parseFusion.map(parseFusion).get()
 //    let gitlab = try cfg.gitlab.get()
 //    let parent = try gitlab.parent.get()
@@ -455,11 +470,14 @@ public final class Reviewer {
     guard try checkActual(cfg: cfg, merge: merge) else { return false }
     var ctx = try makeContext(cfg: cfg)
     guard var state = try ctx.makeState(merge: merge) else {
-      logMessage(.reviewClosed)
       try storeContext(ctx: ctx)
       return false
     }
     guard try performUpdate(ctx: &ctx, state: &state, merge: merge) else {
+      try storeContext(ctx: ctx)
+      return false
+    }
+    guard try normalize(ctx: &ctx, state: &state) else {
       try storeContext(ctx: ctx)
       return false
     }
@@ -473,13 +491,16 @@ public final class Reviewer {
     var ctx = try makeContext(cfg: cfg)
     guard ctx.isFirst(merge: merge) else { return true }
     guard var state = try ctx.makeState(merge: merge) else {
-      logMessage(.reviewClosed)
       try storeContext(ctx: ctx)
       return true
     }
     guard try performUpdate(ctx: &ctx, state: &state, merge: merge) else {
       try storeContext(ctx: ctx)
       return true
+    }
+    guard try normalize(ctx: &ctx, state: &state) else {
+      try storeContext(ctx: ctx)
+      return false
     }
     guard try acceptReview(ctx: &ctx, state: state) else {
       try storeContext(ctx: ctx)
@@ -580,6 +601,8 @@ extension Reviewer {
         parent: .make(sha: fork)
       ))) { result.append(.forkInTarget) }
     case .forkNotInOriginal(let fork, let original):
+      guard try Execute.parseSuccess(reply: execute(cfg.git.getSha(ref: .make(remote: original))))
+      else { break }
       if try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: original),
         parent: .make(sha: fork)
@@ -588,7 +611,7 @@ extension Reviewer {
       if try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(sha: head),
         parent: .make(sha: fork)
-      ))).not { result.append(.forkNotInOriginal) }
+      ))).not { result.append(.forkNotInSource) }
     case .forkParentNotInTarget(let fork, let target):
       if try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(remote: target),
@@ -636,41 +659,15 @@ extension Reviewer {
     )
     try checkApproves(ctx: ctx, state: &state)
     state.updatePhase()
+    ctx.update(state: state)
     if let award = state.change?.addAward { try gitlab
       .postMrAward(review: merge.iid, award: award)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
     }
-    guard state.phase == .ready else {
-      ctx.update(state: state)
-      return false
-    }
-    guard try normalize(ctx: ctx, state: &state) else {
-      ctx.update(state: state)
-      return false
-    }
-    ctx.update(state: state)
-    return ctx.isFirst(merge: merge)
+    return state.phase == .ready
   }
-//  func makeUpdate(
-//    ctx: inout Review.Context,
-//    merge: Json.GitlabMergeState
-//  ) throws -> Review.State? {
-//    guard let state = try ctx.makeState(merge: merge) else { return nil }
-//    let sha = try Git.Ref.make(sha: .make(value: merge.lastPipeline.sha))
-//    let profile = try parseProfile(ctx.cfg.parseProfile(ref: sha))
-//
-//    return try .make(
-//      ctx: ctx,
-//      merge: merge,
-//      ownage: ctx.cfg.parseCodeOwnage(profile: profile)
-//        .map(parseCodeOwnage)
-//        .get([:]),
-//      profile: profile,
-//      state: state
-//    )
-//  }
   func checkActual(
     cfg: Configuration,
     merge: Json.GitlabMergeState
@@ -678,19 +675,8 @@ extension Reviewer {
     let gitlab = try cfg.gitlab.get()
     let parent = try gitlab.parent.get()
     guard parent.pipeline.id == merge.lastPipeline.id else {
+      #warning("report outdated pipeline")
       logMessage(.pipelineOutdated)
-      return false
-    }
-    let target = try Git.Ref.make(remote: .make(name: merge.targetBranch))
-    let head = try Git.Ref.make(sha: .make(merge: merge))
-    guard
-      let obsolescence = try? parseProfile(cfg.parseProfile(ref: target)).obsolescence,
-      try Execute
-        .parseLines(reply: execute(cfg.git.listChangedOutsideFiles(source: head, target: target)))
-        .contains(where: obsolescence.isMet(_:))
-        .not
-    else {
-      logMessage(.reviewObsolete)
       return false
     }
     return true
@@ -947,29 +933,30 @@ extension Reviewer {
 //    )))
 //  }
   func normalize(
-    ctx: Review.Context,
+    ctx: inout Review.Context,
     state: inout Review.State
   ) throws -> Bool {
     guard let change = state.change else { return false }
     switch change.fusion {
     case .propose:
-      return try syncReview(ctx: ctx, state: &state)
+      guard try syncReview(ctx: &ctx, state: &state) else { return false }
     case .replicate(let replicate):
-      return try squashReview(ctx: ctx, state: &state, fork: replicate.fork)
+      guard try squashReview(ctx: &ctx, state: &state, fork: replicate.fork) else { return false }
     case .integrate(let integrate):
-      return try squashReview(ctx: ctx, state: &state, fork: integrate.fork)
+      guard try squashReview(ctx: &ctx, state: &state, fork: integrate.fork) else { return false }
     case .duplicate(let duplicate):
       let commits = try Execute.parseLines(reply: execute(ctx.cfg.git.listCommits(
         in: [.make(sha: change.head)],
         notIn: [.make(remote: duplicate.target)]
       )))
       guard let fork = try commits.last.map(Git.Sha.make(value:)) else { return false }
-      return try squashReview(ctx: ctx, state: &state, fork: fork)
-    case .propogate: return true
+      guard try squashReview(ctx: &ctx, state: &state, fork: fork) else { return false }
+    case .propogate: break
     }
+    return ctx.isFirst(merge: change.merge)
   }
   func syncReview(
-    ctx: Review.Context,
+    ctx: inout Review.Context,
     state: inout Review.State
   ) throws -> Bool {
     guard let change = state.change else { return false }
@@ -996,10 +983,11 @@ extension Reviewer {
     } else {
       state.add(problem: .conflicts)
     }
+    ctx.update(state: state)
     return false
   }
   func squashReview(
-    ctx: Review.Context,
+    ctx: inout Review.Context,
     state: inout Review.State,
     fork: Git.Sha
   ) throws -> Bool {
@@ -1022,6 +1010,7 @@ extension Reviewer {
       message: message
     ) else {
       state.add(problem: .conflicts)
+      ctx.update(state: state)
       return false
     }
     head = try .make(value: Execute.parseText(reply: execute(ctx.cfg.git.commitTree(
@@ -1044,6 +1033,7 @@ extension Reviewer {
     )))
     state.shiftHead(sha: head)
     state.squashApproves(sha: head)
+    ctx.update(state: state)
     return false
   }
   func listChangedFiles(
@@ -1116,10 +1106,10 @@ extension Reviewer {
 //      try Execute.checkStatus(reply: execute(gitlab.postMrPipelines(review: notifiable).get()))
 //    }
 //  }
-  func pickReview(
+  func pick(
     cfg: Configuration,
     sha: Git.Sha,
-    target: Git.Branch
+    to ref: Git.Ref
   ) throws -> Git.Sha? {
     let initial = try Id(.head)
       .map(cfg.git.getSha(ref:))
@@ -1129,7 +1119,7 @@ extension Reviewer {
       .map(Git.Ref.make(sha:))
       .get()
     let sha = Git.Ref.make(sha: sha)
-    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: .make(remote: target))))
+    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: ref)))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
     do {
       try Execute.checkStatus(reply: execute(cfg.git.cherry(ref: sha)))
@@ -1142,6 +1132,7 @@ extension Reviewer {
     try Execute.checkStatus(reply: execute(cfg.git.addAll))
     try Execute.checkStatus(reply: execute(cfg.git.commit(
       message: Execute.parseText(reply: execute(cfg.git.getCommitMessage(ref: sha))),
+      allowEmpty: false,
       env: Git.env(
         authorName: Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: sha))),
         authorEmail: Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: sha))),
@@ -1180,7 +1171,7 @@ extension Reviewer {
     do {
       try Execute.checkStatus(reply: execute(cfg.git.merge(
         refs: [commit],
-        message: message,
+        message: nil,
         noFf: true,
         env: Git.env(
           authorName: name,
@@ -1190,13 +1181,14 @@ extension Reviewer {
         ),
         escalate: true
       )))
-      #warning("adopt to empty diff merges")
     } catch {
       try Execute.checkStatus(reply: execute(cfg.git.quitMerge))
       try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: initial)))
       try Execute.checkStatus(reply: execute(cfg.git.clean))
       return nil
     }
+    try Execute.checkStatus(reply: execute(cfg.git.addAll))
+    try Execute.checkStatus(reply: execute(cfg.git.commit(message: message, allowEmpty: true)))
     let result = try Id(.head)
       .map(cfg.git.getSha(ref:))
       .map(execute)
@@ -1212,31 +1204,24 @@ extension Reviewer {
     state: Review.State
   ) throws -> Bool {
     guard let change = state.change else { throw MayDay("Unexpected merge state") }
-    let params: Gitlab.PutMrMerge
+    var params = Gitlab.PutMrMerge(
+      squash: state.squash,
+      shouldRemoveSourceBranch: true,
+      sha: change.head
+    )
     switch change.fusion {
-    case .propose: params = try .init(
-      squashCommitMessage: generate(ctx.cfg.createMergeCommitMessage(
+    case .propose:
+      params.squashCommitMessage = try generate(ctx.cfg.createMergeCommitMessage(
         review: ctx.review,
         fusion: change.fusion
-      )),
-      squash: true,
-      shouldRemoveSourceBranch: true,
-      sha: change.head
-    )
-    case .replicate, .integrate, .duplicate: params = try .init(
-      mergeCommitMessage: generate(ctx.cfg.createMergeCommitMessage(
+      ))
+    case .replicate, .integrate, .duplicate:
+      params.mergeCommitMessage = try generate(ctx.cfg.createMergeCommitMessage(
         review: ctx.review,
         fusion: change.fusion
-      )),
-      squash: false,
-      shouldRemoveSourceBranch: true,
-      sha: change.head
-    )
-    case .propogate: params = .init(
-      squash: false,
-      shouldRemoveSourceBranch: true,
-      sha: change.head
-    )}
+      ))
+    case .propogate: break
+    }
     let gitlab = try ctx.cfg.gitlab.get()
     let result = try gitlab
       .putMrMerge(parameters: params, review: state.review)
@@ -1259,6 +1244,7 @@ extension Reviewer {
     }
   }
   func helpReviews(ctx: inout Review.Context, state: Review.State) throws {
+
 //    if let obsolescence = ctx.cfg.profile.obsolescence, try Execute
 //      .parseLines(reply: execute(ctx.cfg.git.listChangedFiles(
 //        source: .make(sha: update.head),
@@ -1269,7 +1255,7 @@ extension Reviewer {
 //      var synced: Set<UInt> = []
 //      for iid in ctx.storage.queues[update.merge.targetBranch].get([]) {
 //        guard var state = ctx.storage.states[iid] else { continue }
-////        guard let sha =
+//        guard let sha =
 //        #warning("tbd")
 //        synced.insert(iid)
 //      }

@@ -268,9 +268,11 @@ public extension Git {
   )}
   func commit(
     message: String,
+    allowEmpty: Bool,
     env: [String: String] = [:]
   ) -> Execute { proc(
     args: ["commit", "-m", message]
+    + allowEmpty.then("--allow-empty").array
   )}
   var listTags: Execute { proc(
     args: ["ls-remote", "--tags", "--refs"]

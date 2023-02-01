@@ -12,7 +12,6 @@ public enum Yaml {
     public var flow: String?
     public var requisites: String?
     public var review: String?
-    public var obsolescence: Criteria?
   }
   public struct Gitlab: Decodable {
     public var apiToken: Secret
