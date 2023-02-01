@@ -635,6 +635,7 @@ extension Reviewer {
       discussions: resolveDiscussions(cfg: ctx.cfg, review: state.review)
     )
     try checkApproves(ctx: ctx, state: &state)
+    state.updatePhase()
     if let award = state.change?.addAward { try gitlab
       .postMrAward(review: merge.iid, award: award)
       .map(execute)

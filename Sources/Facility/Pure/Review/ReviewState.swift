@@ -198,7 +198,10 @@ extension Review {
       if holders.isEmpty.not { add(problem: .holders(holders)) }
     }
     public func makeApprovesCheck() throws -> Fusion.ApprovesCheck? {
-      guard let change = change, problems.get([]).contains(where: \.blocking).not
+      guard
+        let change = change,
+          problems.get([]).contains(where: \.blocking).not,
+          emergent.flatMapNil(verified) != change.head || isApproved.not
       else { return nil }
       switch change.fusion {
       case .propose(let propose): return .init(
@@ -228,11 +231,7 @@ extension Review {
       ctx: Context,
       approvesCheck: Fusion.ApprovesCheck?
     ) {
-      guard
-        let change = change,
-        let approvesCheck = approvesCheck,
-        emergent.flatMapNil(verified) != change.head || isApproved.not || phase != .ready
-      else { return }
+      guard let change = change, let approvesCheck = approvesCheck else { return }
       var changes = approvesCheck.changes
       for (sha, diff) in changes {
         if skip.contains(sha) || diff.isEmpty { changes[sha] = nil }
@@ -381,35 +380,40 @@ extension Review {
         .filter(\.isUnapprovable)
         .reduce(into: Set(), { $0.insert($1.name) })
       if unapprovable.isEmpty.not { add(problem: .unapprovableTeams(unapprovable)) }
-      if problems.get([]).contains(where: \.verifiable.not).not {
-        var involved = authors
-          .union(legates)
-          .union(randoms)
-        let necessary = updateTeams.reduce(into: Set(), { $0.formUnion($1.necessary) })
-        legates.formUnion(necessary)
-        involved.formUnion(necessary)
-        updateTeams.indices.forEach({ updateTeams[$0].update(involved: involved) })
-        legates.formUnion(selectUsers(
-          ctx: ctx,
-          teams: &updateTeams,
-          involved: &involved,
-          users: updateTeams.reduce(into: Set(), { $0.formUnion($1.approvers) })
-        ))
-        updateTeams = randomTeams.compactMap({ ctx.rules.teams[$0] })
-        updateTeams.indices.forEach({ updateTeams[$0].update(active: active) })
-        ignore = ctx.rules.ignore
-          .filter({ $0.value.intersection(authors).isEmpty.not })
-          .keySet
-          .union(authors)
-        updateTeams.indices.forEach({ updateTeams[$0].update(exclude: ignore) })
-        updateTeams.indices.forEach({ updateTeams[$0].update(involved: involved) })
-        randoms.formUnion(selectUsers(
-          ctx: ctx,
-          teams: &updateTeams,
-          involved: &involved,
-          users: updateTeams.reduce(into: Set(), { $0.formUnion($1.approvers) })
-        ))
-        verified = change.head
+      guard problems.get([]).contains(where: \.verifiable.not).not else { return }
+      var involved = authors
+        .union(legates)
+        .union(randoms)
+      let necessary = updateTeams.reduce(into: Set(), { $0.formUnion($1.necessary) })
+      legates.formUnion(necessary)
+      involved.formUnion(necessary)
+      updateTeams.indices.forEach({ updateTeams[$0].update(involved: involved) })
+      legates.formUnion(selectUsers(
+        ctx: ctx,
+        teams: &updateTeams,
+        involved: &involved,
+        users: updateTeams.reduce(into: Set(), { $0.formUnion($1.approvers) })
+      ))
+      updateTeams = randomTeams.compactMap({ ctx.rules.teams[$0] })
+      updateTeams.indices.forEach({ updateTeams[$0].update(active: active) })
+      ignore = ctx.rules.ignore
+        .filter({ $0.value.intersection(authors).isEmpty.not })
+        .keySet
+        .union(authors)
+      updateTeams.indices.forEach({ updateTeams[$0].update(exclude: ignore) })
+      updateTeams.indices.forEach({ updateTeams[$0].update(involved: involved) })
+      randoms.formUnion(selectUsers(
+        ctx: ctx,
+        teams: &updateTeams,
+        involved: &involved,
+        users: updateTeams.reduce(into: Set(), { $0.formUnion($1.approvers) })
+      ))
+      verified = change.head
+    }
+    public mutating func updatePhase() {
+      guard let change = change else {
+        phase = .block
+        return
       }
       if problems.get([]).contains(where: \.blocking) {
         phase = .block
