@@ -29,11 +29,14 @@ extension Review {
         if emergent == nil || problem.skippable.not { phase = .stuck }
       }
     }
-    public mutating func shiftHead(sha: Git.Sha) {
+    public mutating func shiftHead(to sha: Git.Sha) {
       if emergent != nil { emergent = sha }
       if verified != nil { verified = sha }
     }
-    public mutating func squashApproves(sha: Git.Sha) {
+    public mutating func shiftSkip(commit: Git.Sha, to sha: Git.Sha) {
+      if skip.remove(commit) != nil { skip.insert(sha) }
+    }
+    public mutating func squashApproves(to sha: Git.Sha) {
       reviewers.keys.forEach({ reviewers[$0]?.commit = sha })
     }
     func isUnapproved(user: String) -> Bool {
@@ -54,7 +57,6 @@ extension Review {
     ) throws -> Bool {
       let source = try Git.Branch.make(name: merge.sourceBranch)
       let target = try Git.Branch.make(name: merge.targetBranch)
-      let head = try Git.Sha.make(merge: merge)
       if target != self.target {
         emergent = nil
         verified = nil
@@ -82,7 +84,7 @@ extension Review {
             original: original
           )})
         {
-          change = .init(head: head, merge: merge, ownage: ownage, fusion: fusion)
+          change = try .make(merge: merge, ownage: ownage, fusion: fusion)
           if source != fusion.source { add(problem: .targetMismatch) }
         } else {
           add(problem: .badSource(self.source.name))
@@ -94,7 +96,7 @@ extension Review {
         if fusions.isEmpty { add(problem: .undefinedKind) }
         else if fusions.count > 1 { add(problem: .multipleKinds(fusions.map(\.kind))) }
         else if let fusion = fusions.first {
-          change = .init(head: head, merge: merge, ownage: ownage, fusion: fusion)
+          change = try .make(merge: merge, ownage: ownage, fusion: fusion)
         }
       }
       return change != nil
@@ -103,7 +105,7 @@ extension Review {
       branches: [Json.GitlabBranch]
     ) throws -> [Fusion.GitCheck] {
       guard let change = change else { return [] }
-      var protected = branches
+      let protected = branches
         .filter(\.protected)
         .reduce(into: Set(), { $0.insert($1.name) })
       if protected.contains(change.fusion.source.name) { add(problem: .sourceIsProtected) }
@@ -151,47 +153,27 @@ extension Review {
         .intersection(ctx.users.filter(\.value.active).keySet)
       if holders.isEmpty.not { add(problem: .holders(holders)) }
     }
-    public func makeApprovesCheck() throws -> Fusion.ApprovesCheck? {
+    public var needApprovalCheck: Bool {
       guard
         let change = change,
-          problems.get([]).contains(where: \.blocking).not,
-          emergent.flatMapNil(verified) != change.head || isApproved.not
-      else { return nil }
-      switch change.fusion {
-      case .propose(let propose): return .init(
-        head: change.head,
-        target: propose.target
-      )
-      case .replicate(let replicate): return .init(
-        head: change.head,
-        target: replicate.target,
-        fork: replicate.fork
-      )
-      case .integrate(let integrate): return .init(
-        head: change.head,
-        target: integrate.target,
-        fork: integrate.fork
-      )
-      case .duplicate(let duplicate): return .init(
-        head: change.head,
-        target: duplicate.target
-      )
-      case .propogate(let propogate): return .init(
-        head: change.head,
-        target: propogate.target
-      )}
+        problems.get([]).contains(where: \.blocking).not,
+        emergent != change.head,
+        verified != change.head || isApproved.not
+      else { return false }
+      return true
     }
     public mutating func update(
       ctx: Context,
-      approvesCheck: Fusion.ApprovesCheck?
+      childs: [Git.Sha: Set<Git.Sha>],
+      diff: [String],
+      changes: [Git.Sha: [String]]
     ) {
-      guard let change = change, let approvesCheck = approvesCheck else { return }
-      var changes = approvesCheck.changes
+      guard let change = change else { return }
+      var changes = changes
+      skip.formIntersection(childs.keys)
       for (sha, diff) in changes {
         if skip.contains(sha) || diff.isEmpty { changes[sha] = nil }
       }
-      let childs = approvesCheck.childs
-      let diff = approvesCheck.diff
       verified = nil
       emergent = emergent
         .flatMap({ childs[$0] })
@@ -363,6 +345,11 @@ extension Review {
         users: updateTeams.reduce(into: Set(), { $0.formUnion($1.approvers) })
       ))
       verified = change.head
+    }
+    public var canRebase: Bool {
+      guard let change = change, change.fusion.proposition, emergent == nil else { return false }
+      return verified == change.head
+
     }
     public mutating func updatePhase() {
       guard let change = change else {

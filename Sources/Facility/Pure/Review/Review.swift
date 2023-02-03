@@ -74,6 +74,9 @@ public struct Review {
     public var login: String
     public var commit: Git.Sha
     public var resolution: Resolution
+    public mutating func shift(sha: Git.Sha, to other: Git.Sha) {
+      if commit == sha { commit = other }
+    }
     public static func make(
       login: String,
       yaml: Yaml.Review.Storage.Reviewer
@@ -130,6 +133,16 @@ public struct Review {
     public var ownage: [String: Criteria]
     public var fusion: Fusion
     public var addAward: String? = nil
+    public static func make(
+      merge: Json.GitlabMergeState,
+      ownage: [String : Criteria],
+      fusion: Review.Fusion
+    ) throws -> Self { try .init(
+      head: .make(merge: merge),
+      merge: merge,
+      ownage: ownage,
+      fusion: fusion
+    )}
   }
   public enum Problem {
     case badSource(String)

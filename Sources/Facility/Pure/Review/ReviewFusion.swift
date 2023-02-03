@@ -218,14 +218,6 @@ extension Review {
       case forkNotInSource(fork: Git.Sha, head: Git.Sha)
       case forkParentNotInTarget(fork: Git.Sha, target: Git.Branch)
     }
-    public struct ApprovesCheck {
-      public var head: Git.Sha
-      public var target: Git.Branch
-      public var fork: Git.Sha?
-      public var diff: [String] = []
-      public var changes: [Git.Sha: [String]] = [:]
-      public var childs: [Git.Sha: Set<Git.Sha>] = [:]
-    }
     public enum Prefix: String {
       case replicate
       case integrate

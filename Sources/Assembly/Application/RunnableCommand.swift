@@ -281,11 +281,6 @@ extension Clockwork.Review.Approve: RunnableCommand {
     try Assembler.reviewer.approveReview(cfg: cfg, advance: advance)
   }
 }
-extension Clockwork.Review.Close: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.closeReview(cfg: cfg)
-  }
-}
 extension Clockwork.Review.Dequeue: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.dequeueReview(cfg: cfg)

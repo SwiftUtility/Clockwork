@@ -387,7 +387,6 @@ struct Clockwork: ParsableCommand {
         Accept.self,
         AddLabels.self,
         Approve.self,
-        Close.self,
         Dequeue.self,
         Enqueue.self,
         ExportTargets.self,
@@ -423,10 +422,6 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Flag(help: "Should approve persist regardless of further commits")
       var advance: Bool = false
-    }
-    struct Close: ClockworkCommand {
-      static var abstract: String { "Close parent review" }
-      @OptionGroup var clockwork: Clockwork
     }
     struct Dequeue: ClockworkCommand {
       static var abstract: String { "Dequeue parent review" }
