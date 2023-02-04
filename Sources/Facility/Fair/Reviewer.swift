@@ -183,24 +183,14 @@ public final class Reviewer {
     guard let merge = try getMerge(cfg: cfg, iid: iid) else { return false }
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
-//    let fusion = try cfg.parseFusion.map(parseFusion).get()
-//    let gitlab = try cfg.gitlab.get()
-//    var statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
-//    let state = try gitlab.getMrState(review: iid)
-//      .map(execute)
-//      .reduce(Json.GitlabReviewState.self, jsonDecoder.decode(success:reply:))
-//      .get()
-//    guard var status = statuses[iid] else { return false }
-//    status.emergent = try .make(value: state.lastPipeline.sha)
-//    statuses[status.review] = status
-//    return try persistAsset(.init(
-//      cfg: cfg,
-//      asset: fusion.approval.statuses,
-//      content: Fusion.Approval.Status.serialize(statuses: statuses),
-//      message: generate(cfg.createFusionStatusesCommitMessage(fusion: fusion, reason: .cheat))
-//    ))
-    #warning("tbd")
-    return false
+    let sha = try Git.Sha.make(merge: merge)
+    guard state.verified != sha else {
+      #warning("tbd report")
+      return false
+    }
+    state.verified = sha
+    try storeChange(ctx: ctx, state: state, merge: merge)
+    return true
   }
   public func approveReview(cfg: Configuration, advance: Bool) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
