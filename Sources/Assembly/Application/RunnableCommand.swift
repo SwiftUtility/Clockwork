@@ -303,7 +303,7 @@ extension Clockwork.Review.List: RunnableCommand {
 }
 extension Clockwork.Review.Own: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.ownReview(cfg: cfg)
+    try Assembler.reviewer.ownReview(cfg: cfg, user: user, iid: iid)
   }
 }
 extension Clockwork.Review.Patch: RunnableCommand {
@@ -360,12 +360,12 @@ extension Clockwork.Review.StartPropogation: RunnableCommand {
 }
 extension Clockwork.Review.StartReplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startReplication(cfg: cfg)
+    try Assembler.reviewer.startReplication(cfg: cfg, source: source, target: target, fork: fork)
   }
 }
 extension Clockwork.Review.Unown: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.unownReview(cfg: cfg)
+    try Assembler.reviewer.unownReview(cfg: cfg, user: user, iid: iid)
   }
 }
 extension Clockwork.Review.Update: RunnableCommand {

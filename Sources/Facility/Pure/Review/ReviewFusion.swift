@@ -118,6 +118,23 @@ extension Review {
       case .propogate: return false
       }
     }
+    public var preGitCheck: [GitCheck] {
+      switch self {
+      case .propose: return []
+      case .replicate(let replicate): return [
+        .forkNotInOriginal(fork: replicate.fork, original: replicate.original),
+      ]
+      case .integrate(let integrate): return [
+        .forkNotInOriginal(fork: integrate.fork, original: integrate.original),
+      ]
+      case .duplicate(let duplicate): return [
+        .forkNotInOriginal(fork: duplicate.fork, original: duplicate.original),
+      ]
+      case .propogate(let propogate): return [
+        .notForward(fork: propogate.fork, head: propogate.fork, target: propogate.target),
+        .forkNotInOriginal(fork: propogate.fork, original: propogate.original),
+      ]}
+    }
     public func makeGitChecks(
       head: Git.Sha,
       protected: Set<String>

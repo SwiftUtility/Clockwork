@@ -549,6 +549,7 @@ public final class Producer {
       .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
     guard previous.isEmpty.not else { return .make(uniq: [], lack: []) }
+    #warning("tbd remove cherry picks")
     return try Flow.ReleaseNotes.make(
       uniq: Execute
         .parseLines(reply: execute(cfg.git.listCommits(

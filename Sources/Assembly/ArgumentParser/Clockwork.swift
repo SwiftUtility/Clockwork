@@ -446,6 +446,10 @@ struct Clockwork: ParsableCommand {
     struct Own: ClockworkCommand {
       static var abstract: String { "Add user to authors" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Approver login or job runner")
+      var user: String = ""
+      @Option(help: "Merge request iid or parent merge iid")
+      var iid: UInt = 0
     }
     struct Patch: ClockworkCommand {
       static var abstract: String { "Apply parrent job generated patch" }
@@ -519,10 +523,20 @@ struct Clockwork: ParsableCommand {
     struct StartReplication: ClockworkCommand {
       static var abstract: String { "Create replication review" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Propogated commit sha")
+      var fork: String
+      @Option(help: "Propogation target branch name or default branch")
+      var target: String = ""
+      @Option(help: "Propogation source branch name")
+      var source: String
     }
     struct Unown: ClockworkCommand {
       static var abstract: String { "Remove user from authors" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Approver login or job runner")
+      var user: String = ""
+      @Option(help: "Merge request iid or parent merge iid")
+      var iid: UInt = 0
     }
     struct Update: ClockworkCommand {
       static var abstract: String { "Clean outdated reviews" }

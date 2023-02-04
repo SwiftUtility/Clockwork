@@ -3,6 +3,7 @@ import Facility
 extension Review {
   public struct Target: Encodable {
     public var name: String
+    
     public var kind: Kind
     public static func merges(targets: [Self]) -> [String]? {
       let targets = targets

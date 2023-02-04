@@ -18,6 +18,20 @@ extension Review {
     public var problems: [Problem]? = nil
     public var change: Change? = nil
     public var squash: Bool { original == nil }
+    public mutating func approve(job: Json.GitlabJob, advance: Bool) throws -> Bool {
+      let reviewer = try Reviewer(
+        login: job.user.username,
+        commit: .make(job: job),
+        resolution: advance.then(.advance).get(.fragil)
+      )
+      guard
+        verified == reviewer.commit,
+        authors.union(legates).union(randoms).contains(reviewer.login),
+        reviewer != reviewers[reviewer.login]
+      else { return false }
+      reviewers[reviewer.login] = reviewer
+      return true
+    }
     public mutating func add(problem: Problem) {
       problems = problems.get([]) + [problem]
       if problem.blocking {
@@ -349,7 +363,6 @@ extension Review {
     public var canRebase: Bool {
       guard let change = change, change.fusion.proposition, emergent == nil else { return false }
       return verified == change.head
-
     }
     public mutating func updatePhase() {
       guard let change = change else {

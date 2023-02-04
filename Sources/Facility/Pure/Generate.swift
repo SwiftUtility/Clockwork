@@ -77,9 +77,9 @@ public struct Generate: Query {
   public struct ExportMergeTargets: GenerateContext {
     public var fork: String
     public var source: String
-    public var merge: [String]?
-    public var forward: [String]?
-    public var targets: [Review.Target]
+    public var integrate: [String]?
+    public var duplicate: [String]?
+    public var propogate: [String]?
   }
   public struct CreateReleaseBranchName: GenerateContext {
     public var product: String
@@ -300,7 +300,9 @@ public extension Configuration {
     review: Review,
     fork: Git.Sha,
     source: String,
-    targets: [Review.Target],
+    integrate: [String],
+    duplicate: [String],
+    propogate: [String],
     args: [String]
   ) -> Generate { .make(
     cfg: self,
@@ -308,9 +310,9 @@ public extension Configuration {
     ctx: Generate.ExportMergeTargets(
       fork: fork.value,
       source: source,
-      merge: Review.Target.merges(targets: targets),
-      forward: Review.Target.forwards(targets: targets),
-      targets: Review.Target.sorted(targets: targets)
+      integrate: integrate.isEmpty.not.then(integrate),
+      duplicate: duplicate.isEmpty.not.then(duplicate),
+      propogate: propogate.isEmpty.not.then(propogate)
     ),
     args: args.isEmpty.else(args)
   )}
