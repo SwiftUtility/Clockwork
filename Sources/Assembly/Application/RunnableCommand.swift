@@ -308,7 +308,7 @@ extension Clockwork.Review.Own: RunnableCommand {
 }
 extension Clockwork.Review.Patch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.patchReview(cfg: cfg, skip: skip, path: patch, message: message)
+    try Assembler.reviewer.patchReview(cfg: cfg, skip: skip, message: message)
   }
 }
 extension Clockwork.Review.Rebase: RunnableCommand {

@@ -113,60 +113,24 @@ public final class Reviewer {
   public func patchReview(
     cfg: Configuration,
     skip: Bool,
-    path: String,
     message: String
   ) throws -> Bool {
+    guard let patch = try readStdin() else { return true }
     guard let merge = try checkActual(cfg: cfg) else { return false }
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
-    let patch = try readStdin()
-    #warning("tbd remove path")
-//    let patch = try cfg.gitlab
-//      .flatMap({ $0.loadArtifact(job: parent.id, file: path) })
-//      .map(execute)
-//      .map(Execute.parseData(reply:))
-//      .get()
-//    let initial = try Id(.head)
-//      .map(cfg.git.getSha(ref:))
-//      .map(execute)
-//      .map(Execute.parseText(reply:))
-//      .map(Git.Sha.make(value:))
-//      .map(Git.Ref.make(sha:))
-//      .get()
-//    let result: Git.Sha?
-//    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: .make(sha: .make(job: parent)))))
-//    try Execute.checkStatus(reply: execute(cfg.git.clean))
-//    try Execute.checkStatus(reply: execute(cfg.git.apply(patch: patch)))
-//    if try Execute.parseLines(reply: execute(cfg.git.changesList)).isEmpty.not {
-//      try Execute.checkStatus(reply: execute(cfg.git.addAll))
-//      try Execute.checkStatus(reply: execute(cfg.git.commit(message: message)))
-//      result = try .make(value: Execute.parseText(reply: execute(cfg.git.getSha(ref: .head))))
-//    } else {
-//      result = nil
-//    }
-//    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: initial)))
-//    try Execute.checkStatus(reply: execute(cfg.git.clean))
-//    guard let result = result else { return false }
-//    if skip {
-//      status.skip.insert(result)
-//      statuses[status.review] = status
-//      _ = try persistAsset(.init(
-//        cfg: cfg,
-//        asset: fusion.approval.statuses,
-//        content: Fusion.Approval.Status.serialize(statuses: statuses),
-//        message: generate(cfg.createFusionStatusesCommitMessage(fusion: fusion, reason: .skipCommit))
-//      ))
-//    }
-//    try Execute.checkStatus(reply: execute(cfg.git.push(
-//      url: cfg.gitlab.flatMap(\.rest).get().push,
-//      branch: .make(name: merge.sourceBranch),
-//      sha: result,
-//      force: false,
-//      secret: cfg.gitlab.flatMap(\.rest).get().secret
-//    )))
-//    return true
-    #warning("tbd")
-    return false
+    guard let sha = try apply(
+      cfg: cfg,
+      patch: patch,
+      message: message,
+      to: .make(sha: .make(merge: merge))
+    ) else {
+      #warning("tbd report")
+      return false
+    }
+    state.skip.insert(sha)
+    try storeChange(ctx: ctx, state: state, merge: merge)
+    return true
   }
   public func skipReview(
     cfg: Configuration,
@@ -1183,98 +1147,87 @@ extension Reviewer {
 //      try Execute.checkStatus(reply: execute(gitlab.postMrPipelines(review: notifiable).get()))
 //    }
 //  }
+  func apply(
+    cfg: Configuration,
+    patch: Data,
+    message: String,
+    to ref: Git.Ref
+  ) throws -> Git.Sha? { try perform(cfg: cfg, on: ref) {
+    try Execute.checkStatus(reply: execute(cfg.git.apply(patch: patch)))
+    return try? commitHead(cfg: cfg, as: ref, message: message, empty: false)
+  }}
   func pick(
     cfg: Configuration,
     sha: Git.Sha,
     to ref: Git.Ref
-  ) throws -> Git.Sha? {
-    let initial = try Id(.head)
-      .map(cfg.git.getSha(ref:))
-      .map(execute)
-      .map(Execute.parseText(reply:))
-      .map(Git.Sha.make(value:))
-      .map(Git.Ref.make(sha:))
-      .get()
+  ) throws -> Git.Sha? { try perform(cfg: cfg, on: ref) {
     let sha = Git.Ref.make(sha: sha)
-    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: ref)))
-    try Execute.checkStatus(reply: execute(cfg.git.clean))
     do {
       try Execute.checkStatus(reply: execute(cfg.git.cherry(ref: sha)))
     } catch {
       try Execute.checkStatus(reply: execute(cfg.git.quitCherry))
-      try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: initial)))
-      try Execute.checkStatus(reply: execute(cfg.git.clean))
-      return nil
+      return nil as Git.Sha?
     }
-    try Execute.checkStatus(reply: execute(cfg.git.addAll))
-    try Execute.checkStatus(reply: execute(cfg.git.commit(
+    return try? commitHead(
+      cfg: cfg,
+      as: sha,
       message: Execute.parseText(reply: execute(cfg.git.getCommitMessage(ref: sha))),
-      allowEmpty: false,
-      env: Git.env(
-        authorName: Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: sha))),
-        authorEmail: Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: sha))),
-        commiterName: Execute.parseText(reply: execute(cfg.git.getCommiterName(ref: sha))),
-        commiterEmail: Execute.parseText(reply: execute(cfg.git.getCommiterEmail(ref: sha)))
-      )
-    )))
-    let result = try Id(.head)
-      .map(cfg.git.getSha(ref:))
-      .map(execute)
-      .map(Execute.parseText(reply:))
-      .map(Git.Sha.make(value:))
-      .get()
-    try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: initial)))
-    try Execute.checkStatus(reply: execute(cfg.git.clean))
-    return result
-  }
+      empty: false
+    )
+  }}
   func mergeReview(
     cfg: Configuration,
     commit: Git.Ref,
     into first: Git.Ref,
     message: String
-  ) throws -> Git.Sha? {
-    logMessage(.init(message: "Merging target into source"))
-    let initial = try Id(.head)
+  ) throws -> Git.Sha? { try perform(cfg: cfg, on: first) {
+    do {
+      try Execute.checkStatus(reply: execute(cfg.git.merge(
+        refs: [commit], message: nil, noFf: true, escalate: true
+      )))
+    } catch {
+      try Execute.checkStatus(reply: execute(cfg.git.quitMerge))
+      return nil as Git.Sha?
+    }
+    return try commitHead(cfg: cfg, as: commit, message: message, empty: true)
+  }}
+  func perform<T>(cfg: Configuration, on ref: Git.Ref, action: Try.Do<T>) throws -> T {
+    let head = try Id(.head)
       .map(cfg.git.getSha(ref:))
       .map(execute)
       .map(Execute.parseText(reply:))
       .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
       .get()
-    let name = try Execute.parseText(reply: execute(cfg.git.getAuthorName(ref: first)))
-    let email = try Execute.parseText(reply: execute(cfg.git.getAuthorEmail(ref: first)))
-    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: first)))
+    try Execute.checkStatus(reply: execute(cfg.git.detach(ref: ref)))
     try Execute.checkStatus(reply: execute(cfg.git.clean))
-    do {
-      try Execute.checkStatus(reply: execute(cfg.git.merge(
-        refs: [commit],
-        message: nil,
-        noFf: true,
-        env: Git.env(
-          authorName: name,
-          authorEmail: email,
-          commiterName: name,
-          commiterEmail: email
-        ),
-        escalate: true
-      )))
-    } catch {
-      try Execute.checkStatus(reply: execute(cfg.git.quitMerge))
-      try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: initial)))
-      try Execute.checkStatus(reply: execute(cfg.git.clean))
-      return nil
-    }
+    let result = Lossy(try action())
+    try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: head)))
+    try Execute.checkStatus(reply: execute(cfg.git.clean))
+    return try result.get()
+  }
+  func commitHead(
+    cfg: Configuration,
+    as ref: Git.Ref,
+    message: String,
+    empty: Bool
+  ) throws -> Git.Sha {
     try Execute.checkStatus(reply: execute(cfg.git.addAll))
-    try Execute.checkStatus(reply: execute(cfg.git.commit(message: message, allowEmpty: true)))
-    let result = try Id(.head)
-      .map(cfg.git.getSha(ref:))
-      .map(execute)
-      .map(Execute.parseText(reply:))
-      .map(Git.Sha.make(value:))
-      .get()
-    try Execute.checkStatus(reply: execute(cfg.git.resetHard(ref: initial)))
-    try Execute.checkStatus(reply: execute(cfg.git.clean))
-    return result
+    try Execute.checkStatus(reply: execute(cfg.git.commit(
+      message: message,
+      allowEmpty: empty,
+      env: Git.env(
+        authorName: Execute
+          .parseText(reply: execute(cfg.git.getAuthorName(ref: ref))),
+        authorEmail: Execute
+          .parseText(reply: execute(cfg.git.getAuthorEmail(ref: ref))),
+        commiterName: Execute
+          .parseText(reply: execute(cfg.git.getCommiterName(ref: ref))),
+        commiterEmail: Execute
+          .parseText(reply: execute(cfg.git.getCommiterEmail(ref: ref)))
+      )
+    )))
+    return try .make(value: Execute.parseText(reply: execute(cfg.git.getSha(ref: .head))))
   }
   func acceptReview(
     ctx: inout Review.Context,

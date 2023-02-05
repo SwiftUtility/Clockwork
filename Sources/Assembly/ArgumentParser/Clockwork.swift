@@ -460,8 +460,6 @@ struct Clockwork: ParsableCommand {
       var skip: Bool = false
       @Option(help: "Commit message")
       var message: String
-      @Argument(help: "Path to the patch artifact")
-      var patch: String
     }
     struct Rebase: ClockworkCommand {
       static var abstract: String { "Rebase parent review" }
