@@ -426,6 +426,8 @@ struct Clockwork: ParsableCommand {
     struct Dequeue: ClockworkCommand {
       static var abstract: String { "Dequeue parent review" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Merge request iid or parent merge iid")
+      var iid: UInt = 0
     }
     struct Enqueue: ClockworkCommand {
       static var abstract: String { "Update parent review state" }

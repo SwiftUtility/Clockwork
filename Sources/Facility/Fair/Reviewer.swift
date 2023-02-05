@@ -204,28 +204,12 @@ public final class Reviewer {
     try storeChange(ctx: ctx, state: state, merge: merge)
     return true
   }
-  public func dequeueReview(cfg: Configuration) throws -> Bool {
-//    let fusion = try cfg.parseFusion.map(parseFusion).get()
-//    let gitlab = try cfg.gitlab.get()
-//    let parent = try gitlab.parent.get()
-//    let merge = try gitlab.review.get()
-//    guard parent.pipeline.id == merge.lastPipeline.id else {
-//      logMessage(.pipelineOutdated)
-//      return false
-//    }
-//    var queue = try parseReviewQueue(cfg.parseReviewQueue(fusion: fusion))
-//    let queued = queue.isQueued(review: merge)
-//    try changeQueue(queue: &queue, cfg: cfg, enqueue: false)
-//    guard queued else { return true }
-//    logMessage(.init(message: "Triggering new pipeline"))
-//    try cfg.gitlab
-//      .flatReduce(curry: merge.iid, Gitlab.postMrPipelines(review:))
-//      .map(execute)
-//      .map(Execute.checkStatus(reply:))
-//      .get()
-//    return true
-    #warning("tbd")
-    return false
+  public func dequeueReview(cfg: Configuration, iid: UInt) throws -> Bool {
+    guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid)) else { return false }
+    var ctx = try makeContext(cfg: cfg)
+    ctx.dequeue(merge: merge)
+    try storeContext(ctx: ctx)
+    return true
   }
   public func ownReview(cfg: Configuration, user: String, iid: UInt) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
