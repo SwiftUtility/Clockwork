@@ -6,7 +6,7 @@ public final class Mediator {
   let parseReview: Try.Reply<ParseYamlFile<Review>>
   let parseReviewRules: Try.Reply<ParseYamlSecret<Review.Rules>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
-  let readStdin: Try.Reply<Configuration.ReadStdin>
+  let readStdin: Try.Reply<Configuration.ParseStdin>
   let generate: Try.Reply<Generate>
   let logMessage: Act.Reply<LogMessage>
   let stdoutData: Act.Of<Data>.Go
@@ -16,7 +16,7 @@ public final class Mediator {
     parseReview: @escaping Try.Reply<ParseYamlFile<Review>>,
     parseReviewRules: @escaping Try.Reply<ParseYamlSecret<Review.Rules>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
-    readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
+    readStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     generate: @escaping Try.Reply<Generate>,
     logMessage: @escaping Act.Reply<LogMessage>,
     stdoutData: @escaping Act.Of<Data>.Go,
@@ -35,7 +35,7 @@ public final class Mediator {
   public func signal(
     cfg: Configuration,
     event: String,
-    stdin: Configuration.ReadStdin,
+    stdin: Configuration.ParseStdin,
     args: [String]
   ) throws -> Bool {
     let stdin = try readStdin(stdin)

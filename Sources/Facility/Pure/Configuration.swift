@@ -81,7 +81,7 @@ public struct Configuration {
       return criteria.isMet(location.path.value) && criteria.isMet(codeOwnage.path.value)
     }
   }
-  public enum ReadStdin: Query {
+  public enum ParseStdin: Query {
     case ignore
     case lines
     case json

@@ -12,7 +12,8 @@ public final class Reviewer {
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
   let report: Act.Reply<Report>
-  let readStdin: Try.Reply<Configuration.ReadStdin>
+  let parseStdin: Try.Reply<Configuration.ParseStdin>
+  let readStdin: Try.Do<Data?>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
   public init(
@@ -26,7 +27,8 @@ public final class Reviewer {
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
     report: @escaping Act.Reply<Report>,
-    readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
+    parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
+    readStdin: @escaping Try.Do<Data?>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
   ) {
@@ -40,6 +42,7 @@ public final class Reviewer {
     self.writeStdout = writeStdout
     self.generate = generate
     self.report = report
+    self.parseStdin = parseStdin
     self.readStdin = readStdin
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
@@ -47,7 +50,7 @@ public final class Reviewer {
   public func signal(
     cfg: Configuration,
     event: String,
-    stdin: Configuration.ReadStdin,
+    stdin: Configuration.ParseStdin,
     args: [String]
   ) throws -> Bool {
 //    let stdin = try readStdin(stdin)
@@ -113,21 +116,11 @@ public final class Reviewer {
     path: String,
     message: String
   ) throws -> Bool {
+    guard let merge = try checkActual(cfg: cfg) else { return false }
+    var ctx = try makeContext(cfg: cfg)
+    guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
+    let patch = try readStdin()
     #warning("tbd remove path")
-//    let fusion = try cfg.parseFusion.map(parseFusion).get()
-//    let gitlab = try cfg.gitlab.get()
-//    let parent = try gitlab.parent.get()
-//    let merge = try gitlab.review.get()
-//    guard parent.pipeline.id == merge.lastPipeline.id else {
-//      logMessage(.pipelineOutdated)
-//      return false
-//    }
-//    var statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
-//    guard var status = statuses[merge.iid] else { return false }
-//    guard try !parseReviewQueue(cfg.parseReviewQueue(fusion: fusion)).isFirst(review: merge) else {
-//      logMessage(.init(message: "Review is validating"))
-//      return false
-//    }
 //    let patch = try cfg.gitlab
 //      .flatMap({ $0.loadArtifact(job: parent.id, file: path) })
 //      .map(execute)
@@ -267,7 +260,6 @@ public final class Reviewer {
     target: String,
     fork: String
   ) throws -> Bool {
-    let gitlab = try cfg.gitlab.get()
     let review = try cfg.parseReview.map(parseReview).get()
     guard let fusion = try makeFusion(
       cfg: cfg,
@@ -298,7 +290,6 @@ public final class Reviewer {
     target: String,
     fork: String
   ) throws -> Bool {
-    let gitlab = try cfg.gitlab.get()
     let review = try cfg.parseReview.map(parseReview).get()
     guard let fusion = try makeFusion(
       cfg: cfg,
@@ -322,7 +313,6 @@ public final class Reviewer {
     target: String,
     fork: String
   ) throws -> Bool {
-    let gitlab = try cfg.gitlab.get()
     let review = try cfg.parseReview.map(parseReview).get()
     guard let fusion = try makeFusion(
       cfg: cfg,

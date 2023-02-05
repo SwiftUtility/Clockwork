@@ -30,7 +30,7 @@ public final class Reporter {
     report(query:  cfg.reportUnexpected(error: error))
     throw error
   }
-  public func readStdin(query: Configuration.ReadStdin) throws -> Configuration.ReadStdin.Reply {
+  public func parseStdin(query: Configuration.ParseStdin) throws -> Configuration.ParseStdin.Reply {
     switch query {
     case .ignore: return nil
     case .lines:

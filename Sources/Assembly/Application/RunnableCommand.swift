@@ -42,7 +42,7 @@ extension Clockwork.Cocoapods.UpdateSpecs: RunnableCommand {
   }
 }
 extension Clockwork.CommonSignal.Stdin {
-  var mode: Configuration.ReadStdin {
+  var mode: Configuration.ParseStdin {
     switch self {
     case .ignore: return .ignore
     case .lines: return .lines

@@ -10,7 +10,7 @@ public final class Producer {
   let parseFlowVersions: Try.Reply<ParseYamlFile<Flow.Versions.Storage>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let report: Act.Reply<Report>
-  let readStdin: Try.Reply<Configuration.ReadStdin>
+  let readStdin: Try.Reply<Configuration.ParseStdin>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
   let jsonDecoder: JSONDecoder
@@ -23,7 +23,7 @@ public final class Producer {
     parseFlowVersions: @escaping Try.Reply<ParseYamlFile<Flow.Versions.Storage>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     report: @escaping Act.Reply<Report>,
-    readStdin: @escaping Try.Reply<Configuration.ReadStdin>,
+    readStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
     jsonDecoder: JSONDecoder
@@ -44,7 +44,7 @@ public final class Producer {
   public func signal(
     cfg: Configuration,
     event: String,
-    stdin: Configuration.ReadStdin,
+    stdin: Configuration.ParseStdin,
     args: [String]
   ) throws -> Bool {
 //    let stdin = try readStdin(stdin)

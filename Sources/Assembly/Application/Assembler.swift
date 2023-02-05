@@ -62,7 +62,8 @@ enum Assembler {
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
     report: reporter.report(query:),
-    readStdin: reporter.readStdin(query:),
+    parseStdin: reporter.parseStdin(query:),
+    readStdin: readStdin,
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -71,7 +72,7 @@ enum Assembler {
     parseReview: configurator.parseYamlFile(query:),
     parseReviewRules: configurator.parseYamlSecret(query:),
     persistAsset: configurator.persistAsset(query:),
-    readStdin: reporter.readStdin(query:),
+    readStdin: reporter.parseStdin(query:),
     generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),
     stdoutData: stdoutData,
@@ -86,7 +87,7 @@ enum Assembler {
     parseFlowVersions: configurator.parseYamlFile(query:),
     persistAsset: configurator.persistAsset(query:),
     report: reporter.report(query:),
-    readStdin: reporter.readStdin(query:),
+    readStdin: reporter.parseStdin(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
     jsonDecoder: jsonDecoder
