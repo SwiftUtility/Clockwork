@@ -33,6 +33,9 @@ extension Review {
         authors: [merge.author.username]
       ))
     }
+    public func remind(review: UInt, user: String) -> Report.ReviewApprove {
+      .init(diff: storage.states[review]?.reviewers[user]?.commit.value, reason: .remind)
+    }
     public mutating func merge(merge: Json.GitlabMergeState) {
       #warning("tbd")
     }

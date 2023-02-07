@@ -442,8 +442,8 @@ struct Clockwork: ParsableCommand {
     struct List: ClockworkCommand {
       static var abstract: String { "List all reviews to be approved" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Should list for every user")
-      var batch: Bool = false
+      @Option(help: "Approver login or all active users")
+      var user: String = ""
     }
     struct Own: ClockworkCommand {
       static var abstract: String { "Add user to authors" }
@@ -464,10 +464,14 @@ struct Clockwork: ParsableCommand {
     struct Rebase: ClockworkCommand {
       static var abstract: String { "Rebase parent review" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Merge request iid or parent merge iid")
+      var iid: UInt = 0
     }
     struct Remind: ClockworkCommand {
       static var abstract: String { "Ask approvers to pay attention" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Merge request iid or parent merge iid")
+      var iid: UInt = 0
     }
     struct RemoveLabels: ClockworkCommand {
       static var abstract: String { "Remove parent review labels" }
@@ -487,7 +491,7 @@ struct Clockwork: ParsableCommand {
     struct Skip: ClockworkCommand {
       static var abstract: String { "Mark review as emergent" }
       @OptionGroup var clockwork: Clockwork
-      @Argument(help: "Review iid to skip approval for")
+      @Option(help: "Merge request iid")
       var iid: UInt
     }
     struct StartDuplication: ClockworkCommand {
@@ -525,8 +529,8 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Propogated commit sha")
       var fork: String
-      @Option(help: "Propogation target branch name or default branch")
-      var target: String = ""
+      @Option(help: "Propogation target branch name")
+      var target: String
       @Option(help: "Propogation source branch name")
       var source: String
     }

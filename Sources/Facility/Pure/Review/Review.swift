@@ -105,15 +105,6 @@ public struct Review {
       }
     }
   }
-  public enum Kind {
-    case squash(Proposition)
-    case merge(Merge)
-    public struct Merge {
-      public var fork: Git.Sha
-      public var original: Git.Branch
-      public var prefix: Fusion.Prefix
-    }
-  }
   public enum Phase: String, Encodable {
     case block
     case stuck
@@ -131,17 +122,14 @@ public struct Review {
   public struct Change {
     public var head: Git.Sha
     public var merge: Json.GitlabMergeState
-    public var ownage: [String: Criteria]
     public var fusion: Fusion
     public var addAward: String? = nil
     public static func make(
       merge: Json.GitlabMergeState,
-      ownage: [String : Criteria],
       fusion: Review.Fusion
     ) throws -> Self { try .init(
       head: .make(merge: merge),
       merge: merge,
-      ownage: ownage,
       fusion: fusion
     )}
   }
@@ -159,7 +147,7 @@ public struct Review {
     case notCherry
     case notForward
     case forkInTarget
-    case forkNotInOriginal
+    case forkNotProtected
     case forkNotInSource
     case forkParentNotInTarget
     case sourceNotAtFrok
@@ -190,7 +178,7 @@ public struct Review {
       case .notCherry: return true
       case .notForward: return true
       case .forkInTarget: return true
-      case .forkNotInOriginal: return true
+      case .forkNotProtected: return true
       case .forkNotInSource: return true
       case .forkParentNotInTarget: return true
       case .sourceNotAtFrok: return true

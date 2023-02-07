@@ -298,7 +298,7 @@ extension Clockwork.Review.ExportTargets: RunnableCommand {
 }
 extension Clockwork.Review.List: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.listReviews(cfg: cfg, batch: batch)
+    try Assembler.reviewer.listReviews(cfg: cfg, user: user)
   }
 }
 extension Clockwork.Review.Own: RunnableCommand {
@@ -313,12 +313,12 @@ extension Clockwork.Review.Patch: RunnableCommand {
 }
 extension Clockwork.Review.Rebase: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.rebaseReview(cfg: cfg)
+    try Assembler.reviewer.rebaseReview(cfg: cfg, iid: iid)
   }
 }
 extension Clockwork.Review.Remind: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.remindReview(cfg: cfg)
+    try Assembler.reviewer.remindReview(cfg: cfg, iid: iid)
   }
 }
 extension Clockwork.Review.RemoveLabels: RunnableCommand {
@@ -345,22 +345,30 @@ extension Clockwork.Review.Skip: RunnableCommand {
 }
 extension Clockwork.Review.StartDuplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startDuplication(cfg: cfg, source: source, target: target, fork: fork)
+    try Assembler.reviewer.startFusion(
+      cfg: cfg, prefix: .duplicate, source: source, target: target, fork: fork
+    )
   }
 }
 extension Clockwork.Review.StartIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startIntegration(cfg: cfg, source: source, target: target, fork: fork)
+    try Assembler.reviewer.startFusion(
+      cfg: cfg, prefix: .integrate, source: source, target: target, fork: fork
+    )
   }
 }
 extension Clockwork.Review.StartPropogation: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startPropogation(cfg: cfg, source: source, target: target, fork: fork)
+    try Assembler.reviewer.startFusion(
+      cfg: cfg, prefix: .propogate, source: source, target: target, fork: fork
+    )
   }
 }
 extension Clockwork.Review.StartReplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startReplication(cfg: cfg, source: source, target: target, fork: fork)
+    try Assembler.reviewer.startFusion(
+      cfg: cfg, prefix: .replicate, source: source, target: target, fork: fork
+    )
   }
 }
 extension Clockwork.Review.Unown: RunnableCommand {

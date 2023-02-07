@@ -58,6 +58,41 @@ public struct Report: Query {
       gitlabBranches: Set(stage.branch.array.map(\.name))
     )}
   }
+  public enum Notify: String, ReportContext {
+    case pipelineOutdated
+    case reviewQueued
+    case ownFailed
+    case unownFailed
+    case approveFailed
+    case skipFailed
+    case rebaseBlocked
+    case patchFailed
+    case propogationFailed
+    case integrationFailed
+    case duplicationFailed
+    case replicationFailed
+    case nothingToApprove
+    public static func make(prefix: Review.Fusion.Prefix) -> Self {
+      switch prefix {
+      case .replicate: return .replicationFailed
+      case .integrate: return .integrationFailed
+      case .duplicate: return .duplicationFailed
+      case .propogate: return .propogationFailed
+      }
+    }
+  }
+  public struct ReviewList: ReportContext {
+    public var reviews: [UInt: ReviewApprove]
+  }
+  public struct ReviewApprove: ReportContext {
+    public var diff: String?
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case remind
+      case change
+      case create
+    }
+  }
   public struct ReviewCreated: ReportContext {
     public var authors: [String]
   }
@@ -263,6 +298,38 @@ public extension Configuration {
 //    threads: makeThread(review: nil, status: status, infusion: nil),
 //    ctx: Report.ReviewMergeConflicts(authors: status.authors.sorted())
 //  )}
+  func report(
+    notify: Report.Notify,
+    user: String? = nil,
+    merge: Json.GitlabMergeState? = nil
+  ) -> Report {
+    let user = user ?? (try? gitlab.map(\.job.user.username).get())
+    return .make(
+      cfg: self,
+      threads: .make(gitlabUsers: Set(user.array)),
+      ctx: notify,
+      subevent: [notify.rawValue],
+      merge: merge
+    )
+  }
+  func reportReviewList(
+    user: String,
+    reviews: [UInt: Report.ReviewApprove]
+  ) -> Report { .make(
+    cfg: self,
+    threads: .make(gitlabUsers: [user]),
+    ctx: Report.ReviewList(reviews: reviews)
+  )}
+  func reportReviewApprove(
+    user: String,
+    merge: Json.GitlabMergeState,
+    approve: Report.ReviewApprove
+  ) -> Report { .make(
+    cfg: self,
+    threads: .make(gitlabUsers: [user]),
+    ctx: approve,
+    merge: merge
+  )}
   func reportReviewClosed(
     state: Review.State,
     merge: Json.GitlabMergeState

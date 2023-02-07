@@ -159,6 +159,7 @@ public struct Generate: Query {
     }
   }
   public struct CreateMergeCommitMessage: GenerateContext {
+    public var review: UInt?
     public var kind: String?
     public var fork: String?
     public var original: String?
@@ -283,14 +284,15 @@ public extension Configuration {
     template: storage.asset.createCommitMessage,
     ctx: Generate.CreateReviewStorageCommitMessage(reason: reason)
   )}
-  #warning("tbd add context")
   func createMergeCommitMessage(
+    merge: Json.GitlabMergeState?,
     review: Review,
     fusion: Review.Fusion?
   ) -> Generate { .make(
     cfg: self,
     template: review.createMessage,
     ctx: Generate.CreateMergeCommitMessage(
+      review: merge?.iid,
       kind: fusion?.kind,
       fork: fusion?.fork?.value,
       original: fusion?.original?.name

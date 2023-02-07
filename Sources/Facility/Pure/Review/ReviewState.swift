@@ -53,21 +53,15 @@ extension Review {
     public mutating func squashApproves(to sha: Git.Sha) {
       reviewers.keys.forEach({ reviewers[$0]?.commit = sha })
     }
-    func isUnapproved(user: String) -> Bool {
+    public func isUnapproved(user: String) -> Bool {
       guard let user = reviewers[user] else { return true }
       return user.resolution.approved.not
     }
-    var isApproved: Bool { authors
-      .union(legates)
-      .union(randoms)
-      .contains(where: isUnapproved(user:))
-      .not
-    }
+    public var approvers: Set<String> { authors.union(legates).union(randoms) }
+    var isApproved: Bool { approvers.contains(where: isUnapproved(user:)).not }
     public mutating func prepareChange(
       ctx: Context,
-      merge: Json.GitlabMergeState,
-      ownage: [String: Criteria],
-      profile: Configuration.Profile
+      merge: Json.GitlabMergeState
     ) throws -> Bool {
       let source = try Git.Branch.make(name: merge.sourceBranch)
       let target = try Git.Branch.make(name: merge.targetBranch)
@@ -76,14 +70,6 @@ extension Review {
         verified = nil
       }
       if source != self.source { add(problem: .badSource(self.source.name)) }
-      if let sanity = ctx.rules.sanity {
-        if
-          let sanity = ownage[sanity],
-          let codeOwnage = profile.codeOwnage,
-          sanity.isMet(profile.location.path.value),
-          sanity.isMet(codeOwnage.path.value)
-        {} else { add(problem: .sanity(sanity)) }
-      }
       if let original = original {
         if ctx.bots.contains(merge.author.username).not {
           add(problem: .authorIsNotBot(merge.author.username))
@@ -98,7 +84,7 @@ extension Review {
             original: original
           )})
         {
-          change = try .make(merge: merge, ownage: ownage, fusion: fusion)
+          change = try .make(merge: merge, fusion: fusion)
           if source != fusion.source { add(problem: .targetMismatch) }
         } else {
           add(problem: .badSource(self.source.name))
@@ -110,10 +96,27 @@ extension Review {
         if fusions.isEmpty { add(problem: .undefinedKind) }
         else if fusions.count > 1 { add(problem: .multipleKinds(fusions.map(\.kind))) }
         else if let fusion = fusions.first {
-          change = try .make(merge: merge, ownage: ownage, fusion: fusion)
+          change = try .make(merge: merge, fusion: fusion)
         }
       }
       return change != nil
+    }
+    public mutating func checkSanity(
+      ctx: Context,
+      ownage: [String: Criteria],
+      profile: Configuration.Profile
+    ) -> Bool {
+      guard let sanity = ctx.rules.sanity else { return true }
+      guard
+        let sanity = ownage[sanity],
+        let codeOwnage = profile.codeOwnage,
+        sanity.isMet(profile.location.path.value),
+        sanity.isMet(codeOwnage.path.value)
+      else {
+        add(problem: .sanity(sanity))
+        return false
+      }
+      return true
     }
     public mutating func makeGitCheck(
       branches: [Json.GitlabBranch]
@@ -140,7 +143,7 @@ extension Review {
           .compactMap({ $0.notes.first })
           .filter({ $0.resolvable && $0.resolved == false })
           .map(\.author.username)
-          .reduce(into: [:], { $0[$1] = $0[$1].get(0) + 1 })
+          .reduce(into: [:], { $0[$1, default: 0] += 1 })
         add(problem: .discussions(discussions))
       }
       if case .propose(let propose) = change?.fusion {
@@ -180,25 +183,19 @@ extension Review {
       ctx: Context,
       childs: [Git.Sha: Set<Git.Sha>],
       diff: [String],
-      changes: [Git.Sha: [String]]
+      diffs: [Git.Sha: [String]],
+      ownage: [String: Criteria]
     ) {
-      guard let change = change else { return }
-      var changes = changes
       skip.formIntersection(childs.keys)
-      for (sha, diff) in changes {
-        if skip.contains(sha) || diff.isEmpty { changes[sha] = nil }
-      }
-      verified = nil
-      emergent = emergent
-        .flatMap({ childs[$0] })
-        .flatMap({ $0.contains(where: { changes[$0] != nil }).else(change.head) })
+      var changes: [Git.Sha: Set<String>] = [:]
+      guard let change = change else { return }
       let sourceTeams = ctx.rules.sourceBranch
         .filter({ $0.value.isMet(change.fusion.source.name) })
         .keySet
       let targetTeams = ctx.rules.targetBranch
         .filter({ $0.value.isMet(change.fusion.target.name) })
         .keySet
-      let diffTeams = change.fusion.diffApproval.then(change.ownage).get([:])
+      let diffTeams = change.fusion.diffApproval.then(ownage).get([:])
         .filter({ diff.contains(where: $0.value.isMet(_:)) })
         .keySet
       let authorshipTeams = change.fusion.authorshipApproval.then(ctx.rules.authorship).get([:])
@@ -268,21 +265,48 @@ extension Review {
         .compactMap({ ctx.rules.teams[$0] })
         .filter(\.advanceApproval.not)
         .reduce(into: [:], { $0[$1.name] = $1.approvers })
+      for (sha, diff) in diffs {
+        guard diff.isEmpty.not else { continue }
+        guard skip.contains(sha).not else {
+          guard
+            let sanity = ctx.rules.sanity,
+            diffTeams.contains(sanity),
+            let criteria = ownage[sanity],
+            diff.contains(where: criteria.isMet(_:))
+          else { continue }
+          changes[sha] = [sanity]
+          continue
+        }
+        var teams: Set<String> = []
+        for team in diffTeams {
+          guard
+            let criteria = ownage[team],
+            diff.contains(where: criteria.isMet(_:))
+          else { continue }
+          teams.insert(team)
+        }
+        changes[sha] = teams
+      }
+      verified = nil
+      emergent = emergent
+        .flatMap({ childs[$0] })
+        .flatMap({ $0.contains(where: { changes[$0] != nil }).else(change.head) })
       for reviewer in reviewers.values {
         guard let childs = childs[reviewer.commit] else {
           reviewers[reviewer.login] = nil
           continue
         }
         guard reviewer.resolution != .obsolete else { continue }
-        let breakers = childs.compactMap({ changes[$0] })
-        guard breakers.isEmpty.not else { continue }
+        guard childs.contains(where: { changes[$0] != nil }).not else { continue }
         guard fragilUsers.contains(reviewer.login) else {
           reviewers[reviewer.login]?.resolution = .obsolete
           continue
         }
-        for fragilUsers in breakers
+        for fragilUsers in childs
+          .compactMap({ changes[$0] })
           .reduce(into: Set(), { $0.formUnion($1) })
           .compactMap({ fragilDiffApprovers[$0] })
+          .reduce(into: Set(), { $0.formUnion($1) })
         {
           guard fragilUsers.contains(reviewer.login) else { continue }
           reviewers[reviewer.login]?.resolution = .obsolete
@@ -300,7 +324,7 @@ extension Review {
         .subtracting(ctx.bots)
       if unknownUsers.isEmpty.not { add(problem: .unknownUsers(unknownUsers)) }
       let unknownTeams = Set(ctx.rules.sanity.array)
-        .union(change.ownage.keys)
+        .union(ownage.keys)
         .union(ctx.rules.targetBranch.keys)
         .union(ctx.rules.sourceBranch.keys)
         .union(ctx.rules.authorship.keys)
@@ -308,7 +332,7 @@ extension Review {
         .union(ctx.rules.randoms.flatMap(\.value))
         .filter({ ctx.rules.teams[$0] == nil })
       if unknownTeams.isEmpty.not { add(problem: .unknownTeams(unknownTeams)) }
-      var confusedTeams = change.ownage.keySet
+      var confusedTeams = ownage.keySet
         .union(ctx.rules.sanity.array)
         .union(ctx.rules.targetBranch.keys)
         .union(ctx.rules.sourceBranch.keys)
