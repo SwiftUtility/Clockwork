@@ -69,6 +69,10 @@ public final class Reviewer {
   }
   public func updateReviews(cfg: Configuration, remind: Bool) throws -> Bool {
     var ctx = try makeContext(cfg: cfg)
+    for iid in ctx.storage.queues.values.compactMap(\.first) {
+      guard let merge = try getMerge(cfg: cfg, iid: iid) else { continue }
+      if merge.lastPipeline.isFailed { ctx.dequeue(merge: merge) }
+    }
     for state in ctx.storage.states.values {
       guard
         state.phase == .stuck,
@@ -139,7 +143,7 @@ public final class Reviewer {
     return true
   }
   public func dequeueReview(cfg: Configuration, iid: UInt) throws -> Bool {
-    guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid)) else { return false }
+    guard let merge = try getMerge(cfg: cfg, iid: iid) else { return false }
     var ctx = try makeContext(cfg: cfg)
     ctx.dequeue(merge: merge)
     try storeContext(ctx: ctx)
@@ -439,6 +443,7 @@ extension Reviewer {
   //    }
   //  }
   func storeContext(ctx: Review.Context) throws {
+    
     #warning("tbd")
   }
   func makeFusion(

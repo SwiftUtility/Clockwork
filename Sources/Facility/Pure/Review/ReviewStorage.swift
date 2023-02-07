@@ -15,9 +15,23 @@ extension Review {
         .map(State.make(review:yaml:))
         .reduce(into: [:], { $0[$1.review] = $1 })
     )}
-    public mutating func delete(merge: Json.GitlabMergeState) {
-      states[merge.iid] = nil
-      queues = queues.reduce(into: [:], { $0[$1.key] = $1.value.filter({ $0 != merge.iid }) })
+    mutating func delete(review: UInt) -> State? {
+      let result = states[review]
+      states[review] = nil
+      dequeue(review: review)
+      return result
+    }
+    mutating func dequeue(review: UInt) {
+      queues = queues.reduce(into: [:], { $0[$1.key] = $1.value.filter({ $0 != review }) })
+    }
+    mutating func enqueue(state: State) {
+      for (target, reviews) in queues {
+        if target == state.target.name {
+          if reviews.contains(state.review).not { queues[target] = reviews + [state.review] }
+        } else {
+          queues[target] = reviews.filter({ $0 != state.review })
+        }
+      }
     }
   }
 }

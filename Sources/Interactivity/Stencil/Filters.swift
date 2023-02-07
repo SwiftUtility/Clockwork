@@ -38,4 +38,8 @@ enum Filters {
     return value
       .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
   }
+  static func stride(value: Any?, args: [Any?]) throws -> Any? {
+    #warning("tbd")
+    return nil
+  }
 }

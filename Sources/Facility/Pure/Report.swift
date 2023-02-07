@@ -93,13 +93,22 @@ public struct Report: Query {
       case create
     }
   }
+  public struct ReviewClosed: ReportContext {
+    public var authors: [String]?
+  }
+  public struct ReviewMerged: ReportContext {
+    public var authors: [String]?
+    public var teams: [String]?
+    public var approvers: [String]?
+    public var emergent: Bool
+  }
+
+
+
   public struct ReviewCreated: ReportContext {
     public var authors: [String]
   }
   public struct ReviewMergeConflicts: ReportContext {
-    public var authors: [String]
-  }
-  public struct ReviewClosed: ReportContext {
     public var authors: [String]
   }
   public struct ReviewStopped: ReportContext {
@@ -171,14 +180,6 @@ public struct Report: Query {
 //      case workInProgress
 //      case taskMismatch
 //    }
-//  }
-//  public struct ReviewMerged: ReportContext {
-//    public var authors: [String]
-//    public var teams: [String]?
-//    public var watchers: [String]?
-//    public var approvers: [String]?
-//    public var state: Review.Approval.State
-//    public var subevent: [String] { [state.rawValue] }
 //  }
   public struct ReviewMergeError: ReportContext {
     public var authors: [String]
@@ -335,9 +336,24 @@ public extension Configuration {
     merge: Json.GitlabMergeState
   ) -> Report { .make(
     cfg: self,
-    threads: makeThread(merge: merge, state: state, fusion: nil),
-    ctx: Report.ReviewClosed(authors: state.authors.sorted()),
+    threads: .make(gitlabUsers: state.authors, gitlabBranches: [merge.targetBranch]),
+    ctx: Report.ReviewClosed(
+      authors: state.authors.sortedNonEmpty
+    ),
     merge: merge
+  )}
+  func reportReviewMerged(
+    state: Review.State,
+    merge: Json.GitlabMergeState
+  ) -> Report { .make(
+    cfg: self,
+    threads: .make(gitlabUsers: state.authors, gitlabBranches: [merge.targetBranch]),
+    ctx: Report.ReviewMerged(
+      authors: state.authors.sortedNonEmpty,
+      teams: state.teams.sortedNonEmpty,
+      approvers: state.reviewers.filter(\.value.resolution.approved).keys.sortedNonEmpty,
+      emergent: state.emergent != nil
+    )
   )}
 //  func reportReviewRemind(
 //    status: Fusion.Approval.Status,
@@ -406,21 +422,6 @@ public extension Configuration {
 //      unapprovable: update.unapprovable.isEmpty.else(update.unapprovable.sorted()),
 //      state: update.state,
 //      blockers: update.blockers.isEmpty.else(update.blockers)
-//    )
-//  )}
-//  func reportReviewMerged(
-//    review: Review
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: nil, status: review.status, infusion: review.infusion),
-//    ctx: Report.ReviewMerged(
-//      authors: review.status.authors.sorted(),
-//      teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
-//      watchers: review.watchers,
-//      approvers: review.accepters,
-//      state: review.status.emergent
-//        .map({_ in .emergent})
-//        .get(.approved)
 //    )
 //  )}
 //  func reportReviewMergeError(

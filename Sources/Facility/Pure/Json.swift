@@ -90,6 +90,7 @@ public enum Json {
       public var id: UInt
       public var sha: String
       public var status: String
+      public var isFailed: Bool { status == "failed" }
     }
   }
   public struct GitlabAward: Codable {

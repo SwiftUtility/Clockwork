@@ -12,18 +12,17 @@ extension Review {
     public var originalStorage: Review.Storage
     public var reports: [Report] = []
     public var trigger: [UInt] = []
-    public enum StateChange {
-      case delete(UInt)
-    }
     public mutating func makeState(merge: Json.GitlabMergeState) throws -> State? {
       guard merge.isClosed.not else {
-        storage.delete(merge: merge)
-        #warning("tbd")
+        if let state = storage.delete(review: merge.iid) {
+          reports.append(cfg.reportReviewClosed(state: state, merge: merge))
+        }
         return nil
       }
       guard merge.isMerged.not else {
-        storage.delete(merge: merge)
-        #warning("tbd")
+        if let state = storage.delete(review: merge.iid) {
+          reports.append(cfg.reportReviewMerged(state: state, merge: merge))
+        }
         return nil
       }
       return try storage.states[merge.iid].get(.init(
@@ -37,21 +36,26 @@ extension Review {
       .init(diff: storage.states[review]?.reviewers[user]?.commit.value, reason: .remind)
     }
     public mutating func merge(merge: Json.GitlabMergeState) {
-      #warning("tbd")
+      if let state = storage.delete(review: merge.iid) {
+        reports.append(cfg.reportReviewMerged(state: state, merge: merge))
+      }
     }
     public mutating func dequeue(merge: Json.GitlabMergeState) {
-      #warning("tbd")
+      storage.dequeue(review: merge.iid)
     }
     public mutating func update(state: State) {
-      #warning("tbd")
+      storage.states[state.review] = state
+      if state.phase == .ready {
+        storage.enqueue(state: state)
+      } else {
+        storage.dequeue(review: state.review)
+      }
     }
     public func isFirst(merge: Json.GitlabMergeState) -> Bool {
-      #warning("tbd")
-      return false
+      storage.queues.compactMap(\.value.first).contains(merge.iid)
     }
     public func isQueued(merge: Json.GitlabMergeState) -> Bool {
-      #warning("tbd")
-      return false
+      storage.queues.flatMap(\.value).contains(merge.iid)
     }
     public static func make(
       cfg: Configuration,
