@@ -13,6 +13,7 @@ extension Review {
     public var reports: [Report] = []
     public var trigger: Set<UInt> = []
     public var award: Set<UInt> = []
+    public var message: Generate.CreateReviewStorageCommitMessage = .init()
     public mutating func makeState(merge: Json.GitlabMergeState) throws -> State? {
       guard merge.isClosed.not else {
         if let state = storage.delete(review: merge.iid) {
@@ -34,7 +35,7 @@ extension Review {
       ))
     }
     public func remind(review: UInt, user: String) -> Report.ReviewApprove {
-      .init(diff: storage.states[review]?.reviewers[user]?.commit.value, reason: .remind)
+      .init(diff: storage.states[review]?.approves[user]?.commit.value, reason: .remind)
     }
     public mutating func merge(merge: Json.GitlabMergeState) {
       if let state = storage.delete(review: merge.iid) {
@@ -86,13 +87,15 @@ extension Review {
       }
       return result
     }
-    public mutating func persist(skip: UInt?) -> Configuration.PersistAsset {
+    public mutating func serialize(skip: UInt?) -> String {
       let newFirst = Set(storage.queues.compactMap(\.value.first))
       let oldFirst = Set(originalStorage.queues.compactMap(\.value.first))
       let newQueue = Set(storage.queues.flatMap(\.value))
       let oldQueue = Set(originalStorage.queues.flatMap(\.value))
       let newEmergent = storage.states.filter({ $0.value.emergent != nil }).keySet
       let oldEmergent = originalStorage.states.filter({ $0.value.emergent != nil }).keySet
+      let newPresent = storage.states.keySet
+      let oldPresent = originalStorage.states.keySet
       trigger.formUnion(newFirst.subtracting(skip.array).subtracting(oldFirst))
       storage.states.values
         .compactMap({ $0.change })
@@ -103,6 +106,19 @@ extension Review {
       let dequeued = oldQueue.subtracting(newQueue)
       let emergent = newEmergent.subtracting(oldEmergent)
       let tranquil = oldEmergent.subtracting(newEmergent)
+      let enqueue = foremost.union(enqueued)
+      let dequeue = dequeued.intersection(newPresent)
+      let update = newPresent
+        .intersection(oldPresent)
+        .filter({ storage.states[$0]?.change != nil })
+        .union(newPresent.symmetricDifference(oldPresent))
+        .subtracting(enqueue)
+        .subtracting(dequeue)
+      message = .init(
+        update: update.sortedNonEmpty,
+        enqueue: enqueue.sortedNonEmpty,
+        dequeue: dequeue.sortedNonEmpty
+      )
       for state in storage.states.values {
         reports += state.makeReports(ctx: self)
         if emergent.contains(state.review) { reports.append(cfg.reportReviewEvent(
@@ -121,7 +137,7 @@ extension Review {
           state: state, reason: .dequeued
         ))}
       }
-      return .init(cfg: cfg, asset: storage.asset, content: "", message: "")
+      return storage.serialized
     }
   }
 }

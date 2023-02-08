@@ -319,7 +319,7 @@ public final class Reviewer {
         if skip { state.skip.insert(pick) }
         commit = pick
       }
-      state.reviewers.keys.forEach({ state.reviewers[$0]?.shift(sha: sha, to: commit) })
+      state.approves.keys.forEach({ state.approves[$0]?.shift(sha: sha, to: commit) })
     }
     if try isEqualTree(cfg: cfg, tree: commit, to: change.head).not {
       commit = try .make(value: Execute.parseText(reply: execute(cfg.git.commitTree(
@@ -415,7 +415,7 @@ extension Reviewer {
     state.authors = try resolveAuthors(cfg: cfg, fusion: fusion)
     if fusion.autoApproveFork {
       for user in state.authors {
-        state.reviewers[user] = .make(login: user, commit: head)
+        state.approves[user] = .make(login: user, commit: head)
       }
     }
     state.skip = Set(pick.array)
@@ -448,7 +448,16 @@ extension Reviewer {
   //    }
   //  }
   func storeContext(ctx: inout Review.Context, skip: UInt? = nil) throws {
-    _ = try persistAsset(ctx.persist(skip: skip))
+    let content = ctx.serialize(skip: skip)
+    _ = try persistAsset(.init(
+      cfg: ctx.cfg,
+      asset: ctx.storage.asset,
+      content: content,
+      message: generate(ctx.cfg.createReviewStorageCommitMessage(
+        storage: ctx.storage,
+        generate: ctx.message
+      ))
+    ))
     let gitlab = try ctx.cfg.gitlab.get()
     for review in ctx.award { try gitlab
       .postMrAward(review: review, award: ctx.rules.hold)

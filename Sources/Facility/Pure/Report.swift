@@ -116,7 +116,7 @@ public struct Report: Query {
       public var diff: String? = nil
       public var hold: Bool = false
       public var comments: Int? = nil
-      static func present(reviewer: Review.Reviewer) -> Self { .init(
+      static func present(reviewer: Review.Approve) -> Self { .init(
         login: reviewer.login,
         miss: false,
         fragil: reviewer.resolution.fragil,

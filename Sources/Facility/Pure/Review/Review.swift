@@ -71,7 +71,7 @@ public struct Review {
     )}
   }
   #warning("rename Approve")
-  public struct Reviewer: Equatable {
+  public struct Approve: Equatable {
     public var login: String
     public var commit: Git.Sha
     public var resolution: Resolution

@@ -14,22 +14,22 @@ extension Review {
     public var verified: Git.Sha? = nil
     public var randoms: Set<String> = []
     public var legates: Set<String> = []
-    public var reviewers: [String: Reviewer] = [:]
+    public var approves: [String: Approve] = [:]
     public var problems: [Problem]? = nil
     public var change: Change? = nil
     public var squash: Bool { original == nil }
     public mutating func approve(job: Json.GitlabJob, advance: Bool) throws -> Bool {
-      let reviewer = try Reviewer(
+      let approve = try Approve(
         login: job.user.username,
         commit: .make(job: job),
         resolution: advance.then(.advance).get(.fragil)
       )
       guard
-        verified == reviewer.commit,
-        authors.union(legates).union(randoms).contains(reviewer.login),
-        reviewer != reviewers[reviewer.login]
+        verified == approve.commit,
+        authors.union(legates).union(randoms).contains(approve.login),
+        approve != approves[approve.login]
       else { return false }
-      reviewers[reviewer.login] = reviewer
+      approves[approve.login] = approve
       return true
     }
     public mutating func add(problem: Problem) {
@@ -51,11 +51,11 @@ extension Review {
       if skip.remove(commit) != nil { skip.insert(sha) }
     }
     public mutating func squashApproves(to sha: Git.Sha) {
-      reviewers.keys.forEach({ reviewers[$0]?.commit = sha })
+      approves.keys.forEach({ approves[$0]?.commit = sha })
     }
     public func isUnapproved(user: String) -> Bool {
-      guard let user = reviewers[user] else { return true }
-      return user.resolution.approved.not
+      guard let approve = approves[user] else { return true }
+      return approve.resolution.approved.not
     }
     public var approvers: Set<String> { authors.union(legates).union(randoms) }
     var isApproved: Bool { approvers.contains(where: isUnapproved(user:)).not }
@@ -221,14 +221,14 @@ extension Review {
         .reduce(into: Set(), { $0.formUnion($1.approvers) })
         .intersection(active)
         .intersection(randoms)
-      reviewers.keySet
+      approves.keySet
         .subtracting(legates)
         .subtracting(randoms)
         .subtracting(authors)
-        .forEach({ reviewers[$0] = nil })
-      reviewers.values
+        .forEach({ approves[$0] = nil })
+      approves.values
         .filter({ childs[$0.commit] == nil })
-        .forEach({ reviewers[$0.login] = nil })
+        .forEach({ approves[$0.login] = nil })
       var brokenTeams = approvableTeams.subtracting(teams)
       teams = approvableTeams
       if change.fusion.target != target {
@@ -238,7 +238,7 @@ extension Review {
       brokenTeams
         .compactMap({ ctx.rules.teams[$0] })
         .reduce(into: Set(), { $0.formUnion($1.approvers) })
-        .forEach({ reviewers[$0]?.resolution = .obsolete })
+        .forEach({ approves[$0]?.resolution = .obsolete })
       let fragilUtility = authorshipTeams
         .union(sourceTeams)
         .union(targetTeams)
@@ -254,7 +254,7 @@ extension Review {
       let fragilUsers = authors
         .union(fragilUtility)
         .union(fragilRandoms)
-        .union(reviewers.filter(\.value.resolution.fragil).keys)
+        .union(approves.filter(\.value.resolution.fragil).keys)
       let fragilDiffApprovers = diffTeams
         .compactMap({ ctx.rules.teams[$0] })
         .filter(\.advanceApproval.not)
@@ -281,15 +281,15 @@ extension Review {
         }
         changes[sha] = teams
       }
-      for reviewer in reviewers.values {
-        guard let childs = childs[reviewer.commit] else {
-          reviewers[reviewer.login] = nil
+      for approve in approves.values {
+        guard let childs = childs[approve.commit] else {
+          approves[approve.login] = nil
           continue
         }
-        guard reviewer.resolution != .obsolete else { continue }
+        guard approve.resolution != .obsolete else { continue }
         guard childs.contains(where: { changes[$0] != nil }).not else { continue }
-        guard fragilUsers.contains(reviewer.login) else {
-          reviewers[reviewer.login]?.resolution = .obsolete
+        guard fragilUsers.contains(approve.login) else {
+          approves[approve.login]?.resolution = .obsolete
           continue
         }
         for fragilUsers in childs
@@ -298,8 +298,8 @@ extension Review {
           .compactMap({ fragilDiffApprovers[$0] })
           .reduce(into: Set(), { $0.formUnion($1) })
         {
-          guard fragilUsers.contains(reviewer.login) else { continue }
-          reviewers[reviewer.login]?.resolution = .obsolete
+          guard fragilUsers.contains(approve.login) else { continue }
+          approves[approve.login]?.resolution = .obsolete
           break
         }
       }
@@ -311,7 +311,7 @@ extension Review {
       if change.fusion.allowOrphaned.not, diff.isEmpty.not, authors.intersection(active).isEmpty
       { add(problem: .orphaned(authors)) }
       let unknownUsers = authors
-        .union(reviewers.keys)
+        .union(approves.keys)
         .union(ctx.rules.ignore.keys)
         .union(ctx.rules.ignore.flatMap(\.value))
         .union(ctx.rules.authorship.flatMap(\.value))
@@ -413,8 +413,8 @@ extension Review {
     public func makeReports(ctx: Context) -> [Report] {
       guard let change = change else { return [] }
       var result: [Report] = []
-      for reviewer in reviewers.values.filter(\.resolution.approved.not) {
-        if let old = ctx.originalStorage.states[review]?.reviewers[reviewer.login] {
+      for approve in approves.values.filter(\.resolution.approved.not) {
+        if let old = ctx.originalStorage.states[review]?.approves[approve.login] {
           guard old.resolution.approved.not else { continue }
           result.append(ctx.cfg.reportReviewApprove(
             user: old.login,
@@ -423,7 +423,7 @@ extension Review {
           ))
         } else {
           result.append(ctx.cfg.reportReviewApprove(
-            user: reviewer.login,
+            user: approve.login,
             merge: change.merge,
             approve: .init(reason: .create)
           ))
@@ -436,11 +436,11 @@ extension Review {
       )
       update.change(state: self)
       var approvers: [String: Report.ReviewUpdated.Approver] = [:]
-      for user in self.approvers {
-        if let user = reviewers[user] {
-          approvers[user.login] = .present(reviewer: user)
+      for approve in self.approvers {
+        if let approve = approves[approve] {
+          approvers[approve.login] = .present(reviewer: approve)
         } else {
-          approvers[user] = .init(login: user, miss: true)
+          approvers[approve] = .init(login: approve, miss: true)
         }
       }
       if let problems = problems, problems.isEmpty.not {
@@ -509,8 +509,8 @@ extension Review {
       verified: yaml.verified.map(Git.Sha.make(value:)),
       randoms: Set(yaml.randoms.get([])),
       legates: Set(yaml.legates.get([])),
-      reviewers: yaml.approvers.get([:])
-        .map(Reviewer.make(login:yaml:))
+      approves: yaml.approves.get([:])
+        .map(Approve.make(login:yaml:))
         .reduce(into: [:], { $0[$1.login] = $1 })
     )}
   }

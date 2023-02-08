@@ -142,21 +142,9 @@ public struct Generate: Query {
     }
   }
   public struct CreateReviewStorageCommitMessage: GenerateContext {
-    public var reason: Reason
-    public enum Reason: String, Encodable {
-      case create
-      case merge
-      case close
-//      case update
-//      case clean
-      case cheat
-      case approve
-      case own
-      case patch
-      case unown
-      case dequeue
-      case enqueue
-    }
+    public var update: [UInt]? = nil
+    public var enqueue: [UInt]? = nil
+    public var dequeue: [UInt]? = nil
   }
   public struct CreateMergeCommitMessage: GenerateContext {
     public var review: UInt?
@@ -278,11 +266,11 @@ public extension Configuration {
   )}
   func createReviewStorageCommitMessage(
     storage: Review.Storage,
-    reason: Generate.CreateReviewStorageCommitMessage.Reason
+    generate: Generate.CreateReviewStorageCommitMessage
   ) -> Generate { .make(
     cfg: self,
     template: storage.asset.createCommitMessage,
-    ctx: Generate.CreateReviewStorageCommitMessage(reason: reason)
+    ctx: generate
   )}
   func createMergeCommitMessage(
     merge: Json.GitlabMergeState?,
