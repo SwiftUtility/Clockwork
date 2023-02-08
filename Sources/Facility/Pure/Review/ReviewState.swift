@@ -85,7 +85,7 @@ extension Review {
           )})
         {
           change = try .make(merge: merge, fusion: fusion)
-          if source != fusion.source { add(problem: .targetMismatch) }
+          if source != fusion.source { add(problem: .targetMismatch(fusion.target)) }
         } else {
           add(problem: .badSource(self.source.name))
         }
@@ -164,7 +164,7 @@ extension Review {
       var holders = awards
         .filter({ $0.name == ctx.rules.hold })
         .reduce(into: Set(), { $0.insert($1.user.username) })
-      if holders.intersection(ctx.bots).isEmpty { change?.addAward = ctx.rules.hold }
+      if holders.intersection(ctx.bots).isEmpty { change?.addAward = true }
       holders = holders
         .subtracting(ctx.bots)
         .intersection(ctx.users.filter(\.value.active).keySet)
@@ -195,7 +195,7 @@ extension Review {
       let targetTeams = ctx.rules.targetBranch
         .filter({ $0.value.isMet(change.fusion.target.name) })
         .keySet
-      let diffTeams = change.fusion.diffApproval.then(ownage).get([:])
+      let diffTeams = ownage
         .filter({ diff.contains(where: $0.value.isMet(_:)) })
         .keySet
       let authorshipTeams = change.fusion.authorshipApproval.then(ctx.rules.authorship).get([:])
@@ -211,8 +211,6 @@ extension Review {
       let active = ctx.users.filter(\.value.active).keySet
         .subtracting(ctx.bots)
       authors = authors.subtracting(ctx.bots)
-      if change.fusion.allowOrphaned.not, authors.intersection(active).isEmpty
-      { add(problem: .orphaned(authors)) }
       legates = approvableTeams
         .compactMap({ ctx.rules.teams[$0] })
         .reduce(into: Set(), { $0.formUnion($1.approvers) })
@@ -231,10 +229,6 @@ extension Review {
       reviewers.values
         .filter({ childs[$0.commit] == nil })
         .forEach({ reviewers[$0.login] = nil })
-      if let fork = change.fusion.autoApproveFork { authors
-        .filter({ reviewers[$0] == nil })
-        .forEach({ reviewers[$0] = .init(login: $0, commit: fork, resolution: .fragil) })
-      }
       var brokenTeams = approvableTeams.subtracting(teams)
       teams = approvableTeams
       if change.fusion.target != target {
@@ -287,10 +281,6 @@ extension Review {
         }
         changes[sha] = teams
       }
-      verified = nil
-      emergent = emergent
-        .flatMap({ childs[$0] })
-        .flatMap({ $0.contains(where: { changes[$0] != nil }).else(change.head) })
       for reviewer in reviewers.values {
         guard let childs = childs[reviewer.commit] else {
           reviewers[reviewer.login] = nil
@@ -313,6 +303,13 @@ extension Review {
           break
         }
       }
+      verified = nil
+      emergent = emergent
+        .flatMap({ childs[$0] })
+        .flatMap({ $0.contains(where: { changes[$0] != nil }).else(change.head) })
+      guard emergent == nil else { return }
+      if change.fusion.allowOrphaned.not, diff.isEmpty.not, authors.intersection(active).isEmpty
+      { add(problem: .orphaned(authors)) }
       let unknownUsers = authors
         .union(reviewers.keys)
         .union(ctx.rules.ignore.keys)
@@ -413,6 +410,60 @@ extension Review {
         phase = .stuck
       }
     }
+    public func makeReports(ctx: Context) -> [Report] {
+      guard let change = change else { return [] }
+      var result: [Report] = []
+      for reviewer in reviewers.values.filter(\.resolution.approved.not) {
+        if let old = ctx.originalStorage.states[review]?.reviewers[reviewer.login] {
+          guard old.resolution.approved.not else { continue }
+          result.append(ctx.cfg.reportReviewApprove(
+            user: old.login,
+            merge: change.merge,
+            approve: .init(diff: old.commit.value, reason: .change)
+          ))
+        } else {
+          result.append(ctx.cfg.reportReviewApprove(
+            user: reviewer.login,
+            merge: change.merge,
+            approve: .init(reason: .create)
+          ))
+        }
+      }
+      var update = Report.ReviewUpdated(
+        authors: authors.intersection(ctx.approvers).sortedNonEmpty,
+        teams: teams.sortedNonEmpty,
+        watchers: ctx.watchers(state: self).sortedNonEmpty
+      )
+      update.change(state: self)
+      var approvers: [String: Report.ReviewUpdated.Approver] = [:]
+      for user in self.approvers {
+        if let user = reviewers[user] {
+          approvers[user.login] = .present(reviewer: user)
+        } else {
+          approvers[user] = .init(login: user, miss: true)
+        }
+      }
+      if let problems = problems, problems.isEmpty.not {
+        update.problems = .init()
+        for problem in problems {
+          update.problems?.register(problem: problem)
+          switch problem {
+          case .discussions(let value): for (user, count) in value {
+            approvers[user, default: .init(login: user, miss: false)].comments = count
+          }
+          case .holders(let value): for user in value {
+            approvers[user, default: .init(login: user, miss: false)].hold = true
+          }
+          default: break
+          }
+        }
+      }
+      if approvers.isEmpty.not {
+        update.approvers = approvers.keys.sorted().compactMap({ approvers[$0] })
+      }
+      result.append(ctx.cfg.reportReviewUpdated(state: self, merge: change.merge, report: update))
+      return result
+    }
     func selectUsers(
       ctx: Context,
       teams: inout [Review.Team],
@@ -449,8 +500,8 @@ extension Review {
       review: review.getUInt(),
       source: .make(name: yaml.source),
       target: .make(name: yaml.target),
-      original: yaml.original.map(Git.Branch.make(name:)),
-      authors: Set(yaml.authors),
+      original: yaml.fusion.map(Git.Branch.make(name:)),
+      authors: Set(yaml.authors.get([])),
       phase: yaml.phase.map(Phase.make(yaml:)),
       skip: Set(yaml.skip.get([]).map(Git.Sha.make(value:))),
       teams: Set(yaml.teams.get([])),
@@ -458,7 +509,7 @@ extension Review {
       verified: yaml.verified.map(Git.Sha.make(value:)),
       randoms: Set(yaml.randoms.get([])),
       legates: Set(yaml.legates.get([])),
-      reviewers: yaml.reviewers.get([:])
+      reviewers: yaml.approvers.get([:])
         .map(Reviewer.make(login:yaml:))
         .reduce(into: [:], { $0[$1.login] = $1 })
     )}

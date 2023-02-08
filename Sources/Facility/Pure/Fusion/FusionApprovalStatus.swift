@@ -96,37 +96,6 @@
 //        .map(Approve.make(approver:yaml:))
 //        .reduce(into: [:], { $0[$1.approver] = $1 })
 //    )}
-//    public static func serialize(statuses: [UInt: Self]) -> String {
-//      var result = ""
-//      for status in statuses.values.sorted(by: { $0.review < $1.review }) {
-//        result += "'\(status.review)':\n"
-//        result += "  target: '\(status.target)'\n"
-//        let authors = status.authors
-//          .sorted()
-//          .map({ "'\($0)'" })
-//          .joined(separator: ",")
-//        result += "  authors: [\(authors)]\n"
-//        result += "  state: \(status.state.rawValue)\n"
-//        let skip = status.skip.map(\.value).sorted().map({ "'\($0)'" }).joined(separator: ",")
-//        if skip.isEmpty.not { result += "  skip: [\(skip)]\n" }
-//        let teams = status.teams.sorted().map({ "'\($0)'" }).joined(separator: ",")
-//        if teams.isEmpty.not { result += "  teams: [\(teams)]\n" }
-//        if let verified = status.verified?.value { result += "  verified: '\(verified)'\n" }
-//        if let emergent = status.emergent?.value { result += "  emergent: '\(emergent)'\n" }
-//        let legates = status.legates.sorted().map { "'\($0)'" }.joined(separator: ",")
-//        if legates.isEmpty.not { result += "  legates: [\(legates)]\n" }
-//        let randoms = status.randoms.sorted().map { "'\($0)'" }.joined(separator: ",")
-//        if randoms.isEmpty.not { result += "  randoms: [\(randoms)]\n" }
-//        if let replicate = status.replicate { result += "  replicate: '\(replicate.name)'\n" }
-//        if let integrate = status.integrate { result += "  integrate: '\(integrate.name)'\n" }
-//        let approves = status.approves.keys
-//          .sorted()
-//          .compactMap({ status.approves[$0] })
-//          .map({ "    '\($0.approver)': {\($0.resolution.rawValue): '\($0.commit.value)'}\n" })
-//        if approves.isEmpty.not { result += "  approves:\n" + approves.joined() }
-//      }
-//      return result.isEmpty.then("{}\n").get(result)
-//    }
 //    public static func make(
 //      review: Json.GitlabReviewState,
 //      bot: Json.GitlabUser

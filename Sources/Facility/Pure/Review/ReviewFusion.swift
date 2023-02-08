@@ -76,29 +76,17 @@ extension Review {
       case .propogate(let propogate): return propogate.propogation.allowOrphaned
       }
     }
-    public var autoApproveFork: Git.Sha? {
+    public var autoApproveFork: Bool {
       switch self {
-      case .propose: return nil
-      case .replicate(let replicate):
-        return replicate.replication.autoApproveFork.then(replicate.fork)
-      case .integrate(let integrate):
-        return integrate.integration.autoApproveFork.then(integrate.fork)
-      case .duplicate: return nil
-      case .propogate(let propogate):
-        return propogate.propogation.autoApproveFork.then(propogate.fork)
+      case .propose: return false
+      case .replicate(let replicate): return replicate.replication.autoApproveFork
+      case .integrate(let integrate): return integrate.integration.autoApproveFork
+      case .duplicate(let duplicate): return duplicate.duplication.autoApproveFork
+      case .propogate(let propogate): return propogate.propogation.autoApproveFork
       }
     }
     public var selfApproval: Bool {
       if case .propose = self { return false } else { return true }
-    }
-    public var diffApproval: Bool {
-      switch self {
-      case .propose: return true
-      case .replicate: return true
-      case .integrate: return true
-      case .duplicate: return false
-      case .propogate: return false
-      }
     }
     public var authorshipApproval: Bool {
       switch self {
@@ -118,23 +106,6 @@ extension Review {
       case .propogate: return false
       }
     }
-//    public var preGitCheck: [GitCheck] {
-//      switch self {
-//      case .propose: return []
-//      case .replicate(let replicate): return [
-//        .forkNotInOriginal(fork: replicate.fork, original: replicate.original),
-//      ]
-//      case .integrate(let integrate): return [
-//        .forkNotInOriginal(fork: integrate.fork, original: integrate.original),
-//      ]
-//      case .duplicate(let duplicate): return [
-//        .forkNotInOriginal(fork: duplicate.fork, original: duplicate.original),
-//      ]
-//      case .propogate(let propogate): return [
-//        .notForward(fork: propogate.fork, head: propogate.fork, target: propogate.target),
-//        .forkNotInOriginal(fork: propogate.fork, original: propogate.original),
-//      ]}
-//    }
     public func makeGitChecks(
       head: Git.Sha,
       protected: Set<String>

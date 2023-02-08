@@ -40,7 +40,7 @@ public final class Mediator {
   ) throws -> Bool {
     let stdin = try readStdin(stdin)
     let gitlab = try cfg.gitlab.get()
-    var threads = Report.Threads.make()
+//    var threads = Report.Threads.make()
 //    if let gitlab = try? cfg.gitlab.get() {
 //      if gitlab.job.tag {
 //        threads.gitlabTags.insert(gitlab.job.pipeline.ref)

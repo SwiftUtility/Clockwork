@@ -87,9 +87,9 @@ public final class Reviewer {
         awards: resolveAwards(cfg: ctx.cfg, review: state.review),
         discussions: []
       )
-      if state.problems.get([]).isEmpty { ctx.trigger.append(state.review) }
+      if state.problems.get([]).isEmpty { ctx.trigger.insert(state.review) }
     }
-    try storeContext(ctx: ctx)
+    try storeContext(ctx: &ctx)
     return true
   }
   public func patchReview(
@@ -146,7 +146,7 @@ public final class Reviewer {
     guard let merge = try getMerge(cfg: cfg, iid: iid) else { return false }
     var ctx = try makeContext(cfg: cfg)
     ctx.dequeue(merge: merge)
-    try storeContext(ctx: ctx)
+    try storeContext(ctx: &ctx, skip: merge.iid)
     return true
   }
   public func ownReview(cfg: Configuration, user: String, iid: UInt) throws -> Bool {
@@ -340,7 +340,7 @@ public final class Reviewer {
       force: true,
       secret: rest.secret
     )))
-    try storeContext(ctx: ctx)
+    try storeContext(ctx: &ctx, skip: iid)
     return true
   }
   public func enqueueReview(cfg: Configuration) throws -> Bool {
@@ -351,27 +351,26 @@ public final class Reviewer {
       try checkReady(ctx: &ctx, state: &state, merge: merge),
       try normalize(ctx: &ctx, state: &state)
     else {
-      try storeContext(ctx: ctx)
+      try storeContext(ctx: &ctx, skip: merge.iid)
       return false
     }
-    try storeContext(ctx: ctx)
+    try storeContext(ctx: &ctx, skip: merge.iid)
     return true
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
-    guard let merge = try checkActual(cfg: cfg) else { return false }
+    guard let merge = try checkActual(cfg: cfg) else { return true }
     var ctx = try makeContext(cfg: cfg)
-    guard ctx.isFirst(merge: merge) else { return true }
-    guard
+    if ctx.isFirst(merge: merge).not {
+      ctx.trigger.insert(merge.iid)
+    } else if
       var state = try ctx.makeState(merge: merge),
       try checkReady(ctx: &ctx, state: &state, merge: merge),
       try normalize(ctx: &ctx, state: &state),
       try acceptReview(ctx: &ctx, state: state)
-    else {
-      try storeContext(ctx: ctx)
-      return true
+    {
+      try helpReviews(ctx: &ctx, state: state)
     }
-    try helpReviews(ctx: &ctx, state: state)
-    try storeContext(ctx: ctx)
+    try storeContext(ctx: &ctx)
     return true
   }
 }
@@ -410,12 +409,18 @@ extension Reviewer {
       .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(_:from:))
       .get()
     var ctx = try makeContext(cfg: cfg)
+    ctx.award.insert(merge.iid)
     guard var state = try ctx.makeState(merge: merge) else { return false }
     state.original = fusion.original
     state.authors = try resolveAuthors(cfg: cfg, fusion: fusion)
+    if fusion.autoApproveFork {
+      for user in state.authors {
+        state.reviewers[user] = .make(login: user, commit: head)
+      }
+    }
     state.skip = Set(pick.array)
     ctx.update(state: state)
-    try storeContext(ctx: ctx)
+    try storeContext(ctx: &ctx)
     return true
   }
   //  func changeQueue(
@@ -442,9 +447,22 @@ extension Reviewer {
   //      try Execute.checkStatus(reply: execute(gitlab.postMrPipelines(review: notifiable).get()))
   //    }
   //  }
-  func storeContext(ctx: Review.Context) throws {
-    
-    #warning("tbd")
+  func storeContext(ctx: inout Review.Context, skip: UInt? = nil) throws {
+    _ = try persistAsset(ctx.persist(skip: skip))
+    let gitlab = try ctx.cfg.gitlab.get()
+    for review in ctx.award { try gitlab
+      .postMrAward(review: review, award: ctx.rules.hold)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    }
+    ctx.reports.forEach(report)
+    for review in ctx.trigger { try gitlab
+      .postMrPipelines(review: review)
+      .map(execute)
+      .map(Execute.checkStatus(reply:))
+      .get()
+    }
   }
   func makeFusion(
     cfg: Configuration,
@@ -612,7 +630,6 @@ extension Reviewer {
     state: inout Review.State,
     merge: Json.GitlabMergeState
   ) throws -> Bool {
-    let gitlab = try ctx.cfg.gitlab.get()
     let profile = try parseProfile(ctx.cfg.parseProfile(ref: .make(sha: .make(merge: merge))))
     let ownage = try ctx.cfg.parseCodeOwnage(profile: profile)
       .map(parseCodeOwnage)
@@ -637,12 +654,6 @@ extension Reviewer {
     try checkApproves(ctx: ctx, state: &state, ownage: ownage)
     state.updatePhase()
     ctx.update(state: state)
-    if let award = state.change?.addAward { try gitlab
-      .postMrAward(review: merge.iid, award: award)
-      .map(execute)
-      .map(Execute.checkStatus(reply:))
-      .get()
-    }
     return state.phase == .ready
   }
   func checkActual(cfg: Configuration) throws -> Json.GitlabMergeState? {
@@ -664,7 +675,7 @@ extension Reviewer {
       return nil
     }
     guard let state = try ctx.makeState(merge: merge) else {
-      try storeContext(ctx: ctx)
+      try storeContext(ctx: &ctx)
       return nil
     }
     return state
@@ -675,9 +686,8 @@ extension Reviewer {
     guard
       try checkReady(ctx: &ctx, state: &state, merge: merge),
       try normalize(ctx: &ctx, state: &state)
-    else { return try storeContext(ctx: ctx) }
-    ctx.trigger.append(merge.iid)
-    try storeContext(ctx: ctx)
+    else { return try storeContext(ctx: &ctx, skip: state.review) }
+    try storeContext(ctx: &ctx)
   }
   func normalize(
     ctx: inout Review.Context,
@@ -971,7 +981,7 @@ extension Reviewer {
           parent: .make(sha: parent)
         )))
       else { continue }
-      ctx.trigger.append(state.review)
+      ctx.trigger.insert(state.review)
     }
   }
   func resolveBranches(cfg: Configuration) throws -> [Json.GitlabBranch] {
@@ -1023,11 +1033,16 @@ extension Reviewer {
   ) throws -> Set<String> {
     let gitlab = try cfg.gitlab.get()
     guard let fork = fusion.fork else { return [] }
-    let commits = try Execute.parseLines(reply: execute(cfg.git.listCommits(
-      in: [.make(sha: fork)],
-      notIn: [.make(remote: fusion.target)],
-      noMerges: true
-    )))
+    let commits: [String]
+    if fusion.duplication {
+      commits = [fork.value]
+    } else {
+      commits = try Execute.parseLines(reply: execute(cfg.git.listCommits(
+        in: [.make(sha: fork)],
+        notIn: [.make(remote: fusion.target)],
+        noMerges: true
+      )))
+    }
     var result: Set<String> = []
     for commit in commits { try gitlab
       .listShaMergeRequests(sha: .make(value: commit))

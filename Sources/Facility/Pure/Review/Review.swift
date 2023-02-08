@@ -80,11 +80,26 @@ public struct Review {
     }
     public static func make(
       login: String,
-      yaml: Yaml.Review.Storage.Reviewer
-    ) throws -> Self { try .init(
+      yaml: [String: String]
+    ) throws -> Self {
+      guard
+        yaml.count == 1,
+        let resolution = yaml.keys.first.flatMap(Resolution.init(rawValue:)),
+        let commit = yaml.values.first
+      else { throw Thrown("Wrong approver format") }
+      return try .init(
+        login: login,
+        commit: .make(value: commit),
+        resolution: resolution
+      )
+    }
+    public static func make(
+      login: String,
+      commit: Git.Sha
+    ) -> Self { .init(
       login: login,
-      commit: .make(value: yaml.commit),
-      resolution: .make(yaml: yaml.resolution)
+      commit: commit,
+      resolution: .fragil
     )}
   }
   public enum Resolution: String, Encodable {
@@ -96,13 +111,6 @@ public struct Review {
     }
     public var fragil: Bool {
       if case .fragil = self { return true } else { return false }
-    }
-    public static func make(yaml: Yaml.Review.Storage.Resolution) -> Self {
-      switch yaml {
-      case .fragil: return .fragil
-      case .advance: return .advance
-      case .obsolete: return .obsolete
-      }
     }
   }
   public enum Phase: String, Encodable {
@@ -123,7 +131,7 @@ public struct Review {
     public var head: Git.Sha
     public var merge: Json.GitlabMergeState
     public var fusion: Fusion
-    public var addAward: String? = nil
+    public var addAward: Bool = false
     public static func make(
       merge: Json.GitlabMergeState,
       fusion: Review.Fusion
@@ -136,7 +144,7 @@ public struct Review {
   public enum Problem {
     case badSource(String)
     case targetNotProtected
-    case targetMismatch
+    case targetMismatch(Git.Branch)
     case sourceIsProtected
     case multipleKinds([String])
     case undefinedKind

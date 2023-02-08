@@ -219,8 +219,8 @@ public enum Yaml {
       public struct State: Decodable {
         public var source: String
         public var target: String
-        public var original: String?
-        public var authors: [String]
+        public var fusion: String?
+        public var authors: [String]?
         public var phase: Phase?
         public var skip: [String]?
         public var teams: [String]?
@@ -228,7 +228,7 @@ public enum Yaml {
         public var verified: String?
         public var randoms: [String]?
         public var legates: [String]?
-        public var reviewers: [String: Reviewer]?
+        public var approves: [String: [String: String]]?
       }
       public struct Reviewer: Decodable {
         public var commit: String
