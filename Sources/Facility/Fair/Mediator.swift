@@ -5,8 +5,12 @@ public final class Mediator {
   let execute: Try.Reply<Execute>
   let parseReview: Try.Reply<ParseYamlFile<Review>>
   let parseReviewRules: Try.Reply<ParseYamlSecret<Review.Rules>>
+  let parseReviewStorage: Try.Reply<ParseYamlFile<Review.Storage>>
+  let parseFlow: Try.Reply<ParseYamlFile<Flow>>
+  let parseFlowVersions: Try.Reply<ParseYamlFile<Flow.Versions.Storage>>
+  let registerSlackUser: Try.Reply<Slack.RegisterUser>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
-  let readStdin: Try.Reply<Configuration.ParseStdin>
+  let parseStdin: Try.Reply<Configuration.ParseStdin>
   let generate: Try.Reply<Generate>
   let logMessage: Act.Reply<LogMessage>
   let stdoutData: Act.Of<Data>.Go
@@ -15,8 +19,12 @@ public final class Mediator {
     execute: @escaping Try.Reply<Execute>,
     parseReview: @escaping Try.Reply<ParseYamlFile<Review>>,
     parseReviewRules: @escaping Try.Reply<ParseYamlSecret<Review.Rules>>,
+    parseReviewStorage: @escaping Try.Reply<ParseYamlFile<Review.Storage>>,
+    parseFlow: @escaping Try.Reply<ParseYamlFile<Flow>>,
+    parseFlowVersions: @escaping Try.Reply<ParseYamlFile<Flow.Versions.Storage>>,
+    registerSlackUser: @escaping Try.Reply<Slack.RegisterUser>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
-    readStdin: @escaping Try.Reply<Configuration.ParseStdin>,
+    parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     generate: @escaping Try.Reply<Generate>,
     logMessage: @escaping Act.Reply<LogMessage>,
     stdoutData: @escaping Act.Of<Data>.Go,
@@ -25,8 +33,12 @@ public final class Mediator {
     self.execute = execute
     self.parseReview = parseReview
     self.parseReviewRules = parseReviewRules
+    self.parseReviewStorage = parseReviewStorage
+    self.parseFlow = parseFlow
+    self.parseFlowVersions = parseFlowVersions
+    self.registerSlackUser = registerSlackUser
     self.persistAsset = persistAsset
-    self.readStdin = readStdin
+    self.parseStdin = parseStdin
     self.generate = generate
     self.logMessage = logMessage
     self.stdoutData = stdoutData
@@ -38,32 +50,52 @@ public final class Mediator {
     stdin: Configuration.ParseStdin,
     args: [String]
   ) throws -> Bool {
-    let stdin = try readStdin(stdin)
+    let stdin = try parseStdin(stdin)
     let gitlab = try cfg.gitlab.get()
-//    var threads = Report.Threads.make()
-//    if let gitlab = try? cfg.gitlab.get() {
-//      if gitlab.job.tag {
-//        threads.gitlabTags.insert(gitlab.job.pipeline.ref)
-//        if let production = try? cfg.parseFusion.map(parseFusion).get() {
-//          production.productMatching(deploy: <#T##String#>)
-//        }
-//      } else {
-//        threads.gitlabBranches.insert(gitlab.job.pipeline.ref)
-//      }
-//    }
-//    if gitlab.job.tag
-//    report(query: cfg.reportCustom(
-//      event: event,
-//      threads: .make(
-//        jiraIssues: <#T##Set<String>#>,
-//        gitlabTags: <#T##Set<String>#>,
-//        gitlabUsers: <#T##Set<String>#>,
-//        gitlabReviews: <#T##Set<String>#>,
-//        gitlabBranches: <#T##Set<String>#>
-//      ),
-//      stdin: stdin,
-//      args: args
-//    ))
+    var threads = Report.Threads.make(users: [gitlab.job.user.username])
+    var authors: [String]? = nil
+    var product: String? = nil
+    var version: String? = nil
+    if let merge = try? gitlab.merge.get() {
+      threads.reviews.insert(merge.iid)
+      if
+        let review = try? cfg.parseReview.map(parseReview).get(),
+        let storage = try? parseReviewStorage(cfg.parseReviewStorage(review: review)),
+        let state = storage.states[merge.iid]
+      {
+        threads.users.formUnion(state.authors)
+        authors = state.authors.sortedNonEmpty
+      }
+      return true
+    } else if
+      let flow = try? cfg.parseFlow.map(parseFlow).get(),
+      let versions = try? parseFlowVersions(cfg.parseFlowVersions(flow: flow))
+    {
+      if let tag = try? Git.Tag.make(job: gitlab.job) {
+        threads.tags.insert(tag.name)
+        if let release = versions.find(deploy: tag) {
+          threads.branches.insert(release.branch.name)
+          product = release.product
+          version = release.version.value
+        }
+      } else if
+        let branch = try? Git.Branch.make(job: gitlab.job),
+        let release = versions.find(release: branch)
+      {
+        threads.branches.insert(release.branch.name)
+        product = release.product
+        version = release.version.value
+      }
+    }
+    cfg.reportCustom(
+      event: event,
+      threads: threads,
+      stdin: stdin,
+      args: args,
+      authors: authors,
+      product: product,
+      version: version
+    )
     return true
   }
   public func loadArtifact(
@@ -232,10 +264,13 @@ public final class Mediator {
     let login = login.isEmpty
       .else(login)
       .get(gitlab.job.user.username)
-    if case .register(let chat) = command {
-      storage.users[login] = storage.users[login].get(.make(login: login))
-      if let slack = chat[.slack].filter(isIncluded: \.isEmpty.not) {
-        #warning("tbd")
+    if case .register(let servises) = command {
+      for servise in servises.keys {
+        switch servise {
+        case .slack:
+          guard let slack = servises[servise], slack.isEmpty.not else { continue }
+          try registerSlackUser(.make(cfg: cfg, slack: slack, gitlab: login))
+        }
       }
     } else {
       guard var user = storage.users[login] else { throw Thrown("No approver \(login)") }

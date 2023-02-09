@@ -49,35 +49,13 @@ public enum Yaml {
     public var storage: Asset
     public var signals: [String: Signal]?
     public var directs: [String: Signal]?
-    public var jira: Jira?
-    public var gitlab: Gitlab?
-    public struct Gitlab: Decodable {
-      public var storage: Asset
-      public var tags: [String: Thread]?
-      public var reviews: [String: Thread]?
-      public var branches: [String: Thread]?
-      public struct Storage: Decodable {
-        public var tags: [String: [String: Thread.Storage]]?
-        public var reviews: [String: [String: Thread.Storage]]?
-        public var branches: [String: [String: Thread.Storage]]?
-      }
-    }
-    public struct Jira: Decodable {
-      public var storage: Asset
-      public var epics: [String: Thread]?
-      public var issues: [String: Thread]?
-      public struct Storage: Decodable {
-        public var epics: [String: [String: Thread.Storage]]?
-        public var issues: [String: [String: Thread.Storage]]?
-      }
-    }
+    public var tags: [String: Thread]?
+    public var issues: [String: Thread]?
+    public var reviews: [String: Thread]?
+    public var branches: [String: Thread]?
     public struct Thread: Decodable {
       public var create: Signal
       public var update: [String: Signal]?
-      public struct Storage: Decodable {
-        public var channel: String
-        public var message: String
-      }
     }
     public struct Signal: Decodable {
       public var method: String?
@@ -85,19 +63,16 @@ public enum Yaml {
       public var events: [String]
     }
     public struct Storage: Decodable {
-      public var users: [String: User]?
-      public var channels: [String: Channel]?
-      public var mentions: [String: Mention]?
-      public struct User: Decodable {
-        public var id: String
-        public var subscribe: [String]?
-      }
-      public struct Channel: Decodable {
-        public var id: String
-      }
-      public struct Mention: Decodable {
-        public var subteams: [String]?
-        public var users: [String]?
+      public var users: [String: String]?
+      public var channels: [String: String]?
+      public var mentions: [String: String]?
+      public var tags: [String: [String: Thread]]?
+      public var issues: [String: [String: Thread]]?
+      public var reviews: [String: [String: Thread]]?
+      public var branches: [String: [String: Thread]]?
+      public struct Thread: Decodable {
+        public var channel: String
+        public var message: String
       }
     }
   }

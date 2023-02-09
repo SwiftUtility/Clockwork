@@ -24,11 +24,14 @@ extension ClockworkCommand {
       profile: clockwork.profile,
       env: Assembler.environment
     )
-    try Lossy(cfg)
-      .map(runnableCommand.run(cfg:))
-      .reduceError(cfg, Assembler.reporter.report(cfg:error:))
-      .reduce(cfg, Assembler.reporter.finish(cfg:success:))
-      .get()
+    defer { Assembler.reporter.sendReports(cfg: cfg) }
+    do {
+      guard try runnableCommand.run(cfg: cfg).not else { return }
+    } catch {
+      cfg.reportUnexpected(error: error)
+      throw error
+    }
+    throw Thrown("Execution considered unsuccessful")
   }
 }
 extension Clockwork.Cocoapods.ResetSpecs: RunnableCommand {
@@ -39,15 +42,6 @@ extension Clockwork.Cocoapods.ResetSpecs: RunnableCommand {
 extension Clockwork.Cocoapods.UpdateSpecs: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
-  }
-}
-extension Clockwork.CommonSignal.Stdin {
-  var mode: Configuration.ParseStdin {
-    switch self {
-    case .ignore: return .ignore
-    case .lines: return .lines
-    case .json: return .json
-    }
   }
 }
 extension Clockwork.Flow.ChangeVersion: RunnableCommand {
@@ -108,13 +102,6 @@ extension Clockwork.Flow.ForwardBranch: RunnableCommand {
 extension Clockwork.Flow.ReserveBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.reserveBuild(cfg: cfg, review: review)
-  }
-}
-extension Clockwork.Flow.Signal: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.signal(
-      cfg: cfg, event: common.event, stdin: common.stdin.mode, args: common.args
-    )
   }
 }
 extension Clockwork.Gitlab.Artifacts.LoadFile: RunnableCommand {
@@ -180,8 +167,17 @@ extension Clockwork.Gitlab.Pipeline.Retry: RunnableCommand {
 extension Clockwork.Gitlab.Signal: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.signal(
-      cfg: cfg, event: common.event, stdin: common.stdin.mode, args: common.args
+      cfg: cfg, event: event, stdin: stdin.mode, args: args
     )
+  }
+}
+extension Clockwork.Gitlab.Signal.Stdin {
+  var mode: Configuration.ParseStdin {
+    switch self {
+    case .ignore: return .ignore
+    case .lines: return .lines
+    case .json: return .json
+    }
   }
 }
 extension Clockwork.Gitlab.TriggerPipeline: RunnableCommand {
@@ -324,13 +320,6 @@ extension Clockwork.Review.Remind: RunnableCommand {
 extension Clockwork.Review.RemoveLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.removeReviewLabels(cfg: cfg, labels: labels)
-  }
-}
-extension Clockwork.Review.Signal: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.signal(
-      cfg: cfg, event: common.event, stdin: common.stdin.mode, args: common.args
-    )
   }
 }
 extension Clockwork.Review.TriggerPipeline: RunnableCommand {

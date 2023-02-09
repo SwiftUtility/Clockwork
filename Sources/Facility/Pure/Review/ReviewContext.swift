@@ -10,20 +10,19 @@ extension Review {
     public var rules: Review.Rules
     public var storage: Review.Storage
     public var originalStorage: Review.Storage
-    public var reports: [Report] = []
     public var trigger: Set<UInt> = []
     public var award: Set<UInt> = []
     public var message: Generate.CreateReviewStorageCommitMessage = .init()
     public mutating func makeState(merge: Json.GitlabMergeState) throws -> State? {
       guard merge.isClosed.not else {
         if let state = storage.delete(review: merge.iid) {
-          reports.append(cfg.reportReviewEvent(state: state, reason: .closed, merge: merge))
+          cfg.reportReviewEvent(state: state, reason: .closed, merge: merge)
         }
         return nil
       }
       guard merge.isMerged.not else {
         if let state = storage.delete(review: merge.iid) {
-          reports.append(cfg.reportReviewEvent(state: state, reason: .merged, merge: merge))
+          cfg.reportReviewEvent(state: state, reason: .merged, merge: merge)
         }
         return nil
       }
@@ -39,7 +38,7 @@ extension Review {
     }
     public mutating func merge(merge: Json.GitlabMergeState) {
       if let state = storage.delete(review: merge.iid) {
-        reports.append(cfg.reportReviewEvent(state: state, reason: .merged, merge: merge))
+        cfg.reportReviewEvent(state: state, reason: .merged, merge: merge)
       }
     }
     public mutating func dequeue(merge: Json.GitlabMergeState) {
@@ -120,22 +119,22 @@ extension Review {
         dequeue: dequeue.sortedNonEmpty
       )
       for state in storage.states.values {
-        reports += state.makeReports(ctx: self)
-        if emergent.contains(state.review) { reports.append(cfg.reportReviewEvent(
+        state.makeReports(ctx: self)
+        if emergent.contains(state.review) { cfg.reportReviewEvent(
           state: state, reason: .emergent
-        ))}
-        if tranquil.contains(state.review) { reports.append(cfg.reportReviewEvent(
+        )}
+        if tranquil.contains(state.review) { cfg.reportReviewEvent(
           state: state, reason: .tranquil
-        ))}
-        if foremost.contains(state.review) { reports.append(cfg.reportReviewEvent(
+        )}
+        if foremost.contains(state.review) { cfg.reportReviewEvent(
           state: state, reason: .foremost
-        ))}
-        if enqueued.contains(state.review) { reports.append(cfg.reportReviewEvent(
+        )}
+        if enqueued.contains(state.review) { cfg.reportReviewEvent(
           state: state, reason: .enqueued
-        ))}
-        if dequeued.contains(state.review) { reports.append(cfg.reportReviewEvent(
+        )}
+        if dequeued.contains(state.review) { cfg.reportReviewEvent(
           state: state, reason: .dequeued
-        ))}
+        )}
       }
       return storage.serialized
     }

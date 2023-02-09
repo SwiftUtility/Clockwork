@@ -9,8 +9,6 @@ public final class Producer {
   let parseFlowBuilds: Try.Reply<ParseYamlFile<Flow.Builds.Storage>>
   let parseFlowVersions: Try.Reply<ParseYamlFile<Flow.Versions.Storage>>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
-  let report: Act.Reply<Report>
-  let readStdin: Try.Reply<Configuration.ParseStdin>
   let logMessage: Act.Reply<LogMessage>
   let writeStdout: Act.Of<String>.Go
   let jsonDecoder: JSONDecoder
@@ -22,8 +20,6 @@ public final class Producer {
     parseFlowBuilds: @escaping Try.Reply<ParseYamlFile<Flow.Builds.Storage>>,
     parseFlowVersions: @escaping Try.Reply<ParseYamlFile<Flow.Versions.Storage>>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
-    report: @escaping Act.Reply<Report>,
-    readStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     logMessage: @escaping Act.Reply<LogMessage>,
     writeStdout: @escaping Act.Of<String>.Go,
     jsonDecoder: JSONDecoder
@@ -35,56 +31,9 @@ public final class Producer {
     self.parseFlowBuilds = parseFlowBuilds
     self.parseFlowVersions = parseFlowVersions
     self.persistAsset = persistAsset
-    self.report = report
-    self.readStdin = readStdin
     self.logMessage = logMessage
     self.writeStdout = writeStdout
     self.jsonDecoder = jsonDecoder
-  }
-  public func signal(
-    cfg: Configuration,
-    event: String,
-    stdin: Configuration.ParseStdin,
-    args: [String]
-  ) throws -> Bool {
-//    let stdin = try readStdin(stdin)
-//    let gitlab = try cfg.gitlab.get()
-//    let flow = try cfg.parseFlow.map(parseFlow).get()
-//    let storage = try parseFlowStorage(cfg.parseFlowStorage(flow: flow))
-//    let current: String
-//    if gitlab.job.tag {
-//      product = try flow
-//        .productMatching(deploy: gitlab.job.pipeline.ref)
-//        .get { throw Thrown("Tag \(gitlab.job.pipeline.ref) matches no products") }
-//      current = try generate(product.parseTagVersion(
-//        cfg: cfg,
-//        ref: gitlab.job.pipeline.ref,
-//        deploy: true
-//      ))
-//    } else {
-//      product = try flow
-//        .productMatching(release: gitlab.job.pipeline.ref)
-//        .get { throw Thrown("Branch \(gitlab.job.pipeline.ref) matches no products") }
-//      current = try generate(product.parseReleaseBranchVersion(
-//        cfg: cfg,
-//        ref: gitlab.job.pipeline.ref
-//      ))
-//    }
-//    let delivery = try parseVersions(cfg.parseVersions(flow: flow))[product.name]
-//      .get { throw Thrown("Versioning not configured for \(product)") }
-//      .deliveries[current.alphaNumeric]
-//      .get { throw Thrown("No \(product.name) \(current)") }
-//    report(cfg.reportReleaseCustom(
-//      product: product,
-//      event: event,
-//      delivery: delivery,
-//      ref: gitlab.job.pipeline.ref,
-//      sha: gitlab.job.pipeline.sha,
-//      stdin: stdin
-//    ))
-//    return true
-    #warning("tbd")
-    return false
   }
   public func changeVersion(
     cfg: Configuration,
@@ -138,7 +87,7 @@ public final class Producer {
         reason: .deleteAccessory
       ))
     ))
-    report(cfg.reportStageTagDeleted(stage: stage))
+    cfg.reportStageTagDeleted(stage: stage)
     return true
   }
   public func deleteBranch(cfg: Configuration, release: Bool) throws -> Bool {
@@ -163,7 +112,7 @@ public final class Producer {
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
-      report(cfg.reportReleaseBranchDeleted(release: release))
+      cfg.reportReleaseBranchDeleted(release: release)
     } else {
       let accessory = try versions.delete(accessory: branch)
       _ = try persistAsset(.init(
@@ -180,7 +129,7 @@ public final class Producer {
         .map(execute)
         .map(Execute.checkStatus(reply:))
         .get()
-      report(cfg.reportAccessoryBranchDeleted(ref: branch.name))
+      cfg.reportAccessoryBranchDeleted(ref: branch.name)
     }
     return true
   }
@@ -269,11 +218,11 @@ public final class Producer {
       .get()
       .protected
     else { throw Thrown("Stage not protected \(tag.name)") }
-    try report(cfg.reportDeployTagCreated(
+    try cfg.reportDeployTagCreated(
       release: release,
       build: build,
       notes: makeNotes(cfg: cfg, flow: flow, release: release, deploy: sha)
-    ))
+    )
     return true
   }
   public func reserveBuild(cfg: Configuration, review: Bool) throws -> Bool {
@@ -361,14 +310,14 @@ public final class Producer {
         reason: .release
       ))
     ))
-    report(cfg.reportReleaseBranchCreated(
+    cfg.reportReleaseBranchCreated(
       release: release,
       hotfix: false
-    ))
-    try report(cfg.reportReleaseBranchSummary(
+    )
+    try cfg.reportReleaseBranchSummary(
       release: release,
       notes: makeNotes(cfg: cfg, flow: flow, release: release, deploy: release.start)
-    ))
+    )
     return true
   }
   public func createHotfixBranch(cfg: Configuration) throws -> Bool {
@@ -418,14 +367,14 @@ public final class Producer {
         reason: .hotfix
       ))
     ))
-    report(cfg.reportReleaseBranchCreated(
+    cfg.reportReleaseBranchCreated(
       release: release,
       hotfix: true
-    ))
-    try report(cfg.reportReleaseBranchSummary(
+    )
+    try cfg.reportReleaseBranchSummary(
       release: release,
       notes: makeNotes(cfg: cfg, flow: flow, release: release, deploy: release.start)
-    ))
+    )
     return true
   }
   public func createAccessoryBranch(
@@ -444,7 +393,7 @@ public final class Producer {
       .get()
       .protected
     else { throw Thrown("\(name) not protected") }
-    report(cfg.reportAccessoryBranchCreated(ref: name))
+    cfg.reportAccessoryBranchCreated(ref: name)
     return true
   }
   public func stageBuild(cfg: Configuration, product: String, build: String) throws -> Bool {
@@ -491,7 +440,7 @@ public final class Producer {
       .get()
       .protected
     else { throw Thrown("Stage not protected \(tag.name)") }
-    report(cfg.reportStageTagCreated(stage: stage))
+    cfg.reportStageTagCreated(stage: stage)
     return true
   }
   public func renderVersions(cfg: Configuration, build: Bool, args: [String]) throws -> Bool {
@@ -548,26 +497,41 @@ public final class Producer {
       .map(Git.Sha.make(value:))
       .map(Git.Ref.make(sha:))
     guard previous.isEmpty.not else { return .make(uniq: [], lack: []) }
-    #warning("tbd remove cherry picks")
-    return try Flow.ReleaseNotes.make(
-      uniq: Execute
-        .parseLines(reply: execute(cfg.git.listCommits(
-          in: [.make(sha: deploy)],
-          notIn: previous,
-          ignoreMissing: true
-        )))
-        .compactMap({ sha in try flow.makeNote(sha: sha, msg: Execute.parseText(
-          reply: execute(cfg.git.getCommitMessage(ref: .make(sha: .make(value: sha))))
-        ))}),
-      lack: Execute
-        .parseLines(reply: execute(cfg.git.listCommits(
-          in: previous,
-          notIn: [.make(sha: deploy)],
-          ignoreMissing: true
-        )))
-        .compactMap({ sha in try flow.makeNote(sha: sha, msg: Execute.parseText(
-          reply: execute(cfg.git.getCommitMessage(ref: .make(sha: .make(value: sha))))
-        ))})
-    )
+    var trees: Set<String> = []
+    let uniq = try Execute
+      .parseLines(reply: execute(cfg.git.listCommits(
+        in: [.make(sha: deploy)],
+        notIn: previous,
+        ignoreMissing: true
+      )))
+      .map(Git.Sha.make(value:))
+      .filter({ sha in try trees
+        .insert(Execute
+          .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: sha))))
+          .dropSuffix(sha.value)
+        )
+        .inserted
+      })
+      .compactMap({ sha in try flow.makeNote(sha: sha.value, msg: Execute.parseText(
+        reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha)))
+      ))})
+    let lack = try Execute
+      .parseLines(reply: execute(cfg.git.listCommits(
+        in: previous,
+        notIn: [.make(sha: deploy)],
+        ignoreMissing: true
+      )))
+      .map(Git.Sha.make(value:))
+      .filter({ sha in try trees
+        .insert(Execute
+          .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: sha))))
+          .dropSuffix(sha.value)
+        )
+        .inserted
+      })
+      .compactMap({ sha in try flow.makeNote(sha: sha.value, msg: Execute.parseText(
+        reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha)))
+      ))})
+    return Flow.ReleaseNotes.make(uniq: uniq, lack: lack)
   }
 }

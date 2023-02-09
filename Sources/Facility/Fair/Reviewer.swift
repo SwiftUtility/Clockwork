@@ -11,7 +11,6 @@ public final class Reviewer {
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
-  let report: Act.Reply<Report>
   let parseStdin: Try.Reply<Configuration.ParseStdin>
   let readStdin: Try.Do<Data?>
   let logMessage: Act.Reply<LogMessage>
@@ -26,7 +25,6 @@ public final class Reviewer {
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
-    report: @escaping Act.Reply<Report>,
     parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     readStdin: @escaping Try.Do<Data?>,
     logMessage: @escaping Act.Reply<LogMessage>,
@@ -41,31 +39,10 @@ public final class Reviewer {
     self.persistAsset = persistAsset
     self.writeStdout = writeStdout
     self.generate = generate
-    self.report = report
     self.parseStdin = parseStdin
     self.readStdin = readStdin
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
-  }
-  public func signal(
-    cfg: Configuration,
-    event: String,
-    stdin: Configuration.ParseStdin,
-    args: [String]
-  ) throws -> Bool {
-//    let stdin = try readStdin(stdin)
-//    let fusion = try cfg.parseFusion.map(parseFusion).get()
-//    var statuses = try parseFusionStatuses(cfg.parseFusionStatuses(approval: fusion.approval))
-//    guard let status = try resolveStatus(cfg: cfg, fusion: fusion, statuses: &statuses)
-//    else { return false }
-//    report(cfg.reportReviewCustom(
-//      status: status,
-//      event: event,
-//      stdin: stdin
-//    ))
-//    return true
-    #warning("tbd")
-    return false
   }
   public func updateReviews(cfg: Configuration, remind: Bool) throws -> Bool {
     var ctx = try makeContext(cfg: cfg)
@@ -107,7 +84,7 @@ public final class Reviewer {
       message: message,
       to: .make(sha: .make(merge: merge))
     ) else {
-      report(cfg.report(notify: .patchFailed, merge: merge))
+      cfg.report(notify: .patchFailed, merge: merge)
       return false
     }
     state.skip.insert(sha)
@@ -123,7 +100,7 @@ public final class Reviewer {
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let sha = try Git.Sha.make(merge: merge)
     guard state.verified != sha else {
-      report(cfg.report(notify: .skipFailed, merge: merge))
+      cfg.report(notify: .skipFailed, merge: merge)
       return false
     }
     state.verified = sha
@@ -136,7 +113,7 @@ public final class Reviewer {
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     guard try state.approve(job: gitlab.parent.get(), advance: advance) else {
-      report(cfg.report(notify: .approveFailed, merge: merge))
+      cfg.report(notify: .approveFailed, merge: merge)
       return false
     }
     try storeChange(ctx: ctx, state: state, merge: merge)
@@ -156,7 +133,7 @@ public final class Reviewer {
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let user = user.isEmpty.not.then(user).get(gitlab.job.user.username)
     guard state.authors.insert(user).inserted else {
-      report(cfg.report(notify: .unownFailed, merge: merge))
+      cfg.report(notify: .unownFailed, merge: merge)
       return false
     }
     try storeChange(ctx: ctx, state: state, merge: merge)
@@ -169,7 +146,7 @@ public final class Reviewer {
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let user = user.isEmpty.not.then(user).get(gitlab.job.user.username)
     guard state.authors.remove(user) != nil else {
-      report(cfg.report(notify: .ownFailed, merge: merge))
+      cfg.report(notify: .ownFailed, merge: merge)
       return false
     }
     try storeChange(ctx: ctx, state: state, merge: merge)
@@ -190,7 +167,7 @@ public final class Reviewer {
     let pick: Git.Sha?
     if prefix == .duplicate {
       guard let commit = try cherry(cfg: cfg, sha: head, to: .make(remote: fusion.target)) else {
-        report(cfg.report(notify: .make(prefix: prefix)))
+        cfg.report(notify: .make(prefix: prefix))
         return false
       }
       pick = commit
@@ -203,7 +180,7 @@ public final class Reviewer {
         child: .make(sha: head),
         parent: .make(remote: fusion.target)
       ))) else {
-        report(cfg.report(notify: .make(prefix: prefix)))
+        cfg.report(notify: .make(prefix: prefix))
         return false
       }
     } else {
@@ -249,12 +226,12 @@ public final class Reviewer {
     var ctx = try makeContext(cfg: cfg)
     guard let state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     guard state.verified != nil else {
-      report(cfg.report(notify: .nothingToApprove))
+      cfg.report(notify: .nothingToApprove)
       return false
     }
     for user in state.approvers.filter(state.isUnapproved(user:)) {
       let approve = ctx.remind(review: state.review, user: user)
-      report(cfg.reportReviewApprove(user: user, merge: merge, approve: approve))
+      cfg.reportReviewApprove(user: user, merge: merge, approve: approve)
     }
     return true
   }
@@ -272,9 +249,9 @@ public final class Reviewer {
         .keys
         .reduce(into: [:], { $0[$1] = ctx.remind(review: $1, user: user) })
       if reviews.isEmpty {
-        report(cfg.report(notify: .nothingToApprove, user: user))
+        cfg.report(notify: .nothingToApprove, user: user)
       } else {
-        report(cfg.reportReviewList(user: user, reviews: reviews))
+        cfg.reportReviewList(user: user, reviews: reviews)
       }
     }
     return true
@@ -285,7 +262,7 @@ public final class Reviewer {
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     _ = try checkReady(ctx: &ctx, state: &state, merge: merge)
     guard let change = state.change, state.canRebase else {
-      report(cfg.report(notify: .rebaseBlocked, merge: merge))
+      cfg.report(notify: .rebaseBlocked, merge: merge)
       return false
     }
     var head = Git.Ref.make(sha: change.head)
@@ -441,7 +418,6 @@ extension Reviewer {
       .map(Execute.checkStatus(reply:))
       .get()
     }
-    ctx.reports.forEach(report)
     for review in ctx.trigger { try gitlab
       .postMrPipelines(review: review)
       .map(execute)
@@ -646,7 +622,7 @@ extension Reviewer {
     let parent = try gitlab.parent.get()
     let merge = try gitlab.merge.get()
     guard parent.pipeline.id == merge.lastPipeline.id else {
-      report(cfg.report(notify: .pipelineOutdated, merge: merge))
+      cfg.report(notify: .pipelineOutdated, merge: merge)
       return nil
     }
     return merge
@@ -656,7 +632,7 @@ extension Reviewer {
     merge: Json.GitlabMergeState
   ) throws -> Review.State? {
     guard ctx.isQueued(merge: merge).not else {
-      report(ctx.cfg.report(notify: .reviewQueued, merge: merge))
+      ctx.cfg.report(notify: .reviewQueued, merge: merge)
       return nil
     }
     guard let state = try ctx.makeState(merge: merge) else {
@@ -942,7 +918,7 @@ extension Reviewer {
       ctx.merge(merge: change.merge)
       return true
     } else if let message = result?.map?["message"]?.value?.string {
-      report(ctx.cfg.reportReviewMergeError(state: state, merge: change.merge, error: message))
+      ctx.cfg.reportReviewMergeError(state: state, merge: change.merge, error: message)
       ctx.dequeue(merge: change.merge)
       return false
     } else {

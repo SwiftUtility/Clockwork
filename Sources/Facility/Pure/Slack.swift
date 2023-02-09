@@ -4,8 +4,8 @@ public struct Slack {
   public var token: String
   public var storage: Configuration.Asset
   public var info: Info
-  public var jira: Jira?
-  public var gitlab: Gitlab?
+//  public var jira: Jira?
+//  public var gitlab: Gitlab?
   public var signals: [Signal]
   public static func make(
     token: String,
@@ -14,69 +14,24 @@ public struct Slack {
     token: token,
     storage: .make(yaml: yaml.storage),
     info: .init(users: [:], channels: [:], mentions: [:]),
-    jira: yaml.jira.map(Jira.make(yaml:)),
-    gitlab: yaml.gitlab.map(Gitlab.make(yaml:)),
+//    jira: yaml.jira.map(Jira.make(yaml:)),
+//    gitlab: yaml.gitlab.map(Gitlab.make(yaml:)),
     signals: yaml.signals.get([:]).map(Signal.make(mark:yaml:))
   )}
-  public struct Gitlab {
-    public var storage: Configuration.Asset
-    public var tags: [Thread]
-    public var reviews: [Thread]
-    public var branches: [Thread]
-    public static func make(yaml: Yaml.Slack.Gitlab) throws -> Self { try .init(
-      storage: .make(yaml: yaml.storage),
-      tags: yaml.tags
-        .get([:])
-        .map(Thread.make(name:yaml:)),
-      reviews: yaml.reviews
-        .get([:])
-        .map(Thread.make(name:yaml:)),
-      branches: yaml.branches
-        .get([:])
-        .map(Thread.make(name:yaml:))
+  public struct RegisterUser: Query {
+    public var cfg: Configuration
+    public var slack: String
+    public var gitlab: String
+    public static func make(
+      cfg: Configuration,
+      slack: String,
+      gitlab: String
+    ) -> Self { .init(
+      cfg: cfg,
+      slack: slack,
+      gitlab: gitlab
     )}
-    public struct Storage {
-      public var tags: [String: [Thread.Storage]]
-      public var reviews: [String: [Thread.Storage]]
-      public var branches: [String: [Thread.Storage]]
-      public static func make(yaml: Yaml.Slack.Gitlab.Storage) -> Self { .init(
-        tags: yaml.tags
-          .get([:])
-          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) }),
-        reviews: yaml.reviews
-          .get([:])
-          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) }),
-        branches: yaml.branches
-          .get([:])
-          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) })
-      )}
-    }
-  }
-  public struct Jira {
-    public var storage: Configuration.Asset
-    public var epics: [Thread]
-    public var issues: [Thread]
-    public static func make(yaml: Yaml.Slack.Jira) throws -> Self { try .init(
-      storage: .make(yaml: yaml.storage),
-      epics: yaml.epics
-        .get([:])
-        .map(Thread.make(name:yaml:)),
-      issues: yaml.issues
-        .get([:])
-        .map(Thread.make(name:yaml:))
-    )}
-    public struct Storage {
-      public var epics: [String: [Thread.Storage]]
-      public var issues: [String: [Thread.Storage]]
-      public static func make(yaml: Yaml.Slack.Jira.Storage) -> Self { .init(
-        epics: yaml.epics
-          .get([:])
-          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) }),
-        issues: yaml.issues
-          .get([:])
-          .mapValues({ $0.map(Thread.Storage.make(name:yaml:)) })
-      )}
-    }
+    public typealias Reply = Void
   }
   public struct Thread {
     public var name: String
@@ -90,19 +45,6 @@ public struct Slack {
       create: .make(mark: name, yaml: yaml.create),
       update: yaml.update.get([:]).map(Signal.make(mark:yaml:))
     )}
-    public struct Storage: Encodable {
-      public var name: String
-      public var channel: String
-      public var message: String
-      public static func make(
-        name: String,
-        yaml: Yaml.Slack.Thread.Storage
-      ) -> Self { .init(
-        name: name,
-        channel: yaml.channel,
-        message: yaml.message
-      )}
-    }
   }
   public struct Signal {
     public var events: [[String]]
@@ -120,10 +62,10 @@ public struct Slack {
     }
   }
   public struct Info: Encodable {
-    var users: [String: Storage.User]
-    var channels: [String: Storage.Channel]
-    var mentions: [String: Storage.Mention]
-    var thread: Thread.Storage?
+    var users: [String: String]
+    var channels: [String: String]
+    var mentions: [String: String]
+    var thread: Storage.Thread?
     var person: String?
     public static func make(storage: Storage) -> Self { .init(
       users: storage.users,
@@ -132,39 +74,68 @@ public struct Slack {
     )}
   }
   public struct Storage {
-    public var users: [String: User]
-    public var channels: [String: Channel]
-    public var mentions: [String: Mention]
+    public var users: [String: String]
+    public var channels: [String: String]
+    public var mentions: [String: String]
+    public var tags: [String: [String: Thread]]
+    public var issues: [String: [String: Thread]]
+    public var reviews: [String: [String: Thread]]
+    public var branches: [String: [String: Thread]]
+    public var serialized: String {
+      var result = ""
+      if users.isEmpty.not {
+        result += "users:\n"
+        result += users.map({ "  '\($0.key)': '\($0.value)'\n" }).joined()
+      }
+      if channels.isEmpty.not {
+        result += "channels:\n"
+        result += channels.map({ "  '\($0.key)': '\($0.value)'\n" }).joined()
+      }
+      if mentions.isEmpty.not {
+        result += "mentions:\n"
+        result += mentions.map({ "  '\($0.key)': '\($0.value)'\n" }).joined()
+      }
+      result += Thread.serialize(kind: "tags", map: tags)
+      result += Thread.serialize(kind: "issues", map: issues)
+      result += Thread.serialize(kind: "reviews", map: reviews)
+      result += Thread.serialize(kind: "branches", map: branches)
+      if result.isEmpty { result = "{}\n" }
+      return result
+    }
     public static func make(yaml: Yaml.Slack.Storage) -> Self { .init(
-      users: yaml.users
-        .get([:])
-        .mapValues(User.make(yaml:)),
-      channels: yaml.channels
-        .get([:])
-        .mapValues(Channel.make(yaml:)),
-      mentions: yaml.mentions
-        .get([:])
-        .mapValues(Mention.make(yaml:))
+      users: yaml.users.get([:]),
+      channels: yaml.channels.get([:]),
+      mentions: yaml.mentions.get([:]),
+      tags: yaml.tags.get([:]).mapValues(Thread.make(yaml:)),
+      issues: yaml.issues.get([:]).mapValues(Thread.make(yaml:)),
+      reviews: yaml.reviews.get([:]).mapValues(Thread.make(yaml:)),
+      branches: yaml.branches.get([:]).mapValues(Thread.make(yaml:))
     )}
-    public struct User: Encodable {
-      public var id: String
-      public static func make(yaml: Yaml.Slack.Storage.User) -> Self { .init(
-        id: yaml.id
+    public struct Thread: Encodable {
+      public var name: String
+      public var channel: String
+      public var message: String
+      var line: String { "    '\(name)': {channel: '\(channel)', message: '\(message)'}\n" }
+      public static func make(name: String, yaml: Yaml.Slack.Storage.Thread) -> Self { .init(
+        name: name, channel: yaml.channel, message: yaml.message
       )}
-    }
-    public struct Channel: Encodable {
-      public var id: String
-      public static func make(yaml: Yaml.Slack.Storage.Channel) -> Self { .init(
-        id: yaml.id
-      )}
-    }
-    public struct Mention: Encodable {
-      public var subteams: [String]?
-      public var users: [String]?
-      public static func make(yaml: Yaml.Slack.Storage.Mention) -> Self { .init(
-        subteams: yaml.subteams,
-        users: yaml.users
-      )}
+      public static func make(yaml: [String: Yaml.Slack.Storage.Thread]) -> [String: Self] {
+        yaml.reduce(into: [:], { $0[$1.key] = .make(name: $1.key, yaml: $1.value) })
+      }
+      static func serialize(kind: String, map: [String: [String: Self]]) -> String {
+        var result = ""
+        let keys = map.filter(\.value.isEmpty.not).keys.sorted()
+        if keys.isEmpty.not {
+          result += "\(kind):\n"
+          for key in keys {
+            result += "  '\(key)':\n"
+            result += map[key].get([:]).keys.sorted()
+              .compactMap({ map[key]?[$0]?.line })
+              .joined()
+          }
+        }
+        return result
+      }
     }
   }
 }
@@ -180,72 +151,3 @@ public extension GenerateInfo {
     return false
   }
 }
-//
-//
-//
-//
-//
-//public struct Chat {
-//  public var storage: Configuration.Asset
-//  public var slack
-//  public static func make(yaml: Yaml.Chat) -> Self { .init(storage: <#T##Configuration.Asset#>)}
-//  public struct Storage: Decodable {
-//    public var tags: [String: [String: Thread]]
-//    public var tasks: [String: [String: Thread]]
-//    public var reviews: [UInt: [String: Thread]]
-//    public var branches: [String: [String: Thread]]
-//    public struct Thread: Decodable {
-//      public var name: String
-//      public var channel: String
-//      public var message: String
-//    }
-//  }
-//  public struct Slack {
-//    public var token: String
-//    public var createThread: [String: [String: [Signal]]]
-//    public var updateThread: [String: [String: [Signal]]]
-//    public var signals: [String: [Signal]]
-//  }
-//  public struct Signal {
-//    public var mark: String?
-//    public var method: String?
-//    public var body: Configuration.Template
-//    public static func make(
-//      acc: inout [String: [Self]],
-//      yaml: Dictionary<String, Yaml.Chat.Signal>.Element
-//    ) throws {
-//      for event in yaml.value.events {
-//        try acc[event] = acc[event].get([]) + [.init(
-//          mark: yaml.key,
-//          method: yaml.value.method,
-//          body: .make(yaml: yaml.value.body)
-//        )]
-//      }
-//    }
-//  }
-//}
-//public struct Slack {
-//  public var token: String
-//  public var signals: [String: [Signal]]
-//  public static func make(token: String, yaml: Yaml.Slack) throws -> Self { try .init(
-//    token: token,
-//    signals: yaml.signals.reduce(into: [:], Signal.make(acc:yaml:))
-//  )}
-//  public struct Signal {
-//    public var mark: String
-//    public var method: String
-//    public var body: Configuration.Template
-//    public static func make(
-//      acc: inout [String: [Self]],
-//      yaml: Dictionary<String, Yaml.Slack.Signal>.Element
-//    ) throws {
-//      for event in yaml.value.events {
-//        try acc[event] = acc[event].get([]) + [.init(
-//          mark: yaml.key,
-//          method: yaml.value.method,
-//          body: .make(yaml: yaml.value.body)
-//        )]
-//      }
-//    }
-//  }
-//}

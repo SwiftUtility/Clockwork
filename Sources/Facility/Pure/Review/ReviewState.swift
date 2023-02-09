@@ -410,23 +410,22 @@ extension Review {
         phase = .stuck
       }
     }
-    public func makeReports(ctx: Context) -> [Report] {
-      guard let change = change else { return [] }
-      var result: [Report] = []
+    public func makeReports(ctx: Context) {
+      guard let change = change else { return }
       for approve in approves.values.filter(\.resolution.approved.not) {
         if let old = ctx.originalStorage.states[review]?.approves[approve.login] {
           guard old.resolution.approved.not else { continue }
-          result.append(ctx.cfg.reportReviewApprove(
+          ctx.cfg.reportReviewApprove(
             user: old.login,
             merge: change.merge,
             approve: .init(diff: old.commit.value, reason: .change)
-          ))
+          )
         } else {
-          result.append(ctx.cfg.reportReviewApprove(
+          ctx.cfg.reportReviewApprove(
             user: approve.login,
             merge: change.merge,
             approve: .init(reason: .create)
-          ))
+          )
         }
       }
       var update = Report.ReviewUpdated(
@@ -461,8 +460,7 @@ extension Review {
       if approvers.isEmpty.not {
         update.approvers = approvers.keys.sorted().compactMap({ approvers[$0] })
       }
-      result.append(ctx.cfg.reportReviewUpdated(state: self, merge: change.merge, report: update))
-      return result
+      ctx.cfg.reportReviewUpdated(state: self, merge: change.merge, report: update)
     }
     func selectUsers(
       ctx: Context,

@@ -1,6 +1,7 @@
 import Foundation
 import Facility
 public struct Configuration {
+  public let bag = Report.Bag.shared
   public var git: Git
   public var env: [String: String]
   public var profile: Profile

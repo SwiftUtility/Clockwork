@@ -23,13 +23,6 @@ public final class Reporter {
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
-  public func finish(cfg: Configuration, success: Bool) throws {
-    if !success { throw Thrown("Execution considered unsuccessful") }
-  }
-  public func report(cfg: Configuration, error: Error) throws -> Bool {
-    report(query:  cfg.reportUnexpected(error: error))
-    throw error
-  }
   public func parseStdin(query: Configuration.ParseStdin) throws -> Configuration.ParseStdin.Reply {
     switch query {
     case .ignore: return nil
@@ -42,9 +35,13 @@ public final class Reporter {
     case .json: return try readStdin().reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
     }
   }
-  public func report(query: Report) -> Report.Reply {
-    logMessage(.init(message: "Reporting \(query.info.event)"))
-    var query = query
+  public func sendReports(cfg: Configuration) {
+    #warning("tbd")
+  }
+//  public func report(query: Report) -> Report.Reply {
+//    reports += [query]
+//    logMessage(.init(message: "Reporting \(query.info.event)"))
+//    var query = query
 //    query.info.env = query.cfg.env
 //    query.info.jira = try? query.cfg.jira.get().context
 //    query.info.slack = try? query.cfg.slack
@@ -88,37 +85,37 @@ public final class Reporter {
 //        logMessage(.init(message: body))
 //      }
 //    }
-  }
+//  }
   func slack(report: Report) {
-    guard report.cfg.profile.slack != nil else { return }
-    let slack: Slack
-    do { slack = try report.cfg.slack.get() }
-    catch { return logMessage(.init(message: "Report slack failed: \(error)")) }
-    let signals = slack.signals.filter(report.info.triggers(signal:))
-    guard signals.isEmpty.not else { return }
-    logMessage(.init(message: "Reporting slack \(report.info.event.joined(separator: "/"))"))
-    for signal in slack.signals.filter(report.info.triggers(signal:)) {
-      var report = report
-      report.info.mark = signal.mark
-      do { _ = try send(report: report, slack: slack, signal: signal) }
-      catch { logMessage(.init(message: "\(error)")) }
-    }
-    if let gitlab = slack.gitlab {
-      for thread in gitlab.branches {
-
-      }
-    }
+//    guard report.cfg.profile.slack != nil else { return }
+//    let slack: Slack
+//    do { slack = try report.cfg.slack.get() }
+//    catch { return logMessage(.init(message: "Report slack failed: \(error)")) }
+//    let signals = slack.signals.filter(report.info.triggers(signal:))
+//    guard signals.isEmpty.not else { return }
+//    logMessage(.init(message: "Reporting slack \(report.info.event.joined(separator: "/"))"))
+//    for signal in slack.signals.filter(report.info.triggers(signal:)) {
+//      var report = report
+//      report.info.mark = signal.mark
+//      do { _ = try send(report: report, slack: slack, signal: signal) }
+//      catch { logMessage(.init(message: "\(error)")) }
+//    }
+//    if let gitlab = slack.gitlab {
+//      for thread in gitlab.branches {
+//
+//      }
+//    }
   }
-  func send(report: Report, slack: Slack, signal: Slack.Signal) throws -> Json.SlackMessage? {
-    let body = try generate(report.generate(template: signal.body))
-    guard !body.isEmpty else { throw Thrown("Skip report \(signal.mark): empty body") }
-    logMessage(.init(message: "Reporting \(signal.mark): \(body)"))
-    let data = try Execute.parseData(reply: execute(report.cfg.curlSlack(
-      token: slack.token,
-      method: signal.method,
-      body: body
-    )))
-    sleep(1)
-    return try jsonDecoder.decode(Json.SlackMessage.self, from: data)
-  }
+//  func send(report: Report, slack: Slack, signal: Slack.Signal) throws -> Json.SlackMessage? {
+//    let body = try generate(report.generate(template: signal.body))
+//    guard !body.isEmpty else { throw Thrown("Skip report \(signal.mark): empty body") }
+//    logMessage(.init(message: "Reporting \(signal.mark): \(body)"))
+//    defer { sleep(1) }
+//    let data = try Execute.parseData(reply: execute(report.cfg.curlSlack(
+//      token: slack.token,
+//      method: signal.method,
+//      body: body
+//    )))
+//    return try jsonDecoder.decode(Json.SlackMessage.self, from: data)
+//  }
 }

@@ -4,8 +4,7 @@ public protocol ReportContext: GenerateContext {}
 public extension ReportContext {
   static var allowEmpty: Bool { true }
 }
-public struct Report: Query {
-  public var cfg: Configuration
+public struct Report {
   public var threads: Threads
   public var info: GenerateInfo
   public static func make<Context: ReportContext>(
@@ -16,14 +15,17 @@ public struct Report: Query {
     args: [String]? = nil,
     merge: Json.GitlabMergeState? = nil
   ) -> Self { .init(
-    cfg: cfg,
     threads: threads,
     info: Generate.Info.make(cfg: cfg, context: ctx, args: args, subevent: subevent, merge: merge)
   )}
-  public func generate(template: Configuration.Template) -> Generate {
+  public func generate(cfg: Configuration, template: Configuration.Template) -> Generate {
     .init(template: template, templates: cfg.templates, info: info)
   }
-  public typealias Reply = Void
+  #warning("tbd eliminate shared state")
+  public class Bag {
+    public static let shared = Bag()
+    public fileprivate(set) var reports: [Report] = []
+  }
   public struct Threads {
     public var tags: Set<String> = []
     public var users: Set<String> = []
@@ -31,10 +33,13 @@ public struct Report: Query {
     public var reviews: Set<UInt> = []
     public var branches: Set<String> = []
     public static func make(
-      stage: Flow.Product.Stage
+      tags: Set<String> = [],
+      users: Set<String> = [],
+      issues: Set<String> = [],
+      reviews: Set<UInt> = [],
+      branches: Set<String> = []
     ) -> Self { .init(
-      tags: [stage.tag.name],
-      branches: Set(stage.branch.array.map(\.name))
+      tags: tags, users: users, issues: issues, reviews: reviews, branches: branches
     )}
   }
   public enum Notify: String, ReportContext {
@@ -189,10 +194,6 @@ public struct Report: Query {
       }
     }
   }
-  public struct ReviewCustom: ReportContext {
-    public var authors: [String]
-    public var stdin: AnyCodable?
-  }
   public struct ReleaseBranchCreated: ReportContext {
     public var product: String
     public var version: String
@@ -217,11 +218,6 @@ public struct Report: Query {
     public var notes: Flow.ReleaseNotes?
     public var subevent: [String] { [product] }
   }
-  public struct ReleaseCustom: ReportContext {
-    public var product: String
-    public var version: String
-    public var stdin: AnyCodable?
-  }
   public struct StageTagCreated: ReportContext {
     public var product: String
     public var version: String
@@ -234,6 +230,9 @@ public struct Report: Query {
     public var subevent: [String] { [product] }
   }
   public struct Custom: ReportContext {
+    public var authors: [String]?
+    public var product: String?
+    public var version: String?
     public var stdin: AnyCodable?
   }
   public struct Unexpected: ReportContext {
@@ -262,59 +261,43 @@ public struct Report: Query {
   }
 }
 public extension Configuration {
-//  func reportReviewCreated(
-//    status: Fusion.Approval.Status,
-//    review: Json.GitlabReviewState?
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: review, status: status, infusion: nil),
-//    ctx: Report.ReviewCreated(authors: status.authors.sorted()),
-//    review: review
-//  )}
-//  func reportReviewMergeConflicts(
-//    status: Fusion.Approval.Status
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: nil, status: status, infusion: nil),
-//    ctx: Report.ReviewMergeConflicts(authors: status.authors.sorted())
-//  )}
   func report(
     notify: Report.Notify,
     user: String? = nil,
     merge: Json.GitlabMergeState? = nil
-  ) -> Report {
+  ) {
     let user = user ?? (try? gitlab.map(\.job.user.username).get())
-    return .make(
+    Report.Bag.shared.reports.append(.make(
       cfg: self,
       threads: .init(users: Set(user.array), reviews: Set(merge.array.map(\.iid))),
       ctx: notify,
       subevent: [notify.rawValue],
       merge: merge
-    )
+    ))
   }
   func reportReviewList(
     user: String,
     reviews: [UInt: Report.ReviewApprove]
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(users: [user]),
     ctx: Report.ReviewList(reviews: reviews)
-  )}
+  ))}
   func reportReviewApprove(
     user: String,
     merge: Json.GitlabMergeState,
     approve: Report.ReviewApprove
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(users: [user], reviews: [merge.iid]),
     ctx: approve,
     merge: merge
-  )}
+  ))}
   func reportReviewEvent(
     state: Review.State,
     reason: Report.ReviewEvent.Reason,
     merge: Json.GitlabMergeState? = nil
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(
       users: state.authors,
@@ -328,22 +311,22 @@ public extension Configuration {
     ),
     subevent: [reason.rawValue],
     merge: merge.flatMapNil(state.change?.merge)
-  )}
+  ))}
   func reportReviewUpdated(
     state: Review.State,
     merge: Json.GitlabMergeState,
     report: Report.ReviewUpdated
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(users: state.authors, branches: [merge.targetBranch]),
     ctx: report,
     merge: merge
-  )}
+  ))}
   func reportReviewMergeError(
     state: Review.State,
     merge: Json.GitlabMergeState,
     error: String
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(users: state.authors, branches: [merge.targetBranch]),
     ctx: Report.ReviewMergeError(
@@ -351,80 +334,11 @@ public extension Configuration {
       error: error
     ),
     merge: merge
-  )}
-//  func reportReviewRemind(
-//    status: Fusion.Approval.Status,
-//    slackers: Set<String>,
-//    review: Json.GitlabReviewState?
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: review, status: status, infusion: nil),
-//    ctx: Report.ReviewRemind(
-//      authors: status.authors.sorted(),
-//      slackers: slackers.sorted()
-//    ),
-//    review: review
-//  )}
-//  func reportReviewObsolete(
-//    review: Json.GitlabReviewState
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: review, status: nil, infusion: nil),
-//    ctx: Report.ReviewObsolete()
-//  )}
-//  func reportReviewCustom(
-//    status: Fusion.Approval.Status,
-//    event: String,
-//    stdin: AnyCodable?
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: nil, status: status, infusion: nil),
-//    ctx: Report.ReviewCustom(
-//      authors: status.authors.sorted(),
-//      stdin: stdin
-//    ),
-//    subevent: event.components(separatedBy: "/")
-//  )}
-//  func reportReviewStopped(
-//    status: Fusion.Approval.Status,
-//    infusion: Review.State.Infusion?,
-//    reasons: [Report.ReviewStopped.Reason],
-//    unknownUsers: Set<String> = [],
-//    unknownTeams: Set<String> = []
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: nil, status: status, infusion: infusion),
-//    ctx: Report.ReviewStopped(
-//      authors: status.authors.sorted(),
-//      reasons: reasons,
-//      unknownUsers: unknownUsers.isEmpty.else(unknownUsers.sorted()),
-//      unknownTeams: unknownTeams.isEmpty.else(unknownUsers.sorted())
-//    )
-//  )}
-//  func reportReviewUpdated(
-//    review: Review,
-//    update: Review.Approval
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: nil, status: review.status, infusion: review.infusion),
-//    ctx: Report.ReviewUpdated(
-//      authors: review.status.authors.sorted(),
-//      teams: review.status.teams.isEmpty.else(review.status.teams.sorted()),
-//      watchers: review.watchers,
-//      holders: update.holders.isEmpty.else(update.holders.sorted()),
-//      slackers: update.slackers.isEmpty.else(update.slackers.sorted()),
-//      approvers: update.approvers.isEmpty.else(update.approvers.sorted()),
-//      outdaters: update.outdaters.isEmpty.else(update.outdaters.mapValues({ $0.sorted() })),
-//      orphaned: update.orphaned,
-//      unapprovable: update.unapprovable.isEmpty.else(update.unapprovable.sorted()),
-//      state: update.state,
-//      blockers: update.blockers.isEmpty.else(update.blockers)
-//    )
-//  )}
+  ))}
   func reportReleaseBranchCreated(
     release: Flow.Product.Release,
     hotfix: Bool
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchCreated(
@@ -432,21 +346,21 @@ public extension Configuration {
       version: release.version.value,
       hotfix: hotfix
     )
-  )}
+  ))}
   func reportReleaseBranchDeleted(
     release: Flow.Product.Release
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchDeleted(
       product: release.product,
       version: release.version.value
     )
-  )}
+  ))}
   func reportReleaseBranchSummary(
     release: Flow.Product.Release,
     notes: Flow.ReleaseNotes
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchSummary(
@@ -454,12 +368,12 @@ public extension Configuration {
       version: release.version.value,
       notes: notes.isEmpty.else(notes)
     )
-  )}
+  ))}
   func reportDeployTagCreated(
     release: Flow.Product.Release,
     build: Flow.Build?,
     notes: Flow.ReleaseNotes
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(
       tags: Set(build.flatMap(\.tag?.name).array),
@@ -471,66 +385,74 @@ public extension Configuration {
       build: build?.number.value,
       notes: notes.isEmpty.else(notes)
     )
-  )}
+  ))}
   func reportStageTagCreated(
     stage: Flow.Product.Stage
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(stage: stage),
+    threads: .make(tags: [stage.tag.name], branches: Set(stage.branch.array.map(\.name))),
     ctx: Report.StageTagCreated(
       product: stage.product,
       version: stage.version.value,
       build: stage.build.value
     )
-  )}
+  ))}
   func reportStageTagDeleted(
     stage: Flow.Product.Stage
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(stage: stage),
+    threads: .make(tags: [stage.tag.name], branches: Set(stage.branch.array.map(\.name))),
     ctx: Report.StageTagDeleted(
       product: stage.product,
       version: stage.version.value
     )
-  )}
+  ))}
   func reportCustom(
     event: String,
     threads: Report.Threads,
     stdin: AnyCodable?,
-    args: [String]
-  ) -> Report { .make(
+    args: [String],
+    authors: [String]? = nil,
+    product: String? = nil,
+    version: String? = nil
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: threads,
-    ctx: Report.Custom(stdin: stdin),
+    ctx: Report.Custom(
+      authors: authors,
+      product: product,
+      version: version,
+      stdin: stdin
+    ),
     subevent: event.components(separatedBy: "/"),
     args: args.isEmpty.else(args)
-  )}
+  ))}
   func reportUnexpected(
     error: Error
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(),
     ctx: Report.Unexpected(error: String(describing: error))
-  )}
+  ))}
   func reportAccessoryBranchCreated(
     ref: String
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(branches: [ref]),
     ctx: Report.AccessoryBranchCreated(ref: ref)
-  )}
+  ))}
   func reportAccessoryBranchDeleted(
     ref: String
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(branches: [ref]),
     ctx: Report.AccessoryBranchDeleted(ref: ref)
-  )}
+  ))}
   func reportExpiringRequisites(
     items: [Report.ExpiringRequisites.Item]
-  ) -> Report { .make(
+  ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .init(),
     ctx: Report.ExpiringRequisites(items: items)
-  )}
+  ))}
 }

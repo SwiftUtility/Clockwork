@@ -41,7 +41,6 @@ enum Assembler {
   )
   static let requisitor = Requisitor(
     execute: execute,
-    report: reporter.report(query:),
     resolveAbsolute: Finder.resolveAbsolute(query:),
     parseRequisition: configurator.parseYamlFile(query:),
     resolveSecret: configurator.resolveSecret(query:),
@@ -61,7 +60,6 @@ enum Assembler {
     persistAsset: configurator.persistAsset(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
-    report: reporter.report(query:),
     parseStdin: reporter.parseStdin(query:),
     readStdin: readStdin,
     logMessage: logger.logMessage(query:),
@@ -71,8 +69,12 @@ enum Assembler {
     execute: execute,
     parseReview: configurator.parseYamlFile(query:),
     parseReviewRules: configurator.parseYamlSecret(query:),
+    parseReviewStorage: configurator.parseYamlFile(query:),
+    parseFlow: configurator.parseYamlFile(query:),
+    parseFlowVersions: configurator.parseYamlFile(query:),
+    registerSlackUser: slacker.registerSlackUser(query:),
     persistAsset: configurator.persistAsset(query:),
-    readStdin: reporter.parseStdin(query:),
+    parseStdin: reporter.parseStdin(query:),
     generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),
     stdoutData: stdoutData,
@@ -86,11 +88,13 @@ enum Assembler {
     parseFlowBuilds: configurator.parseYamlFile(query:),
     parseFlowVersions: configurator.parseYamlFile(query:),
     persistAsset: configurator.persistAsset(query:),
-    report: reporter.report(query:),
-    readStdin: reporter.parseStdin(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
     jsonDecoder: jsonDecoder
+  )
+  static let slacker = Slacker(
+    parseSlackStorage: configurator.parseYamlFile(query:),
+    persistAsset: configurator.persistAsset(query:)
   )
   static let stencilParser = StencilParser(notation: .json)
   static let jsonDecoder: JSONDecoder = {

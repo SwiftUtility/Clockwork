@@ -33,26 +33,6 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
     }
   }
-  struct CommonSignal: ParsableCommand {
-    @Flag(help: "Should read stdin and pass as a context for generation")
-    var stdin: Stdin = .ignore
-    @Option(help: "Event name to send report for")
-    var event: String
-    @Argument(help: "Context to make available during rendering")
-    var args: [String] = []
-    enum Stdin: EnumerableFlag {
-      case ignore
-      case lines
-      case json
-      static func help(for value: Self) -> ArgumentHelp? {
-        switch value {
-        case .ignore: return "Do not read stdin"
-        case .lines: return "Interpret stdin as lines array"
-        case .json: return "Interpret stdin as json"
-        }
-      }
-    }
-  }
   struct Flow: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of flow management commands",
@@ -70,7 +50,6 @@ struct Clockwork: ParsableCommand {
         ExportVersions.self,
         ForwardBranch.self,
         ReserveBuild.self,
-        Signal.self,
       ]
     )
     struct ChangeVersion: ClockworkCommand {
@@ -144,11 +123,6 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Flag(help: "Is build for merge request")
       var review: Bool = false
-    }
-    struct Signal: ClockworkCommand {
-      static var abstract: String { "Send custom preconfigured report in flow context" }
-      @OptionGroup var clockwork: Clockwork
-      @OptionGroup var common: CommonSignal
     }
   }
   struct Gitlab: ParsableCommand {
@@ -259,7 +233,24 @@ struct Clockwork: ParsableCommand {
     struct Signal: ClockworkCommand {
       static var abstract: String { "Send custom preconfigured report" }
       @OptionGroup var clockwork: Clockwork
-      @OptionGroup var common: CommonSignal
+      @Flag(help: "Should read stdin and pass as a context for generation")
+      var stdin: Stdin = .ignore
+      @Option(help: "Event name to send report for")
+      var event: String
+      @Argument(help: "Context to make available during rendering")
+      var args: [String] = []
+      enum Stdin: EnumerableFlag {
+        case ignore
+        case lines
+        case json
+        static func help(for value: Self) -> ArgumentHelp? {
+          switch value {
+          case .ignore: return "Do not read stdin"
+          case .lines: return "Interpret stdin as lines array"
+          case .json: return "Interpret stdin as json"
+          }
+        }
+      }
     }
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Trigger pipeline configured and custom context" }
@@ -397,7 +388,6 @@ struct Clockwork: ParsableCommand {
         Remind.self,
         RemoveLabels.self,
         TriggerPipeline.self,
-        Signal.self,
         Skip.self,
         StartDuplication.self,
         StartIntegration.self,
@@ -482,11 +472,6 @@ struct Clockwork: ParsableCommand {
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Create new pipeline for parent review" }
       @OptionGroup var clockwork: Clockwork
-    }
-    struct Signal: ClockworkCommand {
-      static var abstract: String { "Send custom preconfigured report in review context" }
-      @OptionGroup var clockwork: Clockwork
-      @OptionGroup var common: CommonSignal
     }
     struct Skip: ClockworkCommand {
       static var abstract: String { "Mark review as emergent" }

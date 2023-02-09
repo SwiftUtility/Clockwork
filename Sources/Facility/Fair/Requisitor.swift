@@ -3,7 +3,6 @@ import Facility
 import FacilityPure
 public final class Requisitor {
   let execute: Try.Reply<Execute>
-  let report: Act.Reply<Report>
   let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>
   let parseRequisition: Try.Reply<ParseYamlFile<Requisition>>
   let resolveSecret: Try.Reply<Configuration.ResolveSecret>
@@ -14,7 +13,6 @@ public final class Requisitor {
   let plistDecoder: PropertyListDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    report: @escaping Act.Reply<Report>,
     resolveAbsolute: @escaping Try.Reply<Files.ResolveAbsolute>,
     parseRequisition: @escaping Try.Reply<ParseYamlFile<Requisition>>,
     resolveSecret: @escaping Try.Reply<Configuration.ResolveSecret>,
@@ -25,7 +23,6 @@ public final class Requisitor {
     plistDecoder: PropertyListDecoder
   ) {
     self.execute = execute
-    self.report = report
     self.resolveAbsolute = resolveAbsolute
     self.parseRequisition = parseRequisition
     self.resolveSecret = resolveSecret
@@ -187,7 +184,7 @@ public final class Requisitor {
       }
     }
     guard !items.isEmpty else { return true }
-    report(cfg.reportExpiringRequisites(items: items))
+    cfg.reportExpiringRequisites(items: items)
     return true
   }
   public func restoreCocoapodsSpecs(
