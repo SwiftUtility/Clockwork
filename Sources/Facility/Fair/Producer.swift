@@ -297,7 +297,6 @@ public final class Producer {
       )))
     } else {
       let branch = try Git.Branch.make(job: gitlab.job)
-      let flow = try cfg.parseFlow.map(parseFlow).get()
       guard builds.recent.contains(where: gitlab.job.matches(build:)).not else {
         logMessage(.init(message: "Build already exists"))
         return true

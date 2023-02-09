@@ -423,30 +423,6 @@ extension Reviewer {
     try storeContext(ctx: &ctx)
     return true
   }
-  //  func changeQueue(
-  //    queue: inout Fusion.Queue,
-  //    cfg: Configuration,
-  //    enqueue: Bool
-  //  ) throws {
-  //    let review = try cfg.gitlab.get().review.get()
-  //    if enqueue { logMessage(.init(message: "Enqueueing review")) }
-  //    else { logMessage(.init(message: "Dequeueing review")) }
-  //    let gitlab = try cfg.gitlab.get()
-  //    let notifiables = queue.enqueue(
-  //      review: review.iid,
-  //      target: enqueue.then(review.targetBranch)
-  //    )
-  //    let message = try generate(cfg.createReviewQueueCommitMessage(queue: queue, queued: enqueue))
-  //    let result = try persistAsset(.init(
-  //      cfg: cfg,
-  //      asset: queue.asset,
-  //      content: queue.yaml,
-  //      message: message
-  //    ))
-  //    for notifiable in notifiables {
-  //      try Execute.checkStatus(reply: execute(gitlab.postMrPipelines(review: notifiable).get()))
-  //    }
-  //  }
   func storeContext(ctx: inout Review.Context, skip: UInt? = nil) throws {
     let content = ctx.serialize(skip: skip)
     _ = try persistAsset(.init(
@@ -963,15 +939,13 @@ extension Reviewer {
       .get()
       .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
     if case "merged"? = result?.map?["state"]?.value?.string {
-      logMessage(.init(message: "Review merged"))
       ctx.merge(merge: change.merge)
       return true
     } else if let message = result?.map?["message"]?.value?.string {
-      logMessage(.init(message: message))
+      report(ctx.cfg.reportReviewMergeError(state: state, merge: change.merge, error: message))
       ctx.dequeue(merge: change.merge)
       return false
     } else {
-      logMessage(.init(message: "Unexpected merge response"))
       ctx.dequeue(merge: change.merge)
       return false
     }

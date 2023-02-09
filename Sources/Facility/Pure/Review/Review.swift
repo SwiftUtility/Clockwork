@@ -70,7 +70,6 @@ public struct Review {
         .map({ try NSRegularExpression(pattern: $0, options: [.anchorsMatchLines]) })
     )}
   }
-  #warning("rename Approve")
   public struct Approve: Equatable {
     public var login: String
     public var commit: Git.Sha

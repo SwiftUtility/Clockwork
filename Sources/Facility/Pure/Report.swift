@@ -87,7 +87,7 @@ public struct Report: Query {
     }
   }
   public struct ReviewMergeError: ReportContext {
-    public var authors: [String]
+    public var authors: [String]?
     public var error: String
   }
   public struct ReviewUpdated: ReportContext {
@@ -339,6 +339,19 @@ public extension Configuration {
     ctx: report,
     merge: merge
   )}
+  func reportReviewMergeError(
+    state: Review.State,
+    merge: Json.GitlabMergeState,
+    error: String
+  ) -> Report { .make(
+    cfg: self,
+    threads: .init(users: state.authors, branches: [merge.targetBranch]),
+    ctx: Report.ReviewMergeError(
+      authors: state.authors.sortedNonEmpty,
+      error: error
+    ),
+    merge: merge
+  )}
 //  func reportReviewRemind(
 //    status: Fusion.Approval.Status,
 //    slackers: Set<String>,
@@ -406,17 +419,6 @@ public extension Configuration {
 //      unapprovable: update.unapprovable.isEmpty.else(update.unapprovable.sorted()),
 //      state: update.state,
 //      blockers: update.blockers.isEmpty.else(update.blockers)
-//    )
-//  )}
-//  func reportReviewMergeError(
-//    review: Review,
-//    error: String
-//  ) -> Report { .make(
-//    cfg: self,
-//    threads: makeThread(review: nil, status: review.status, infusion: review.infusion),
-//    ctx: Report.ReviewMergeError(
-//      authors: review.status.authors.sorted(),
-//      error: error
 //    )
 //  )}
   func reportReleaseBranchCreated(
