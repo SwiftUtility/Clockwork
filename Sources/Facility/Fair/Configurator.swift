@@ -92,6 +92,9 @@ public final class Configurator {
   public func persistAsset(
     query: Configuration.PersistAsset
   ) throws -> Configuration.PersistAsset.Reply {
+    let gitlab = try query.cfg.gitlab.get()
+    let ssh = try gitlab.project.get().sshUrlToRepo
+    let key = try gitlab.ssh.get()
     guard let sha = try persist(
       git: query.cfg.git,
       asset: query.asset,
@@ -99,11 +102,11 @@ public final class Configurator {
       message: query.message
     ) else { return false }
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      url: query.cfg.gitlab.flatMap(\.rest).get().push,
+      ssh: ssh,
+      key: key,
       branch: query.asset.branch,
       sha: sha,
-      force: false,
-      secret: query.cfg.gitlab.flatMap(\.rest).get().secret
+      force: false
     )))
     try Execute.checkStatus(reply: execute(query.cfg.git.fetchBranch(query.asset.branch)))
     let fetched = try Execute.parseText(reply: execute(query.cfg.git.getSha(

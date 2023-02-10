@@ -124,7 +124,6 @@ public struct Gitlab {
   public struct Rest {
     public let secret: String
     public let auth: String
-    public let push: String
     public let user: Json.GitlabUser
     public static func make(
       token: String,
@@ -133,23 +132,15 @@ public struct Gitlab {
     ) throws -> Self { .init(
       secret: token,
       auth: "Authorization: Bearer \(token)",
-      push: env.push(user: user.username, pass: token),
       user: user
     )}
   }
   public struct Env {
     public let api: String
-    public let host: String
-    public let port: String
-    public let path: String
-    public let scheme: String
     public let token: String
     public let isProtected: Bool
     public let parent: Lossy<UInt>
     public let storage: Configuration.Asset
-    func push(user: String, pass: String) -> String {
-      "\(scheme)://\(user):\(pass)@\(host):\(port)/\(path).git"
-    }
     public var getJob: Lossy<Execute> {
       return .init(.makeCurl(
         url: "\(api)/job",
@@ -166,10 +157,6 @@ public struct Gitlab {
       guard "true" == env["GITLAB_CI"] else { throw Thrown("Not in GitlabCI context") }
       return try .init(
         api: "CI_API_V4_URL".get(env: env),
-        host: "CI_SERVER_HOST".get(env: env),
-        port: "CI_SERVER_PORT".get(env: env),
-        path: "CI_PROJECT_PATH".get(env: env),
-        scheme: "CI_SERVER_PROTOCOL".get(env: env),
         token: "CI_JOB_TOKEN".get(env: env),
         isProtected: env["CI_COMMIT_REF_PROTECTED"] == "true",
         parent: .init(try yaml.trigger.jobId.get(env: env).getUInt()),

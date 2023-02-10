@@ -311,13 +311,13 @@ public final class Reviewer {
     }
     state.shiftHead(to: commit)
     ctx.update(state: state)
-    let rest = try cfg.gitlab.flatMap(\.rest).get()
+    let gitlab = try cfg.gitlab.get()
     try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
-      url: rest.push,
+      ssh: gitlab.project.map(\.sshUrlToRepo).get(),
+      key: gitlab.ssh.get(),
       branch: change.fusion.source,
       sha: change.head,
-      force: true,
-      secret: rest.secret
+      force: true
     )))
     try storeContext(ctx: &ctx, skip: iid)
     return true
@@ -372,9 +372,12 @@ extension Reviewer {
     pick: Git.Sha? = nil
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    let rest = try gitlab.rest.get()
     try Execute.checkStatus(reply: execute(cfg.git.push(
-      url: rest.push, branch: fusion.source, sha: head, force: false, secret: rest.secret
+      ssh: gitlab.project.map(\.sshUrlToRepo).get(),
+      key: gitlab.ssh.get(),
+      branch: fusion.source,
+      sha: head,
+      force: false
     )))
     let title = try generate(cfg.createMergeCommitMessage(
       merge: nil, review: review, fusion: fusion
@@ -692,13 +695,12 @@ extension Reviewer {
       message: "Merge \(change.fusion.target.name) into \(change.fusion.source.name)"
     ) {
       let gitlab = try ctx.cfg.gitlab.get()
-      let rest = try gitlab.rest.get()
       try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
-        url: rest.push,
+        ssh: gitlab.project.map(\.sshUrlToRepo).get(),
+        key: gitlab.ssh.get(),
         branch: state.source,
         sha: sha,
-        force: false,
-        secret: rest.secret
+        force: false
       )))
       state.shiftHead(to: sha)
     } else {
@@ -754,13 +756,12 @@ extension Reviewer {
       return false
     }
     let gitlab = try ctx.cfg.gitlab.get()
-    let rest = try gitlab.rest.get()
     try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
-      url: rest.push,
+      ssh: gitlab.project.map(\.sshUrlToRepo).get(),
+      key: gitlab.ssh.get(),
       branch: state.source,
       sha: head,
-      force: true,
-      secret: rest.secret
+      force: true
     )))
     state.shiftHead(to: head)
     state.squashApproves(to: head)

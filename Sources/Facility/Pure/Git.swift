@@ -198,12 +198,12 @@ public extension Git {
   func mergeBase(_ one: Ref, _ two: Ref) -> Execute { proc(
     args: ["merge-base", one.value, two.value]
   )}
-  func push(url: String, branch: Branch, sha: Sha, force: Bool, secret: String) -> Execute { proc(
-    args: ["push", url]
-    + force.then(["--force"]).get([])
-    + ["\(sha.value):\(Ref.make(local: branch).value)"],
-    secrets: [secret]
-  )}
+//  func push(url: String, branch: Branch, sha: Sha, force: Bool, secret: String) -> Execute { proc(
+//    args: ["push", url]
+//    + force.then(["--force"]).get([])
+//    + ["\(sha.value):\(Ref.make(local: branch).value)"],
+//    secrets: [secret]
+//  )}
   func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
     args: [
       "-c",
