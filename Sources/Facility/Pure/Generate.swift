@@ -1,66 +1,55 @@
 import Foundation
 import Facility
 public protocol GenerateContext: Encodable {
-  var subevent: [String] { get }
   static var allowEmpty: Bool { get }
   static var name: String { get }
 }
 public extension GenerateContext {
-  var subevent: [String] { [] }
   static var allowEmpty: Bool { false }
   static var name: String { "\(Self.self)" }
 }
 public protocol GenerateInfo: Encodable {
   var event: [String] { get }
+  var args: [String]? { get }
+  var allowEmpty: Bool { get }
   var env: [String: String] { get set }
-  var args: [String]? { get set }
   var gitlab: Gitlab.Info? { get set }
   var mark: String? { get set }
   var jira: Jira.Info? { get set }
   var slack: Slack.Info? { get set }
-  var allowEmpty: Bool { get }
+}
+public extension GenerateInfo {
+  func match(signal: Slack.Signal) -> Bool { signal.events.lazy
+    .filter({ event.count <= $0.count })
+    .contains(where: { zip(event, $0).contains(where: !=).not })
+  }
+  func match(create: Slack.Thread) -> Bool { match(signal: create.create) }
+  func match(update: Slack.Thread) -> [Slack.Signal] { update.update.filter(match(signal:)) }
 }
 public struct Generate: Query {
   public var template: Configuration.Template
   public var templates: [String: String]
   public var info: GenerateInfo
-  public static func make<Context: GenerateContext>(
-    cfg: Configuration,
-    template: Configuration.Template,
-    ctx: Context,
-    subevent: [String]? = nil,
-    args: [String]? = nil,
-    merge: Json.GitlabMergeState? = nil
-  ) -> Self { .init(
-    template: template,
-    templates: cfg.templates,
-    info: Info.make(cfg: cfg, context: ctx, args: args, merge: merge)
-  )}
   public typealias Reply = String
   public struct Info<Context: GenerateContext>: GenerateInfo {
     public let event: [String]
+    public let args: [String]?
     public var ctx: Context
-    public var env: [String: String]
-    public var gitlab: Gitlab.Info?
-    public var jira: Jira.Info?
-    public var args: [String]?
-    public var mark: String? = nil
-    public var kind: String? = nil
+    public var env: [String: String] = [:]
+    public var gitlab: Gitlab.Info? = nil
+    public var jira: Jira.Info? = nil
     public var slack: Slack.Info? = nil
+    public var mark: String? = nil
     public var allowEmpty: Bool { Context.allowEmpty }
-    public static func make(
+    static func make(
       cfg: Configuration,
       context: Context,
-      args: [String]?,
-      subevent: [String]? = nil,
-      merge: Json.GitlabMergeState?
+      subevent: [String],
+      args: [String]?
     ) -> Self { .init(
-      event: [Context.name] + subevent.get(context.subevent),
-      ctx: context,
-      env: cfg.env,
-      gitlab: try? cfg.gitlab.get().info(merge: merge),
-      jira: try? cfg.jira.get().info,
-      args: args
+      event: [Context.name] + subevent,
+      args: args,
+      ctx: context
     )}
   }
   public struct ExportVersions: GenerateContext {
@@ -124,8 +113,6 @@ public struct Generate: Query {
       case changeNext
       case changeAccessory
       case deleteAccessory
-//      case reserveReviewBuild
-//      case reserveBranchBuild
     }
   }
   public struct CreateGitlabStorageCommitMessage: GenerateContext {
@@ -143,6 +130,7 @@ public struct Generate: Query {
   }
   public struct CreateReviewStorageCommitMessage: GenerateContext {
     public var update: [UInt]? = nil
+    public var delete: [UInt]? = nil
     public var enqueue: [UInt]? = nil
     public var dequeue: [UInt]? = nil
   }
@@ -154,14 +142,16 @@ public struct Generate: Query {
   }
 }
 public extension Configuration {
+  func report(template: Configuration.Template, info: GenerateInfo) -> Generate {
+    .init(template: template, templates: templates, info: info)
+  }
   func exportVersions(
     flow: Flow,
     args: [String],
     versions: [String: String],
     build: String?,
     kind: Generate.ExportVersions.Kind?
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: flow.exportVersions,
     ctx: Generate.ExportVersions(versions: versions, build: build, kind: kind),
     args: args
@@ -169,8 +159,7 @@ public extension Configuration {
   func createFlowBuildsCommitMessage(
     builds: Flow.Builds,
     build: Flow.Build
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: builds.storage.createCommitMessage,
     ctx: Generate.CreateFlowBuildsCommitMessage(
       build: build.number.value,
@@ -185,8 +174,7 @@ public extension Configuration {
     version: String? = nil,
     ref: String? = nil,
     reason: Generate.CreateFlowVersionsCommitMessage.Reason
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: flow.versions.storage.createCommitMessage,
     ctx: Generate.CreateFlowVersionsCommitMessage(
       product: product,
@@ -198,8 +186,7 @@ public extension Configuration {
   func bumpBuildNumber(
     builds: Flow.Builds,
     build: String
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: builds.bump,
     ctx: Generate.BumpBuildNumber(build: build)
   )}
@@ -209,8 +196,7 @@ public extension Configuration {
     version: String,
     build: String?,
     deploy: Bool
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: flow.createTagName,
     ctx: Generate.CreateTagName(
       product: product,
@@ -225,8 +211,7 @@ public extension Configuration {
     version: String,
     build: String?,
     deploy: Bool
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: flow.createTagAnnotation,
     ctx: Generate.CreateTagAnnotation(
       product: product,
@@ -240,8 +225,7 @@ public extension Configuration {
     product: String,
     version: String,
     hotfix: Bool
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: flow.createReleaseBranchName,
     ctx: Generate.CreateReleaseBranchName(product: product, version: version, hotfix: hotfix)
   )}
@@ -250,8 +234,7 @@ public extension Configuration {
     product: String,
     version: String,
     hotfix: Bool
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: flow.versions.bump,
     ctx: Generate.BumpReleaseVersion(product: product, version: version, hotfix: hotfix)
   )}
@@ -259,32 +242,30 @@ public extension Configuration {
     user: String,
     gitlab: Gitlab,
     command: Gitlab.Storage.Command
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: gitlab.storage.asset.createCommitMessage,
     ctx: Generate.CreateGitlabStorageCommitMessage(user: user, reason: command.reason)
   )}
   func createReviewStorageCommitMessage(
     storage: Review.Storage,
-    generate: Generate.CreateReviewStorageCommitMessage
-  ) -> Generate { .make(
-    cfg: self,
+    context: Generate.CreateReviewStorageCommitMessage
+  ) -> Generate { generate(
     template: storage.asset.createCommitMessage,
-    ctx: generate
+    ctx: context
   )}
   func createMergeCommitMessage(
     merge: Json.GitlabMergeState?,
     review: Review,
     fusion: Review.Fusion?
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: review.createMessage,
     ctx: Generate.CreateMergeCommitMessage(
       review: merge?.iid,
       kind: fusion?.kind,
       fork: fusion?.fork?.value,
       original: fusion?.original?.name
-    )
+    ),
+    merge: merge
   )}
   func exportTargets(
     review: Review,
@@ -294,8 +275,7 @@ public extension Configuration {
     duplicate: [String],
     propogate: [String],
     args: [String]
-  ) -> Generate { .make(
-    cfg: self,
+  ) -> Generate { generate(
     template: review.exportTargets,
     ctx: Generate.ExportMergeTargets(
       fork: fork.value,
@@ -306,4 +286,20 @@ public extension Configuration {
     ),
     args: args.isEmpty.else(args)
   )}
+}
+private extension Configuration {
+  func generate<Context: GenerateContext>(
+    template: Configuration.Template,
+    ctx: Context,
+    merge: Json.GitlabMergeState? = nil,
+    subevent: [String] = [],
+    args: [String]? = nil
+  ) -> Generate {
+    var info = Generate.Info.make(cfg: self, context: ctx, subevent: subevent, args: args)
+    info.env = env
+    info.gitlab = try? gitlab.get().info
+    info.gitlab?.merge = merge.flatMapNil(try? gitlab.get().merge.get())
+    info.jira = try? jira.get().info
+    return .init(template: template, templates: templates, info: info)
+  }
 }

@@ -95,15 +95,17 @@ public final class Reviewer {
     cfg: Configuration,
     iid: UInt
   ) throws -> Bool {
+    let gitlab = try cfg.gitlab.get()
     guard let merge = try getMerge(cfg: cfg, iid: iid) else { return false }
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let sha = try Git.Sha.make(merge: merge)
-    guard state.verified != sha else {
+    guard state.emergent != sha else {
       cfg.report(notify: .skipFailed, merge: merge)
       return false
     }
-    state.verified = sha
+    state.emergent = sha
+    state.authors.insert(gitlab.job.user.username)
     try storeChange(ctx: ctx, state: state, merge: merge)
     return true
   }
@@ -390,12 +392,15 @@ extension Reviewer {
     guard var state = try ctx.makeState(merge: merge) else { return false }
     state.original = fusion.original
     state.authors = try resolveAuthors(cfg: cfg, fusion: fusion)
+      .subtracting(ctx.bots)
     if fusion.autoApproveFork {
       for user in state.authors {
         state.approves[user] = .make(login: user, commit: head)
       }
     }
-    state.skip = Set(pick.array)
+    let author = gitlab.job.user.username
+    if ctx.bots.contains(author).not { state.authors.insert(author) }
+    state.skip.formUnion(pick.array)
     ctx.update(state: state)
     try storeContext(ctx: &ctx)
     return true
@@ -408,7 +413,7 @@ extension Reviewer {
       content: content,
       message: generate(ctx.cfg.createReviewStorageCommitMessage(
         storage: ctx.storage,
-        generate: ctx.message
+        context: ctx.message
       ))
     ))
     let gitlab = try ctx.cfg.gitlab.get()
@@ -1012,6 +1017,6 @@ extension Reviewer {
       .filter { $0.squashCommitSha == commit }
       .forEach { result.insert($0.author.username) }
     }
-    return result
+    return result.subtracting([gitlab.job.user.username])
   }
 }

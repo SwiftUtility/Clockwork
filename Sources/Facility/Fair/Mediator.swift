@@ -52,12 +52,12 @@ public final class Mediator {
   ) throws -> Bool {
     let stdin = try parseStdin(stdin)
     let gitlab = try cfg.gitlab.get()
-    var threads = Report.Threads.make(users: [gitlab.job.user.username])
+    var threads = Report.Threads.make(users: cfg.defaultUsers)
     var authors: [String]? = nil
     var product: String? = nil
     var version: String? = nil
     if let merge = try? gitlab.merge.get() {
-      threads.reviews.insert(merge.iid)
+      threads.reviews.insert("\(merge.iid)")
       if
         let review = try? cfg.parseReview.map(parseReview).get(),
         let storage = try? parseReviewStorage(cfg.parseReviewStorage(review: review)),

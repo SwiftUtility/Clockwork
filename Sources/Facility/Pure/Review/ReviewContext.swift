@@ -16,13 +16,13 @@ extension Review {
     public mutating func makeState(merge: Json.GitlabMergeState) throws -> State? {
       guard merge.isClosed.not else {
         if let state = storage.delete(review: merge.iid) {
-          cfg.reportReviewEvent(state: state, reason: .closed, merge: merge)
+          cfg.reportReviewEvent(state: state, update: nil, reason: .closed, merge: merge)
         }
         return nil
       }
-      guard merge.isMerged.not else {
+      guard merge.isMerged.not else { 
         if let state = storage.delete(review: merge.iid) {
-          cfg.reportReviewEvent(state: state, reason: .merged, merge: merge)
+          cfg.reportReviewEvent(state: state, update: nil, reason: .merged, merge: merge)
         }
         return nil
       }
@@ -38,7 +38,7 @@ extension Review {
     }
     public mutating func merge(merge: Json.GitlabMergeState) {
       if let state = storage.delete(review: merge.iid) {
-        cfg.reportReviewEvent(state: state, reason: .merged, merge: merge)
+        cfg.reportReviewEvent(state: state, update: nil, reason: .merged, merge: merge)
       }
     }
     public mutating func dequeue(merge: Json.GitlabMergeState) {
@@ -91,51 +91,34 @@ extension Review {
       let oldFirst = Set(originalStorage.queues.compactMap(\.value.first))
       let newQueue = Set(storage.queues.flatMap(\.value))
       let oldQueue = Set(originalStorage.queues.flatMap(\.value))
-      let newEmergent = storage.states.filter({ $0.value.emergent != nil }).keySet
-      let oldEmergent = originalStorage.states.filter({ $0.value.emergent != nil }).keySet
       let newPresent = storage.states.keySet
       let oldPresent = originalStorage.states.keySet
-      trigger.formUnion(newFirst.subtracting(skip.array).subtracting(oldFirst))
+      let foremost = newFirst.subtracting(oldFirst)
+      let enqueued = newQueue.subtracting(oldQueue)
+      let dequeued = oldQueue.subtracting(newQueue)
+      trigger.formUnion(foremost.subtracting(skip.array))
       storage.states.values
         .compactMap({ $0.change })
         .filter(\.addAward)
         .forEach({ award.insert($0.merge.iid) })
-      let foremost = newFirst.subtracting(oldFirst)
-      let enqueued = newQueue.subtracting(newFirst).subtracting(oldQueue)
-      let dequeued = oldQueue.subtracting(newQueue)
-      let emergent = newEmergent.subtracting(oldEmergent)
-      let tranquil = oldEmergent.subtracting(newEmergent)
-      let enqueue = foremost.union(enqueued)
-      let dequeue = dequeued.intersection(newPresent)
       let update = newPresent
         .intersection(oldPresent)
         .filter({ storage.states[$0]?.change != nil })
-        .union(newPresent.symmetricDifference(oldPresent))
-        .subtracting(enqueue)
-        .subtracting(dequeue)
+        .union(newPresent.subtracting(oldPresent))
+        .subtracting(enqueued)
       message = .init(
         update: update.sortedNonEmpty,
-        enqueue: enqueue.sortedNonEmpty,
-        dequeue: dequeue.sortedNonEmpty
+        delete: oldPresent.subtracting(newPresent).sortedNonEmpty,
+        enqueue: enqueued.sortedNonEmpty,
+        dequeue: dequeued.subtracting(update).intersection(newPresent).sortedNonEmpty
       )
-      for state in storage.states.values {
-        state.makeReports(ctx: self)
-        if emergent.contains(state.review) { cfg.reportReviewEvent(
-          state: state, reason: .emergent
-        )}
-        if tranquil.contains(state.review) { cfg.reportReviewEvent(
-          state: state, reason: .tranquil
-        )}
-        if foremost.contains(state.review) { cfg.reportReviewEvent(
-          state: state, reason: .foremost
-        )}
-        if enqueued.contains(state.review) { cfg.reportReviewEvent(
-          state: state, reason: .enqueued
-        )}
-        if dequeued.contains(state.review) { cfg.reportReviewEvent(
-          state: state, reason: .dequeued
-        )}
-      }
+      for state in storage.states.values { state.reportChanges(
+        ctx: self,
+        old: originalStorage.states[state.review],
+        foremost: foremost,
+        enqueued: enqueued,
+        dequeued: dequeued
+      )}
       return storage.serialized
     }
   }

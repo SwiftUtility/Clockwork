@@ -11,7 +11,7 @@ public struct Gitlab {
   public var project: Lossy<Json.GitlabProject> = .error(MayDay("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var merge: Lossy<Json.GitlabMergeState> = .error(Thrown("Not review triggered pipeline"))
-  public func info(merge: Json.GitlabMergeState?) -> Info { .init(
+  public var info: Info { .init(
     mr: try? job.review.get(),
     url: job.webUrl
       .components(separatedBy: "/-/")
@@ -19,8 +19,7 @@ public struct Gitlab {
     job: job,
     bot: try? rest.map(\.user).get(),
     proj: try? project.get(),
-    parent: try? parent.get(),
-    merge: merge.flatMapNil(try? self.merge.get())
+    parent: try? parent.get()
   )}
   public static func make(
     env: Env,

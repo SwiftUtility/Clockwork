@@ -4,9 +4,12 @@ public struct Slack {
   public var token: String
   public var storage: Configuration.Asset
   public var info: Info
-//  public var jira: Jira?
-//  public var gitlab: Gitlab?
   public var signals: [Signal]
+  public var directs: [Signal]
+  public var tags: [Thread]
+  public var issues: [Thread]
+  public var reviews: [Thread]
+  public var branches: [Thread]
   public static func make(
     token: String,
     yaml: Yaml.Slack
@@ -14,9 +17,12 @@ public struct Slack {
     token: token,
     storage: .make(yaml: yaml.storage),
     info: .init(users: [:], channels: [:], mentions: [:]),
-//    jira: yaml.jira.map(Jira.make(yaml:)),
-//    gitlab: yaml.gitlab.map(Gitlab.make(yaml:)),
-    signals: yaml.signals.get([:]).map(Signal.make(mark:yaml:))
+    signals: yaml.signals.get([:]).map(Signal.make(mark:yaml:)),
+    directs: yaml.directs.get([:]).map(Signal.make(mark:yaml:)),
+    tags: yaml.tags.get([:]).map(Thread.make(name:yaml:)),
+    issues: yaml.issues.get([:]).map(Thread.make(name:yaml:)),
+    reviews: yaml.reviews.get([:]).map(Thread.make(name:yaml:)),
+    branches: yaml.branches.get([:]).map(Thread.make(name:yaml:))
   )}
   public struct RegisterUser: Query {
     public var cfg: Configuration
@@ -33,6 +39,18 @@ public struct Slack {
     )}
     public typealias Reply = Void
   }
+  public struct Send: Query {
+    public var cfg: Configuration
+    public var reports: [Report]
+    public static func make(
+      cfg: Configuration,
+      reports: [Report]
+    ) -> Self { .init(
+      cfg: cfg,
+      reports: reports
+    )}
+    public typealias Reply = Void
+  }
   public struct Thread {
     public var name: String
     public var create: Signal
@@ -45,6 +63,16 @@ public struct Slack {
       create: .make(mark: name, yaml: yaml.create),
       update: yaml.update.get([:]).map(Signal.make(mark:yaml:))
     )}
+    public struct Update: Encodable {
+      public var kind: String
+      public var channel: String
+      public var message: String
+      public static func make(signal: Signal, thread: Storage.Thread) -> Self { .init(
+        kind: signal.mark,
+        channel: thread.channel,
+        message: thread.name
+      )}
+    }
   }
   public struct Signal {
     public var events: [[String]]
@@ -62,11 +90,11 @@ public struct Slack {
     }
   }
   public struct Info: Encodable {
-    var users: [String: String]
-    var channels: [String: String]
-    var mentions: [String: String]
-    var thread: Storage.Thread?
-    var person: String?
+    public var users: [String: String]
+    public var channels: [String: String]
+    public var mentions: [String: String]
+    public var thread: Thread.Update?
+    public var person: String?
     public static func make(storage: Storage) -> Self { .init(
       users: storage.users,
       channels: storage.channels,
@@ -111,13 +139,16 @@ public struct Slack {
       reviews: yaml.reviews.get([:]).mapValues(Thread.make(yaml:)),
       branches: yaml.branches.get([:]).mapValues(Thread.make(yaml:))
     )}
-    public struct Thread: Encodable {
+    public struct Thread {
       public var name: String
       public var channel: String
       public var message: String
       var line: String { "    '\(name)': {channel: '\(channel)', message: '\(message)'}\n" }
       public static func make(name: String, yaml: Yaml.Slack.Storage.Thread) -> Self { .init(
         name: name, channel: yaml.channel, message: yaml.message
+      )}
+      public static func make(name: String, json: Json.SlackMessage) -> Self { .init(
+        name: name, channel: json.channel, message: json.ts
       )}
       public static func make(yaml: [String: Yaml.Slack.Storage.Thread]) -> [String: Self] {
         yaml.reduce(into: [:], { $0[$1.key] = .make(name: $1.key, yaml: $1.value) })

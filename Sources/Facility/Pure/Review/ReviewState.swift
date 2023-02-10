@@ -410,8 +410,63 @@ extension Review {
         phase = .stuck
       }
     }
-    public func makeReports(ctx: Context) {
-      guard let change = change else { return }
+    public func reportChanges(
+      ctx: Context,
+      old: State?,
+      foremost: Set<UInt>,
+      enqueued: Set<UInt>,
+      dequeued: Set<UInt>
+    ) {
+      var shift: [Report.ReviewEvent.Reason] = []
+      if emergent != nil, old?.emergent == nil { shift.append(.emergent) }
+      if emergent == nil, old?.emergent != nil { shift.append(.tranquil) }
+      if phase == .block, old?.phase != .block { shift.append(.block) }
+      if phase == .stuck, old?.phase != .stuck { shift.append(.stuck) }
+      if phase == .amend, old?.phase != .block { shift.append(.amend) }
+      if phase == .ready, old?.phase != .ready { shift.append(.ready) }
+      if foremost.contains(review) { shift.append(.foremost) }
+      if enqueued.contains(review) { shift.append(.enqueued) }
+      if dequeued.contains(review) { shift.append(.dequeued) }
+      guard let change = change else {
+        return shift.forEach({ ctx.cfg.reportReviewEvent(state: self, update: nil, reason: $0) })
+      }
+      var update = Report.ReviewUpdated(
+        authors: authors.intersection(ctx.approvers).sortedNonEmpty,
+        teams: teams.sortedNonEmpty,
+        watchers: ctx.watchers(state: self).sortedNonEmpty
+      )
+      update.change(state: self)
+      var approvers: [String: Approver] = [:]
+      for approve in self.approvers {
+        if let approve = approves[approve] {
+          approvers[approve.login] = .present(reviewer: approve)
+        } else {
+          approvers[approve] = .init(login: approve, miss: true)
+        }
+      }
+      if self.problems.get([]).isEmpty.not { update.problems = .init() }
+      for problem in self.problems.get([]) {
+        update.problems?.register(problem: problem)
+        switch problem {
+        case .discussions(let value): for (user, count) in value {
+          approvers[user, default: .init(login: user, miss: false)].comments = count
+        }
+        case .holders(let value): for user in value {
+          approvers[user, default: .init(login: user, miss: false)].hold = true
+        }
+        default: break
+        }
+      }
+      if approvers.isEmpty.not {
+        update.approvers = approvers.keys.sorted().compactMap({ approvers[$0] })
+      }
+      ctx.cfg.reportReviewUpdated(state: self, merge: change.merge, report: update)
+      shift.forEach({ ctx.cfg.reportReviewEvent(
+        state: self,
+        update: update,
+        reason: $0,
+        merge: change.merge
+      )})
       for approve in approves.values.filter(\.resolution.approved.not) {
         if let old = ctx.originalStorage.states[review]?.approves[approve.login] {
           guard old.resolution.approved.not else { continue }
@@ -428,39 +483,6 @@ extension Review {
           )
         }
       }
-      var update = Report.ReviewUpdated(
-        authors: authors.intersection(ctx.approvers).sortedNonEmpty,
-        teams: teams.sortedNonEmpty,
-        watchers: ctx.watchers(state: self).sortedNonEmpty
-      )
-      update.change(state: self)
-      var approvers: [String: Report.ReviewUpdated.Approver] = [:]
-      for approve in self.approvers {
-        if let approve = approves[approve] {
-          approvers[approve.login] = .present(reviewer: approve)
-        } else {
-          approvers[approve] = .init(login: approve, miss: true)
-        }
-      }
-      if let problems = problems, problems.isEmpty.not {
-        update.problems = .init()
-        for problem in problems {
-          update.problems?.register(problem: problem)
-          switch problem {
-          case .discussions(let value): for (user, count) in value {
-            approvers[user, default: .init(login: user, miss: false)].comments = count
-          }
-          case .holders(let value): for user in value {
-            approvers[user, default: .init(login: user, miss: false)].hold = true
-          }
-          default: break
-          }
-        }
-      }
-      if approvers.isEmpty.not {
-        update.approvers = approvers.keys.sorted().compactMap({ approvers[$0] })
-      }
-      ctx.cfg.reportReviewUpdated(state: self, merge: change.merge, report: update)
     }
     func selectUsers(
       ctx: Context,

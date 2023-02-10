@@ -7,21 +7,20 @@ public extension ReportContext {
 public struct Report {
   public var threads: Threads
   public var info: GenerateInfo
-  public static func make<Context: ReportContext>(
+  public var merge: Json.GitlabMergeState?
+  fileprivate static func make<Context: ReportContext>(
     cfg: Configuration,
     threads: Threads,
     ctx: Context,
-    subevent: [String]? = nil,
-    args: [String]? = nil,
-    merge: Json.GitlabMergeState? = nil
+    merge: Json.GitlabMergeState?,
+    subevent: [String] = [],
+    args: [String]? = nil
   ) -> Self { .init(
     threads: threads,
-    info: Generate.Info.make(cfg: cfg, context: ctx, args: args, subevent: subevent, merge: merge)
+    info: Generate.Info.make(cfg: cfg, context: ctx, subevent: subevent, args: args),
+    merge: merge
   )}
-  public func generate(cfg: Configuration, template: Configuration.Template) -> Generate {
-    .init(template: template, templates: cfg.templates, info: info)
-  }
-  #warning("tbd eliminate shared state")
+  #warning("TBD eliminate shared state")
   public class Bag {
     public static let shared = Bag()
     public fileprivate(set) var reports: [Report] = []
@@ -30,7 +29,7 @@ public struct Report {
     public var tags: Set<String> = []
     public var users: Set<String> = []
     public var issues: Set<String> = []
-    public var reviews: Set<UInt> = []
+    public var reviews: Set<String> = []
     public var branches: Set<String> = []
     public static func make(
       tags: Set<String> = [],
@@ -39,7 +38,11 @@ public struct Report {
       reviews: Set<UInt> = [],
       branches: Set<String> = []
     ) -> Self { .init(
-      tags: tags, users: users, issues: issues, reviews: reviews, branches: branches
+      tags: tags,
+      users: users,
+      issues: issues,
+      reviews: Set(reviews.map({ "\($0)" })),
+      branches: branches
     )}
   }
   public enum Notify: String, ReportContext {
@@ -78,10 +81,17 @@ public struct Report {
     }
   }
   public struct ReviewEvent: ReportContext {
-    public var authors: [String]?
     public var iid: UInt
+    public var authors: [String]?
+    public var teams: [String]?
+    public var approvers: [Review.Approver]? = nil
+    public var problems: Review.Problems? = nil
     public var reason: Reason
     public enum Reason: String, Encodable {
+      case block
+      case stuck
+      case amend
+      case ready
       case closed
       case merged
       case foremost
@@ -99,8 +109,8 @@ public struct Report {
     public var authors: [String]?
     public var teams: [String]?
     public var watchers: [String]?
-    public var approvers: [Approver]? = nil
-    public var problems: Problems? = nil
+    public var approvers: [Review.Approver]? = nil
+    public var problems: Review.Problems? = nil
     public var ready: Bool = false
     public var amend: Bool = false
     public var block: Bool = false
@@ -111,86 +121,6 @@ public struct Report {
       case .ready:
         if state.emergent == nil { ready = true } else { alarm = true }
       default: amend = true
-      }
-    }
-    public struct Approver: Encodable {
-      public var login: String
-      public var miss: Bool
-      public var fragil: Bool = false
-      public var advance: Bool = false
-      public var diff: String? = nil
-      public var hold: Bool = false
-      public var comments: Int? = nil
-      static func present(reviewer: Review.Approve) -> Self { .init(
-        login: reviewer.login,
-        miss: false,
-        fragil: reviewer.resolution.fragil,
-        advance: reviewer.resolution.approved && reviewer.resolution.fragil.not,
-        diff: reviewer.resolution.approved.not.then(reviewer.commit.value)
-      )}
-    }
-    public struct Problems: Encodable {
-      public var badSource: String? = nil
-      public var targetNotProtected: Bool = false
-      public var targetMismatch: String? = nil
-      public var sourceIsProtected: Bool = false
-      public var multipleKinds: [String]? = nil
-      public var undefinedKind: Bool = false
-      public var authorIsBot: Bool = false
-      public var authorIsNotBot: String? = nil
-      public var sanity: String? = nil
-      public var extraCommits: [String]? = nil
-      public var notCherry: Bool = false
-      public var notForward: Bool = false
-      public var forkInTarget: Bool = false
-      public var forkNotProtected: Bool = false
-      public var forkNotInSource: Bool = false
-      public var forkParentNotInTarget: Bool = false
-      public var sourceNotAtFrok: Bool = false
-      public var conflicts: Bool = false
-      public var squashCheck: Bool = false
-      public var draft: Bool = false
-      public var discussions: Bool = false
-      public var badTitle: Bool = false
-      public var taskMismatch: Bool = false
-      public var holders: Bool = false
-      public var unknownUsers: [String]? = nil
-      public var unknownTeams: [String]? = nil
-      public var confusedTeams: [String]? = nil
-      public var orphaned: [String]? = nil
-      public var unapprovableTeams: [String]? = nil
-      mutating func register(problem: Review.Problem) {
-        switch problem {
-        case .badSource(let value): badSource = value
-        case .targetNotProtected: targetNotProtected = true
-        case .targetMismatch(let value): targetMismatch = value.name
-        case .sourceIsProtected: sourceIsProtected = true
-        case .multipleKinds(let value): multipleKinds = value.sortedNonEmpty
-        case .undefinedKind: undefinedKind = true
-        case .authorIsBot: authorIsBot = true
-        case .authorIsNotBot(let value): authorIsNotBot = value
-        case .sanity(let value): sanity = value
-        case .extraCommits(let value): extraCommits = value.map(\.name).sortedNonEmpty
-        case .notCherry: notCherry = true
-        case .notForward: notForward = true
-        case .forkInTarget: forkInTarget = true
-        case .forkNotProtected: forkNotProtected = true
-        case .forkNotInSource: forkNotInSource = true
-        case .forkParentNotInTarget: forkParentNotInTarget = true
-        case .sourceNotAtFrok: sourceNotAtFrok = true
-        case .conflicts: conflicts = true
-        case .squashCheck: squashCheck = true
-        case .draft: draft = true
-        case .discussions: discussions = true
-        case .badTitle: badTitle = true
-        case .taskMismatch: taskMismatch = true
-        case .holders: holders = true
-        case .unknownUsers(let value): unknownUsers = value.sortedNonEmpty
-        case .unknownTeams(let value): unknownTeams = value.sortedNonEmpty
-        case .confusedTeams(let value): confusedTeams = value.sortedNonEmpty
-        case .orphaned(let value): orphaned = value.sortedNonEmpty
-        case .unapprovableTeams(let value): unapprovableTeams = value.sortedNonEmpty
-        }
       }
     }
   }
@@ -261,27 +191,34 @@ public struct Report {
   }
 }
 public extension Configuration {
+  var defaultUsers: Set<String> {
+    guard let gitlab = try? gitlab.get() else { return [] }
+    var result = Set([gitlab.job.user.username])
+    if let parent = try? gitlab.parent.get() { result.insert(parent.user.username) }
+    return result
+  }
   func report(
     notify: Report.Notify,
     user: String? = nil,
     merge: Json.GitlabMergeState? = nil
-  ) {
-    let user = user ?? (try? gitlab.map(\.job.user.username).get())
-    Report.Bag.shared.reports.append(.make(
-      cfg: self,
-      threads: .init(users: Set(user.array), reviews: Set(merge.array.map(\.iid))),
-      ctx: notify,
-      subevent: [notify.rawValue],
-      merge: merge
-    ))
-  }
+  ) { Report.Bag.shared.reports.append(.make(
+    cfg: self,
+    threads: .make(
+      users: user.map({ Set([$0]) }).get(defaultUsers),
+      reviews: Set(merge.array.map(\.iid))
+    ),
+    ctx: notify,
+    merge: merge,
+    subevent: [notify.rawValue]
+  ))}
   func reportReviewList(
     user: String,
     reviews: [UInt: Report.ReviewApprove]
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(users: [user]),
-    ctx: Report.ReviewList(reviews: reviews)
+    threads: .make(users: [user]),
+    ctx: Report.ReviewList(reviews: reviews),
+    merge: nil
   ))}
   func reportReviewApprove(
     user: String,
@@ -289,28 +226,32 @@ public extension Configuration {
     approve: Report.ReviewApprove
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(users: [user], reviews: [merge.iid]),
+    threads: .make(users: [user], reviews: [merge.iid]),
     ctx: approve,
     merge: merge
   ))}
   func reportReviewEvent(
     state: Review.State,
+    update: Report.ReviewUpdated?,
     reason: Report.ReviewEvent.Reason,
     merge: Json.GitlabMergeState? = nil
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(
+    threads: .make(
       users: state.authors,
       reviews: [state.review],
       branches: Set(merge.array.map(\.targetBranch))
     ),
     ctx: Report.ReviewEvent(
-      authors: state.authors.sortedNonEmpty,
       iid: state.review,
+      authors: state.authors.sortedNonEmpty,
+      teams: state.teams.sortedNonEmpty,
+      approvers: update?.approvers,
+      problems: update?.problems,
       reason: reason
     ),
-    subevent: [reason.rawValue],
-    merge: merge.flatMapNil(state.change?.merge)
+    merge: merge.flatMapNil(state.change?.merge),
+    subevent: [reason.rawValue]
   ))}
   func reportReviewUpdated(
     state: Review.State,
@@ -318,7 +259,7 @@ public extension Configuration {
     report: Report.ReviewUpdated
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(users: state.authors, branches: [merge.targetBranch]),
+    threads: .make(reviews: [merge.iid]),
     ctx: report,
     merge: merge
   ))}
@@ -328,7 +269,7 @@ public extension Configuration {
     error: String
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(users: state.authors, branches: [merge.targetBranch]),
+    threads: .make(users: state.authors, reviews: [merge.iid]),
     ctx: Report.ReviewMergeError(
       authors: state.authors.sortedNonEmpty,
       error: error
@@ -340,34 +281,37 @@ public extension Configuration {
     hotfix: Bool
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(branches: [release.branch.name]),
+    threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchCreated(
       product: release.product,
       version: release.version.value,
       hotfix: hotfix
-    )
+    ),
+    merge: nil
   ))}
   func reportReleaseBranchDeleted(
     release: Flow.Product.Release
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(branches: [release.branch.name]),
+    threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchDeleted(
       product: release.product,
       version: release.version.value
-    )
+    ),
+    merge: nil
   ))}
   func reportReleaseBranchSummary(
     release: Flow.Product.Release,
     notes: Flow.ReleaseNotes
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(branches: [release.branch.name]),
+    threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchSummary(
       product: release.product,
       version: release.version.value,
       notes: notes.isEmpty.else(notes)
-    )
+    ),
+    merge: nil
   ))}
   func reportDeployTagCreated(
     release: Flow.Product.Release,
@@ -375,7 +319,7 @@ public extension Configuration {
     notes: Flow.ReleaseNotes
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(
+    threads: .make(
       tags: Set(build.flatMap(\.tag?.name).array),
       branches: [release.branch.name]
     ),
@@ -384,7 +328,8 @@ public extension Configuration {
       version: release.version.value,
       build: build?.number.value,
       notes: notes.isEmpty.else(notes)
-    )
+    ),
+    merge: nil
   ))}
   func reportStageTagCreated(
     stage: Flow.Product.Stage
@@ -395,7 +340,8 @@ public extension Configuration {
       product: stage.product,
       version: stage.version.value,
       build: stage.build.value
-    )
+    ),
+    merge: nil
   ))}
   func reportStageTagDeleted(
     stage: Flow.Product.Stage
@@ -405,7 +351,8 @@ public extension Configuration {
     ctx: Report.StageTagDeleted(
       product: stage.product,
       version: stage.version.value
-    )
+    ),
+    merge: nil
   ))}
   func reportCustom(
     event: String,
@@ -424,6 +371,7 @@ public extension Configuration {
       version: version,
       stdin: stdin
     ),
+    merge: nil,
     subevent: event.components(separatedBy: "/"),
     args: args.isEmpty.else(args)
   ))}
@@ -431,28 +379,32 @@ public extension Configuration {
     error: Error
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(),
-    ctx: Report.Unexpected(error: String(describing: error))
+    threads: .make(users: defaultUsers),
+    ctx: Report.Unexpected(error: String(describing: error)),
+    merge: nil
   ))}
   func reportAccessoryBranchCreated(
     ref: String
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(branches: [ref]),
-    ctx: Report.AccessoryBranchCreated(ref: ref)
+    threads: .make(branches: [ref]),
+    ctx: Report.AccessoryBranchCreated(ref: ref),
+    merge: nil
   ))}
   func reportAccessoryBranchDeleted(
     ref: String
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(branches: [ref]),
-    ctx: Report.AccessoryBranchDeleted(ref: ref)
+    threads: .make(branches: [ref]),
+    ctx: Report.AccessoryBranchDeleted(ref: ref),
+    merge: nil
   ))}
   func reportExpiringRequisites(
     items: [Report.ExpiringRequisites.Item]
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .init(),
-    ctx: Report.ExpiringRequisites(items: items)
+    threads: .make(),
+    ctx: Report.ExpiringRequisites(items: items),
+    merge: nil
   ))}
 }

@@ -12,9 +12,8 @@ enum Assembler {
   static let reporter = Reporter(
     execute: execute,
     writeStdout: writeStdout,
+    sendSlack: slacker.sendSlack(query:),
     readStdin: readStdin,
-    generate: stencilParser.generate(query:),
-//    parseSlackStorage: configurator.parseYamlFile(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -93,8 +92,12 @@ enum Assembler {
     jsonDecoder: jsonDecoder
   )
   static let slacker = Slacker(
+    execute: execute,
+    generate: stencilParser.generate(query:),
+    logMessage: logger.logMessage(query:),
     parseSlackStorage: configurator.parseYamlFile(query:),
-    persistAsset: configurator.persistAsset(query:)
+    persistAsset: configurator.persistAsset(query:),
+    jsonDecoder: jsonDecoder
   )
   static let stencilParser = StencilParser(notation: .json)
   static let jsonDecoder: JSONDecoder = {
