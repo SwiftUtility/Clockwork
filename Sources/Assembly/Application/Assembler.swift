@@ -11,9 +11,7 @@ enum Assembler {
   )
   static let reporter = Reporter(
     execute: execute,
-    writeStdout: writeStdout,
     sendSlack: slacker.sendSlack(query:),
-    readStdin: readStdin,
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -22,6 +20,7 @@ enum Assembler {
     decodeYaml: YamlParser.decodeYaml(query:),
     resolveAbsolute: Finder.resolveAbsolute(query:),
     readFile: Finder.readFile(query:),
+    readStdin: readStdin,
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
     logMessage: logger.logMessage(query:),
@@ -56,24 +55,24 @@ enum Assembler {
     parseReviewRules: configurator.parseYamlSecret(query:),
     parseCodeOwnage: configurator.parseYamlFile(query:),
     parseProfile: configurator.parseYamlFile(query:),
+    parseStdin: configurator.parseStdin(query:),
     persistAsset: configurator.persistAsset(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
-    parseStdin: reporter.parseStdin(query:),
     readStdin: readStdin,
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let mediator = Mediator(
     execute: execute,
+    resolveState: reviewer.resolveState(query:),
     parseReview: configurator.parseYamlFile(query:),
     parseReviewRules: configurator.parseYamlSecret(query:),
-    parseReviewStorage: configurator.parseYamlFile(query:),
     parseFlow: configurator.parseYamlFile(query:),
-    parseFlowVersions: configurator.parseYamlFile(query:),
+    parseFlowStorage: configurator.parseYamlFile(query:),
     registerSlackUser: slacker.registerSlackUser(query:),
     persistAsset: configurator.persistAsset(query:),
-    parseStdin: reporter.parseStdin(query:),
+    parseStdin: configurator.parseStdin(query:),
     generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),
     stdoutData: stdoutData,
@@ -84,8 +83,8 @@ enum Assembler {
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
     parseFlow: configurator.parseYamlFile(query:),
-    parseFlowBuilds: configurator.parseYamlFile(query:),
-    parseFlowVersions: configurator.parseYamlFile(query:),
+    parseFlowStorage: configurator.parseYamlFile(query:),
+    parseStdin: configurator.parseStdin(query:),
     persistAsset: configurator.persistAsset(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,

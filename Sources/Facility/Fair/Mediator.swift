@@ -3,11 +3,11 @@ import Facility
 import FacilityPure
 public final class Mediator {
   let execute: Try.Reply<Execute>
+  let resolveState: Try.Reply<Review.State.Resolve>
   let parseReview: Try.Reply<ParseYamlFile<Review>>
   let parseReviewRules: Try.Reply<ParseYamlSecret<Review.Rules>>
-  let parseReviewStorage: Try.Reply<ParseYamlFile<Review.Storage>>
   let parseFlow: Try.Reply<ParseYamlFile<Flow>>
-  let parseFlowVersions: Try.Reply<ParseYamlFile<Flow.Versions.Storage>>
+  let parseFlowStorage: Try.Reply<ParseYamlFile<Flow.Storage>>
   let registerSlackUser: Try.Reply<Slack.RegisterUser>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let parseStdin: Try.Reply<Configuration.ParseStdin>
@@ -17,11 +17,11 @@ public final class Mediator {
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
+    resolveState: @escaping Try.Reply<Review.State.Resolve>,
     parseReview: @escaping Try.Reply<ParseYamlFile<Review>>,
     parseReviewRules: @escaping Try.Reply<ParseYamlSecret<Review.Rules>>,
-    parseReviewStorage: @escaping Try.Reply<ParseYamlFile<Review.Storage>>,
     parseFlow: @escaping Try.Reply<ParseYamlFile<Flow>>,
-    parseFlowVersions: @escaping Try.Reply<ParseYamlFile<Flow.Versions.Storage>>,
+    parseFlowStorage: @escaping Try.Reply<ParseYamlFile<Flow.Storage>>,
     registerSlackUser: @escaping Try.Reply<Slack.RegisterUser>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
@@ -31,11 +31,11 @@ public final class Mediator {
     jsonDecoder: JSONDecoder
   ) {
     self.execute = execute
+    self.resolveState = resolveState
     self.parseReview = parseReview
     self.parseReviewRules = parseReviewRules
-    self.parseReviewStorage = parseReviewStorage
     self.parseFlow = parseFlow
-    self.parseFlowVersions = parseFlowVersions
+    self.parseFlowStorage = parseFlowStorage
     self.registerSlackUser = registerSlackUser
     self.persistAsset = persistAsset
     self.parseStdin = parseStdin
@@ -48,54 +48,72 @@ public final class Mediator {
     cfg: Configuration,
     event: String,
     stdin: Configuration.ParseStdin,
-    args: [String]
+    args: [String],
+    deep: Bool
   ) throws -> Bool {
     let stdin = try parseStdin(stdin)
-    let gitlab = try cfg.gitlab.get()
     var threads = Report.Threads.make(users: cfg.defaultUsers)
-    var authors: [String]? = nil
+    var merge: Json.GitlabMergeState? = nil
+    var state: Review.State? = nil
     var product: String? = nil
     var version: String? = nil
-    if let merge = try? gitlab.merge.get() {
-      threads.reviews.insert("\(merge.iid)")
-      if
-        let review = try? cfg.parseReview.map(parseReview).get(),
-        let storage = try? parseReviewStorage(cfg.parseReviewStorage(review: review)),
-        let state = storage.states[merge.iid]
-      {
-        threads.users.formUnion(state.authors)
-        authors = state.authors.sortedNonEmpty
-      }
+    defer {
+      if let merge = merge { threads.reviews.insert("\(merge)") }
+      if let authors = state?.authors { threads.users.formUnion(authors) }
+      cfg.reportCustom(
+        event: event,
+        threads: threads,
+        stdin: stdin,
+        args: args,
+        state: state,
+        merge: merge,
+        product: product,
+        version: version
+      )
+    }
+    guard deep else { return true }
+    let gitlab = try cfg.gitlab.get()
+    if let review = try? gitlab.merge.get() {
+      threads.reviews.insert("\(review)")
+      state = try? resolveState(.make(cfg: cfg, merge: review))
+      merge = review
       return true
-    } else if
-      let flow = try? cfg.parseFlow.map(parseFlow).get(),
-      let versions = try? parseFlowVersions(cfg.parseFlowVersions(flow: flow))
-    {
-      if let tag = try? Git.Tag.make(job: gitlab.job) {
-        threads.tags.insert(tag.name)
-        if let release = versions.find(deploy: tag) {
-          threads.branches.insert(release.branch.name)
-          product = release.product
-          version = release.version.value
+    }
+    let flow = try cfg.parseFlow.map(parseFlow).get()
+    let storage = try parseFlowStorage(cfg.parseFlowStorage(flow: flow))
+    if gitlab.job.tag {
+      let tag = try Git.Tag.make(job: gitlab.job)
+      threads.tags.insert(tag.name)
+      if let stage = storage.stages[tag] {
+        product = stage.product
+        version = stage.version.value
+        if let iid = stage.review {
+          let review = try gitlab
+            .getMrState(review: iid)
+            .map(execute)
+            .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
+            .get()
+          merge = review
+          state = try? resolveState(.make(cfg: cfg, merge: review))
+          threads.reviews.insert("\(iid)")
+        } else {
+          threads.branches.insert(stage.branch.name)
         }
-      } else if
-        let branch = try? Git.Branch.make(job: gitlab.job),
-        let release = versions.find(release: branch)
-      {
-        threads.branches.insert(release.branch.name)
+      } else if let deploy = storage.deploys[tag] {
+        product = deploy.product
+        version = deploy.version.value
+        if let release = storage.release(deploy: deploy) {
+          threads.branches.insert(release.branch.name)
+        }
+      }
+    } else {
+      let branch = try Git.Branch.make(job: gitlab.job)
+      threads.branches.insert(branch.name)
+      if let release = storage.releases[branch] {
         product = release.product
         version = release.version.value
       }
     }
-    cfg.reportCustom(
-      event: event,
-      threads: threads,
-      stdin: stdin,
-      args: args,
-      authors: authors,
-      product: product,
-      version: version
-    )
     return true
   }
   public func loadArtifact(
@@ -276,8 +294,12 @@ public final class Mediator {
       guard var user = storage.users[login] else { throw Thrown("No approver \(login)") }
       switch command {
       case .register: break
-      case .activate: user.active = true
-      case .deactivate: user.active = false
+      case .activate:
+        user.active = true
+        #warning("tbd trigger reviews")
+      case .deactivate:
+        user.active = false
+        #warning("tbd trigger reviews")
       case .unwatchAuthors(let authors):
         let unknown = authors.filter({ user.watchAuthors.contains($0).not })
         guard unknown.isEmpty

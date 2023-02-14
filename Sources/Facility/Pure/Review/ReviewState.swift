@@ -418,6 +418,7 @@ extension Review {
       dequeued: Set<UInt>
     ) {
       var shift: [Report.ReviewEvent.Reason] = []
+      if old == nil { shift.append(.created) }
       if emergent != nil, old?.emergent == nil { shift.append(.emergent) }
       if emergent == nil, old?.emergent != nil { shift.append(.tranquil) }
       if phase == .block, old?.phase != .block { shift.append(.block) }
@@ -428,7 +429,9 @@ extension Review {
       if enqueued.contains(review) { shift.append(.enqueued) }
       if dequeued.contains(review) { shift.append(.dequeued) }
       guard let change = change else {
-        return shift.forEach({ ctx.cfg.reportReviewEvent(state: self, update: nil, reason: $0) })
+        return shift.forEach({ ctx.cfg.reportReviewEvent(
+          state: self, update: nil, reason: $0, merge: nil
+        )})
       }
       var update = Report.ReviewUpdated(
         authors: authors.intersection(ctx.approvers).sortedNonEmpty,
@@ -460,13 +463,13 @@ extension Review {
       if approvers.isEmpty.not {
         update.approvers = approvers.keys.sorted().compactMap({ approvers[$0] })
       }
-      ctx.cfg.reportReviewUpdated(state: self, merge: change.merge, report: update)
       shift.forEach({ ctx.cfg.reportReviewEvent(
         state: self,
         update: update,
         reason: $0,
         merge: change.merge
       )})
+      ctx.cfg.reportReviewUpdated(state: self, merge: change.merge, report: update)
       for approve in approves.values.filter(\.resolution.approved.not) {
         if let old = ctx.originalStorage.states[review]?.approves[approve.login] {
           guard old.resolution.approved.not else { continue }
@@ -514,6 +517,15 @@ extension Review {
       })
     }
     public static func make(
+      merge: Json.GitlabMergeState,
+      bots: Set<String>
+    ) throws -> Self { try .init(
+      review: merge.iid,
+      source: .make(name: merge.sourceBranch),
+      target: .make(name: merge.targetBranch),
+      authors: Set([merge.author.username]).subtracting(bots)
+    )}
+    public static func make(
       review: String,
       yaml: Yaml.Review.Storage.State
     ) throws -> Self { try .init(
@@ -529,9 +541,19 @@ extension Review {
       verified: yaml.verified.map(Git.Sha.make(value:)),
       randoms: Set(yaml.randoms.get([])),
       legates: Set(yaml.legates.get([])),
-      approves: yaml.approves.get([:])
-        .map(Approve.make(login:yaml:))
-        .reduce(into: [:], { $0[$1.login] = $1 })
+      approves: yaml.approves.get([:]).map(Approve.make(login:yaml:)).indexed(\.login)
     )}
+    public struct Resolve: Query {
+      public var cfg: Configuration
+      public var merge: Json.GitlabMergeState
+      public static func make(
+        cfg: Configuration,
+        merge: Json.GitlabMergeState
+      ) -> Self { .init(
+        cfg: cfg,
+        merge: merge
+      )}
+      public typealias Reply = State
+    }
   }
 }

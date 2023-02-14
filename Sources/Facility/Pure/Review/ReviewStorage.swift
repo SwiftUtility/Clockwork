@@ -11,9 +11,7 @@ extension Review {
     ) throws -> Self { try .init(
       asset: review.storage,
       queues: yaml.queues,
-      states: yaml.states
-        .map(State.make(review:yaml:))
-        .reduce(into: [:], { $0[$1.review] = $1 })
+      states: yaml.states.map(State.make(review:yaml:)).indexed(\.review)
     )}
     mutating func delete(review: UInt) -> State? {
       let result = states[review]

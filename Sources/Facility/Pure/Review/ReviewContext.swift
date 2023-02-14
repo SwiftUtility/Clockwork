@@ -26,12 +26,10 @@ extension Review {
         }
         return nil
       }
-      return try storage.states[merge.iid].get(.init(
-        review: merge.iid,
-        source: .make(name: merge.sourceBranch),
-        target: .make(name: merge.targetBranch),
-        authors: [merge.author.username]
-      ))
+      if let state = storage.states[merge.iid] { return state }
+      let state = try State.make(merge: merge, bots: bots)
+      storage.states[merge.iid] = state
+      return state
     }
     public func remind(review: UInt, user: String) -> Report.ReviewApprove {
       .init(diff: storage.states[review]?.approves[user]?.commit.value, reason: .remind)

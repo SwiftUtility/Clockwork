@@ -86,6 +86,7 @@ public struct Configuration {
     case ignore
     case lines
     case json
+    case yaml
     public typealias Reply = AnyCodable?
   }
   public struct Asset {

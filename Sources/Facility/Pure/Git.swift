@@ -87,7 +87,7 @@ public struct Git {
       return try .make(name: job.pipeline.ref)
     }
     public static func < (lhs: Git.Branch, rhs: Git.Branch) -> Bool {
-      lhs.name.alphaNumeric < rhs.name.alphaNumeric
+      lhs.name.compare(rhs.name, options: .numeric) == .orderedAscending
     }
   }
   public struct Tag: Hashable, Comparable {
@@ -103,7 +103,7 @@ public struct Git {
       return try .make(name: job.pipeline.ref)
     }
     public static func < (lhs: Git.Tag, rhs: Git.Tag) -> Bool {
-      lhs.name.alphaNumeric < rhs.name.alphaNumeric
+      lhs.name.compare(rhs.name, options: .numeric) == .orderedAscending
     }
   }
 }
@@ -124,8 +124,8 @@ public extension Git {
   var changesList: Execute { proc(args: ["status", "--porcelain"]) }
   var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"]) }
   var listAllRefs: Execute { proc(args: ["show-ref", "--head"]) }
-  func excludeParents(shas: [Git.Ref]) -> Execute { proc(
-    args: ["show-branch", "--independent"] + shas.map(\.value)
+  func excludeParents(refs: [Git.Ref]) -> Execute { proc(
+    args: ["show-branch", "--independent"] + refs.map(\.value)
   )}
   func check(child: Ref, parent: Ref) -> Execute { proc(
     args: ["merge-base", "--is-ancestor", parent.value, child.value]
@@ -198,12 +198,6 @@ public extension Git {
   func mergeBase(_ one: Ref, _ two: Ref) -> Execute { proc(
     args: ["merge-base", one.value, two.value]
   )}
-//  func push(url: String, branch: Branch, sha: Sha, force: Bool, secret: String) -> Execute { proc(
-//    args: ["push", url]
-//    + force.then(["--force"]).get([])
-//    + ["\(sha.value):\(Ref.make(local: branch).value)"],
-//    secrets: [secret]
-//  )}
   func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
     args: [
       "-c",

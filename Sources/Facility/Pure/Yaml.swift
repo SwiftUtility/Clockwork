@@ -90,56 +90,56 @@ public enum Yaml {
     }
   }
   public struct Flow: Decodable {
-    public var builds: Builds?
-    public var versions: Versions
+    public var storage: Asset
+    public var buildCount: Int
+    public var releaseCount: Int
+    public var bumpBuild: Template
+    public var bumpVersion: Template
     public var exportVersions: Template
     public var matchReleaseNote: Criteria
     public var createTagName: Template
     public var createTagAnnotation: Template
     public var createReleaseBranchName: Template
-    public struct Builds: Decodable {
-      public var storage: Asset
-      public var maxBuildsCount: Int
-      public var bump: Template
-      public struct Storage: Decodable {
-        public var next: String
-        public var reserved: [String: Build]?
-        public struct Build: Decodable {
-          public var commit: String
-          public var tag: String?
-          public var review: UInt?
-          public var target: String?
-          public var branch: String?
-        }
+    public struct Storage: Decodable {
+      public var stages: [String: Stage]
+      public var deploys: [String: Deploy]
+      public var families: [String: Family]
+      public var products: [String: Product]
+      public var releases: [String: Release]
+      public var accessories: [String: Accessory]
+      public struct Family: Decodable {
+        public var nextBuild: String
+        public var prevBuilds: [String: Build]?
       }
-    }
-    public struct Versions: Decodable {
-      public var storage: Asset
-      public var maxReleasesCount: Int
-      public var bump: Template
-      public struct Storage: Decodable {
-        public var products: [String: Product]?
-        public var accessories: [String: Accessory]?
-        public struct Product: Decodable {
-          public var next: String
-          public var stages: [String: Stage]?
-          public var releases: [String: Release]?
-        }
-        public struct Release: Decodable {
-          public var start: String
-          public var branch: String
-          public var deploys: [String]?
-        }
-        public struct Stage: Decodable {
-          public var version: String
-          public var build: String
-          public var review: UInt?
-          public var target: String
-          public var branch: String
-        }
-        public struct Accessory: Decodable {
-          public var versions: [String: String]?
-        }
+      public struct Build: Decodable {
+        public var commit: String
+        public var branch: String
+        public var review: UInt?
+      }
+      public struct Product: Decodable {
+        public var family: String
+        public var nextVersion: String
+        public var prevVersions: [String]?
+      }
+      public struct Release: Decodable {
+        public var commit: String
+        public var product: String
+        public var version: String
+      }
+      public struct Stage: Decodable {
+        public var product: String
+        public var version: String
+        public var build: String
+        public var branch: String
+        public var review: UInt?
+      }
+      public struct Deploy: Decodable {
+        public var product: String
+        public var version: String
+        public var build: String
+      }
+      public struct Accessory: Decodable {
+        public var versions: [String: String]?
       }
     }
   }
@@ -181,7 +181,6 @@ public enum Yaml {
       public struct Team: Decodable {
         public var quorum: Int
         public var advance: Bool?
-        public var labels: [String]?
         public var random: [String]?
         public var reserve: [String]?
         public var optional: [String]?

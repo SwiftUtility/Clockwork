@@ -64,11 +64,11 @@ public struct Slack {
       update: yaml.update.get([:]).map(Signal.make(mark:yaml:))
     )}
     public struct Update: Encodable {
-      public var kind: String
+      public var update: String
       public var channel: String
       public var message: String
       public static func make(signal: Signal, thread: Storage.Thread) -> Self { .init(
-        kind: signal.mark,
+        update: signal.mark,
         channel: thread.channel,
         message: thread.name
       )}
@@ -150,8 +150,9 @@ public struct Slack {
       public static func make(name: String, json: Json.SlackMessage) -> Self { .init(
         name: name, channel: json.channel, message: json.ts
       )}
-      public static func make(yaml: [String: Yaml.Slack.Storage.Thread]) -> [String: Self] {
-        yaml.reduce(into: [:], { $0[$1.key] = .make(name: $1.key, yaml: $1.value) })
+      public static func make(yaml: [String: Yaml.Slack.Storage.Thread]) -> [String: Self] { yaml
+        .map(Self.make(name:yaml:))
+        .indexed(\.name)
       }
       static func serialize(kind: String, map: [String: [String: Self]]) -> String {
         var result = ""

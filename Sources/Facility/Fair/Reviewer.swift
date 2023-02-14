@@ -8,10 +8,10 @@ public final class Reviewer {
   let parseReviewRules: Try.Reply<ParseYamlSecret<Review.Rules>>
   let parseCodeOwnage: Try.Reply<ParseYamlFile<[String: Criteria]>>
   let parseProfile: Try.Reply<ParseYamlFile<Configuration.Profile>>
+  let parseStdin: Try.Reply<Configuration.ParseStdin>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let writeStdout: Act.Of<String>.Go
   let generate: Try.Reply<Generate>
-  let parseStdin: Try.Reply<Configuration.ParseStdin>
   let readStdin: Try.Do<Data?>
   let logMessage: Act.Reply<LogMessage>
   let jsonDecoder: JSONDecoder
@@ -22,10 +22,10 @@ public final class Reviewer {
     parseReviewRules: @escaping Try.Reply<ParseYamlSecret<Review.Rules>>,
     parseCodeOwnage: @escaping Try.Reply<ParseYamlFile<[String: Criteria]>>,
     parseProfile: @escaping Try.Reply<ParseYamlFile<Configuration.Profile>>,
+    parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     writeStdout: @escaping Act.Of<String>.Go,
     generate: @escaping Try.Reply<Generate>,
-    parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     readStdin: @escaping Try.Do<Data?>,
     logMessage: @escaping Act.Reply<LogMessage>,
     jsonDecoder: JSONDecoder
@@ -36,13 +36,43 @@ public final class Reviewer {
     self.parseReviewRules = parseReviewRules
     self.parseCodeOwnage = parseCodeOwnage
     self.parseProfile = parseProfile
+    self.parseStdin = parseStdin
     self.persistAsset = persistAsset
     self.writeStdout = writeStdout
     self.generate = generate
-    self.parseStdin = parseStdin
     self.readStdin = readStdin
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
+  }
+  public func signal(
+    cfg: Configuration,
+    event: String,
+    stdin: Configuration.ParseStdin,
+    args: [String]
+  ) throws -> Bool {
+    let stdin = try parseStdin(stdin)
+    let gitlab = try cfg.gitlab.get()
+    let merge = try gitlab.merge.get()
+    var ctx = try makeContext(cfg: cfg)
+    let state = try ctx.makeState(merge: merge).get(.make(merge: merge, bots: ctx.bots))
+    try storeContext(ctx: &ctx)
+    cfg.reportCustom(
+      event: event,
+      threads: .make(
+        users: cfg.defaultUsers.union(state.authors),
+        reviews: [merge.iid],
+        branches: [merge.targetBranch]
+      ),
+      stdin: stdin,
+      args: args
+    )
+    return true
+  }
+  public func resolveState(query: Review.State.Resolve) throws -> Review.State.Resolve.Reply {
+    var ctx = try makeContext(cfg: query.cfg)
+    let state = try ctx.makeState(merge: query.merge).get(.make(merge: query.merge, bots: ctx.bots))
+    try storeContext(ctx: &ctx)
+    return state
   }
   public func updateReviews(cfg: Configuration, remind: Bool) throws -> Bool {
     var ctx = try makeContext(cfg: cfg)
@@ -190,7 +220,12 @@ public final class Reviewer {
     }
     return try createReview(cfg: cfg, review: review, fusion: fusion, head: head, pick: pick)
   }
-  public func renderTargets(cfg: Configuration, args: [String]) throws -> Bool {
+  public func renderTargets(
+    cfg: Configuration,
+    stdin: Configuration.ParseStdin,
+    args: [String]
+  ) throws -> Bool {
+    let stdin = try parseStdin(stdin)
     let gitlab = try cfg.gitlab.get()
     let parent = try gitlab.parent.get()
     let review = try cfg.parseReview.map(parseReview).get()
@@ -219,6 +254,7 @@ public final class Reviewer {
       integrate: integrate,
       duplicate: duplicate.then(integrate).get([]),
       propogate: integrate.filter({ targets[$0] == true }),
+      stdin: stdin,
       args: args
     )))
     return true

@@ -51,19 +51,12 @@ public extension Configuration {
       try .make(location: profile, yaml: $0.read(Yaml.Profile.self, from: $1))
     })
   }
-  func parseFlowBuilds(
-    builds: Flow.Builds
-  ) -> ParseYamlFile<Flow.Builds.Storage> { .init(
-    git: git,
-    file: .make(asset: builds.storage),
-    parse: { try .make(yaml: $0.read(Yaml.Flow.Builds.Storage.self, from: $1)) }
-  )}
-  func parseFlowVersions(
+  func parseFlowStorage(
     flow: Flow
-  ) -> ParseYamlFile<Flow.Versions.Storage> { .init(
+  ) -> ParseYamlFile<Flow.Storage> { .init(
     git: git,
-    file: .make(asset: flow.versions.storage),
-    parse: { try .make(yaml: $0.read(Yaml.Flow.Versions.Storage.self, from: $1)) }
+    file: .make(asset: flow.storage),
+    parse: { try .make(flow: flow, yaml: $0.read(Yaml.Flow.Storage.self, from: $1)) }
   )}
   func parseGitlabStorage(
     asset: Configuration.Asset

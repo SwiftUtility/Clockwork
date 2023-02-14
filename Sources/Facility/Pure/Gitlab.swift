@@ -46,10 +46,10 @@ public struct Gitlab {
       for user in users {
         result += "  '\(user.login)':\n"
         result += "    active: \(user.active)\n"
-        let watchTeams = user.watchTeams.sorted().map({ "'\($0)'" }).joined(separator: ",")
-        if watchTeams.isEmpty.not { result += "    watchTeams: [\(watchTeams)]\n" }
-        let watchAuthors = user.watchAuthors.sorted().map({ "'\($0)'" }).joined(separator: ",")
-        if watchAuthors.isEmpty.not { result += "    watchAuthors: [\(watchAuthors)]\n" }
+        let watchTeams = user.watchTeams.sorted().joined(separator: "','")
+        if watchTeams.isEmpty.not { result += "    watchTeams: ['\(watchTeams)']\n" }
+        let watchAuthors = user.watchAuthors.sorted().joined(separator: "','")
+        if watchAuthors.isEmpty.not { result += "    watchAuthors: ['\(watchAuthors)']\n" }
       }
       return result
     }
@@ -59,9 +59,7 @@ public struct Gitlab {
     ) -> Self { .init(
       asset: asset,
       bots: Set(yaml.bots),
-      users: yaml.users
-        .map(User.make(login:yaml:))
-        .reduce(into: [:], { $0[$1.login] = $1 })
+      users: yaml.users.map(User.make(login:yaml:)).indexed(\.login)
     )}
     public struct User {
       public var login: String

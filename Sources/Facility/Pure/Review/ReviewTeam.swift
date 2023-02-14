@@ -4,7 +4,6 @@ extension Review {
   public struct Team {
     public var name: String
     public var quorum: Int
-    public var labels: [String]
     public var random: Set<String>
     public var reserve: Set<String>
     public var optional: Set<String>
@@ -18,7 +17,6 @@ extension Review {
     ) -> Self { .init(
       name: name,
       quorum: yaml.quorum,
-      labels: yaml.labels.get([]),
       random: Set(yaml.random.get([])),
       reserve: Set(yaml.reserve.get([])),
       optional: Set(yaml.optional.get([])),

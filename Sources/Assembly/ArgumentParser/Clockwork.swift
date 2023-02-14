@@ -38,27 +38,34 @@ struct Clockwork: ParsableCommand {
       abstract: "Subset of flow management commands",
       version: Clockwork.version,
       subcommands: [
-        ChangeVersion.self,
+        ChangeAccessoryVersion.self,
+        ChangeNextVersion.self,
         CreateAccessoryBranch.self,
         CreateDeployTag.self,
-        CreateHotfixBranch.self,
-        CreateReleaseBranch.self,
         CreateStageTag.self,
-        DeleteAccessoryBranch.self,
-        DeleteReleaseBranch.self,
-        DeleteStageTag.self,
+        DeleteBranch.self,
+        DeleteTag.self,
         ExportVersions.self,
-        ForwardBranch.self,
         ReserveBuild.self,
+        StartHotfix.self,
+        StartRelease.self,
       ]
     )
-    struct ChangeVersion: ClockworkCommand {
-      static var abstract: String { "Change product version" }
+    struct ChangeAccessoryVersion: ClockworkCommand {
+      static var abstract: String { "Change product version for accessory branch" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Product name to change version for")
       var product: String
-      @Flag(help: "Wether change next or current accessory branch specific version")
-      var next: Bool = false
+      @Option(help: "Branch name or current")
+      var branch: String = ""
+      @Option(help: "Version to set")
+      var version: String
+    }
+    struct ChangeNextVersion: ClockworkCommand {
+      static var abstract: String { "Change product next release version" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "Product name to change version for")
+      var product: String
       @Option(help: "Version to set")
       var version: String
     }
@@ -72,59 +79,63 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Create deploy tag on release branch" }
       @OptionGroup var clockwork: Clockwork
     }
-    struct CreateHotfixBranch: ClockworkCommand {
-      static var abstract: String { "Cut hotfix branch from deploy tag" }
-      @OptionGroup var clockwork: Clockwork
-    }
-    struct CreateReleaseBranch: ClockworkCommand {
-      static var abstract: String { "Cut release branch and bump product version" }
-      @OptionGroup var clockwork: Clockwork
-      @Option(help: "Product name to make branch for")
-      var product: String
-    }
     struct CreateStageTag: ClockworkCommand {
       static var abstract: String { "Create stage tag on reserved build" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Product name to make stage tag for")
       var product: String
-      @Option(help: "Build number to make stage tag for")
+      @Option(help: "Build number to stage")
       var build: String
     }
-    struct DeleteAccessoryBranch: ClockworkCommand {
+    struct DeleteBranch: ClockworkCommand {
       static var abstract: String { "Delete protected branch and clear its assets" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Name of branch to delete or current")
+      var name: String = ""
     }
-    struct DeleteReleaseBranch: ClockworkCommand {
-      static var abstract: String { "Delete protected branch and clear its assets" }
+    struct DeleteTag: ClockworkCommand {
+      static var abstract: String { "Delete protected tag" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "")
-      var revoke: Bool = false
-    }
-    struct DeleteStageTag: ClockworkCommand {
-      static var abstract: String { "Delete current stage tag" }
-      @OptionGroup var clockwork: Clockwork
+      @Option(help: "Name of tag to delete or current")
+      var name: String = ""
     }
     struct ExportVersions: ClockworkCommand {
       static var abstract: String { "Render versions to stdout" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Render reserved build context")
-      var build: Bool = false
+      @Option(help: "If specified ensure product has build reserved")
+      var product: String = ""
       @Argument(help: "Context to make available during rendering")
       var args: [String] = []
-    }
-    struct ForwardBranch: ClockworkCommand {
-      static var abstract: String { "Fast forward branch to current commit" }
-      @OptionGroup var clockwork: Clockwork
-      @Option(help: "The branch name to forward")
-      var name: String
+      @Flag(help: Common.Stdin.help)
+      var stdin: Common.Stdin = .ignore
     }
     struct ReserveBuild: ClockworkCommand {
       static var abstract: String { "Reserve build number for current protected branch pipeline" }
       @OptionGroup var clockwork: Clockwork
       @Flag(help: "Is build for merge request")
       var review: Bool = false
+      @Option(help: "Product name to make branch for")
+      var product: String
     }
-  }
+    struct StartHotfix: ClockworkCommand {
+      static var abstract: String { "Cut hotfix branch from deploy tag or using passed options" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "Product name to make branch for")
+      var product: String = ""
+      @Option(help: "Commit sha to start from")
+      var commit: String = ""
+      @Option(help: "Version of hotfix")
+      var version: String = ""
+    }
+    struct StartRelease: ClockworkCommand {
+      static var abstract: String { "Cut release branch and bump product version" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "Product name to make branch for")
+      var product: String
+      @Option(help: "Commit sha to start from or current")
+      var commit: String = ""
+    }
+}
   struct Gitlab: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Distributed scalable monorepo management tool",
@@ -233,24 +244,14 @@ struct Clockwork: ParsableCommand {
     struct Signal: ClockworkCommand {
       static var abstract: String { "Send custom preconfigured report" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Should read stdin and pass as a context for generation")
-      var stdin: Stdin = .ignore
+      @Flag(help: "Should also update threads")
+      var threads: Bool = false
+      @Flag(help: Common.Stdin.help)
+      var stdin: Common.Stdin = .ignore
       @Option(help: "Event name to send report for")
       var event: String
       @Argument(help: "Context to make available during rendering")
       var args: [String] = []
-      enum Stdin: EnumerableFlag {
-        case ignore
-        case lines
-        case json
-        static func help(for value: Self) -> ArgumentHelp? {
-          switch value {
-          case .ignore: return "Do not read stdin"
-          case .lines: return "Interpret stdin as lines array"
-          case .json: return "Interpret stdin as json"
-          }
-        }
-      }
     }
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Trigger pipeline configured and custom context" }
@@ -428,6 +429,8 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Context to make available during rendering")
       var args: [String] = []
+      @Flag(help: "Should read stdin and pass as a context for generation")
+      var stdin: Common.Stdin = .ignore
     }
     struct List: ClockworkCommand {
       static var abstract: String { "List all reviews to be approved" }
@@ -574,5 +577,22 @@ protocol ClockworkCommand: ParsableCommand {
 extension ClockworkCommand {
   static var configuration: CommandConfiguration {
     .init(abstract: abstract)
+  }
+}
+enum Common {
+  enum Stdin: EnumerableFlag {
+    static var help: ArgumentHelp { "Should read stdin and pass as a context for generation" }
+    case ignore
+    case lines
+    case json
+    case yaml
+    static func help(for value: Self) -> ArgumentHelp? {
+      switch value {
+      case .ignore: return "Do not read stdin"
+      case .lines: return "Interpret stdin as lines array"
+      case .json: return "Interpret stdin as json"
+      case .yaml: return "Interpret stdin as yaml"
+      }
+    }
   }
 }

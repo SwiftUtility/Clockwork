@@ -14,10 +14,11 @@ public struct Report {
     ctx: Context,
     merge: Json.GitlabMergeState?,
     subevent: [String] = [],
+    stdin: AnyCodable? = nil,
     args: [String]? = nil
   ) -> Self { .init(
     threads: threads,
-    info: Generate.Info.make(cfg: cfg, context: ctx, subevent: subevent, args: args),
+    info: Generate.Info.make(cfg: cfg, context: ctx, subevent: subevent, stdin: stdin, args: args),
     merge: merge
   )}
   #warning("TBD eliminate shared state")
@@ -94,6 +95,7 @@ public struct Report {
       case ready
       case closed
       case merged
+      case created
       case foremost
       case enqueued
       case dequeued
@@ -125,54 +127,64 @@ public struct Report {
     }
   }
   public struct ReleaseBranchCreated: ReportContext {
+    public var branch: String?
     public var product: String
     public var version: String
-    public var hotfix: Bool
-    public var subevent: [String] { [product] }
+    public var kind: Flow.Release.Kind
   }
   public struct ReleaseBranchDeleted: ReportContext {
+    public var branch: String?
     public var product: String
     public var version: String
-    public var subevent: [String] { [product] }
+    public var kind: Flow.Release.Kind
   }
   public struct ReleaseBranchSummary: ReportContext {
+    public var branch: String
     public var product: String
     public var version: String
-    public var notes: Flow.ReleaseNotes?
-    public var subevent: [String] { [product] }
-  }
-  public struct DeployTagCreated: ReportContext {
-    public var product: String
-    public var version: String
+    public var tag: String?
     public var build: String?
     public var notes: Flow.ReleaseNotes?
-    public var subevent: [String] { [product] }
   }
-  public struct StageTagCreated: ReportContext {
+  public struct DeployTagCreated: ReportContext {
+    public var branch: String
+    public var tag: String
     public var product: String
     public var version: String
     public var build: String
-    public var subevent: [String] { [product] }
+    public var notes: Flow.ReleaseNotes?
   }
-  public struct StageTagDeleted: ReportContext {
+  public struct DeployTagDeleted: ReportContext {
+    public var tag: String
     public var product: String
     public var version: String
-    public var subevent: [String] { [product] }
+    public var build: String
+  }
+  public struct StageTagCreated: ReportContext {
+    public var tag: String
+    public var product: String
+    public var version: String
+    public var build: String
+  }
+  public struct StageTagDeleted: ReportContext {
+    public var tag: String
+    public var product: String
+    public var version: String
+    public var build: String
+  }
+  public struct AccessoryBranchCreated: ReportContext {
+    public var branch: String?
+  }
+  public struct AccessoryBranchDeleted: ReportContext {
+    public var branch: String?
   }
   public struct Custom: ReportContext {
     public var authors: [String]?
     public var product: String?
     public var version: String?
-    public var stdin: AnyCodable?
   }
   public struct Unexpected: ReportContext {
     public var error: String
-  }
-  public struct AccessoryBranchCreated: ReportContext {
-    public var ref: String
-  }
-  public struct AccessoryBranchDeleted: ReportContext {
-    public var ref: String
   }
   public struct ExpiringRequisites: ReportContext {
     public var items: [Item]
@@ -234,7 +246,7 @@ public extension Configuration {
     state: Review.State,
     update: Report.ReviewUpdated?,
     reason: Report.ReviewEvent.Reason,
-    merge: Json.GitlabMergeState? = nil
+    merge: Json.GitlabMergeState?
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(
@@ -277,102 +289,148 @@ public extension Configuration {
     merge: merge
   ))}
   func reportReleaseBranchCreated(
-    release: Flow.Product.Release,
-    hotfix: Bool
+    release: Flow.Release,
+    kind: Flow.Release.Kind
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchCreated(
+      branch: release.branch.name,
       product: release.product,
       version: release.version.value,
-      hotfix: hotfix
+      kind: kind
     ),
-    merge: nil
+    merge: nil,
+    subevent: [release.product, kind.rawValue]
   ))}
   func reportReleaseBranchDeleted(
-    release: Flow.Product.Release
+    release: Flow.Release,
+    kind: Flow.Release.Kind
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchDeleted(
+      branch: release.branch.name,
       product: release.product,
-      version: release.version.value
+      version: release.version.value,
+      kind: kind
     ),
-    merge: nil
+    merge: nil,
+    subevent: [release.product, kind.rawValue]
   ))}
   func reportReleaseBranchSummary(
-    release: Flow.Product.Release,
+    release: Flow.Release,
+    deploy: Flow.Deploy?,
     notes: Flow.ReleaseNotes
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(branches: [release.branch.name]),
+    threads: .make(tags: Set(deploy.map(\.tag.name).array), branches: [release.branch.name]),
     ctx: Report.ReleaseBranchSummary(
+      branch: release.branch.name,
       product: release.product,
       version: release.version.value,
+      tag: deploy?.tag.name,
+      build: deploy?.build.value,
       notes: notes.isEmpty.else(notes)
     ),
-    merge: nil
+    merge: nil,
+    subevent: [release.product]
   ))}
   func reportDeployTagCreated(
-    release: Flow.Product.Release,
-    build: Flow.Build?,
+    release: Flow.Release,
+    deploy: Flow.Deploy,
     notes: Flow.ReleaseNotes
+  ) { Report.Bag.shared.reports.append(.make(
+    cfg: self,
+    threads: .make(tags: [deploy.tag.name], users: defaultUsers, branches: [release.branch.name]),
+    ctx: Report.DeployTagCreated(
+      branch: release.branch.name,
+      tag: deploy.tag.name,
+      product: deploy.product,
+      version: deploy.version.value,
+      build: deploy.build.value,
+      notes: notes.isEmpty.else(notes)
+    ),
+    merge: nil,
+    subevent: [deploy.product]
+  ))}
+  func reportDeployTagDeleted(
+    deploy: Flow.Deploy,
+    release: Flow.Release?
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(
-      tags: Set(build.flatMap(\.tag?.name).array),
-      branches: [release.branch.name]
+      tags: [deploy.tag.name],
+      users: defaultUsers,
+      branches: Set(release.map(\.branch.name).array)
     ),
-    ctx: Report.DeployTagCreated(
-      product: release.product,
-      version: release.version.value,
-      build: build?.number.value,
-      notes: notes.isEmpty.else(notes)
+    ctx: Report.DeployTagDeleted(
+      tag: deploy.tag.name,
+      product: deploy.product,
+      version: deploy.version.value,
+      build: deploy.build.value
     ),
-    merge: nil
+    merge: nil,
+    subevent: [deploy.product]
   ))}
   func reportStageTagCreated(
-    stage: Flow.Product.Stage
+    stage: Flow.Stage
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(tags: [stage.tag.name], branches: Set(stage.branch.array.map(\.name))),
+    threads: .make(
+      tags: [stage.tag.name],
+      users: defaultUsers,
+      reviews: Set(stage.review.array),
+      branches: [stage.branch.name]
+    ),
     ctx: Report.StageTagCreated(
+      tag: stage.tag.name,
       product: stage.product,
       version: stage.version.value,
       build: stage.build.value
     ),
-    merge: nil
+    merge: nil,
+    subevent: [stage.product]
   ))}
   func reportStageTagDeleted(
-    stage: Flow.Product.Stage
+    stage: Flow.Stage
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(tags: [stage.tag.name], branches: Set(stage.branch.array.map(\.name))),
-    ctx: Report.StageTagDeleted(
-      product: stage.product,
-      version: stage.version.value
+    threads: .make(
+      tags: [stage.tag.name],
+      users: defaultUsers,
+      reviews: Set(stage.review.array),
+      branches: [stage.branch.name]
     ),
-    merge: nil
+    ctx: Report.StageTagDeleted(
+      tag: stage.tag.name,
+      product: stage.product,
+      version: stage.version.value,
+      build: stage.build.value
+    ),
+    merge: nil,
+    subevent: [stage.product]
   ))}
   func reportCustom(
     event: String,
     threads: Report.Threads,
     stdin: AnyCodable?,
     args: [String],
-    authors: [String]? = nil,
+    state: Review.State? = nil,
+    merge: Json.GitlabMergeState? = nil,
     product: String? = nil,
     version: String? = nil
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: threads,
     ctx: Report.Custom(
-      authors: authors,
+      authors: state?.authors.sortedNonEmpty,
       product: product,
-      version: version,
-      stdin: stdin
+      version: version
     ),
-    merge: nil,
+    merge: merge,
     subevent: event.components(separatedBy: "/"),
+    stdin: stdin,
     args: args.isEmpty.else(args)
   ))}
   func reportUnexpected(
@@ -384,19 +442,19 @@ public extension Configuration {
     merge: nil
   ))}
   func reportAccessoryBranchCreated(
-    ref: String
+    accessory: Flow.Accessory
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(branches: [ref]),
-    ctx: Report.AccessoryBranchCreated(ref: ref),
+    threads: .make(branches: [accessory.branch.name]),
+    ctx: Report.AccessoryBranchCreated(branch: accessory.branch.name),
     merge: nil
   ))}
   func reportAccessoryBranchDeleted(
-    ref: String
+    accessory: Flow.Accessory
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(branches: [ref]),
-    ctx: Report.AccessoryBranchDeleted(ref: ref),
+    threads: .make(branches: [accessory.branch.name]),
+    ctx: Report.AccessoryBranchDeleted(branch: accessory.branch.name),
     merge: nil
   ))}
   func reportExpiringRequisites(

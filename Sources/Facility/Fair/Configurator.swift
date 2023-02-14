@@ -6,6 +6,7 @@ public final class Configurator {
   let decodeYaml: Try.Reply<Yaml.Decode>
   let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>
   let readFile: Try.Reply<Files.ReadFile>
+  let readStdin: Try.Do<Data?>
   let generate: Try.Reply<Generate>
   let writeFile: Try.Reply<Files.WriteFile>
   let logMessage: Act.Reply<LogMessage>
@@ -16,6 +17,7 @@ public final class Configurator {
     decodeYaml: @escaping Try.Reply<Yaml.Decode>,
     resolveAbsolute: @escaping Try.Reply<Files.ResolveAbsolute>,
     readFile: @escaping Try.Reply<Files.ReadFile>,
+    readStdin: @escaping Try.Do<Data?>,
     generate: @escaping Try.Reply<Generate>,
     writeFile: @escaping Try.Reply<Files.WriteFile>,
     logMessage: @escaping Act.Reply<LogMessage>,
@@ -26,6 +28,7 @@ public final class Configurator {
     self.decodeYaml = decodeYaml
     self.resolveAbsolute = resolveAbsolute
     self.readFile = readFile
+    self.readStdin = readStdin
     self.generate = generate
     self.writeFile = writeFile
     self.logMessage = logMessage
@@ -74,6 +77,22 @@ public final class Configurator {
     cfg.jira = .init(try resolveJira(cfg: cfg))
     return cfg
   }
+  public func parseStdin(query: Configuration.ParseStdin) throws -> Configuration.ParseStdin.Reply {
+    switch query {
+    case .ignore: return nil
+    case .lines:
+      let stdin = try readStdin()
+        .map(String.make(utf8:))?
+        .trimmingCharacters(in: .newlines)
+        .components(separatedBy: .newlines)
+      return try stdin.map(AnyCodable.init(any:))
+    case .json: return try readStdin().reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
+    case .yaml: return try readStdin()
+      .map(String.make(utf8:))
+      .map(Yaml.Decode.init(content:))
+      .map(decodeYaml)
+    }
+  }
   public func parseYamlFile<T>(
     query: ParseYamlFile<T>
   ) throws -> T { try Id(query.file)
@@ -92,15 +111,15 @@ public final class Configurator {
   public func persistAsset(
     query: Configuration.PersistAsset
   ) throws -> Configuration.PersistAsset.Reply {
-    let gitlab = try query.cfg.gitlab.get()
-    let ssh = try gitlab.project.get().sshUrlToRepo
-    let key = try gitlab.ssh.get()
     guard let sha = try persist(
       git: query.cfg.git,
       asset: query.asset,
       yaml: query.content,
       message: query.message
     ) else { return false }
+    let gitlab = try query.cfg.gitlab.get()
+    let ssh = try gitlab.project.get().sshUrlToRepo
+    let key = try gitlab.ssh.get()
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
       ssh: ssh,
       key: key,

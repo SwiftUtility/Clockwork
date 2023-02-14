@@ -32,15 +32,6 @@ public enum Json {
     public var review: Lossy<UInt> {
       .init(try pipeline.ref.dropPrefix("refs/merge-requests/").dropSuffix("/head").getUInt())
     }
-    public func matches(build: Flow.Build) -> Bool {
-      if tag {
-        return build.tag?.name == pipeline.ref
-      } else if let review = try? review.get() {
-        return review == build.review && build.commit.value == pipeline.sha
-      } else {
-        return build.commit.value == pipeline.sha && build.branch?.name == pipeline.ref
-      }
-    }
     public func getLogin(approvers: [String: Gitlab.Storage.User]) throws -> String {
       let login = user.username
       guard let approver = approvers[login] else { throw Thrown("Unknown user: \(login)") }

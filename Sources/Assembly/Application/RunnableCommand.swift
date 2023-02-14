@@ -44,9 +44,16 @@ extension Clockwork.Cocoapods.UpdateSpecs: RunnableCommand {
     try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
   }
 }
-extension Clockwork.Flow.ChangeVersion: RunnableCommand {
+extension Clockwork.Flow.ChangeAccessoryVersion: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.changeVersion(cfg: cfg, product: product, next: next, version: version)
+    try Assembler.producer.changeAccessoryVersion(
+      cfg: cfg, product: product, branch: branch, version: version
+    )
+  }
+}
+extension Clockwork.Flow.ChangeNextVersion: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.changeNextVersion(cfg: cfg, product: product, version: version)
   }
 }
 extension Clockwork.Flow.CreateAccessoryBranch: RunnableCommand {
@@ -59,49 +66,39 @@ extension Clockwork.Flow.CreateDeployTag: RunnableCommand {
     try Assembler.producer.createDeployTag(cfg: cfg)
   }
 }
-extension Clockwork.Flow.CreateHotfixBranch: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.createHotfixBranch(cfg: cfg)
-  }
-}
-extension Clockwork.Flow.CreateReleaseBranch: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.createReleaseBranch(cfg: cfg, product: product)
-  }
-}
 extension Clockwork.Flow.CreateStageTag: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.stageBuild(cfg: cfg, product: product, build: build)
+    try Assembler.producer.stageBuild(cfg: cfg, build: build, product: product)
   }
 }
-extension Clockwork.Flow.DeleteAccessoryBranch: RunnableCommand {
+extension Clockwork.Flow.DeleteBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.deleteBranch(cfg: cfg, release: false)
+    try Assembler.producer.deleteBranch(cfg: cfg, name: name)
   }
 }
-extension Clockwork.Flow.DeleteReleaseBranch: RunnableCommand {
+extension Clockwork.Flow.DeleteTag: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.deleteBranch(cfg: cfg, release: true)
-  }
-}
-extension Clockwork.Flow.DeleteStageTag: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.deleteStageTag(cfg: cfg)
+    try Assembler.producer.deleteTag(cfg: cfg, name: name)
   }
 }
 extension Clockwork.Flow.ExportVersions: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.renderVersions(cfg: cfg, build: build, args: args)
-  }
-}
-extension Clockwork.Flow.ForwardBranch: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.forwardBranch(cfg: cfg, name: name)
-  }
+  func run(cfg: Configuration) throws -> Bool { try Assembler.producer.renderVersions(
+    cfg: cfg, product: product, stdin: stdin.mode, args: args
+  )}
 }
 extension Clockwork.Flow.ReserveBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reserveBuild(cfg: cfg, review: review)
+    try Assembler.producer.reserveBuild(cfg: cfg, review: review, product: product)
+  }
+}
+extension Clockwork.Flow.StartHotfix: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.startHotfix(cfg: cfg, product: product, commit: commit, version: version)
+  }
+}
+extension Clockwork.Flow.StartRelease: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.startRelease(cfg: cfg, product: product, commit: commit)
   }
 }
 extension Clockwork.Gitlab.Artifacts.LoadFile: RunnableCommand {
@@ -167,17 +164,8 @@ extension Clockwork.Gitlab.Pipeline.Retry: RunnableCommand {
 extension Clockwork.Gitlab.Signal: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.signal(
-      cfg: cfg, event: event, stdin: stdin.mode, args: args
+      cfg: cfg, event: event, stdin: stdin.mode, args: args, deep: threads
     )
-  }
-}
-extension Clockwork.Gitlab.Signal.Stdin {
-  var mode: Configuration.ParseStdin {
-    switch self {
-    case .ignore: return .ignore
-    case .lines: return .lines
-    case .json: return .json
-    }
   }
 }
 extension Clockwork.Gitlab.TriggerPipeline: RunnableCommand {
@@ -289,7 +277,7 @@ extension Clockwork.Review.Enqueue: RunnableCommand {
 }
 extension Clockwork.Review.ExportTargets: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.renderTargets(cfg: cfg, args: args)
+    try Assembler.reviewer.renderTargets(cfg: cfg, stdin: stdin.mode, args: args)
   }
 }
 extension Clockwork.Review.List: RunnableCommand {
@@ -387,5 +375,15 @@ extension Clockwork.Validate.FileTaboos: RunnableCommand {
 extension Clockwork.Validate.UnownedCode: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.validator.validateUnownedCode(cfg: cfg, json: validate.json)
+  }
+}
+extension Common.Stdin {
+  var mode: Configuration.ParseStdin {
+    switch self {
+    case .ignore: return .ignore
+    case .lines: return .lines
+    case .json: return .json
+    case .yaml: return .yaml
+    }
   }
 }

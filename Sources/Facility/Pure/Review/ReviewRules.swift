@@ -17,19 +17,12 @@ extension Review {
       baseWeight: yaml.baseWeight,
       sanity: yaml.sanity,
       weights: yaml.weights.get([:]),
-      teams: yaml.teams
-        .get([:])
-        .map(Team.make(name:yaml:))
-        .reduce(into: [:], { $0[$1.name] = $1 }),
+      teams: yaml.teams.get([:]).map(Team.make(name:yaml:)).indexed(\.name),
       randoms: yaml.randoms.get([:]),
       ignore: yaml.ignore.get([:]),
       authorship: yaml.authorship.get([:]),
-      sourceBranch: yaml.sourceBranch
-        .get([:])
-        .mapValues(Criteria.init(yaml:)),
-      targetBranch: yaml.targetBranch
-        .get([:])
-        .mapValues(Criteria.init(yaml:))
+      sourceBranch: yaml.sourceBranch.get([:]).mapValues(Criteria.init(yaml:)),
+      targetBranch: yaml.targetBranch.get([:]).mapValues(Criteria.init(yaml:))
     )}
   }
 }

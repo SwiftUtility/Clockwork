@@ -33,9 +33,7 @@ public struct Review {
       autoApproveFork: yaml.propogation.autoApproveFork.get(false),
       allowOrphaned: yaml.propogation.allowOrphaned.get(false)
     ),
-    propositions: yaml.propositions
-      .map(Proposition.make(name:yaml:))
-      .reduce(into: [:], { $0[$1.name] = $1 })
+    propositions: yaml.propositions.map(Proposition.make(name:yaml:)).indexed(\.name)
   )}
   public struct Duplication {
     public var autoApproveFork: Bool

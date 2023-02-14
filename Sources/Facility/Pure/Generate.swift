@@ -35,6 +35,7 @@ public struct Generate: Query {
     public let event: [String]
     public let args: [String]?
     public var ctx: Context
+    public var stdin: AnyCodable? = nil
     public var env: [String: String] = [:]
     public var gitlab: Gitlab.Info? = nil
     public var jira: Jira.Info? = nil
@@ -45,23 +46,19 @@ public struct Generate: Query {
       cfg: Configuration,
       context: Context,
       subevent: [String],
+      stdin: AnyCodable?,
       args: [String]?
     ) -> Self { .init(
       event: [Context.name] + subevent,
       args: args,
-      ctx: context
+      ctx: context,
+      stdin: stdin
     )}
   }
   public struct ExportVersions: GenerateContext {
-    public var versions: [String: String]
     public var build: String?
-    public var kind: Kind?
-    public enum Kind: String, Encodable {
-      case stage
-      case deploy
-      case review
-      case branch
-    }
+    public var product: String?
+    public var versions: [String: String]
   }
   public struct ExportMergeTargets: GenerateContext {
     public var fork: String
@@ -78,41 +75,45 @@ public struct Generate: Query {
   public struct CreateTagName: GenerateContext {
     public var product: String
     public var version: String
-    public var build: String?
+    public var build: String
     public var deploy: Bool
   }
   public struct CreateTagAnnotation: GenerateContext {
     public var product: String
     public var version: String
-    public var build: String?
+    public var build: String
     public var deploy: Bool
   }
-  public struct BumpReleaseVersion: GenerateContext {
+  public struct BumpBuild: GenerateContext {
+    public var family: String
+    public var build: String
+  }
+  public struct BumpVersion: GenerateContext {
     public var product: String
     public var version: String
     public var hotfix: Bool
   }
-  public struct BumpBuildNumber: GenerateContext {
-    public var build: String
-  }
-  public struct CreateFlowBuildsCommitMessage: GenerateContext {
-    public var build: String
-    public var review: String?
-    public var branch: String?
-    public var tag: String?
-  }
-  public struct CreateFlowVersionsCommitMessage: GenerateContext {
+  public struct CreateFlowStorageCommitMessage: GenerateContext {
     public var product: String?
     public var version: String?
-    public var ref: String?
+    public var build: String?
+    public var review: UInt?
+    public var branch: String?
+    public var tag: String?
     public var reason: Reason
     public enum Reason: String, Encodable {
-      case deploy
-      case hotfix
-      case release
-      case changeNext
-      case changeAccessory
-      case deleteAccessory
+      case changeNextVersion
+      case changeAccessoryVersion
+      case createStageTag
+      case deleteStageTag
+      case createDeployTag
+      case deleteDeployTag
+      case createReleaseBranch
+      case deleteReleaseBranch
+      case createAccessoryBranch
+      case deleteAccessoryBranch
+      case reserveReviewBuild
+      case reserveBranchBuild
     }
   }
   public struct CreateGitlabStorageCommitMessage: GenerateContext {
@@ -147,96 +148,96 @@ public extension Configuration {
   }
   func exportVersions(
     flow: Flow,
+    stdin: AnyCodable?,
     args: [String],
     versions: [String: String],
     build: String?,
-    kind: Generate.ExportVersions.Kind?
+    product: String?
   ) -> Generate { generate(
     template: flow.exportVersions,
-    ctx: Generate.ExportVersions(versions: versions, build: build, kind: kind),
+    ctx: Generate.ExportVersions(
+      build: build,
+      product: product,
+      versions: versions
+    ),
+    stdin: stdin,
     args: args
   )}
-  func createFlowBuildsCommitMessage(
-    builds: Flow.Builds,
-    build: Flow.Build
-  ) -> Generate { generate(
-    template: builds.storage.createCommitMessage,
-    ctx: Generate.CreateFlowBuildsCommitMessage(
-      build: build.number.value,
-      review: build.review.map({ "\($0)" }),
-      branch: build.branch?.name,
-      tag: build.tag?.name
-    )
-  )}
-  func createFlowVersionsCommitMessage(
+  func createFlowStorageCommitMessage(
     flow: Flow,
+    reason: Generate.CreateFlowStorageCommitMessage.Reason,
     product: String? = nil,
     version: String? = nil,
-    ref: String? = nil,
-    reason: Generate.CreateFlowVersionsCommitMessage.Reason
+    build: String? = nil,
+    review: UInt? = nil,
+    branch: String? = nil,
+    tag: String? = nil
   ) -> Generate { generate(
-    template: flow.versions.storage.createCommitMessage,
-    ctx: Generate.CreateFlowVersionsCommitMessage(
+    template: flow.storage.createCommitMessage,
+    ctx: Generate.CreateFlowStorageCommitMessage(
       product: product,
       version: version,
-      ref: ref,
+      build: build,
+      review: review,
+      branch: branch,
+      tag: tag,
       reason: reason
     )
   )}
-  func bumpBuildNumber(
-    builds: Flow.Builds,
-    build: String
+  func bumpBuild(
+    flow: Flow,
+    family: Flow.Family
   ) -> Generate { generate(
-    template: builds.bump,
-    ctx: Generate.BumpBuildNumber(build: build)
+    template: flow.bumpBuild,
+    ctx: Generate.BumpBuild(family: family.name, build: family.nextBuild.value)
   )}
   func createTagName(
     flow: Flow,
     product: String,
-    version: String,
-    build: String?,
+    version: AlphaNumeric,
+    build: AlphaNumeric,
     deploy: Bool
   ) -> Generate { generate(
     template: flow.createTagName,
     ctx: Generate.CreateTagName(
       product: product,
-      version: version,
-      build: build,
+      version: version.value,
+      build: build.value,
       deploy: deploy
     )
   )}
   func createTagAnnotation(
     flow: Flow,
     product: String,
-    version: String,
-    build: String?,
+    version: AlphaNumeric,
+    build: AlphaNumeric,
     deploy: Bool
   ) -> Generate { generate(
     template: flow.createTagAnnotation,
     ctx: Generate.CreateTagAnnotation(
       product: product,
-      version: version,
-      build: build,
+      version: version.value,
+      build: build.value,
       deploy: deploy
     )
   )}
   func createReleaseBranchName(
     flow: Flow,
     product: String,
-    version: String,
+    version: AlphaNumeric,
     hotfix: Bool
   ) -> Generate { generate(
     template: flow.createReleaseBranchName,
-    ctx: Generate.CreateReleaseBranchName(product: product, version: version, hotfix: hotfix)
+    ctx: Generate.CreateReleaseBranchName(product: product, version: version.value, hotfix: hotfix)
   )}
-  func bumpReleaseVersion(
+  func bumpVersion(
     flow: Flow,
     product: String,
-    version: String,
+    version: AlphaNumeric,
     hotfix: Bool
   ) -> Generate { generate(
-    template: flow.versions.bump,
-    ctx: Generate.BumpReleaseVersion(product: product, version: version, hotfix: hotfix)
+    template: flow.bumpVersion,
+    ctx: Generate.BumpVersion(product: product, version: version.value, hotfix: hotfix)
   )}
   func createGitlabStorageCommitMessage(
     user: String,
@@ -274,6 +275,7 @@ public extension Configuration {
     integrate: [String],
     duplicate: [String],
     propogate: [String],
+    stdin: AnyCodable?,
     args: [String]
   ) -> Generate { generate(
     template: review.exportTargets,
@@ -284,6 +286,7 @@ public extension Configuration {
       duplicate: duplicate.isEmpty.not.then(duplicate),
       propogate: propogate.isEmpty.not.then(propogate)
     ),
+    stdin: stdin,
     args: args.isEmpty.else(args)
   )}
 }
@@ -293,13 +296,21 @@ private extension Configuration {
     ctx: Context,
     merge: Json.GitlabMergeState? = nil,
     subevent: [String] = [],
+    stdin: AnyCodable? = nil,
     args: [String]? = nil
   ) -> Generate {
-    var info = Generate.Info.make(cfg: self, context: ctx, subevent: subevent, args: args)
+    var info = Generate.Info.make(
+      cfg: self,
+      context: ctx,
+      subevent: subevent,
+      stdin: stdin,
+      args: args
+    )
     info.env = env
     info.gitlab = try? gitlab.get().info
     info.gitlab?.merge = merge.flatMapNil(try? gitlab.get().merge.get())
     info.jira = try? jira.get().info
+    info.stdin = stdin
     return .init(template: template, templates: templates, info: info)
   }
 }
