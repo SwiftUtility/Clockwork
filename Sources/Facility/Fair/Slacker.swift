@@ -48,10 +48,11 @@ public final class Slacker {
       _ = send(cfg: cfg, slack: slack, signal: signal, info: info)
     }
     for user in report.threads.users {
+      guard let person = storage.users[user] else { continue }
       for signal in slack.directs.filter(report.info.match(signal:)) {
         var info = report.info
         info.mark = signal.mark
-        info.slack?.person = user
+        info.slack?.person = person
         _ = send(cfg: cfg, slack: slack, signal: signal, info: info)
       }
     }

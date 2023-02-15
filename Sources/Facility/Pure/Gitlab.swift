@@ -113,7 +113,6 @@ public struct Gitlab {
     public var bot: Json.GitlabUser?
     public var proj: Json.GitlabProject?
     public var parent: Json.GitlabJob?
-    public var merge: Json.GitlabMergeState?
   }
   public struct Parent {
     public let job: UInt

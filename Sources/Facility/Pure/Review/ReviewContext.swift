@@ -16,13 +16,13 @@ extension Review {
     public mutating func makeState(merge: Json.GitlabMergeState) throws -> State? {
       guard merge.isClosed.not else {
         if let state = storage.delete(review: merge.iid) {
-          cfg.reportReviewEvent(state: state, update: nil, reason: .closed, merge: merge)
+          cfg.reportReviewEvent(state: state, merge: merge, reason: .closed)
         }
         return nil
       }
       guard merge.isMerged.not else { 
         if let state = storage.delete(review: merge.iid) {
-          cfg.reportReviewEvent(state: state, update: nil, reason: .merged, merge: merge)
+          cfg.reportReviewEvent(state: state, merge: merge, reason: .merged)
         }
         return nil
       }
@@ -31,12 +31,9 @@ extension Review {
       storage.states[merge.iid] = state
       return state
     }
-    public func remind(review: UInt, user: String) -> Report.ReviewApprove {
-      .init(diff: storage.states[review]?.approves[user]?.commit.value, reason: .remind)
-    }
     public mutating func merge(merge: Json.GitlabMergeState) {
       if let state = storage.delete(review: merge.iid) {
-        cfg.reportReviewEvent(state: state, update: nil, reason: .merged, merge: merge)
+        cfg.reportReviewEvent(state: state, merge: merge, reason: .merged)
       }
     }
     public mutating func dequeue(merge: Json.GitlabMergeState) {

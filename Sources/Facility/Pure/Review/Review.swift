@@ -72,6 +72,7 @@ public struct Review {
     public var login: String
     public var commit: Git.Sha
     public var resolution: Resolution
+    public var diff: String? { resolution.approved.not.then(commit.value) }
     public mutating func shift(sha: Git.Sha, to other: Git.Sha) {
       if commit == sha { commit = other }
     }

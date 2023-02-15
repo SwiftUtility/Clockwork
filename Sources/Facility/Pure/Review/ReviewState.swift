@@ -7,6 +7,7 @@ extension Review {
     public var target: Git.Branch
     public var original: Git.Branch?
     public var authors: Set<String>
+    public var merge: Json.GitlabMergeState? = nil
     public var phase: Phase? = nil
     public var skip: Set<Git.Sha> = []
     public var teams: Set<String> = []
@@ -417,6 +418,62 @@ extension Review {
       enqueued: Set<UInt>,
       dequeued: Set<UInt>
     ) {
+      var queue: [Report.ReviewQueue.Reason] = []
+      if foremost.contains(review) { queue.append(.foremost) }
+      if enqueued.contains(review) { queue.append(.enqueued) }
+      if dequeued.contains(review) { queue.append(.dequeued) }
+      queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
+      for user in approvers {
+        guard let approve = approves[user] else {
+          ctx.cfg.reportReviewApprove(user: user, state: self, diff: nil, reason: .create)
+          continue
+        }
+        guard
+          approve.resolution.approved.not,
+          let old = old?.approves[user],
+          old.resolution.approved
+        else { continue }
+        ctx.cfg.reportReviewApprove(
+          user: user, state: self, diff: approve.commit.value, reason: .change
+        )
+      }
+      guard let merge = merge else { return }
+      var update = Report.ReviewUpdated(
+        merge: merge,
+        authors: authors.intersection(ctx.approvers).sortedNonEmpty,
+        teams: teams.sortedNonEmpty,
+        watchers: ctx.watchers(state: self).sortedNonEmpty
+      )
+      update.change(state: self)
+      var participants: [String: Approver] = [:]
+      for approve in approvers {
+        if let approve = approves[approve] {
+          participants[approve.login] = .present(reviewer: approve)
+        } else {
+          participants[approve] = .init(login: approve, miss: true)
+        }
+      }
+      if problems.get([]).isEmpty.not {
+        var problems = Problems()
+        for problem in self.problems.get([]) {
+          problems.register(problem: problem)
+          switch problem {
+          case .discussions(let value): for (user, count) in value {
+            participants[user, default: .init(login: user, miss: false)].comments = count
+          }
+          case .holders(let value): for user in value {
+            participants[user, default: .init(login: user, miss: false)].hold = true
+          }
+          case .conflicts: ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: .conflicts)
+          default: break
+          }
+        }
+        update.problems = problems
+      }
+      if participants.isEmpty.not {
+        update.approvers = participants.keys.sorted().compactMap({ participants[$0] })
+      }
+      ctx.cfg.reportReviewUpdated(state: self, report: update)
       var shift: [Report.ReviewEvent.Reason] = []
       if old == nil { shift.append(.created) }
       if emergent != nil, old?.emergent == nil { shift.append(.emergent) }
@@ -425,67 +482,7 @@ extension Review {
       if phase == .stuck, old?.phase != .stuck { shift.append(.stuck) }
       if phase == .amend, old?.phase != .block { shift.append(.amend) }
       if phase == .ready, old?.phase != .ready { shift.append(.ready) }
-      if foremost.contains(review) { shift.append(.foremost) }
-      if enqueued.contains(review) { shift.append(.enqueued) }
-      if dequeued.contains(review) { shift.append(.dequeued) }
-      guard let change = change else {
-        return shift.forEach({ ctx.cfg.reportReviewEvent(
-          state: self, update: nil, reason: $0, merge: nil
-        )})
-      }
-      var update = Report.ReviewUpdated(
-        authors: authors.intersection(ctx.approvers).sortedNonEmpty,
-        teams: teams.sortedNonEmpty,
-        watchers: ctx.watchers(state: self).sortedNonEmpty
-      )
-      update.change(state: self)
-      var approvers: [String: Approver] = [:]
-      for approve in self.approvers {
-        if let approve = approves[approve] {
-          approvers[approve.login] = .present(reviewer: approve)
-        } else {
-          approvers[approve] = .init(login: approve, miss: true)
-        }
-      }
-      if self.problems.get([]).isEmpty.not { update.problems = .init() }
-      for problem in self.problems.get([]) {
-        update.problems?.register(problem: problem)
-        switch problem {
-        case .discussions(let value): for (user, count) in value {
-          approvers[user, default: .init(login: user, miss: false)].comments = count
-        }
-        case .holders(let value): for user in value {
-          approvers[user, default: .init(login: user, miss: false)].hold = true
-        }
-        default: break
-        }
-      }
-      if approvers.isEmpty.not {
-        update.approvers = approvers.keys.sorted().compactMap({ approvers[$0] })
-      }
-      shift.forEach({ ctx.cfg.reportReviewEvent(
-        state: self,
-        update: update,
-        reason: $0,
-        merge: change.merge
-      )})
-      ctx.cfg.reportReviewUpdated(state: self, merge: change.merge, report: update)
-      for approve in approves.values.filter(\.resolution.approved.not) {
-        if let old = ctx.originalStorage.states[review]?.approves[approve.login] {
-          guard old.resolution.approved.not else { continue }
-          ctx.cfg.reportReviewApprove(
-            user: old.login,
-            merge: change.merge,
-            approve: .init(diff: old.commit.value, reason: .change)
-          )
-        } else {
-          ctx.cfg.reportReviewApprove(
-            user: approve.login,
-            merge: change.merge,
-            approve: .init(reason: .create)
-          )
-        }
-      }
+      shift.forEach({ ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: $0)})
     }
     func selectUsers(
       ctx: Context,
@@ -523,7 +520,8 @@ extension Review {
       review: merge.iid,
       source: .make(name: merge.sourceBranch),
       target: .make(name: merge.targetBranch),
-      authors: Set([merge.author.username]).subtracting(bots)
+      authors: Set([merge.author.username]).subtracting(bots),
+      merge: merge
     )}
     public static func make(
       review: String,

@@ -199,13 +199,11 @@ public final class Producer {
         .protected
       else { throw Thrown("Tag not protected \(deploy.tag.name)") }
       try cfg.reportDeployTagCreated(
+        commit: sha,
         release: release,
         deploy: deploy,
         notes: makeNotes(cfg: cfg, storage: storage, release: release, deploy: sha)
       )
-      try cfg.reportReleaseBranchSummary(release: release, deploy: deploy, notes: makeNotes(
-        cfg: cfg, storage: storage, release: release
-      ))
       return cfg.createFlowStorageCommitMessage(
         flow: storage.flow,
         reason: .createDeployTag,
@@ -258,7 +256,7 @@ public final class Producer {
         release: release,
         kind: .release
       )
-      try cfg.reportReleaseBranchSummary(release: release, deploy: nil, notes: makeNotes(
+      try cfg.reportReleaseBranchSummary(release: release, notes: makeNotes(
         cfg: cfg, storage: storage, release: release
       ))
       return cfg.createFlowStorageCommitMessage(
@@ -333,7 +331,7 @@ public final class Producer {
         release: release,
         kind: .hotfix
       )
-      try cfg.reportReleaseBranchSummary(release: release, deploy: nil, notes: makeNotes(
+      try cfg.reportReleaseBranchSummary(release: release, notes: makeNotes(
         cfg: cfg, storage: storage, release: release
       ))
       return cfg.createFlowStorageCommitMessage(
@@ -357,15 +355,16 @@ public final class Producer {
         "Branch \(accessory.branch.name) already present"
       )}
       storage.accessories[accessory.branch] = accessory
+      let sha = try Git.Sha.make(job: gitlab.job)
       guard try gitlab
-        .postBranches(name: name, ref: gitlab.job.pipeline.sha)
+        .postBranches(name: name, ref: sha.value)
         .map(execute)
         .map(Execute.parseData(reply:))
         .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
         .get()
         .protected
       else { throw Thrown("\(name) not protected") }
-      cfg.reportAccessoryBranchCreated(accessory: accessory)
+      cfg.reportAccessoryBranchCreated(commit: sha, accessory: accessory)
       return cfg.createFlowStorageCommitMessage(
         flow: storage.flow, reason: .createAccessoryBranch, branch: accessory.branch.name
       )
@@ -459,7 +458,7 @@ public final class Producer {
         .get()
         .protected
       else { throw Thrown("Stage not protected \(stage.tag.name)") }
-      cfg.reportStageTagCreated(stage: stage)
+      cfg.reportStageTagCreated(commit: build.commit, stage: stage)
       return cfg.createFlowStorageCommitMessage(
         flow: storage.flow,
         reason: .createStageTag,

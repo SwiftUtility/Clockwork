@@ -104,8 +104,11 @@ public final class Reviewer {
     skip: Bool,
     message: String
   ) throws -> Bool {
-    guard let patch = try readStdin() else { return false }
     guard let merge = try checkActual(cfg: cfg) else { return false }
+    guard let patch = try readStdin(), patch.isEmpty.not else {
+      cfg.report(notify: .patchFailed, merge: merge)
+      return false
+    }
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     guard let sha = try apply(
@@ -130,10 +133,6 @@ public final class Reviewer {
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let sha = try Git.Sha.make(merge: merge)
-    guard state.emergent != sha else {
-      cfg.report(notify: .skipFailed, merge: merge)
-      return false
-    }
     state.emergent = sha
     state.authors.insert(gitlab.job.user.username)
     try storeChange(ctx: ctx, state: state, merge: merge)
@@ -267,10 +266,12 @@ public final class Reviewer {
       cfg.report(notify: .nothingToApprove)
       return false
     }
-    for user in state.approvers.filter(state.isUnapproved(user:)) {
-      let approve = ctx.remind(review: state.review, user: user)
-      cfg.reportReviewApprove(user: user, merge: merge, approve: approve)
-    }
+    for user in state.approvers.filter(state.isUnapproved(user:)) { cfg.reportReviewApprove(
+      user: user,
+      state: state,
+      diff: state.approves[user]?.commit.value,
+      reason: .remind
+    )}
     return true
   }
   public func listReviews(cfg: Configuration, user: String) throws -> Bool {
@@ -285,7 +286,8 @@ public final class Reviewer {
       let reviews = reviews
         .filter({ $0.value.contains(user) })
         .keys
-        .reduce(into: [:], { $0[$1] = ctx.remind(review: $1, user: user) })
+        .compactMap({ ctx.storage.states[$0] })
+        .reduce(into: [:], { $0[$1.review] = Report.ReviewApprove.make(state: $1, user: user) })
       if reviews.isEmpty {
         cfg.report(notify: .nothingToApprove, user: user)
       } else {
@@ -566,7 +568,7 @@ extension Reviewer {
     case .notCherry(let fork, let head, let target):
       guard
         let pick = try pickPoint(cfg: cfg, head: head, target: target),
-        try isEqualTree(cfg: cfg, tree: pick, to: fork)
+        try isCherryPick(cfg: cfg, one: pick, two: fork)
       else {
         result.append(.notCherry)
         break
@@ -620,6 +622,22 @@ extension Reviewer {
       .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: two))))
       .dropSuffix(two.value)
     return one == two
+  }
+  func isCherryPick(cfg: Configuration, one: Git.Sha, two: Git.Sha) throws -> Bool {
+    guard try isEqualTree(cfg: cfg, tree: one, to: two) else { return false }
+    let checks = [
+      cfg.git.getCommitMessage(ref:),
+      cfg.git.getAuthorName(ref:),
+      cfg.git.getAuthorEmail(ref:),
+      cfg.git.getCommiterName(ref:),
+      cfg.git.getCommiterEmail(ref:),
+    ]
+    let shas = [one, two].map(Git.Ref.make(sha:))
+    for check in checks {
+      let results = try shas.map(check).map(execute).map(Execute.parseText(reply:))
+      guard results.first == results.last else { return false }
+    }
+    return true
   }
   func makeContext(cfg: Configuration) throws -> Review.Context {
     let review = try cfg.parseReview.map(parseReview).get()

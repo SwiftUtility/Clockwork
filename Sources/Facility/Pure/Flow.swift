@@ -353,21 +353,11 @@ public struct Flow {
   public struct ReleaseNotes: Encodable {
     public var uniq: [Note]?
     public var lack: [Note]?
-    public var uniqs: [[Note]]?
-    public var lacks: [[Note]]?
     public var isEmpty: Bool { return uniq == nil && lack == nil }
-    public static func make(uniq: [Note], lack: [Note]) -> Self {
-      let uniqs = stride(from: 0, to: uniq.count, by: 10)
-        .map({ Array(uniq.suffix(from: $0).prefix(10)) })
-      let lacks = stride(from: 0, to: lack.count, by: 10)
-        .map({ Array(lack.suffix(from: $0).prefix(10)) })
-      return .init(
-        uniq: uniq.isEmpty.else(uniq),
-        lack: lack.isEmpty.else(lack),
-        uniqs: uniqs.isEmpty.else(uniqs),
-        lacks: lacks.isEmpty.else(lacks)
-      )
-    }
+    public static func make(uniq: [Note], lack: [Note]) -> Self { .init(
+      uniq: uniq.isEmpty.else(uniq),
+      lack: lack.isEmpty.else(lack)
+    )}
     public struct Note: Encodable {
       public var sha: String
       public var msg: String

@@ -136,7 +136,7 @@ public struct Generate: Query {
     public var dequeue: [UInt]? = nil
   }
   public struct CreateMergeCommitMessage: GenerateContext {
-    public var review: UInt?
+    public var merge: Json.GitlabMergeState?
     public var kind: String?
     public var fork: String?
     public var original: String?
@@ -261,12 +261,11 @@ public extension Configuration {
   ) -> Generate { generate(
     template: review.createMessage,
     ctx: Generate.CreateMergeCommitMessage(
-      review: merge?.iid,
+      merge: merge,
       kind: fusion?.kind,
       fork: fusion?.fork?.value,
       original: fusion?.original?.name
-    ),
-    merge: merge
+    )
   )}
   func exportTargets(
     review: Review,
@@ -294,7 +293,6 @@ private extension Configuration {
   func generate<Context: GenerateContext>(
     template: Configuration.Template,
     ctx: Context,
-    merge: Json.GitlabMergeState? = nil,
     subevent: [String] = [],
     stdin: AnyCodable? = nil,
     args: [String]? = nil
@@ -308,7 +306,6 @@ private extension Configuration {
     )
     info.env = env
     info.gitlab = try? gitlab.get().info
-    info.gitlab?.merge = merge.flatMapNil(try? gitlab.get().merge.get())
     info.jira = try? jira.get().info
     info.stdin = stdin
     return .init(template: template, templates: templates, info: info)

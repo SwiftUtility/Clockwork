@@ -34,7 +34,6 @@ public final class Reporter {
       reports[index].threads.branches.remove(project.defaultBranch)
       reports[index].info.env = cfg.env
       reports[index].info.gitlab = info
-      if let merge = reports[index].merge { reports[index].info.gitlab?.merge = merge }
       reports[index].info.jira = jira
     }
     sendSlack(.make(cfg: cfg, reports: reports))
