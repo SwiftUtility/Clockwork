@@ -77,6 +77,6 @@ public extension Configuration {
   ) -> ParseYamlFile<Slack.Storage> { .init(
     git: git,
     file: .make(asset: slack.storage),
-    parse: { try .make(yaml: $0.read(Yaml.Slack.Storage.self, from: $1)) }
+    parse: { try .make(slack: slack, yaml: $0.read(Yaml.Slack.Storage.self, from: $1)) }
   )}
 }

@@ -2,14 +2,14 @@ import Foundation
 import Facility
 extension Review {
   public struct Storage {
-    public var asset: Configuration.Asset
+    public var review: Review
     public internal(set) var queues: [String: [UInt]]
     public internal(set) var states: [UInt: State]
     public static func make(
       review: Review,
       yaml: Yaml.Review.Storage
     ) throws -> Self { try .init(
-      asset: review.storage,
+      review: review,
       queues: yaml.queues,
       states: yaml.states.map(State.make(review:yaml:)).indexed(\.review)
     )}

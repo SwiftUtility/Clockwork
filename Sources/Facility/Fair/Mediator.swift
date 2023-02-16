@@ -327,15 +327,16 @@ public final class Mediator {
       }
       storage.users[login] = user
     }
-    return try persistAsset(.init(
+    _ = try persistAsset(.init(
       cfg: cfg,
       asset: storage.asset,
       content: storage.serialize(),
       message: generate(cfg.createGitlabStorageCommitMessage(
         user: login,
         gitlab: gitlab,
-        command: command
+        reason: command.reason
       ))
     ))
+    return true
   }
 }

@@ -44,30 +44,32 @@ public struct Report {
       branches: branches
     )}
   }
-  public enum Notify: String, ReportContext {
-    case pipelineOutdated
-    case reviewQueued
-    case ownFailed
-    case unownFailed
-    case approveFailed
-    case rebaseBlocked
-    case patchFailed
-    case propogationFailed
-    case integrationFailed
-    case duplicationFailed
-    case replicationFailed
-    case nothingToApprove
-    public static func make(prefix: Review.Fusion.Prefix) -> Self {
-      switch prefix {
-      case .replicate: return .replicationFailed
-      case .integrate: return .integrationFailed
-      case .duplicate: return .duplicationFailed
-      case .propogate: return .propogationFailed
-      }
+  public struct FusionFail: ReportContext {
+    public var source: String
+    public var target: String
+    public var fork: String
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case propogate
+      case duplicate
+    }
+  }
+  public struct ReviewFail: ReportContext {
+    public var merge: Json.GitlabMergeState
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case pipelineOutdated
+      case reviewQueued
+      case rebaseBlocked
+      case patchFailed
     }
   }
   public struct ReviewList: ReportContext {
-    public var reviews: [UInt: ReviewApprove]
+    public var reviews: [ReviewApprove]
+    public enum Reason: String, Encodable {
+      case full
+      case empty
+    }
   }
   public struct ReviewApprove: ReportContext {
     public var iid: UInt
@@ -231,31 +233,39 @@ public extension Configuration {
     if let parent = try? gitlab.parent.get() { result.insert(parent.user.username) }
     return result
   }
-  func report(
-    notify: Report.Notify,
-    user: String? = nil,
-    merge: Json.GitlabMergeState? = nil
+  func reportFusionFail(
+    source: String,
+    target: String,
+    fork: String,
+    reason: Report.FusionFail.Reason
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(
-      users: user.map({ Set([$0]) }).get(defaultUsers),
-      reviews: Set(merge.array.map(\.iid))
-    ),
-    ctx: notify,
-    subevent: [notify.rawValue]
+    threads: .make(users: defaultUsers),
+    ctx: Report.FusionFail(source: source, target: target, fork: fork, reason: reason),
+    subevent: [reason.rawValue]
+  ))}
+  func reportReviewFail(
+    merge: Json.GitlabMergeState,
+    state: Review.State?,
+    reason: Report.ReviewFail.Reason
+  ) { Report.Bag.shared.reports.append(.make(
+    cfg: self,
+    threads: .make(users: defaultUsers.union(state.map(\.authors).get([])), reviews: [merge.iid]),
+    ctx: Report.ReviewFail(merge: merge, reason: reason),
+    subevent: [reason.rawValue]
   ))}
   func reportReviewList(
     user: String,
-    reviews: [UInt: Report.ReviewApprove]
+    reviews: [Report.ReviewApprove]
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(users: [user]),
-    ctx: Report.ReviewList(reviews: reviews)
+    ctx: Report.ReviewList(reviews: reviews),
+    subevent: [reviews.isEmpty.then(Report.ReviewList.Reason.empty).get(.full).rawValue]
   ))}
   func reportReviewApprove(
     user: String,
     state: Review.State,
-    diff: String?,
     reason: Report.ReviewApprove.Reason
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
@@ -264,7 +274,7 @@ public extension Configuration {
       iid: state.review,
       authors: state.authors.sortedNonEmpty,
       teams: state.teams.sortedNonEmpty,
-      diff: diff,
+      diff: state.approves[user]?.commit.value,
       reason: reason
     )
   ))}

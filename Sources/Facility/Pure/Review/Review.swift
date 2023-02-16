@@ -4,7 +4,9 @@ public struct Review {
   public var storage: Configuration.Asset
   public var rules: Configuration.Secret
   public var exportTargets: Configuration.Template
-  public var createMessage: Configuration.Template
+  public var createMergeTitle: Configuration.Template
+  public var createMergeCommit: Configuration.Template
+  public var createSquashCommit: Configuration.Template
   public var duplication: Duplication
   public var replication: Replication
   public var integration: Integration
@@ -15,8 +17,10 @@ public struct Review {
   ) throws -> Self { try .init(
     storage: .make(yaml: yaml.storage),
     rules: .make(yaml: yaml.rules),
-    exportTargets: .make(yaml: yaml.exportTargets),
-    createMessage: .make(yaml: yaml.createMessage),
+    exportTargets: .make(yaml: yaml.exportFusion),
+    createMergeTitle: .make(yaml: yaml.createMergeTitle),
+    createMergeCommit: .make(yaml: yaml.createMergeCommit),
+    createSquashCommit: .make(yaml: yaml.createSquashCommit),
     duplication: .init(
       autoApproveFork: yaml.duplication.autoApproveFork.get(false),
       allowOrphaned: yaml.duplication.allowOrphaned.get(false)

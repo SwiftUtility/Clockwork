@@ -105,23 +105,23 @@ public final class Reviewer {
     message: String
   ) throws -> Bool {
     guard let merge = try checkActual(cfg: cfg) else { return false }
-    guard let patch = try readStdin(), patch.isEmpty.not else {
-      cfg.report(notify: .patchFailed, merge: merge)
-      return false
-    }
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
-    guard let sha = try apply(
-      cfg: cfg,
-      patch: patch,
-      message: message,
-      to: .make(sha: .make(merge: merge))
-    ) else {
-      cfg.report(notify: .patchFailed, merge: merge)
+    guard
+      let patch = try readStdin(),
+      patch.isEmpty.not,
+      let sha = try apply(
+        cfg: cfg,
+        patch: patch,
+        message: message,
+        to: .make(sha: .make(merge: merge))
+      )
+    else {
+      ctx.cfg.reportReviewFail(merge: merge, state: state, reason: .patchFailed)
       return false
     }
     state.skip.insert(sha)
-    try storeChange(ctx: ctx, state: state, merge: merge)
+    try storeChange(ctx: &ctx, state: &state, merge: merge)
     return true
   }
   public func skipReview(
@@ -135,7 +135,7 @@ public final class Reviewer {
     let sha = try Git.Sha.make(merge: merge)
     state.emergent = sha
     state.authors.insert(gitlab.job.user.username)
-    try storeChange(ctx: ctx, state: state, merge: merge)
+    try storeChange(ctx: &ctx, state: &state, merge: merge)
     return true
   }
   public func approveReview(cfg: Configuration, advance: Bool) throws -> Bool {
@@ -143,11 +143,8 @@ public final class Reviewer {
     let merge = try gitlab.merge.get()
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
-    guard try state.approve(job: gitlab.parent.get(), advance: advance) else {
-      cfg.report(notify: .approveFailed, merge: merge)
-      return false
-    }
-    try storeChange(ctx: ctx, state: state, merge: merge)
+    try state.approve(job: gitlab.parent.get(), advance: advance)
+    try storeChange(ctx: &ctx, state: &state, merge: merge)
     return true
   }
   public func dequeueReview(cfg: Configuration, iid: UInt) throws -> Bool {
@@ -163,11 +160,8 @@ public final class Reviewer {
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let user = user.isEmpty.not.then(user).get(gitlab.job.user.username)
-    guard state.authors.insert(user).inserted else {
-      cfg.report(notify: .unownFailed, merge: merge)
-      return false
-    }
-    try storeChange(ctx: ctx, state: state, merge: merge)
+    state.authors.insert(user)
+    try storeChange(ctx: &ctx, state: &state, merge: merge)
     return true
   }
   public func unownReview(cfg: Configuration, user: String, iid: UInt) throws -> Bool {
@@ -176,11 +170,36 @@ public final class Reviewer {
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let user = user.isEmpty.not.then(user).get(gitlab.job.user.username)
-    guard state.authors.remove(user) != nil else {
-      cfg.report(notify: .ownFailed, merge: merge)
-      return false
+    state.authors.remove(user)
+    try storeChange(ctx: &ctx, state: &state, merge: merge)
+    return true
+  }
+  public func remindReview(cfg: Configuration, iid: UInt) throws -> Bool {
+    let iid = try (iid > 0).then(iid).get(cfg.gitlab.flatMap(\.parent).flatMap(\.review).get())
+    let ctx = try makeContext(cfg: cfg)
+    guard let state = ctx.storage.states[iid] else { return false }
+    for user in state.approvers.filter(state.isUnapproved(user:)) {
+      cfg.reportReviewApprove(user: user, state: state, reason: .remind)
     }
-    try storeChange(ctx: ctx, state: state, merge: merge)
+    return true
+  }
+  public func listReviews(cfg: Configuration, user: String) throws -> Bool {
+    let ctx = try makeContext(cfg: cfg)
+    let users = user.isEmpty.then(ctx.approvers).get([user])
+    var reviews: [UInt: Set<String>] = [:]
+    for state in ctx.storage.states.values {
+      guard state.verified != nil else { continue }
+      reviews[state.review] = state.approvers.intersection(users).filter(state.isUnapproved(user:))
+    }
+    for user in users {
+      let reviews = reviews
+        .filter({ $0.value.contains(user) })
+        .keys
+        .sorted()
+        .compactMap({ ctx.storage.states[$0] })
+        .map({ Report.ReviewApprove.make(state: $0, user: user) })
+      cfg.reportReviewList(user: user, reviews: reviews)
+    }
     return true
   }
   public func startFusion(
@@ -198,7 +217,7 @@ public final class Reviewer {
     let pick: Git.Sha?
     if prefix == .duplicate {
       guard let commit = try cherry(cfg: cfg, sha: head, to: .make(remote: fusion.target)) else {
-        cfg.report(notify: .make(prefix: prefix))
+        cfg.reportFusionFail(source: source, target: target, fork: fork, reason: .duplicate)
         return false
       }
       pick = commit
@@ -211,7 +230,7 @@ public final class Reviewer {
         child: .make(sha: head),
         parent: .make(remote: fusion.target)
       ))) else {
-        cfg.report(notify: .make(prefix: prefix))
+        cfg.reportFusionFail(source: source, target: target, fork: fork, reason: .propogate)
         return false
       }
     } else {
@@ -258,51 +277,13 @@ public final class Reviewer {
     )))
     return true
   }
-  public func remindReview(cfg: Configuration, iid: UInt) throws -> Bool {
-    guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid)) else { return false }
-    var ctx = try makeContext(cfg: cfg)
-    guard let state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
-    guard state.verified != nil else {
-      cfg.report(notify: .nothingToApprove)
-      return false
-    }
-    for user in state.approvers.filter(state.isUnapproved(user:)) { cfg.reportReviewApprove(
-      user: user,
-      state: state,
-      diff: state.approves[user]?.commit.value,
-      reason: .remind
-    )}
-    return true
-  }
-  public func listReviews(cfg: Configuration, user: String) throws -> Bool {
-    let ctx = try makeContext(cfg: cfg)
-    let users = user.isEmpty.then(ctx.approvers).get([user])
-    var reviews: [UInt: Set<String>] = [:]
-    for state in ctx.storage.states.values {
-      guard state.verified != nil else { continue }
-      reviews[state.review] = state.approvers.intersection(users).filter(state.isUnapproved(user:))
-    }
-    for user in users {
-      let reviews = reviews
-        .filter({ $0.value.contains(user) })
-        .keys
-        .compactMap({ ctx.storage.states[$0] })
-        .reduce(into: [:], { $0[$1.review] = Report.ReviewApprove.make(state: $1, user: user) })
-      if reviews.isEmpty {
-        cfg.report(notify: .nothingToApprove, user: user)
-      } else {
-        cfg.reportReviewList(user: user, reviews: reviews)
-      }
-    }
-    return true
-  }
   public func rebaseReview(cfg: Configuration, iid: UInt) throws -> Bool {
     guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid)) else { return false }
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     _ = try checkReady(ctx: &ctx, state: &state, merge: merge)
     guard let change = state.change, state.canRebase else {
-      cfg.report(notify: .rebaseBlocked, merge: merge)
+      ctx.cfg.reportReviewFail(merge: merge, state: state, reason: .rebaseBlocked)
       return false
     }
     var head = Git.Ref.make(sha: change.head)
@@ -417,9 +398,7 @@ extension Reviewer {
       sha: head,
       force: false
     )))
-    let title = try generate(cfg.createMergeCommitMessage(
-      merge: nil, review: review, fusion: fusion
-    ))
+    let title = try generate(cfg.createMergeTitle(review: review, fusion: fusion))
     let merge = try gitlab
       .postMergeRequests(parameters: .init(
         sourceBranch: fusion.source.name, targetBranch: fusion.target.name, title: title
@@ -450,10 +429,10 @@ extension Reviewer {
     let content = ctx.serialize(skip: skip)
     _ = try persistAsset(.init(
       cfg: ctx.cfg,
-      asset: ctx.storage.asset,
+      asset: ctx.storage.review.storage,
       content: content,
       message: generate(ctx.cfg.createReviewStorageCommitMessage(
-        storage: ctx.storage,
+        review: ctx.storage.review,
         context: ctx.message
       ))
     ))
@@ -684,7 +663,7 @@ extension Reviewer {
     let parent = try gitlab.parent.get()
     let merge = try gitlab.merge.get()
     guard parent.pipeline.id == merge.lastPipeline.id else {
-      cfg.report(notify: .pipelineOutdated, merge: merge)
+      cfg.reportReviewFail(merge: merge, state: nil, reason: .pipelineOutdated)
       return nil
     }
     return merge
@@ -694,7 +673,7 @@ extension Reviewer {
     merge: Json.GitlabMergeState
   ) throws -> Review.State? {
     guard ctx.isQueued(merge: merge).not else {
-      ctx.cfg.report(notify: .reviewQueued, merge: merge)
+      ctx.cfg.reportReviewFail(merge: merge, state: nil, reason: .reviewQueued)
       return nil
     }
     guard let state = try ctx.makeState(merge: merge) else {
@@ -703,9 +682,7 @@ extension Reviewer {
     }
     return state
   }
-  func storeChange(ctx: Review.Context, state: Review.State, merge: Json.GitlabMergeState) throws {
-    var ctx = ctx
-    var state = state
+  func storeChange(ctx: inout Review.Context, state: inout Review.State, merge: Json.GitlabMergeState) throws {
     guard
       try checkReady(ctx: &ctx, state: &state, merge: merge),
       try normalize(ctx: &ctx, state: &state)
@@ -947,29 +924,30 @@ extension Reviewer {
     state: Review.State
   ) throws -> Bool {
     guard let change = state.change else { throw MayDay("Unexpected merge state") }
-    var params = Gitlab.PutMrMerge(
-      squash: state.squash,
-      shouldRemoveSourceBranch: true,
-      sha: change.head
-    )
-    switch change.fusion {
-    case .propose:
-      params.squashCommitMessage = try generate(ctx.cfg.createMergeCommitMessage(
-        merge: change.merge,
-        review: ctx.review,
-        fusion: change.fusion
-      ))
-    case .replicate, .integrate, .duplicate:
-      params.mergeCommitMessage = try generate(ctx.cfg.createMergeCommitMessage(
-        merge: change.merge,
-        review: ctx.review,
-        fusion: change.fusion
-      ))
-    case .propogate: break
-    }
     let gitlab = try ctx.cfg.gitlab.get()
     let result = try gitlab
-      .putMrMerge(parameters: params, review: state.review)
+      .putMrMerge(
+        parameters: .init(
+          mergeCommitMessage: ctx.cfg
+            .createMergeCommitMessage(
+              merge: change.merge,
+              review: ctx.review,
+              fusion: change.fusion
+            )
+            .map(generate),
+          squashCommitMessage: ctx.cfg
+            .createSquashCommitMessage(
+              merge: change.merge,
+              review: ctx.review,
+              fusion: change.fusion
+            )
+            .map(generate),
+          squash: state.squash,
+          shouldRemoveSourceBranch: true,
+          sha: change.head
+        ),
+        review: state.review
+      )
       .map(execute)
       .map(\.data)
       .get()

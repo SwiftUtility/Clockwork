@@ -26,8 +26,14 @@ extension Review {
         }
         return nil
       }
-      if let state = storage.states[merge.iid] { return state }
-      let state = try State.make(merge: merge, bots: bots)
+      var state = try storage.states[merge.iid].get(.make(merge: merge, bots: bots))
+      state.merge = merge
+      if merge.targetBranch != state.target.name {
+        state.approves.keys.forEach({ state.approves[$0]?.resolution = .obsolete })
+        state.emergent = nil
+        state.verified = nil
+        state.target = try .make(name: merge.targetBranch)
+      }
       storage.states[merge.iid] = state
       return state
     }
@@ -51,7 +57,7 @@ extension Review {
       storage.queues.compactMap(\.value.first).contains(merge.iid)
     }
     public func isQueued(merge: Json.GitlabMergeState) -> Bool {
-      storage.queues.flatMap(\.value).contains(merge.iid)
+      storage.queues[merge.targetBranch].get([]).contains(merge.iid)
     }
     public static func make(
       cfg: Configuration,

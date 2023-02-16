@@ -160,8 +160,10 @@ public enum Yaml {
   public struct Review: Decodable {
     public var rules: Secret
     public var storage: Asset
-    public var exportTargets: Template
-    public var createMessage: Template
+    public var exportFusion: Template
+    public var createMergeTitle: Template
+    public var createMergeCommit: Template
+    public var createSquashCommit: Template
     public var replication: Replication
     public var duplication: Duplication
     public var integration: Integration

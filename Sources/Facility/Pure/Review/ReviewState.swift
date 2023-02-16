@@ -19,19 +19,14 @@ extension Review {
     public var problems: [Problem]? = nil
     public var change: Change? = nil
     public var squash: Bool { original == nil }
-    public mutating func approve(job: Json.GitlabJob, advance: Bool) throws -> Bool {
-      let approve = try Approve(
-        login: job.user.username,
+    public mutating func approve(job: Json.GitlabJob, advance: Bool) throws {
+      let user = job.user.username
+      guard authors.union(legates).union(randoms).contains(user) else { return }
+      approves[user] = try .init(
+        login: user,
         commit: .make(job: job),
         resolution: advance.then(.advance).get(.fragil)
       )
-      guard
-        verified == approve.commit,
-        authors.union(legates).union(randoms).contains(approve.login),
-        approve != approves[approve.login]
-      else { return false }
-      approves[approve.login] = approve
-      return true
     }
     public mutating func add(problem: Problem) {
       problems = problems.get([]) + [problem]
@@ -142,7 +137,7 @@ extension Review {
       if merge.blockingDiscussionsResolved.not {
         let discussions = discussions
           .compactMap({ $0.notes.first })
-          .filter({ $0.resolvable && $0.resolved == false })
+          .filter({ $0.resolved == false })
           .map(\.author.username)
           .reduce(into: [:], { $0[$1, default: 0] += 1 })
         add(problem: .discussions(discussions))
@@ -200,14 +195,14 @@ extension Review {
         .filter({ diff.contains(where: $0.value.isMet(_:)) })
         .keySet
       let authorshipTeams = change.fusion.authorshipApproval.then(ctx.rules.authorship).get([:])
-        .filter({ $0.value.intersection(authors).isEmpty.not })
+        .filter({ $0.value.isDisjoint(with: authors).not })
         .keySet
       let approvableTeams = diffTeams
         .union(sourceTeams)
         .union(targetTeams)
         .union(authorshipTeams)
       let randomTeams = change.fusion.randomApproval.then(ctx.rules.randoms).get([:])
-        .filter({ $0.value.intersection(approvableTeams).isEmpty.not })
+        .filter({ $0.value.isDisjoint(with: approvableTeams).not })
         .keySet
       let active = ctx.users.filter(\.value.active).keySet
         .subtracting(ctx.bots)
@@ -230,16 +225,12 @@ extension Review {
       approves.values
         .filter({ childs[$0.commit] == nil })
         .forEach({ approves[$0.login] = nil })
-      var brokenTeams = approvableTeams.subtracting(teams)
-      teams = approvableTeams
-      if change.fusion.target != target {
-        brokenTeams.formUnion(targetTeams)
-        target = change.fusion.target
-      }
-      brokenTeams
+      approvableTeams
+        .subtracting(teams)
         .compactMap({ ctx.rules.teams[$0] })
         .reduce(into: Set(), { $0.formUnion($1.approvers) })
         .forEach({ approves[$0]?.resolution = .obsolete })
+      teams = approvableTeams
       let fragilUtility = authorshipTeams
         .union(sourceTeams)
         .union(targetTeams)
@@ -425,7 +416,7 @@ extension Review {
       queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
       for user in approvers {
         guard let approve = approves[user] else {
-          ctx.cfg.reportReviewApprove(user: user, state: self, diff: nil, reason: .create)
+          ctx.cfg.reportReviewApprove(user: user, state: self, reason: .create)
           continue
         }
         guard
@@ -433,9 +424,7 @@ extension Review {
           let old = old?.approves[user],
           old.resolution.approved
         else { continue }
-        ctx.cfg.reportReviewApprove(
-          user: user, state: self, diff: approve.commit.value, reason: .change
-        )
+        ctx.cfg.reportReviewApprove(user: user, state: self, reason: .change)
       }
       guard let merge = merge else { return }
       var update = Report.ReviewUpdated(

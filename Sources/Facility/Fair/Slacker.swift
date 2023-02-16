@@ -24,83 +24,96 @@ public final class Slacker {
     self.jsonDecoder = jsonDecoder
   }
   public func registerSlackUser(query: Slack.RegisterUser) throws -> Slack.RegisterUser.Reply {
-    perform(cfg: query.cfg, message: "Register \(query.gitlab)", action: { (storage, _) in
+    perform(cfg: query.cfg, message: "Register \(query.gitlab)", action: { storage in
       storage.users[query.gitlab] = query.slack
+      return query.cfg.createSlackStorageCommitMessage(
+        slack: storage.slack,
+        user: query.gitlab,
+        reason: .registerUser
+      )
     })
   }
   public func sendSlack(query: Slack.Send) -> Slack.Send.Reply {
-    perform(cfg: query.cfg, message: "Update threads", action: { storage, slack in
+    perform(cfg: query.cfg, message: "Update threads", action: { storage in
       for var report in query.reports {
-        report.info.slack = slack.info
-        send(storage: &storage, cfg: query.cfg, slack: slack, report: report)
+        report.info.slack = storage.slack.info
+        send(storage: &storage, cfg: query.cfg, report: report)
       }
+      return query.cfg.createSlackStorageCommitMessage(
+        slack: storage.slack,
+        user: nil,
+        reason: .registerUser
+      )
     })
   }
   func send(
     storage: inout Slack.Storage,
     cfg: Configuration,
-    slack: Slack,
     report: Report
   ) {
-    for signal in slack.signals.filter(report.info.match(signal:)) {
+    for signal in storage.slack.signals.filter(report.info.match(signal:)) {
       var info = report.info
       info.mark = signal.mark
-      _ = send(cfg: cfg, slack: slack, signal: signal, info: info)
+      _ = send(cfg: cfg, slack: storage.slack, signal: signal, info: info)
     }
     for user in report.threads.users {
       guard let person = storage.users[user] else { continue }
-      for signal in slack.directs.filter(report.info.match(signal:)) {
+      for signal in storage.slack.directs.filter(report.info.match(signal:)) {
         var info = report.info
         info.mark = signal.mark
         info.slack?.person = person
-        _ = send(cfg: cfg, slack: slack, signal: signal, info: info)
+        _ = send(cfg: cfg, slack: storage.slack, signal: signal, info: info)
       }
     }
     send(
       cfg: cfg,
-      slack: slack,
+      slack: storage.slack,
       keys: report.threads.tags,
       info: report.info,
-      threads: slack.tags,
+      threads: storage.slack.tags,
       storage: &storage.tags
     )
     send(
       cfg: cfg,
-      slack: slack,
+      slack: storage.slack,
       keys: report.threads.issues,
       info: report.info,
-      threads: slack.issues,
+      threads: storage.slack.issues,
       storage: &storage.issues
     )
     send(
       cfg: cfg,
-      slack: slack,
+      slack: storage.slack,
       keys: report.threads.reviews,
       info: report.info,
-      threads: slack.reviews,
+      threads: storage.slack.reviews,
       storage: &storage.reviews
     )
     send(
       cfg: cfg,
-      slack: slack,
+      slack: storage.slack,
       keys: report.threads.branches,
       info: report.info,
-      threads: slack.branches,
+      threads: storage.slack.branches,
       storage: &storage.branches
     )
   }
-  func perform(cfg: Configuration, message: String, action: Act.In<Slack.Storage>.Of<Slack>.Go) {
+  func perform(
+    cfg: Configuration,
+    message: String,
+    action: Act.In<Slack.Storage>.Do<Generate?>
+  ) {
     guard
       let slack = try? cfg.slack.get(),
       var storage = try? parseSlackStorage(cfg.parseSlackStorage(slack: slack))
     else { return }
-    defer { _ = try? persistAsset(.init(
+    guard let message = try? action(&storage).map(generate) else { return }
+    _ = try? persistAsset(.init(
       cfg: cfg,
       asset: slack.storage,
       content: storage.serialized,
       message: message
-    ))}
-    action(&storage, slack)
+    ))
   }
   func send(
     cfg: Configuration,

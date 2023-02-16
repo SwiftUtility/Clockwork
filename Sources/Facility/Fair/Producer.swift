@@ -175,7 +175,7 @@ public final class Producer {
           product: release.product,
           version: release.version,
           build: family.nextBuild,
-          deploy: true
+          kind: .deploy
         ))
       )
       guard storage.deploys[deploy.tag] == nil
@@ -188,7 +188,7 @@ public final class Producer {
         product: deploy.product,
         version: deploy.version,
         build: deploy.build,
-        deploy: true
+        kind: .deploy
       ))
       guard try gitlab
         .postTags(name: deploy.tag.name, ref: sha.value, message: annotation)
@@ -231,7 +231,7 @@ public final class Producer {
           flow: storage.flow,
           product: product.name,
           version: product.nextVersion,
-          hotfix: false
+          kind: .release
         ))
       )
       guard storage.releases[release.branch] == nil
@@ -241,7 +241,7 @@ public final class Producer {
         flow: storage.flow,
         product: release.product,
         version: release.version,
-        hotfix: false
+        kind: .release
       )))
       storage.products[product.name] = product
       guard try gitlab
@@ -297,14 +297,14 @@ public final class Producer {
         ))
       }
       let version = try generate(cfg.bumpVersion(
-        flow: storage.flow, product: fixProduct.name, version: fixVersion, hotfix: true
+        flow: storage.flow, product: fixProduct.name, version: fixVersion, kind: .hotfix
       )).alphaNumeric
       let release = try Flow.Release.make(
         product: fixProduct,
         version: version,
         commit: fixCommit,
         branch: generate(cfg.createReleaseBranchName(
-          flow: storage.flow, product: fixProduct.name, version: version, hotfix: true
+          flow: storage.flow, product: fixProduct.name, version: version, kind: .hotfix
         ))
       )
       guard let min = fixProduct.prevVersions.min()
@@ -431,7 +431,7 @@ public final class Producer {
           product: product.name,
           version: version,
           build: build.number,
-          deploy: false
+          kind: .stage
         )),
         product: product,
         version: version,
@@ -448,7 +448,7 @@ public final class Producer {
         product: stage.product,
         version: stage.version,
         build: stage.build,
-        deploy: false
+        kind: .stage
       ))
       guard try gitlab
         .postTags(name: stage.tag.name, ref: build.commit.value, message: annotation)

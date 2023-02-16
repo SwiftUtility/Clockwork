@@ -60,29 +60,37 @@ public struct Generate: Query {
     public var product: String?
     public var versions: [String: String]
   }
-  public struct ExportMergeTargets: GenerateContext {
+  public struct ExportFusion: GenerateContext {
     public var fork: String
     public var source: String
     public var integrate: [String]?
     public var duplicate: [String]?
     public var propogate: [String]?
   }
-  public struct CreateReleaseBranchName: GenerateContext {
+  public enum BranchKind: String, Encodable {
+    case release
+    case hotfix
+  }
+  public struct CreateBranchName: GenerateContext {
     public var product: String
     public var version: String
-    public var hotfix: Bool
+    public var kind: BranchKind
+  }
+  public enum TagKind: String, Encodable {
+    case deploy
+    case stage
   }
   public struct CreateTagName: GenerateContext {
     public var product: String
     public var version: String
     public var build: String
-    public var deploy: Bool
+    public var kind: TagKind
   }
   public struct CreateTagAnnotation: GenerateContext {
     public var product: String
     public var version: String
     public var build: String
-    public var deploy: Bool
+    public var kind: TagKind
   }
   public struct BumpBuild: GenerateContext {
     public var family: String
@@ -91,7 +99,7 @@ public struct Generate: Query {
   public struct BumpVersion: GenerateContext {
     public var product: String
     public var version: String
-    public var hotfix: Bool
+    public var kind: BranchKind
   }
   public struct CreateFlowStorageCommitMessage: GenerateContext {
     public var product: String?
@@ -135,11 +143,29 @@ public struct Generate: Query {
     public var enqueue: [UInt]? = nil
     public var dequeue: [UInt]? = nil
   }
-  public struct CreateMergeCommitMessage: GenerateContext {
-    public var merge: Json.GitlabMergeState?
-    public var kind: String?
-    public var fork: String?
-    public var original: String?
+  public struct CreateSlackStorageCommitMessage: GenerateContext {
+    public var user: String?
+    public var reason: Reason
+    public enum Reason: String, Encodable {
+      case registerUser
+      case createThreads
+    }
+  }
+  public struct CreateMergeTitle: GenerateContext {
+    public var kind: String
+    public var fork: String
+    public var original: String
+    public var target: String
+  }
+  public struct CreateMergeCommit: GenerateContext {
+    public var kind: String
+    public var merge: Json.GitlabMergeState
+    public var fork: String
+    public var original: String
+  }
+  public struct CreateSquashCommit: GenerateContext {
+    public var kind: String
+    public var merge: Json.GitlabMergeState
   }
 }
 public extension Configuration {
@@ -182,7 +208,8 @@ public extension Configuration {
       branch: branch,
       tag: tag,
       reason: reason
-    )
+    ),
+    subevent: [reason.rawValue]
   )}
   func bumpBuild(
     flow: Flow,
@@ -196,77 +223,132 @@ public extension Configuration {
     product: String,
     version: AlphaNumeric,
     build: AlphaNumeric,
-    deploy: Bool
+    kind: Generate.TagKind
   ) -> Generate { generate(
     template: flow.createTagName,
     ctx: Generate.CreateTagName(
       product: product,
       version: version.value,
       build: build.value,
-      deploy: deploy
-    )
+      kind: kind
+    ),
+    subevent: [kind.rawValue]
   )}
   func createTagAnnotation(
     flow: Flow,
     product: String,
     version: AlphaNumeric,
     build: AlphaNumeric,
-    deploy: Bool
+    kind: Generate.TagKind
   ) -> Generate { generate(
     template: flow.createTagAnnotation,
     ctx: Generate.CreateTagAnnotation(
       product: product,
       version: version.value,
       build: build.value,
-      deploy: deploy
-    )
+      kind: kind
+    ),
+    subevent: [kind.rawValue]
   )}
   func createReleaseBranchName(
     flow: Flow,
     product: String,
     version: AlphaNumeric,
-    hotfix: Bool
+    kind: Generate.BranchKind
   ) -> Generate { generate(
     template: flow.createReleaseBranchName,
-    ctx: Generate.CreateReleaseBranchName(product: product, version: version.value, hotfix: hotfix)
+    ctx: Generate.CreateBranchName(
+      product: product,
+      version: version.value,
+      kind: kind
+    ),
+    subevent: [kind.rawValue]
   )}
   func bumpVersion(
     flow: Flow,
     product: String,
     version: AlphaNumeric,
-    hotfix: Bool
+    kind: Generate.BranchKind
   ) -> Generate { generate(
     template: flow.bumpVersion,
-    ctx: Generate.BumpVersion(product: product, version: version.value, hotfix: hotfix)
+    ctx: Generate.BumpVersion(product: product, version: version.value, kind: kind),
+    subevent: [kind.rawValue]
   )}
   func createGitlabStorageCommitMessage(
     user: String,
     gitlab: Gitlab,
-    command: Gitlab.Storage.Command
+    reason: Generate.CreateGitlabStorageCommitMessage.Reason
   ) -> Generate { generate(
     template: gitlab.storage.asset.createCommitMessage,
-    ctx: Generate.CreateGitlabStorageCommitMessage(user: user, reason: command.reason)
+    ctx: Generate.CreateGitlabStorageCommitMessage(user: user, reason: reason),
+    subevent: [reason.rawValue]
   )}
   func createReviewStorageCommitMessage(
-    storage: Review.Storage,
+    review: Review,
     context: Generate.CreateReviewStorageCommitMessage
   ) -> Generate { generate(
-    template: storage.asset.createCommitMessage,
+    template: review.storage.createCommitMessage,
     ctx: context
   )}
-  func createMergeCommitMessage(
-    merge: Json.GitlabMergeState?,
-    review: Review,
-    fusion: Review.Fusion?
+  func createSlackStorageCommitMessage(
+    slack: Slack,
+    user: String?,
+    reason: Generate.CreateSlackStorageCommitMessage.Reason
   ) -> Generate { generate(
-    template: review.createMessage,
-    ctx: Generate.CreateMergeCommitMessage(
-      merge: merge,
-      kind: fusion?.kind,
-      fork: fusion?.fork?.value,
-      original: fusion?.original?.name
-    )
+    template: slack.storage.createCommitMessage,
+    ctx: Generate.CreateSlackStorageCommitMessage(user: user, reason: reason),
+    subevent: [reason.rawValue]
   )}
+  func createSquashCommitMessage(
+    merge: Json.GitlabMergeState,
+    review: Review,
+    fusion: Review.Fusion
+  ) -> Generate? {
+    guard fusion.proposition else { return nil }
+    return generate(
+      template: review.createSquashCommit,
+      ctx: Generate.CreateSquashCommit(
+        kind: fusion.kind,
+        merge: merge
+      ),
+      subevent: [fusion.kind]
+    )
+  }
+  func createMergeCommitMessage(
+    merge: Json.GitlabMergeState,
+    review: Review,
+    fusion: Review.Fusion
+  ) -> Generate? {
+    guard fusion.propogation.not, let fork = fusion.fork, let original = fusion.original
+    else { return nil }
+    return generate(
+      template: review.createMergeCommit,
+      ctx: Generate.CreateMergeCommit(
+        kind: fusion.kind,
+        merge: merge,
+        fork: fork.value,
+        original: original.name
+      ),
+      subevent: [fusion.kind]
+    )
+  }
+  func createMergeTitle(
+    review: Review,
+    fusion: Review.Fusion
+  ) throws -> Generate {
+    guard let fork = fusion.fork, let original = fusion.original
+    else { throw Thrown("Inconsistency") }
+    return generate(
+      template: review.createMergeTitle,
+      ctx: Generate.CreateMergeTitle(
+        kind: fusion.kind,
+        fork: fork.value,
+        original: original.name,
+        target: fusion.target.name
+      ),
+      subevent: [fusion.kind]
+    )
+  }
   func exportTargets(
     review: Review,
     fork: Git.Sha,
@@ -278,7 +360,7 @@ public extension Configuration {
     args: [String]
   ) -> Generate { generate(
     template: review.exportTargets,
-    ctx: Generate.ExportMergeTargets(
+    ctx: Generate.ExportFusion(
       fork: fork.value,
       source: source,
       integrate: integrate.isEmpty.not.then(integrate),

@@ -102,6 +102,7 @@ public struct Slack {
     )}
   }
   public struct Storage {
+    public var slack: Slack
     public var users: [String: String]
     public var channels: [String: String]
     public var mentions: [String: String]
@@ -130,7 +131,8 @@ public struct Slack {
       if result.isEmpty { result = "{}\n" }
       return result
     }
-    public static func make(yaml: Yaml.Slack.Storage) -> Self { .init(
+    public static func make(slack: Slack, yaml: Yaml.Slack.Storage) -> Self { .init(
+      slack: slack,
       users: yaml.users.get([:]),
       channels: yaml.channels.get([:]),
       mentions: yaml.mentions.get([:]),
