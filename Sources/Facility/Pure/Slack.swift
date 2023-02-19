@@ -114,15 +114,15 @@ public struct Slack {
       var result = ""
       if users.isEmpty.not {
         result += "users:\n"
-        result += users.map({ "  '\($0.key)': '\($0.value)'\n" }).joined()
+        result += users.map({ "  '\($0.key)': '\($0.value)'\n" }).sorted().joined()
       }
       if channels.isEmpty.not {
         result += "channels:\n"
-        result += channels.map({ "  '\($0.key)': '\($0.value)'\n" }).joined()
+        result += channels.map({ "  '\($0.key)': '\($0.value)'\n" }).sorted().joined()
       }
       if mentions.isEmpty.not {
         result += "mentions:\n"
-        result += mentions.map({ "  '\($0.key)': '\($0.value)'\n" }).joined()
+        result += mentions.map({ "  '\($0.key)': '\($0.value)'\n" }).sorted().joined()
       }
       result += Thread.serialize(kind: "tags", map: tags)
       result += Thread.serialize(kind: "issues", map: issues)
