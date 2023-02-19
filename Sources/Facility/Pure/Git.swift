@@ -109,20 +109,25 @@ public struct Git {
 }
 public extension Git {
   func listChangedFiles(source: Ref, target: Ref) -> Execute { proc(
-    args: ["diff", "--name-only", "--merge-base", target.value, source.value]
+    args: [
+      "-c", "core.quotepath=false", "-c", "core.precomposeunicode=true",
+      "diff", "--name-only", "--merge-base", target.value, source.value
+    ]
   )}
   var listConflictMarkers: Execute { proc(
     args: [
-      "-c", "core.whitespace=" + [
-        "-trailing-space", "-space-before-tab", "-indent-with-non-tab",
-        "-tab-in-indent", "-cr-at-eol",
-      ].joined(separator: ","),
+      "-c", "core.quotepath=false", "-c", "core.precomposeunicode=true",
+      "-c", "core.whitespace=-trailing-space,-space-before-tab,-indent-with-non-tab,-tab-in-indent,-cr-at-eol",
       "diff", "--check", "HEAD"
     ],
     escalate: false
   )}
-  var changesList: Execute { proc(args: ["status", "--porcelain"]) }
-  var listLocalChanges: Execute { proc(args: ["diff", "--name-only", "HEAD"]) }
+  var changesList: Execute { proc(args: [
+    "-c", "core.quotepath=false", "-c", "core.precomposeunicode=true", "status", "--porcelain"
+  ])}
+  var listLocalChanges: Execute { proc(args: [
+    "-c", "core.quotepath=false", "-c", "core.precomposeunicode=true", "diff", "--name-only", "HEAD"
+  ])}
   var listAllRefs: Execute { proc(args: ["show-ref", "--head"]) }
   func excludeParents(refs: [Git.Ref]) -> Execute { proc(
     args: ["show-branch", "--independent"] + refs.map(\.value)
@@ -135,13 +140,22 @@ public extension Git {
   )}
   func apply(patch: Data) -> Execute { proc(args: ["apply"], input: patch)}
   func listChangedOutsideFiles(source: Ref, target: Ref) -> Execute { proc(
-    args: ["diff", "--name-only", "\(source.value)...\(target.value)"]
+    args: [
+      "-c", "core.quotepath=false", "-c", "core.precomposeunicode=true",
+      "diff", "--name-only", "\(source.value)...\(target.value)"
+    ]
   )}
   func listAllTrackedFiles(ref: Ref) -> Execute { proc(
-    args: ["ls-tree", "-r", "--name-only", "--full-tree", ref.value, "."]
+    args: [
+      "-c", "core.quotepath=false", "-c", "core.precomposeunicode=true",
+      "ls-tree", "-r", "--name-only", "--full-tree", ref.value, "."
+    ]
   )}
   func listTreeTrackedFiles(dir: Dir) -> Execute { proc(
-    args: ["ls-tree", "-r", "--name-only", "--full-tree", dir.ref.value, dir.path.value]
+    args: [
+      "-c", "core.quotepath=false", "-c", "core.precomposeunicode=true",
+      "ls-tree", "-r", "--name-only", "--full-tree", dir.ref.value, dir.path.value
+    ]
   )}
   func checkObjectType(ref: Ref) -> Execute { proc(args: ["cat-file", "-t", ref.value]) }
   func patchId(ref: Git.Ref) -> Execute {
@@ -203,10 +217,6 @@ public extension Git {
       + force.then(["--force"]).get([])
       + ["\(sha.value):\(Ref.make(local: branch).value)"],
     env: ["GIT_SSH_COMMAND": "ssh -q -F /dev/null -o IdentitiesOnly=yes -i '\(key)'"]
-  )}
-  func push(url: String, delete branch: Branch, secret: String) -> Execute { proc(
-    args: ["push", url, ":\(Ref.make(local: branch).value)"],
-    secrets: [secret]
   )}
   var updateLfs: Execute { proc(args: ["lfs", "update"]) }
   var fetch: Execute { proc(
@@ -302,9 +312,7 @@ extension Git {
     escalate: escalate,
     environment: self.env
       .merging(env, uniquingKeysWith: { $1 }),
-    arguments: ["git", "-C", root.value]
-    + ["-c", "core.quotepath=false", "-c", "core.precomposeunicode=true"]
-    + args,
+    arguments: ["git", "-C", root.value] + args,
     secrets: secrets
   )])}
 }
