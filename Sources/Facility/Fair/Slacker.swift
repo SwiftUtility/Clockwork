@@ -24,7 +24,7 @@ public final class Slacker {
     self.jsonDecoder = jsonDecoder
   }
   public func registerSlackUser(query: Slack.RegisterUser) throws -> Slack.RegisterUser.Reply {
-    perform(cfg: query.cfg, action: { storage in
+    try perform(cfg: query.cfg, action: { storage in
       storage.users[query.gitlab] = query.slack
       return query.cfg.createSlackStorageCommitMessage(
         slack: storage.slack,
@@ -34,17 +34,21 @@ public final class Slacker {
     })
   }
   public func sendSlack(query: Slack.Send) -> Slack.Send.Reply {
-    perform(cfg: query.cfg, action: { storage in
-      for var report in query.reports {
-        report.info.slack = storage.slack.info
-        send(storage: &storage, cfg: query.cfg, report: report)
-      }
-      return query.cfg.createSlackStorageCommitMessage(
-        slack: storage.slack,
-        user: nil,
-        reason: .registerUser
-      )
-    })
+    do {
+      try perform(cfg: query.cfg, action: { storage in
+        for var report in query.reports {
+          report.info.slack = storage.slack.info
+          send(storage: &storage, cfg: query.cfg, report: report)
+        }
+        return query.cfg.createSlackStorageCommitMessage(
+          slack: storage.slack,
+          user: nil,
+          reason: .registerUser
+        )
+      })
+    } catch {
+      logMessage(.make(error: error))
+    }
   }
   func send(
     storage: inout Slack.Storage,
@@ -101,13 +105,11 @@ public final class Slacker {
   func perform(
     cfg: Configuration,
     action: Act.In<Slack.Storage>.Do<Generate?>
-  ) {
-    guard
-      let slack = try? cfg.slack.get(),
-      var storage = try? parseSlackStorage(cfg.parseSlackStorage(slack: slack))
-    else { return }
-    guard let message = try? action(&storage).map(generate) else { return }
-    _ = try? persistAsset(.init(
+  ) throws {
+    let slack = try cfg.slack.get()
+    var storage = try parseSlackStorage(cfg.parseSlackStorage(slack: slack))
+    guard let message = try action(&storage).map(generate) else { return }
+    _ = try persistAsset(.init(
       cfg: cfg,
       asset: slack.storage,
       content: storage.serialized,
