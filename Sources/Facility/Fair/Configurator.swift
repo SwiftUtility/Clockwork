@@ -156,7 +156,7 @@ extension Configurator {
           .map(execute)
           .reduce(Json.GitlabUser.self, jsonDecoder.decode(success:reply:))
           .get(),
-        project: env.getProject(token: token)
+        project: env.getProject(job: job, token: token)
           .map(execute)
           .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
           .get()

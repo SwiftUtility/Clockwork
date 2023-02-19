@@ -162,8 +162,8 @@ public struct Gitlab {
       headers: ["Authorization: Bearer \(token)"],
       secrets: [token]
     ))}
-    public func getProject(token: String) -> Lossy<Execute> { .init(.makeCurl(
-      url: "\(api)",
+    public func getProject(job: Json.GitlabJob, token: String) -> Lossy<Execute> { .init(.makeCurl(
+      url: "\(api)/projects/\(job.pipeline.projectId)",
       headers: ["Authorization: Bearer \(token)"],
       secrets: [token]
     ))}
@@ -191,11 +191,6 @@ public extension Gitlab {
     file: String
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/jobs/\(job)/artifacts/\(file)",
-    headers: [rest.get().auth],
-    secrets: [rest.get().secret]
-  ))}
-  var getProject: Lossy<Execute> { .init(try .makeCurl(
-    url: "\(api)",
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
