@@ -167,7 +167,7 @@ extension Configurator {
     gitlab.project = gitlab.getProject
       .map(execute)
       .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
-    gitlab.ssh = .init(try parse(git: cfg.git, env: cfg.env, secret: .envFile(yaml.deployKey)))
+    gitlab.ssh = .init(try parse(git: cfg.git, env: cfg.env, secret: .envVar(yaml.deployKey)))
     if let parent = try? yaml.trigger.jobId.get(env: cfg.env) {
       gitlab.parent = Lossy(try parent.getUInt())
         .flatMap(gitlab.getJob(id:))
