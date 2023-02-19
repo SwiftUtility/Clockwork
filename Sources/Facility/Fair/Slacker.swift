@@ -24,7 +24,7 @@ public final class Slacker {
     self.jsonDecoder = jsonDecoder
   }
   public func registerSlackUser(query: Slack.RegisterUser) throws -> Slack.RegisterUser.Reply {
-    perform(cfg: query.cfg, message: "Register \(query.gitlab)", action: { storage in
+    perform(cfg: query.cfg, action: { storage in
       storage.users[query.gitlab] = query.slack
       return query.cfg.createSlackStorageCommitMessage(
         slack: storage.slack,
@@ -34,7 +34,7 @@ public final class Slacker {
     })
   }
   public func sendSlack(query: Slack.Send) -> Slack.Send.Reply {
-    perform(cfg: query.cfg, message: "Update threads", action: { storage in
+    perform(cfg: query.cfg, action: { storage in
       for var report in query.reports {
         report.info.slack = storage.slack.info
         send(storage: &storage, cfg: query.cfg, report: report)
@@ -100,7 +100,6 @@ public final class Slacker {
   }
   func perform(
     cfg: Configuration,
-    message: String,
     action: Act.In<Slack.Storage>.Do<Generate?>
   ) {
     guard

@@ -20,6 +20,7 @@ public final class Reporter {
   public func sendReports(cfg: Configuration) {
     var reports = Report.Bag.shared.reports
     guard
+      reports.isEmpty.not,
       let gitlab = try? cfg.gitlab.get(),
       let project = try? gitlab.rest.map(\.project).get()
     else { return }
@@ -36,6 +37,7 @@ public final class Reporter {
       reports[index].info.gitlab = info
       reports[index].info.jira = jira
     }
+    #warning("TBD handle no push option")
     sendSlack(.make(cfg: cfg, reports: reports))
   }
 }

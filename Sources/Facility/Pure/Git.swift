@@ -246,6 +246,7 @@ public extension Git {
     args: ["checkout", "-B", branch.name, sha.value]
   )}
   var clean: Execute { proc(args: ["clean", "-fdx"]) }
+  var softClean: Execute { proc(args: ["clean", "-fd"]) }
   func merge(
     refs: [Ref],
     message: String?,
@@ -265,6 +266,9 @@ public extension Git {
   )}
   func cherry(ref: Ref) -> Execute { proc(args: ["cherry-pick", "--no-commit", ref.value]) }
   var quitCherry: Execute { proc(args: ["cherry-pick", "--quit"]) }
+  func add(file: Files.Relative) -> Execute { proc(
+    args: ["add", file.value]
+  )}
   var addAll: Execute { proc(
     args: ["add", "--all"]
   )}
