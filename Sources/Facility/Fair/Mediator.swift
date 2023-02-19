@@ -13,6 +13,7 @@ public final class Mediator {
   let parseStdin: Try.Reply<Configuration.ParseStdin>
   let generate: Try.Reply<Generate>
   let logMessage: Act.Reply<LogMessage>
+  let writeStdout: Act.Of<String>.Go
   let stdoutData: Act.Of<Data>.Go
   let jsonDecoder: JSONDecoder
   public init(
@@ -27,6 +28,7 @@ public final class Mediator {
     parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     generate: @escaping Try.Reply<Generate>,
     logMessage: @escaping Act.Reply<LogMessage>,
+    writeStdout: @escaping Act.Of<String>.Go,
     stdoutData: @escaping Act.Of<Data>.Go,
     jsonDecoder: JSONDecoder
   ) {
@@ -41,8 +43,23 @@ public final class Mediator {
     self.parseStdin = parseStdin
     self.generate = generate
     self.logMessage = logMessage
+    self.writeStdout = writeStdout
     self.stdoutData = stdoutData
     self.jsonDecoder = jsonDecoder
+  }
+  public func render(
+    cfg: Configuration,
+    template: String,
+    stdin: Configuration.ParseStdin,
+    args: [String]
+  ) throws -> Bool {
+    let stdin = try parseStdin(stdin)
+    try writeStdout(generate(cfg.render(
+      template: template,
+      stdin: stdin,
+      args: args
+    )))
+    return true
   }
   public func signal(
     cfg: Configuration,

@@ -144,6 +144,7 @@ struct Clockwork: ParsableCommand {
         Artifacts.self,
         Jobs.self,
         Pipeline.self,
+        Render.self,
         Signal.self,
         TriggerPipeline.self,
         TriggerReviewPipeline.self,
@@ -240,6 +241,16 @@ struct Clockwork: ParsableCommand {
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var pipeline: Pipeline
       }
+    }
+    struct Render: ClockworkCommand {
+      static var abstract: String { "Renders custom template to stdout" }
+      @OptionGroup var clockwork: Clockwork
+      @Flag(help: Common.Stdin.help)
+      var stdin: Common.Stdin = .ignore
+      @Option(help: "Template name to render")
+      var template: String
+      @Argument(help: "Context to make available during rendering")
+      var args: [String] = []
     }
     struct Signal: ClockworkCommand {
       static var abstract: String { "Send custom preconfigured report" }

@@ -19,7 +19,8 @@ public struct Gitlab {
     job: job,
     bot: try? rest.map(\.user).get(),
     proj: try? project.get(),
-    parent: try? parent.get()
+    parent: try? parent.get(),
+    merge: try? merge.get()
   )}
   public static func make(
     env: Env,
@@ -113,6 +114,7 @@ public struct Gitlab {
     public var bot: Json.GitlabUser?
     public var proj: Json.GitlabProject?
     public var parent: Json.GitlabJob?
+    public var merge: Json.GitlabMergeState?
   }
   public struct Parent {
     public let job: UInt

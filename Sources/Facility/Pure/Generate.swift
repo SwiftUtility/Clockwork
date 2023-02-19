@@ -167,11 +167,20 @@ public struct Generate: Query {
     public var kind: String
     public var merge: Json.GitlabMergeState
   }
+  public struct Render: GenerateContext {
+    public var template: String
+  }
 }
 public extension Configuration {
   func report(template: Configuration.Template, info: GenerateInfo) -> Generate {
     .init(template: template, templates: templates, info: info)
   }
+  func render(template: String, stdin: AnyCodable?, args: [String]) -> Generate { generate(
+    template: .name(template),
+    ctx: Generate.Render(template: template),
+    stdin: stdin,
+    args: args
+  )}
   func exportVersions(
     flow: Flow,
     stdin: AnyCodable?,

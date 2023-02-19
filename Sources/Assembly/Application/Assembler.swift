@@ -75,6 +75,7 @@ enum Assembler {
     parseStdin: configurator.parseStdin(query:),
     generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),
+    writeStdout: writeStdout,
     stdoutData: stdoutData,
     jsonDecoder: jsonDecoder
   )

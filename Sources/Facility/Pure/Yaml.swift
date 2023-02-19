@@ -206,10 +206,6 @@ public enum Yaml {
         public var legates: [String]?
         public var approves: [String: [String: String]]?
       }
-      public struct Reviewer: Decodable {
-        public var commit: String
-        public var resolution: Resolution
-      }
       public enum Resolution: String, Decodable {
         case fragil
         case advance

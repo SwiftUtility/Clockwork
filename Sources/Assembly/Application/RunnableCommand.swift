@@ -161,6 +161,13 @@ extension Clockwork.Gitlab.Pipeline.Retry: RunnableCommand {
     try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .retry)
   }
 }
+extension Clockwork.Gitlab.Render: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.render(
+      cfg: cfg, template: template, stdin: stdin.mode, args: args
+    )
+  }
+}
 extension Clockwork.Gitlab.Signal: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.signal(
