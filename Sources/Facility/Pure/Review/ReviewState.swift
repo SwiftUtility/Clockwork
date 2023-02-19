@@ -21,7 +21,6 @@ extension Review {
     public var squash: Bool { original == nil }
     public mutating func approve(job: Json.GitlabJob, advance: Bool) throws {
       let user = job.user.username
-      guard authors.union(legates).union(randoms).contains(user) else { return }
       approves[user] = try .init(
         login: user,
         commit: .make(job: job),
