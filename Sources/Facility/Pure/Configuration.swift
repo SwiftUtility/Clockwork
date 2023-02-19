@@ -6,9 +6,9 @@ public struct Configuration {
   public var env: [String: String]
   public var profile: Profile
   public var templates: [String: String] = [:]
-  public var gitlab: Lossy<Gitlab> = .error(MayDay())
-  public var slack: Lossy<Slack> = .error(MayDay())
-  public var jira: Lossy<Jira> = .error(MayDay())
+  public var gitlab: Lossy<Gitlab> = .error(Thrown())
+  public var slack: Lossy<Slack> = .error(Thrown())
+  public var jira: Lossy<Jira> = .error(Thrown())
   public static func make(
     git: Git,
     env: [String: String],
