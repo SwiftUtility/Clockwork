@@ -199,15 +199,10 @@ public extension Git {
     args: ["merge-base", one.value, two.value]
   )}
   func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
-    args: [
-      "-c",
-      "core.sshCommand=ssh -q -F /dev/null -o IdentitiesOnly=yes -i /dev/stdin <<< \"\(key)\"",
-      "push",
-      ssh
-    ]
+    args: ["push", ssh]
       + force.then(["--force"]).get([])
       + ["\(sha.value):\(Ref.make(local: branch).value)"],
-    secrets: [key]
+    env: ["GIT_SSH_COMMAND": "ssh -q -F /dev/null -o IdentitiesOnly=yes -i '\(key)'"]
   )}
   func push(url: String, delete branch: Branch, secret: String) -> Execute { proc(
     args: ["push", url, ":\(Ref.make(local: branch).value)"],
