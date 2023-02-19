@@ -8,7 +8,7 @@ public struct Gitlab {
   public var storage: Storage
   public var rest: Lossy<Rest> = .error(Thrown("Not protected ref pipeline"))
   public var ssh: Lossy<String> = .error(Thrown("Not protected ref pipeline"))
-  public var project: Lossy<Json.GitlabProject> = .error(MayDay("Not protected ref pipeline"))
+  public var project: Lossy<Json.GitlabProject> = .error(Thrown("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var merge: Lossy<Json.GitlabMergeState> = .error(Thrown("Not review triggered pipeline"))
   public var info: Info { .init(
