@@ -255,8 +255,6 @@ struct Clockwork: ParsableCommand {
     struct Signal: ClockworkCommand {
       static var abstract: String { "Send custom preconfigured report" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Should also update threads")
-      var threads: Bool = false
       @Flag(help: Common.Stdin.help)
       var stdin: Common.Stdin = .ignore
       @Option(help: "Event name to send report for")

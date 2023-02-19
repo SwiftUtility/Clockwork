@@ -36,10 +36,12 @@ public final class Slacker {
   public func sendSlack(query: Slack.Send) -> Slack.Send.Reply {
     do {
       try perform(cfg: query.cfg, action: { storage in
+        var updated = false
         for var report in query.reports {
           report.info.slack = storage.slack.info
-          send(storage: &storage, cfg: query.cfg, report: report)
+          if send(storage: &storage, cfg: query.cfg, report: report) { updated = true }
         }
+        guard updated else { return nil }
         return query.cfg.createSlackStorageCommitMessage(
           slack: storage.slack,
           user: nil,
@@ -54,7 +56,7 @@ public final class Slacker {
     storage: inout Slack.Storage,
     cfg: Configuration,
     report: Report
-  ) {
+  ) -> Bool {
     for signal in storage.slack.signals.filter(report.info.match(signal:)) {
       var info = report.info
       info.mark = signal.mark
@@ -69,38 +71,40 @@ public final class Slacker {
         _ = send(cfg: cfg, slack: storage.slack, signal: signal, info: info)
       }
     }
-    send(
+    var updated = false
+    if send(
       cfg: cfg,
       slack: storage.slack,
       keys: report.threads.tags,
       info: report.info,
       threads: storage.slack.tags,
       storage: &storage.tags
-    )
-    send(
+    ) { updated = true }
+    if send(
       cfg: cfg,
       slack: storage.slack,
       keys: report.threads.issues,
       info: report.info,
       threads: storage.slack.issues,
       storage: &storage.issues
-    )
-    send(
+    ) { updated = true }
+    if send(
       cfg: cfg,
       slack: storage.slack,
       keys: report.threads.reviews,
       info: report.info,
       threads: storage.slack.reviews,
       storage: &storage.reviews
-    )
-    send(
+    ) { updated = true }
+    if send(
       cfg: cfg,
       slack: storage.slack,
       keys: report.threads.branches,
       info: report.info,
       threads: storage.slack.branches,
       storage: &storage.branches
-    )
+    ) { updated = true }
+    return updated
   }
   func perform(
     cfg: Configuration,
@@ -123,8 +127,9 @@ public final class Slacker {
     info: GenerateInfo,
     threads: [Slack.Thread],
     storage: inout [String: [String: Slack.Storage.Thread]]
-  ) {
-    guard keys.isEmpty.not else { return }
+  ) -> Bool {
+    var updated = false
+    guard keys.isEmpty.not else { return updated }
     let create = Set(threads.filter(info.match(create:)).map(\.name))
     let update = threads.reduce(into: [:], { $0[$1.name] = info.match(update: $1) })
     for key in keys {
@@ -134,6 +139,7 @@ public final class Slacker {
           var info = info
           info.mark = thread.name
           if let json = send(cfg: cfg, slack: slack, signal: thread.create, info: info) {
+            updated = true
             storage[key, default: [:]][thread.name] = .make(name: thread.name, json: json)
           }
           continue
@@ -147,6 +153,7 @@ public final class Slacker {
         }
       }
     }
+    return updated
   }
   func send(
     cfg: Configuration,

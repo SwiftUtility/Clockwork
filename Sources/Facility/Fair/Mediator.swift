@@ -65,8 +65,7 @@ public final class Mediator {
     cfg: Configuration,
     event: String,
     stdin: Configuration.ParseStdin,
-    args: [String],
-    deep: Bool
+    args: [String]
   ) throws -> Bool {
     let stdin = try parseStdin(stdin)
     var threads = Report.Threads.make(users: cfg.defaultUsers)
@@ -88,7 +87,6 @@ public final class Mediator {
         version: version
       )
     }
-    guard deep else { return true }
     let gitlab = try cfg.gitlab.get()
     if let review = try? gitlab.merge.get() {
       threads.reviews.insert("\(review)")

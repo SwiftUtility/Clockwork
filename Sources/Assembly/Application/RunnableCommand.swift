@@ -171,7 +171,7 @@ extension Clockwork.Gitlab.Render: RunnableCommand {
 extension Clockwork.Gitlab.Signal: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.signal(
-      cfg: cfg, event: event, stdin: stdin.mode, args: args, deep: threads
+      cfg: cfg, event: event, stdin: stdin.mode, args: args
     )
   }
 }
