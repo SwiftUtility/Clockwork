@@ -137,7 +137,6 @@ public struct Gitlab {
   public struct Env {
     public let api: String
     public let token: String
-    public let isProtected: Bool
     public let parent: Lossy<UInt>
     public let storage: Configuration.Asset
     public var getJob: Lossy<Execute> {
@@ -157,7 +156,6 @@ public struct Gitlab {
       return try .init(
         api: "CI_API_V4_URL".get(env: env),
         token: "CI_JOB_TOKEN".get(env: env),
-        isProtected: env["CI_COMMIT_REF_PROTECTED"] == "true",
         parent: .init(try yaml.trigger.jobId.get(env: env).getUInt()),
         storage: .make(yaml: yaml.storage)
       )

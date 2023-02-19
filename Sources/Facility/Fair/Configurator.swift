@@ -153,7 +153,6 @@ extension Configurator {
       .get()
     let storage = try parseYamlFile(query: cfg.parseGitlabStorage(asset: env.storage))
     var gitlab = Gitlab.make(env: env, job: job, storage: storage, yaml: yaml)
-    guard env.isProtected else { return gitlab }
     gitlab.rest = Lossy
       .make({ try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.apiToken)) })
       .map({ token in try .make(
