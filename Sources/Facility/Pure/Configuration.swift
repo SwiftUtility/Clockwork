@@ -104,6 +104,12 @@ public struct Configuration {
   public enum Template {
     case name(String)
     case value(String)
+    public var name: String {
+      switch self {
+      case .value(let value): return String(value.prefix(30))
+      case .name(let name): return name
+      }
+    }
     public static func make(yaml: Yaml.Template) throws -> Self {
       guard [yaml.name, yaml.value].compactMap({$0}).count < 2
       else { throw Thrown("Multiple values in template") }

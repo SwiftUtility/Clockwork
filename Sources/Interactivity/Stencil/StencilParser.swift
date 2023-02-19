@@ -33,7 +33,7 @@ public struct StencilParser {
     }
     result = result.trimmingCharacters(in: .newlines)
     guard query.info.allowEmpty || !result.isEmpty
-    else { throw Thrown("Empty rendering result") }
+    else { throw Thrown("Empty rendering \(query.template.name)") }
     return result
   }
 }

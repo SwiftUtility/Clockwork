@@ -390,10 +390,11 @@ extension Reviewer {
     pick: Git.Sha? = nil
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
+    let title = try generate(cfg.createMergeTitle(review: review, fusion: fusion))
+    var ctx = try makeContext(cfg: cfg)
     try Execute.checkStatus(reply: execute(cfg.git.push(
       gitlab: gitlab, branch: fusion.source, sha: head, force: false
     )))
-    let title = try generate(cfg.createMergeTitle(review: review, fusion: fusion))
     let merge = try gitlab
       .postMergeRequests(parameters: .init(
         sourceBranch: fusion.source.name, targetBranch: fusion.target.name, title: title
@@ -402,7 +403,6 @@ extension Reviewer {
       .map(Execute.parseData(reply:))
       .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(_:from:))
       .get()
-    var ctx = try makeContext(cfg: cfg)
     ctx.award.insert(merge.iid)
     guard var state = try ctx.makeState(merge: merge) else { return false }
     state.original = fusion.original
