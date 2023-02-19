@@ -45,7 +45,7 @@ public final class Slacker {
         return query.cfg.createSlackStorageCommitMessage(
           slack: storage.slack,
           user: nil,
-          reason: .registerUser
+          reason: .createThreads
         )
       })
     } catch {
