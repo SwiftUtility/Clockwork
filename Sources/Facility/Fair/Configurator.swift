@@ -118,14 +118,8 @@ public final class Configurator {
       message: query.message
     ) else { return false }
     let gitlab = try query.cfg.gitlab.get()
-    let ssh = try gitlab.project.get().sshUrlToRepo
-    let key = try gitlab.deployKey.get()
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
-      ssh: ssh,
-      key: key,
-      branch: query.asset.branch,
-      sha: sha,
-      force: false
+      gitlab: gitlab, branch: query.asset.branch, sha: sha, force: false
     )))
     try Execute.checkStatus(reply: execute(query.cfg.git.fetchBranch(query.asset.branch)))
     let fetched = try Execute.parseText(reply: execute(query.cfg.git.getSha(
@@ -161,11 +155,12 @@ extension Configurator {
         user: env.getTokenUser(token: token)
           .map(execute)
           .reduce(Json.GitlabUser.self, jsonDecoder.decode(success:reply:))
+          .get(),
+        project: env.getProject(token: token)
+          .map(execute)
+          .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
           .get()
       )})
-    gitlab.project = gitlab.getProject
-      .map(execute)
-      .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
     gitlab.deployKey = .init(try yaml.deployKey.get(env: cfg.env))
     if let parent = try? yaml.trigger.jobId.get(env: cfg.env) {
       gitlab.parent = Lossy(try parent.getUInt())

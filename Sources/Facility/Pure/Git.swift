@@ -212,12 +212,21 @@ public extension Git {
   func mergeBase(_ one: Ref, _ two: Ref) -> Execute { proc(
     args: ["merge-base", one.value, two.value]
   )}
-  func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
-    args: ["push", ssh]
-      + force.then(["--force"]).get([])
-      + ["\(sha.value):\(Ref.make(local: branch).value)"],
-    env: ["GIT_SSH_COMMAND": "ssh -q -F /dev/null -o IdentitiesOnly=yes -i '\(key)'"]
-  )}
+//  func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
+//    args: ["push", ssh]
+//      + force.then(["--force"]).get([])
+//      + ["\(sha.value):\(Ref.make(local: branch).value)"],
+//    env: ["GIT_SSH_COMMAND": "ssh -q -F /dev/null -o IdentitiesOnly=yes -i '\(key)'"]
+//  )}
+  func push(gitlab: Gitlab, branch: Branch, sha: Sha, force: Bool) throws -> Execute {
+    let rest = try gitlab.rest.get()
+    return proc(
+      args: ["push", rest.push]
+        + force.then(["--force"]).get([])
+        + ["\(sha.value):\(Ref.make(local: branch).value)"],
+      secrets: [rest.secret]
+    )
+  }
   var updateLfs: Execute { proc(args: ["lfs", "update"]) }
   var fetch: Execute { proc(
     args: ["fetch", "origin", "--prune", "--prune-tags", "--tags", "--force"]

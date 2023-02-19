@@ -112,7 +112,10 @@ public final class Producer {
   }
   public func deleteBranch(cfg: Configuration, name: String) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    let project = try gitlab.project.get()
+    let defaultBranch = try gitlab.rest
+      .map(\.project.defaultBranch)
+      .map(Git.Branch.make(name:))
+      .get()
     let branch: Git.Branch
     if let name = name.isEmpty.not.then(name) {
       branch = try .make(name: name)
@@ -123,10 +126,11 @@ public final class Producer {
         child: sha,
         parent: .make(remote: branch)
       ))) else { throw Thrown("Not last commit pipeline") }
+      guard branch != defaultBranch else { throw Thrown("Can no delete \(defaultBranch.name)") }
       guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-        child: .make(remote: .make(name: project.defaultBranch)),
+        child: .make(remote: defaultBranch),
         parent: sha
-      ))) else { throw Thrown("Branch \(branch.name) not merged into \(project.defaultBranch)") }
+      ))) else { throw Thrown("Branch \(branch.name) not merged into \(defaultBranch.name)") }
     }
     try perform(cfg: cfg, mutate: { storage in
       var message: Generate? = nil

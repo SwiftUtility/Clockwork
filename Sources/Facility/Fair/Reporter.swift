@@ -21,7 +21,7 @@ public final class Reporter {
     var reports = Report.Bag.shared.reports
     guard
       let gitlab = try? cfg.gitlab.get(),
-      let project = try? gitlab.project.get()
+      let project = try? gitlab.rest.map(\.project).get()
     else { return }
     let active = gitlab.storage.users
       .filter(\.value.active)

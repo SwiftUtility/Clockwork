@@ -8,7 +8,6 @@ public struct Gitlab {
   public var storage: Storage
   public var rest: Lossy<Rest> = .error(Thrown("Not protected ref pipeline"))
   public var deployKey: Lossy<String> = .error(Thrown("Not protected ref pipeline"))
-  public var project: Lossy<Json.GitlabProject> = .error(Thrown("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
   public var merge: Lossy<Json.GitlabMergeState> = .error(Thrown("Not review triggered pipeline"))
   public var info: Info { .init(
@@ -18,7 +17,7 @@ public struct Gitlab {
       .first,
     job: job,
     bot: try? rest.map(\.user).get(),
-    proj: try? project.get(),
+    proj: try? rest.map(\.project).get(),
     parent: try? parent.get(),
     merge: try? merge.get()
   )}
@@ -123,16 +122,28 @@ public struct Gitlab {
   public struct Rest {
     public let secret: String
     public let auth: String
+    public let push: String
     public let user: Json.GitlabUser
+    public let project: Json.GitlabProject
     public static func make(
       token: String,
       env: Env,
-      user: Json.GitlabUser
-    ) throws -> Self { .init(
-      secret: token,
-      auth: "Authorization: Bearer \(token)",
-      user: user
-    )}
+      user: Json.GitlabUser,
+      project: Json.GitlabProject
+    ) throws -> Self {
+      guard var components = URLComponents(string: project.httpUrlToRepo)
+      else { throw Thrown("Wrong url \(project.httpUrlToRepo)") }
+      components.user = user.username
+      components.password = token
+      guard let push = components.string else { throw Thrown("Wrong url \(project.httpUrlToRepo)") }
+      return .init(
+        secret: token,
+        auth: "Authorization: Bearer \(token)",
+        push: push,
+        user: user,
+        project: project
+      )
+    }
   }
   public struct Env {
     public let api: String
@@ -148,6 +159,11 @@ public struct Gitlab {
     }
     public func getTokenUser(token: String) -> Lossy<Execute> { .init(.makeCurl(
       url: "\(api)/user",
+      headers: ["Authorization: Bearer \(token)"],
+      secrets: [token]
+    ))}
+    public func getProject(token: String) -> Lossy<Execute> { .init(.makeCurl(
+      url: "\(api)",
       headers: ["Authorization: Bearer \(token)"],
       secrets: [token]
     ))}

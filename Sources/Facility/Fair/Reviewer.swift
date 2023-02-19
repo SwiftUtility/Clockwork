@@ -332,8 +332,7 @@ public final class Reviewer {
     ctx.update(state: state)
     let gitlab = try cfg.gitlab.get()
     try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
-      ssh: gitlab.project.map(\.sshUrlToRepo).get(),
-      key: gitlab.deployKey.get(),
+      gitlab: gitlab,
       branch: change.fusion.source,
       sha: change.head,
       force: true
@@ -392,11 +391,7 @@ extension Reviewer {
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
     try Execute.checkStatus(reply: execute(cfg.git.push(
-      ssh: gitlab.project.map(\.sshUrlToRepo).get(),
-      key: gitlab.deployKey.get(),
-      branch: fusion.source,
-      sha: head,
-      force: false
+      gitlab: gitlab, branch: fusion.source, sha: head, force: false
     )))
     let title = try generate(cfg.createMergeTitle(review: review, fusion: fusion))
     let merge = try gitlab
@@ -727,11 +722,7 @@ extension Reviewer {
     ) {
       let gitlab = try ctx.cfg.gitlab.get()
       try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
-        ssh: gitlab.project.map(\.sshUrlToRepo).get(),
-        key: gitlab.deployKey.get(),
-        branch: state.source,
-        sha: sha,
-        force: false
+        gitlab: gitlab, branch: state.source, sha: sha, force: false
       )))
       state.shiftHead(to: sha)
     } else {
@@ -788,11 +779,7 @@ extension Reviewer {
     }
     let gitlab = try ctx.cfg.gitlab.get()
     try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
-      ssh: gitlab.project.map(\.sshUrlToRepo).get(),
-      key: gitlab.deployKey.get(),
-      branch: state.source,
-      sha: head,
-      force: true
+      gitlab: gitlab, branch: state.source, sha: head, force: true
     )))
     state.shiftHead(to: head)
     state.squashApproves(to: head)
