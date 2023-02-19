@@ -333,7 +333,7 @@ public final class Reviewer {
     let gitlab = try cfg.gitlab.get()
     try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
       ssh: gitlab.project.map(\.sshUrlToRepo).get(),
-      key: gitlab.ssh.get(),
+      key: gitlab.deployKey.get(),
       branch: change.fusion.source,
       sha: change.head,
       force: true
@@ -393,7 +393,7 @@ extension Reviewer {
     let gitlab = try cfg.gitlab.get()
     try Execute.checkStatus(reply: execute(cfg.git.push(
       ssh: gitlab.project.map(\.sshUrlToRepo).get(),
-      key: gitlab.ssh.get(),
+      key: gitlab.deployKey.get(),
       branch: fusion.source,
       sha: head,
       force: false
@@ -728,7 +728,7 @@ extension Reviewer {
       let gitlab = try ctx.cfg.gitlab.get()
       try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
         ssh: gitlab.project.map(\.sshUrlToRepo).get(),
-        key: gitlab.ssh.get(),
+        key: gitlab.deployKey.get(),
         branch: state.source,
         sha: sha,
         force: false
@@ -789,7 +789,7 @@ extension Reviewer {
     let gitlab = try ctx.cfg.gitlab.get()
     try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
       ssh: gitlab.project.map(\.sshUrlToRepo).get(),
-      key: gitlab.ssh.get(),
+      key: gitlab.deployKey.get(),
       branch: state.source,
       sha: head,
       force: true

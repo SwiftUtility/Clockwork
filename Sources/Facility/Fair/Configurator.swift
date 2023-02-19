@@ -119,7 +119,7 @@ public final class Configurator {
     ) else { return false }
     let gitlab = try query.cfg.gitlab.get()
     let ssh = try gitlab.project.get().sshUrlToRepo
-    let key = try gitlab.ssh.get()
+    let key = try gitlab.deployKey.get()
     try Execute.checkStatus(reply: execute(query.cfg.git.push(
       ssh: ssh,
       key: key,
@@ -166,7 +166,7 @@ extension Configurator {
     gitlab.project = gitlab.getProject
       .map(execute)
       .reduce(Json.GitlabProject.self, jsonDecoder.decode(success:reply:))
-    gitlab.ssh = .init(try parse(git: cfg.git, env: cfg.env, secret: .envVar(yaml.deployKey)))
+    gitlab.deployKey = .init(try yaml.deployKey.get(env: cfg.env))
     if let parent = try? yaml.trigger.jobId.get(env: cfg.env) {
       gitlab.parent = Lossy(try parent.getUInt())
         .flatMap(gitlab.getJob(id:))
