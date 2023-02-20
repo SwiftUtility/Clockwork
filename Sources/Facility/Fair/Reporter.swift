@@ -39,8 +39,7 @@ public final class Reporter {
       reports[index].info.env = cfg.env
       reports[index].info.gitlab = info
       reports[index].info.jira = jira
-      "\(reports[index])".debug()
-      "\(String(reflecting: reports[index]))".debug()
+      "\(String(describing: reports[index]))".debug()
     }
     sendSlack(.make(cfg: cfg, reports: reports))
     sendJira(cfg: cfg, reports: reports)
