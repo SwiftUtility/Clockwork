@@ -24,12 +24,11 @@ extension Review {
     }
     mutating func enqueue(state: State) {
       for (target, reviews) in queues {
-        if target == state.target.name {
-          if reviews.contains(state.review).not { queues[target] = reviews + [state.review] }
-        } else {
-          queues[target] = reviews.filter({ $0 != state.review })
-        }
+        guard target != state.target.name else { continue }
+        queues[target] = reviews.filter({ $0 != state.review })
       }
+      guard queues[state.target.name].get([]).contains(state.review).not else { return }
+      queues[state.target.name, default: []] += [state.review]
     }
     var serialized: String {
       var result = ""

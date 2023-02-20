@@ -41,7 +41,7 @@ public struct Gitlab {
       var result: String = ""
       let bots = bots.sorted().map({ "'\($0)'" }).joined(separator: ",")
       result += "bots: [\(bots)]\n"
-      let users = users.keys.sorted().compactMap({ self.users[$0] })
+      let users = users.values.sorted(\.login)
       result += "users:\(users.isEmpty.then(" {}").get(""))\n"
       for user in users {
         result += "  '\(user.login)':\n"
