@@ -162,11 +162,11 @@ public final class Slacker {
           continue
         }
         guard let signals = update[thread.name] else { continue }
-        var info = info
-        info.mark = thread.name
         for signal in signals {
-          signal.events.debug()
+          var info = info
+          info.mark = thread.name
           info.slack?.thread = .make(signal: signal, thread: present)
+          signal.events.debug()
           _ = send(cfg: cfg, slack: slack, signal: signal, info: info)
         }
       }
@@ -181,7 +181,7 @@ public final class Slacker {
   ) -> Json.SlackMessage? {
     let body: String
     do {
-      body = try generate(cfg.report(template: signal.body, info: info))
+      body = try generate(cfg.report(template: signal.body, info: info)).debug()
     } catch {
       log(info: info, signal: signal, error: error, action: "generate")
       return nil
@@ -190,8 +190,9 @@ public final class Slacker {
     defer { sleep(1) }
     do {
       let data = try Execute.parseData(reply: execute(cfg.curlSlack(
-        token: slack.token, method: signal.method, body: body
+        token: slack.token, method: signal.method.debug(), body: body
       )))
+      String(data: data, encoding: .utf8)?.debug()
       return try? jsonDecoder.decode(Json.SlackMessage.self, from: data)
     } catch {
       log(info: info, signal: signal, error: error, action: "send")
