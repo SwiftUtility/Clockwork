@@ -71,7 +71,6 @@ public final class Slacker {
     cfg: Configuration,
     report: Report
   ) -> Bool {
-    print(report)
     for signal in storage.slack.signals.filter(report.info.match(slack:)) {
       signal.mark.debug()
       var info = report.info
