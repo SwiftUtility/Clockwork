@@ -71,12 +71,15 @@ public final class Slacker {
     cfg: Configuration,
     report: Report
   ) -> Bool {
+    print(report)
     for signal in storage.slack.signals.filter(report.info.match(slack:)) {
+      signal.mark.debug()
       var info = report.info
       info.mark = signal.mark
       _ = send(cfg: cfg, slack: storage.slack, signal: signal, info: info)
     }
     for user in report.threads.users {
+      user.debug()
       guard let person = storage.users[user] else { continue }
       for signal in storage.slack.directs.filter(report.info.match(slack:)) {
         var info = report.info
@@ -148,6 +151,7 @@ public final class Slacker {
     let update = threads.reduce(into: [:], { $0[$1.name] = info.match(update: $1) })
     for key in keys {
       for thread in threads {
+        thread.name.debug()
         guard let present = storage[key]?[thread.name] else {
           guard create.contains(thread.name) else { continue }
           var info = info
@@ -162,6 +166,7 @@ public final class Slacker {
         var info = info
         info.mark = thread.name
         for signal in signals {
+          signal.events.debug()
           info.slack?.thread = .make(signal: signal, thread: present)
           _ = send(cfg: cfg, slack: slack, signal: signal, info: info)
         }
