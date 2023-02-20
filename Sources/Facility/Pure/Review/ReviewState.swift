@@ -160,9 +160,7 @@ extension Review {
         .filter({ $0.name == ctx.rules.hold })
         .reduce(into: Set(), { $0.insert($1.user.username) })
       if holders.intersection(ctx.bots).isEmpty { change?.addAward = true }
-      holders = holders
-        .subtracting(ctx.bots)
-        .intersection(ctx.users.filter(\.value.active).keySet)
+      holders = holders.intersection(ctx.approvers)
       if holders.isEmpty.not { add(problem: .holders(holders)) }
     }
     public var needApprovalCheck: Bool {
@@ -203,18 +201,16 @@ extension Review {
       let randomTeams = change.fusion.randomApproval.then(ctx.rules.randoms).get([:])
         .filter({ $0.value.isDisjoint(with: approvableTeams).not })
         .keySet
-      let active = ctx.users.filter(\.value.active).keySet
-        .subtracting(ctx.bots)
       authors = authors.subtracting(ctx.bots)
       legates = approvableTeams
         .compactMap({ ctx.rules.teams[$0] })
         .reduce(into: Set(), { $0.formUnion($1.approvers) })
-        .intersection(active)
+        .intersection(ctx.approvers)
         .intersection(legates)
       randoms = randomTeams
         .compactMap({ ctx.rules.teams[$0] })
         .reduce(into: Set(), { $0.formUnion($1.approvers) })
-        .intersection(active)
+        .intersection(ctx.approvers)
         .intersection(randoms)
       approves.keySet
         .subtracting(legates)
@@ -299,17 +295,18 @@ extension Review {
         .flatMap({ childs[$0] })
         .flatMap({ $0.contains(where: { changes[$0] != nil }).else(change.head) })
       guard emergent == nil else { return }
-      if change.fusion.allowOrphaned.not, diff.isEmpty.not, authors.intersection(active).isEmpty
+      if
+        change.fusion.allowOrphaned.not,
+        diff.isEmpty.not,
+        authors.intersection(ctx.approvers).isEmpty
       { add(problem: .orphaned(authors)) }
       let unknownUsers = authors
-        .union(approves.keys)
         .union(ctx.rules.ignore.keys)
         .union(ctx.rules.ignore.flatMap(\.value))
         .union(ctx.rules.authorship.flatMap(\.value))
         .union(ctx.rules.teams.flatMap(\.value.approvers))
-        .union(ctx.rules.teams.flatMap(\.value.random))
-        .subtracting(ctx.users.keys)
-        .subtracting(ctx.bots)
+        .subtracting(ctx.users.keys.debug())
+        .subtracting(ctx.bots.debug())
       if unknownUsers.isEmpty.not { add(problem: .unknownUsers(unknownUsers)) }
       let unknownTeams = Set(ctx.rules.sanity.array)
         .union(ownage.keys)
@@ -335,7 +332,7 @@ extension Review {
         add(problem: .confusedTeams(Set(confusedTeams.map(\.name))))
       }
       var updateTeams = teams.compactMap({ ctx.rules.teams[$0] })
-      updateTeams.indices.forEach({ updateTeams[$0].update(active: active) })
+      updateTeams.indices.forEach({ updateTeams[$0].update(active: ctx.approvers) })
       var ignore = change.fusion.selfApproval.not.then(authors).get([])
       updateTeams.indices.forEach({ updateTeams[$0].update(exclude: ignore) })
       let unapprovable = updateTeams
@@ -357,7 +354,7 @@ extension Review {
         users: updateTeams.reduce(into: Set(), { $0.formUnion($1.approvers) })
       ))
       updateTeams = randomTeams.compactMap({ ctx.rules.teams[$0] })
-      updateTeams.indices.forEach({ updateTeams[$0].update(active: active) })
+      updateTeams.indices.forEach({ updateTeams[$0].update(active: ctx.approvers) })
       ignore = ctx.rules.ignore
         .filter({ $0.value.intersection(authors).isEmpty.not })
         .keySet
