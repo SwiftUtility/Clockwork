@@ -5,10 +5,12 @@ public final class Mediator {
   let execute: Try.Reply<Execute>
   let resolveState: Try.Reply<Review.State.Resolve>
   let parseReview: Try.Reply<ParseYamlFile<Review>>
+  let parseReviewStorage: Try.Reply<ParseYamlFile<Review.Storage>>
   let parseReviewRules: Try.Reply<ParseYamlSecret<Review.Rules>>
   let parseFlow: Try.Reply<ParseYamlFile<Flow>>
   let parseFlowStorage: Try.Reply<ParseYamlFile<Flow.Storage>>
   let registerSlackUser: Try.Reply<Slack.RegisterUser>
+  let cleanSlack: Try.Reply<Configuration.Clean>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let parseStdin: Try.Reply<Configuration.ParseStdin>
   let generate: Try.Reply<Generate>
@@ -20,10 +22,12 @@ public final class Mediator {
     execute: @escaping Try.Reply<Execute>,
     resolveState: @escaping Try.Reply<Review.State.Resolve>,
     parseReview: @escaping Try.Reply<ParseYamlFile<Review>>,
+    parseReviewStorage: @escaping Try.Reply<ParseYamlFile<Review.Storage>>,
     parseReviewRules: @escaping Try.Reply<ParseYamlSecret<Review.Rules>>,
     parseFlow: @escaping Try.Reply<ParseYamlFile<Flow>>,
     parseFlowStorage: @escaping Try.Reply<ParseYamlFile<Flow.Storage>>,
     registerSlackUser: @escaping Try.Reply<Slack.RegisterUser>,
+    cleanSlack: @escaping Try.Reply<Configuration.Clean>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     generate: @escaping Try.Reply<Generate>,
@@ -35,17 +39,47 @@ public final class Mediator {
     self.execute = execute
     self.resolveState = resolveState
     self.parseReview = parseReview
+    self.parseReviewStorage = parseReviewStorage
     self.parseReviewRules = parseReviewRules
     self.parseFlow = parseFlow
     self.parseFlowStorage = parseFlowStorage
     self.registerSlackUser = registerSlackUser
     self.persistAsset = persistAsset
+    self.cleanSlack = cleanSlack
     self.parseStdin = parseStdin
     self.generate = generate
     self.logMessage = logMessage
     self.writeStdout = writeStdout
     self.stdoutData = stdoutData
     self.jsonDecoder = jsonDecoder
+  }
+  public func clean(cfg: Configuration) throws -> Bool {
+    var clean = cfg.clean
+    if let review = try? cfg.parseReview
+      .map(parseReview)
+      .map(cfg.parseReviewStorage(review:))
+      .map(parseReviewStorage)
+      .get()
+    {
+      for state in review.states.values {
+        clean.reviews.insert(String(state.review))
+        clean.issues.formUnion(cfg.issues(branch: state.source.name))
+      }
+    }
+    if let flow = try? cfg.parseFlow.map(parseFlow)
+      .map(cfg.parseFlowStorage(flow:))
+      .map(parseFlowStorage)
+      .get()
+    {
+      clean.tags.formUnion(flow.deploys.keys.map(\.name))
+      clean.tags.formUnion(flow.stages.keys.map(\.name))
+      for branch in flow.releases.keySet.union(flow.accessories.keys) {
+        clean.branches.insert(branch.name)
+        clean.issues.formUnion(cfg.issues(branch: branch.name))
+      }
+    }
+    try cleanSlack(clean)
+    return true
   }
   public func render(
     cfg: Configuration,
@@ -90,14 +124,16 @@ public final class Mediator {
     let gitlab = try cfg.gitlab.get()
     if let review = try? gitlab.merge.get() {
       threads.reviews.insert("\(review)")
+      threads.issues = cfg.issues(branch: review.sourceBranch)
       state = try? resolveState(.make(cfg: cfg, merge: review))
       merge = review
       return true
     }
     let flow = try cfg.parseFlow.map(parseFlow).get()
     let storage = try parseFlowStorage(cfg.parseFlowStorage(flow: flow))
-    if gitlab.job.tag {
-      let tag = try Git.Tag.make(job: gitlab.job)
+    let job = (try? gitlab.parent.get()).get(gitlab.job)
+    if job.tag {
+      let tag = try Git.Tag.make(job: job)
       threads.tags.insert(tag.name)
       if let stage = storage.stages[tag] {
         product = stage.product
@@ -111,6 +147,7 @@ public final class Mediator {
           merge = review
           state = try? resolveState(.make(cfg: cfg, merge: review))
           threads.reviews.insert("\(iid)")
+          threads.issues = cfg.issues(branch: review.sourceBranch)
         } else {
           threads.branches.insert(stage.branch.name)
         }
@@ -122,8 +159,9 @@ public final class Mediator {
         }
       }
     } else {
-      let branch = try Git.Branch.make(job: gitlab.job)
+      let branch = try Git.Branch.make(job: job)
       threads.branches.insert(branch.name)
+      threads.issues = cfg.issues(branch: branch.name)
       if let release = storage.releases[branch] {
         product = release.product
         version = release.version.value

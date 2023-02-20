@@ -44,6 +44,18 @@ extension Clockwork.Cocoapods.UpdateSpecs: RunnableCommand {
     try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
   }
 }
+extension Clockwork.Connect.Clean: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.clean(cfg: cfg)
+  }
+}
+extension Clockwork.Connect.Signal: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.signal(
+      cfg: cfg, event: event, stdin: stdin.mode, args: args
+    )
+  }
+}
 extension Clockwork.Flow.ChangeAccessoryVersion: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.producer.changeAccessoryVersion(
@@ -88,7 +100,7 @@ extension Clockwork.Flow.ExportVersions: RunnableCommand {
 }
 extension Clockwork.Flow.ReserveBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reserveBuild(cfg: cfg, review: review, product: product)
+    try Assembler.producer.reserveBuild(cfg: cfg, review: false, product: product)
   }
 }
 extension Clockwork.Flow.StartHotfix: RunnableCommand {
@@ -159,20 +171,6 @@ extension Clockwork.Gitlab.Pipeline.Delete: RunnableCommand {
 extension Clockwork.Gitlab.Pipeline.Retry: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .retry)
-  }
-}
-extension Clockwork.Gitlab.Render: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.render(
-      cfg: cfg, template: template, stdin: stdin.mode, args: args
-    )
-  }
-}
-extension Clockwork.Gitlab.Signal: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.mediator.signal(
-      cfg: cfg, event: event, stdin: stdin.mode, args: args
-    )
   }
 }
 extension Clockwork.Gitlab.TriggerPipeline: RunnableCommand {
@@ -257,6 +255,13 @@ extension Clockwork.Requisites.ReportExpiring: RunnableCommand {
     try Assembler.requisitor.reportExpiringRequisites(cfg: cfg, days: days)
   }
 }
+extension Clockwork.Render: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.render(
+      cfg: cfg, template: template, stdin: stdin.mode, args: args
+    )
+  }
+}
 extension Clockwork.Review.Accept: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.acceptReview(cfg: cfg)
@@ -315,6 +320,11 @@ extension Clockwork.Review.Remind: RunnableCommand {
 extension Clockwork.Review.RemoveLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.removeReviewLabels(cfg: cfg, labels: labels)
+  }
+}
+extension Clockwork.Review.ReserveBuild: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.reserveBuild(cfg: cfg, review: true, product: product)
   }
 }
 extension Clockwork.Review.TriggerPipeline: RunnableCommand {

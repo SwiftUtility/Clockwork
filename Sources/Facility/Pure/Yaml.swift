@@ -35,12 +35,13 @@ public enum Yaml {
   }
   public struct Jira: Decodable {
     public var url: Secret
-    public var rest: Secret
     public var token: Secret
+    public var issue: String
     public var issues: [String: Signal]?
     public struct Signal: Decodable {
       public var url: Template
       public var body: Template
+      public var method: String
       public var events: [String]
     }
   }

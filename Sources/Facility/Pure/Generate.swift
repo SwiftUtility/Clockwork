@@ -19,12 +19,14 @@ public protocol GenerateInfo: Encodable {
   var slack: Slack.Info? { get set }
 }
 public extension GenerateInfo {
-  func match(signal: Slack.Signal) -> Bool { signal.events.lazy
+  func match(events: [[String]]) -> Bool { events.lazy
     .filter({ event.count <= $0.count })
     .contains(where: { zip(event, $0).contains(where: !=).not })
   }
-  func match(create: Slack.Thread) -> Bool { match(signal: create.create) }
-  func match(update: Slack.Thread) -> [Slack.Signal] { update.update.filter(match(signal:)) }
+  func match(slack: Slack.Signal) -> Bool { match(events: slack.events) }
+  func match(jira: Jira.Signal) -> Bool { match(events: jira.events) }
+  func match(create: Slack.Thread) -> Bool { match(slack: create.create) }
+  func match(update: Slack.Thread) -> [Slack.Signal] { update.update.filter(match(slack:)) }
 }
 public struct Generate: Query {
   public var template: Configuration.Template
@@ -149,6 +151,7 @@ public struct Generate: Query {
     public enum Reason: String, Encodable {
       case registerUser
       case createThreads
+      case cleanThreads
     }
   }
   public struct CreateMergeTitle: GenerateContext {

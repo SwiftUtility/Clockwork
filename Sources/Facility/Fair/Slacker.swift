@@ -33,6 +33,20 @@ public final class Slacker {
       )
     })
   }
+  public func cleanSlack(query: Configuration.Clean) throws -> Configuration.Clean.Reply {
+    try perform(cfg: query.cfg, action: { storage in
+      storage.tags = storage.tags.filter({ query.tags.contains($0.key) })
+      storage.issues = storage.issues.filter({ query.issues.contains($0.key) })
+      storage.reviews = storage.reviews.filter({ query.reviews.contains($0.key) })
+      storage.branches = storage.branches.filter({ query.branches.contains($0.key) })
+
+      return query.cfg.createSlackStorageCommitMessage(
+        slack: storage.slack,
+        user: nil,
+        reason: .cleanThreads
+      )
+    })
+  }
   public func sendSlack(query: Slack.Send) -> Slack.Send.Reply {
     do {
       try perform(cfg: query.cfg, action: { storage in
@@ -57,14 +71,14 @@ public final class Slacker {
     cfg: Configuration,
     report: Report
   ) -> Bool {
-    for signal in storage.slack.signals.filter(report.info.match(signal:)) {
+    for signal in storage.slack.signals.filter(report.info.match(slack:)) {
       var info = report.info
       info.mark = signal.mark
       _ = send(cfg: cfg, slack: storage.slack, signal: signal, info: info)
     }
     for user in report.threads.users {
       guard let person = storage.users[user] else { continue }
-      for signal in storage.slack.directs.filter(report.info.match(signal:)) {
+      for signal in storage.slack.directs.filter(report.info.match(slack:)) {
         var info = report.info
         info.mark = signal.mark
         info.slack?.person = person

@@ -233,6 +233,17 @@ public extension Configuration {
     if let parent = try? gitlab.parent.get() { result.insert(parent.user.username) }
     return result
   }
+  func issues(branch: String) -> Set<String> {
+    guard let jira = try? jira.get() else { return [] }
+    return jira.issue
+      .matches(
+        in: branch,
+        options: .withoutAnchoringBounds,
+        range: .init(branch.startIndex..<branch.endIndex, in: branch)
+      )
+      .compactMap({ Range($0.range, in: branch) })
+      .reduce(into: Set(), { $0.insert(String(branch[$1])) })
+  }
   func reportFusionFail(
     source: String,
     target: String,
@@ -304,6 +315,7 @@ public extension Configuration {
     cfg: self,
     threads: .make(
       users: state.authors,
+      issues: issues(branch: merge.sourceBranch),
       reviews: [state.review],
       branches: [state.target.name]
     ),

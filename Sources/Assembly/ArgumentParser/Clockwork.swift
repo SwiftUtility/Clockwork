@@ -6,9 +6,11 @@ struct Clockwork: ParsableCommand {
     version: Clockwork.version,
     subcommands: [
       Cocoapods.self,
+      Connect.self,
       Flow.self,
       Gitlab.self,
       Requisites.self,
+      Render.self,
       Review.self,
       Validate.self,
     ]
@@ -17,7 +19,7 @@ struct Clockwork: ParsableCommand {
   var profile = ".clockwork.yml"
   struct Cocoapods: ParsableCommand {
     static let configuration = CommandConfiguration(
-      abstract: "Distributed scalable monorepo management tool",
+      abstract: "Cocoapods management commands subset",
       version: Clockwork.version,
       subcommands: [
         ResetSpecs.self,
@@ -31,6 +33,30 @@ struct Clockwork: ParsableCommand {
     struct UpdateSpecs: ClockworkCommand {
       static var abstract: String { "Update cocoapods specs and configured commist" }
       @OptionGroup var clockwork: Clockwork
+    }
+  }
+  struct Connect: ParsableCommand {
+    static let configuration = CommandConfiguration(
+      abstract: "Communication commands subset",
+      version: Clockwork.version,
+      subcommands: [
+        Clean.self,
+        Signal.self,
+      ]
+    )
+    struct Clean: ClockworkCommand {
+      static var abstract: String { "Clean outdated threads" }
+      @OptionGroup var clockwork: Clockwork
+    }
+    struct Signal: ClockworkCommand {
+      static var abstract: String { "Send custom preconfigured report" }
+      @OptionGroup var clockwork: Clockwork
+      @Flag(help: Common.Stdin.help)
+      var stdin: Common.Stdin = .ignore
+      @Option(help: "Event name to send report for")
+      var event: String
+      @Argument(help: "Context to make available during rendering")
+      var args: [String] = []
     }
   }
   struct Flow: ParsableCommand {
@@ -112,8 +138,6 @@ struct Clockwork: ParsableCommand {
     struct ReserveBuild: ClockworkCommand {
       static var abstract: String { "Reserve build number for current protected branch pipeline" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Is build for merge request")
-      var review: Bool = false
       @Option(help: "Product name to make branch for")
       var product: String
     }
@@ -138,14 +162,12 @@ struct Clockwork: ParsableCommand {
 }
   struct Gitlab: ParsableCommand {
     static let configuration = CommandConfiguration(
-      abstract: "Distributed scalable monorepo management tool",
+      abstract: "Gitlab interaction commands subset",
       version: Clockwork.version,
       subcommands: [
         Artifacts.self,
         Jobs.self,
         Pipeline.self,
-        Render.self,
-        Signal.self,
         TriggerPipeline.self,
         TriggerReviewPipeline.self,
         User.self,
@@ -216,7 +238,7 @@ struct Clockwork: ParsableCommand {
     }
     struct Pipeline: ParsableCommand {
       static let configuration = CommandConfiguration(
-        abstract: "Distributed scalable monorepo management tool",
+        abstract: "Pipeline batch commands subser",
         version: Clockwork.version,
         subcommands: [
           Cancel.self,
@@ -241,26 +263,6 @@ struct Clockwork: ParsableCommand {
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var pipeline: Pipeline
       }
-    }
-    struct Render: ClockworkCommand {
-      static var abstract: String { "Renders custom template to stdout" }
-      @OptionGroup var clockwork: Clockwork
-      @Flag(help: Common.Stdin.help)
-      var stdin: Common.Stdin = .ignore
-      @Option(help: "Template name to render")
-      var template: String
-      @Argument(help: "Context to make available during rendering")
-      var args: [String] = []
-    }
-    struct Signal: ClockworkCommand {
-      static var abstract: String { "Send custom preconfigured report" }
-      @OptionGroup var clockwork: Clockwork
-      @Flag(help: Common.Stdin.help)
-      var stdin: Common.Stdin = .ignore
-      @Option(help: "Event name to send report for")
-      var event: String
-      @Argument(help: "Context to make available during rendering")
-      var args: [String] = []
     }
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Trigger pipeline configured and custom context" }
@@ -380,6 +382,16 @@ struct Clockwork: ParsableCommand {
       var days: UInt = 0
     }
   }
+  struct Render: ClockworkCommand {
+    static var abstract: String { "Renders custom template to stdout" }
+    @OptionGroup var clockwork: Clockwork
+    @Flag(help: Common.Stdin.help)
+    var stdin: Common.Stdin = .ignore
+    @Option(help: "Template name to render")
+    var template: String
+    @Argument(help: "Context to make available during rendering")
+    var args: [String] = []
+  }
   struct Review: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Subset of review lifecycle management commands",
@@ -397,6 +409,7 @@ struct Clockwork: ParsableCommand {
         Rebase.self,
         Remind.self,
         RemoveLabels.self,
+        ReserveBuild.self,
         TriggerPipeline.self,
         Skip.self,
         StartDuplication.self,
@@ -481,6 +494,12 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Labels to be removed from parent review")
       var labels: [String]
     }
+    struct ReserveBuild: ClockworkCommand {
+      static var abstract: String { "Reserve build number for parrent review pipeline" }
+      @OptionGroup var clockwork: Clockwork
+      @Option(help: "Product name to make branch for")
+      var product: String
+    }
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Create new pipeline for parent review" }
       @OptionGroup var clockwork: Clockwork
@@ -548,7 +567,7 @@ struct Clockwork: ParsableCommand {
   }
   struct Validate: ParsableCommand {
     static let configuration = CommandConfiguration(
-      abstract: "Distributed scalable monorepo management tool",
+      abstract: "Validation commands subset",
       version: Clockwork.version,
       subcommands: [
         ConflictMarkers.self,

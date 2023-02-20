@@ -11,6 +11,7 @@ enum Assembler {
   )
   static let reporter = Reporter(
     execute: execute,
+    generate: stencilParser.generate(query:),
     sendSlack: slacker.sendSlack(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
@@ -67,10 +68,12 @@ enum Assembler {
     execute: execute,
     resolveState: reviewer.resolveState(query:),
     parseReview: configurator.parseYamlFile(query:),
+    parseReviewStorage: configurator.parseYamlFile(query:),
     parseReviewRules: configurator.parseYamlSecret(query:),
     parseFlow: configurator.parseYamlFile(query:),
     parseFlowStorage: configurator.parseYamlFile(query:),
     registerSlackUser: slacker.registerSlackUser(query:),
+    cleanSlack: slacker.cleanSlack(query:),
     persistAsset: configurator.persistAsset(query:),
     parseStdin: configurator.parseStdin(query:),
     generate: stencilParser.generate(query:),

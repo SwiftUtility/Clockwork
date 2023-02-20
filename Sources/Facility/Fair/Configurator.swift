@@ -192,7 +192,6 @@ extension Configurator {
       .get { throw Thrown("jira not configured") }
     return try .make(
       url: parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.url)),
-      rest: parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.rest)),
       token: parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.token)),
       yaml: yaml
     )

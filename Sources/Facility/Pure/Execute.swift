@@ -119,6 +119,13 @@ public extension Configuration {
     headers: [Json.utf8, "Authorization: Bearer \(token)"],
     secrets: [token]
   )}
+  func curlJira(jira: Jira, url: String, method: String, body: String) throws -> Execute { .makeCurl(
+    url: url,
+    method: method,
+    data: body,
+    headers: [Json.utf8, "Authorization: Bearer \(jira.token)", "X-Atlassian-Token: no-check"],
+    secrets: [jira.token]
+  )}
   func write(file: Files.Absolute, execute: Execute) -> Execute {
     var execute = execute
     execute.tasks.append(.init(environment: env, arguments: ["tee", file.value], secrets: []))

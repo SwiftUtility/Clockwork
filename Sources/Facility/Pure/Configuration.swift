@@ -9,6 +9,7 @@ public struct Configuration {
   public var gitlab: Lossy<Gitlab> = .error(Thrown())
   public var slack: Lossy<Slack> = .error(Thrown())
   public var jira: Lossy<Jira> = .error(Thrown())
+  public var clean: Clean { .init(cfg: self) }
   public static func make(
     git: Git,
     env: [String: String],
@@ -88,6 +89,14 @@ public struct Configuration {
     case json
     case yaml
     public typealias Reply = AnyCodable?
+  }
+  public struct Clean: Query {
+    public var cfg: Configuration
+    public var tags: Set<String> = []
+    public var issues: Set<String> = []
+    public var reviews: Set<String> = []
+    public var branches: Set<String> = []
+    public typealias Reply = Void
   }
   public struct Asset {
     public var file: Files.Relative
