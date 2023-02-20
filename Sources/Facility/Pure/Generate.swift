@@ -20,7 +20,7 @@ public protocol GenerateInfo: Encodable {
 }
 public extension GenerateInfo {
   func match(events: [[String]]) -> Bool { events.lazy
-    .filter({ event.count <= $0.count })
+    .filter({ event.count >= $0.count })
     .contains(where: { zip(event, $0).contains(where: !=).not })
   }
   func match(slack: Slack.Signal) -> Bool { match(events: slack.events) }
