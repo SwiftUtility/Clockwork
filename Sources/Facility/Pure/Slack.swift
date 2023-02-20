@@ -70,7 +70,7 @@ public struct Slack {
       public static func make(signal: Signal, thread: Storage.Thread) -> Self { .init(
         update: signal.mark,
         channel: thread.channel,
-        message: thread.name
+        message: thread.message
       )}
     }
   }
