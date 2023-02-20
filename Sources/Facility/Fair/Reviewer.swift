@@ -678,6 +678,7 @@ extension Reviewer {
     return state
   }
   func storeChange(ctx: inout Review.Context, state: inout Review.State, merge: Json.GitlabMergeState) throws {
+    ctx.update(state: state)
     guard
       try checkReady(ctx: &ctx, state: &state, merge: merge),
       try normalize(ctx: &ctx, state: &state)
