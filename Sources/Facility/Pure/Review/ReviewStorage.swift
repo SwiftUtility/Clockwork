@@ -75,7 +75,7 @@ extension Review {
           if let legates = state.legates.sortedNonEmpty {
             result += "    legates: ['\(legates.joined(separator: "','"))']\n"
           }
-          if let users = state.approves.keys.sortedNonEmpty?.compactMap({ state.approves[$0] }) {
+          if let users = state.approves.values.sorted(\.login).notEmpty {
             result += "    approves:\n"
             result += users
               .map({ "      '\($0.login)': {\($0.resolution.rawValue): '\($0.commit.value)'}\n" })

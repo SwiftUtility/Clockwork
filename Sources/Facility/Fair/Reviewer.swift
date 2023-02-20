@@ -478,6 +478,13 @@ extension Reviewer {
     let target = Git.Ref.make(remote: change.fusion.target)
     var fork = change.fusion.fork.map(Git.Ref.make(sha:))
     var childs: [Git.Sha: Set<Git.Sha>] = [:]
+    if change.fusion.propogation, let fork = change.fusion.fork { return state.update(
+      ctx: ctx,
+      childs: [fork: []],
+      diff: [],
+      diffs: [:],
+      ownage: ownage
+    )}
     for sha in try Execute.parseLines(reply: execute(ctx.cfg.git.listCommits(
       in: [head],
       notIn: [target] + fork.array,
@@ -492,8 +499,6 @@ extension Reviewer {
         .map(Git.Sha.make(value:))
         .reduce(into: [], { $0.insert($1) })
     }
-    guard change.fusion.propogation.not
-    else { return state.update(ctx: ctx, childs: childs, diff: [], diffs: [:], ownage: ownage) }
     var diff: [String] = []
     var diffs: [Git.Sha: [String]] = [:]
     if change.fusion.duplication {
@@ -635,6 +640,7 @@ extension Reviewer {
       try state.prepareChange(ctx: ctx, merge: merge),
       state.checkSanity(ctx: ctx, ownage: ownage, profile: profile)
     else {
+      "".debug()
       ctx.update(state: state)
       return false
     }
@@ -678,7 +684,6 @@ extension Reviewer {
     return state
   }
   func storeChange(ctx: inout Review.Context, state: inout Review.State, merge: Json.GitlabMergeState) throws {
-    ctx.update(state: state)
     guard
       try checkReady(ctx: &ctx, state: &state, merge: merge),
       try normalize(ctx: &ctx, state: &state)
