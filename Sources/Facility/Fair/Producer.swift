@@ -350,25 +350,36 @@ public final class Producer {
   }
   public func createAccessoryBranch(
     cfg: Configuration,
-    name: String
+    name: String,
+    commit: String
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
+    let commit = try commit.isEmpty.not
+      .then(Git.Sha.make(value: commit))
+      .flatMapNil(try? gitlab.parent.map(Git.Sha.make(job:)).get())
+      .get(.make(job: gitlab.job))
+    guard try resolveBranches(cfg: cfg).filter(\.protected)
+      .map(\.name)
+      .map(Git.Branch.make(name:))
+      .contains(where: { try Execute.parseSuccess(
+        reply: execute(cfg.git.check(child: .make(remote: $0), parent: .make(sha: commit)))
+      )})
+    else { throw Thrown("Not protected \(commit.value)") }
     let accessory = try Flow.Accessory.make(branch: name)
     try perform(cfg: cfg, mutate: { storage in
       guard storage.accessories[accessory.branch] == nil else { throw Thrown(
         "Branch \(accessory.branch.name) already present"
       )}
       storage.accessories[accessory.branch] = accessory
-      let sha = try Git.Sha.make(job: gitlab.job)
       guard try gitlab
-        .postBranches(name: name, ref: sha.value)
+        .postBranches(name: name, ref: commit.value)
         .map(execute)
         .map(Execute.parseData(reply:))
         .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
         .get()
         .protected
       else { throw Thrown("\(name) not protected") }
-      cfg.reportAccessoryBranchCreated(commit: sha, accessory: accessory)
+      cfg.reportAccessoryBranchCreated(commit: commit, accessory: accessory)
       return cfg.createFlowStorageCommitMessage(
         flow: storage.flow, reason: .createAccessoryBranch, branch: accessory.branch.name
       )
@@ -612,5 +623,20 @@ extension Producer {
       content: storage.serialized,
       message: message
     ))
+  }
+  func resolveBranches(cfg: Configuration) throws -> [Json.GitlabBranch] {
+    var result: [Json.GitlabBranch] = []
+    var page = 1
+    let gitlab = try cfg.gitlab.get()
+    while true {
+      let branches = try gitlab
+        .getBranches(page: page, count: 100)
+        .map(execute)
+        .reduce([Json.GitlabBranch].self, jsonDecoder.decode(success:reply:))
+        .get()
+      result += branches
+      guard branches.count == 100 else { return result }
+      page += 1
+    }
   }
 }

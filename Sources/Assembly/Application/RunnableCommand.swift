@@ -70,7 +70,7 @@ extension Clockwork.Flow.ChangeNextVersion: RunnableCommand {
 }
 extension Clockwork.Flow.CreateAccessoryBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.createAccessoryBranch(cfg: cfg, name: name)
+    try Assembler.producer.createAccessoryBranch(cfg: cfg, name: name, commit: sha)
   }
 }
 extension Clockwork.Flow.CreateDeployTag: RunnableCommand {

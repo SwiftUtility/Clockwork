@@ -100,6 +100,8 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Name of the branch")
       var name: String
+      @Option(help: "Commit sha to cut form or parrent or current")
+      var sha: String = ""
     }
     struct CreateDeployTag: ClockworkCommand {
       static var abstract: String { "Create deploy tag on release branch" }
@@ -559,7 +561,7 @@ struct Clockwork: ParsableCommand {
       var iid: UInt = 0
     }
     struct Update: ClockworkCommand {
-      static var abstract: String { "Clean outdated reviews" }
+      static var abstract: String { "Update status for stuck reviews" }
       @OptionGroup var clockwork: Clockwork
       @Flag(help: "Should ping slackers")
       var remind: Bool = false
