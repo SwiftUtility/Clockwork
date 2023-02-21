@@ -127,7 +127,7 @@ public final class Reviewer {
     )))
     state.skip.insert(sha)
     ctx.update(state: state)
-    try storeContext(ctx: &ctx)
+    try storeContext(ctx: &ctx, skip: state.review)
     return true
   }
   public func skipReview(
@@ -340,7 +340,7 @@ public final class Reviewer {
     try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
       gitlab: gitlab,
       branch: change.fusion.source,
-      sha: change.head,
+      sha: commit,
       force: true
     )))
     try storeContext(ctx: &ctx, skip: iid)

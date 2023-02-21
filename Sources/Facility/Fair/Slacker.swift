@@ -175,6 +175,8 @@ public final class Slacker {
     signal: Slack.Signal,
     info: GenerateInfo
   ) -> Json.SlackMessage? {
+    signal.mark.debug()
+    info.event.joined(separator: "/").debug()
     let body: String
     do {
       body = try generate(cfg.report(template: signal.body, info: info))
