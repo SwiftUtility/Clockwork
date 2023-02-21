@@ -546,7 +546,7 @@ extension Reviewer {
         guard try Execute.parseLines(reply: execute(cfg.git.listCommits(
           in: [.make(sha: .make(value: base))],
           notIn: exclude
-        ))).isEmpty else { continue }
+        ))).isEmpty.not else { continue }
         extras.insert(branch)
       }
       if extras.isEmpty.not { result.append(.extraCommits(extras)) }
