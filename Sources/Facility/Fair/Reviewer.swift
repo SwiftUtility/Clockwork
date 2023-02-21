@@ -106,7 +106,7 @@ public final class Reviewer {
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
     guard let merge = try checkActual(cfg: cfg) else { return false }
-    let target = try Git.Branch.make(name: merge.targetBranch)
+    let branch = try Git.Branch.make(name: merge.sourceBranch)
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     guard
@@ -123,7 +123,7 @@ public final class Reviewer {
       return false
     }
     try Execute.checkStatus(reply: execute(cfg.git.push(
-      gitlab: gitlab, branch: target, sha: sha, force: false
+      gitlab: gitlab, branch: branch, sha: sha, force: false
     )))
     state.skip.insert(sha)
     ctx.update(state: state)
