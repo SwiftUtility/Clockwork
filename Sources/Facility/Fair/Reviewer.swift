@@ -104,7 +104,9 @@ public final class Reviewer {
     skip: Bool,
     message: String
   ) throws -> Bool {
+    let gitlab = try cfg.gitlab.get()
     guard let merge = try checkActual(cfg: cfg) else { return false }
+    let target = try Git.Branch.make(name: merge.targetBranch)
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     guard
@@ -120,8 +122,12 @@ public final class Reviewer {
       ctx.cfg.reportReviewFail(merge: merge, state: state, reason: .patchFailed)
       return false
     }
+    try Execute.checkStatus(reply: execute(cfg.git.push(
+      gitlab: gitlab, branch: target, sha: sha, force: false
+    )))
     state.skip.insert(sha)
-    try storeChange(ctx: &ctx, state: &state, merge: merge)
+    ctx.update(state: state)
+    try storeContext(ctx: &ctx)
     return true
   }
   public func skipReview(
