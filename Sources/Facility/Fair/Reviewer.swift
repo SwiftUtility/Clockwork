@@ -600,16 +600,20 @@ extension Reviewer {
     .map(Git.Sha.make(value:))
   }
   func isEqualTree(cfg: Configuration, tree one: Git.Sha, to two: Git.Sha) throws -> Bool {
-    let one = try Execute
-      .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: one))))
-      .dropSuffix(one.value)
-    let two = try Execute
-      .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: two))))
-      .dropSuffix(two.value)
-    return one == two
+    let tree1 = try Execute.parseText(reply: execute(cfg.git.getTree(ref: .make(sha: one))))
+    let tree2 = try Execute.parseText(reply: execute(cfg.git.getTree(ref: .make(sha: two))))
+    return tree1 == tree2
   }
   func isCherryPick(cfg: Configuration, one: Git.Sha, two: Git.Sha) throws -> Bool {
-    guard try isEqualTree(cfg: cfg, tree: one, to: two) else { return false }
+    guard
+      let patch1 = try? Execute
+        .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: one))))
+        .dropSuffix(one.value),
+      let patch2 = try? Execute
+        .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: two))))
+        .dropSuffix(two.value),
+      patch1 == patch2
+    else { return false }
     let checks = [
       cfg.git.getCommitMessage(ref:),
       cfg.git.getAuthorName(ref:),
