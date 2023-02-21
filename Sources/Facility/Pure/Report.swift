@@ -71,6 +71,11 @@ public struct Report {
       case empty
     }
   }
+  public struct ReviewWatch: ReportContext {
+    public var iid: UInt
+    public var authors: [String]?
+    public var teams: [String]?
+  }
   public struct ReviewApprove: ReportContext {
     public var iid: UInt
     public var authors: [String]?
@@ -129,7 +134,6 @@ public struct Report {
     public var merge: Json.GitlabMergeState
     public var authors: [String]?
     public var teams: [String]?
-    public var watchers: [String]?
     public var approvers: [Review.Approver]? = nil
     public var problems: Review.Problems? = nil
     public var ready: Bool = false
@@ -264,6 +268,18 @@ public extension Configuration {
     threads: .make(users: defaultUsers.union(state.map(\.authors).get([])), reviews: [merge.iid]),
     ctx: Report.ReviewFail(merge: merge, reason: reason),
     subevent: [reason.rawValue]
+  ))}
+  func reportReviewWatch(
+    user: String,
+    state: Review.State
+  ) { Report.Bag.shared.reports.append(.make(
+    cfg: self,
+    threads: .make(users: [user]),
+    ctx: Report.ReviewWatch(
+      iid: state.review,
+      authors: state.authors.sorted().notEmpty,
+      teams: state.teams.sorted().notEmpty
+    )
   ))}
   func reportReviewList(
     user: String,

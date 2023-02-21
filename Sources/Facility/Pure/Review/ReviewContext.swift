@@ -79,11 +79,14 @@ extension Review {
         originalStorage: storage
       )
     }
-    func watchers(state: State) -> Set<String> {
+    func watchers(state: State, old: State?) -> Set<String> {
       var result: Set<String> = []
+      let teams = state.teams.subtracting(old.map(\.teams).get([]))
+      let authors = state.authors.subtracting(old.map(\.authors).get([]))
+      guard teams.isEmpty.not || authors.isEmpty.not else { return [] }
       for user in approvers.compactMap({ users[$0] }) {
-        if user.watchTeams.isDisjoint(with: state.teams).not { result.insert(user.login) }
-        if user.watchAuthors.isDisjoint(with: state.authors).not { result.insert(user.login) }
+        if user.watchTeams.isDisjoint(with: teams).not { result.insert(user.login) }
+        if user.watchAuthors.isDisjoint(with: authors).not { result.insert(user.login) }
       }
       return result
     }

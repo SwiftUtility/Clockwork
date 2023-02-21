@@ -420,12 +420,13 @@ extension Review {
         .filter(approvers.contains(_:))
         .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
         .forEach({ ctx.cfg.reportReviewApprove(user: $0, state: self, reason: .change) })
+      ctx.watchers(state: self, old: old)
+        .forEach({ ctx.cfg.reportReviewWatch(user: $0, state: self) })
       guard let merge = merge else { return }
       var update = Report.ReviewUpdated(
         merge: merge,
         authors: authors.intersection(ctx.approvers).sortedNonEmpty,
-        teams: teams.sortedNonEmpty,
-        watchers: ctx.watchers(state: self).sortedNonEmpty
+        teams: teams.sortedNonEmpty
       )
       update.change(state: self)
       var participants: [String: Approver] = [:]
@@ -463,7 +464,7 @@ extension Review {
       if emergent == nil, old?.emergent != nil { shift.append(.tranquil) }
       if phase == .block, old?.phase != .block { shift.append(.block) }
       if phase == .stuck, old?.phase != .stuck { shift.append(.stuck) }
-      if phase == .amend, old?.phase != .block { shift.append(.amend) }
+      if phase == .amend, old?.phase != .amend { shift.append(.amend) }
       if phase == .ready, old?.phase != .ready { shift.append(.ready) }
       shift.forEach({ ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: $0)})
     }
