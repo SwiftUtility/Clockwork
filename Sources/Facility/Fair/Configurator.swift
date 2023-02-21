@@ -212,12 +212,12 @@ extension Configurator {
     try Execute.checkStatus(reply: execute(git.detach(ref: .make(remote: asset.branch))))
     try writeFile(.init(
       file: .init(value: "\(git.root.value)/\(asset.file.value)"),
-      data: .init(yaml.debug().utf8)
+      data: .init(yaml.utf8)
     ))
     let result: Git.Sha?
     do {
       try Execute.checkStatus(reply: execute(git.add(file: asset.file)))
-      try Execute.checkStatus(reply: execute(git.commit(message: message.debug(), allowEmpty: false)))
+      try Execute.checkStatus(reply: execute(git.commit(message: message, allowEmpty: false)))
       result = try .make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))
     } catch {
       result = nil

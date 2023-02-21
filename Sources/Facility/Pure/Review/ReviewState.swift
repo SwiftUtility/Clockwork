@@ -305,8 +305,8 @@ extension Review {
         .union(ctx.rules.ignore.flatMap(\.value))
         .union(ctx.rules.authorship.flatMap(\.value))
         .union(ctx.rules.teams.flatMap(\.value.approvers))
-        .subtracting(ctx.users.keys.debug())
-        .subtracting(ctx.bots.debug())
+        .subtracting(ctx.users.keys)
+        .subtracting(ctx.bots)
       if unknownUsers.isEmpty.not { add(problem: .unknownUsers(unknownUsers)) }
       let unknownTeams = Set(ctx.rules.sanity.array)
         .union(ownage.keys)

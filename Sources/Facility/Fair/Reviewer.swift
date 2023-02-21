@@ -646,7 +646,6 @@ extension Reviewer {
       try state.prepareChange(ctx: ctx, merge: merge),
       state.checkSanity(ctx: ctx, ownage: ownage, profile: profile)
     else {
-      "".debug()
       ctx.update(state: state)
       return false
     }

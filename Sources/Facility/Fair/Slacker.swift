@@ -72,13 +72,11 @@ public final class Slacker {
     report: Report
   ) -> Bool {
     for signal in storage.slack.signals.filter(report.info.match(slack:)) {
-      signal.mark.debug()
       var info = report.info
       info.mark = signal.mark
       _ = send(cfg: cfg, slack: storage.slack, signal: signal, info: info)
     }
     for user in report.threads.users {
-      user.debug()
       guard let person = storage.users[user] else { continue }
       for signal in storage.slack.directs.filter(report.info.match(slack:)) {
         var info = report.info
@@ -150,7 +148,6 @@ public final class Slacker {
     let update = threads.reduce(into: [:], { $0[$1.name] = info.match(update: $1) })
     for key in keys {
       for thread in threads {
-        thread.name.debug()
         guard let present = storage[key]?[thread.name] else {
           guard create.contains(thread.name) else { continue }
           var info = info
@@ -166,7 +163,6 @@ public final class Slacker {
           var info = info
           info.mark = thread.name
           info.slack?.thread = .make(signal: signal, thread: present)
-          signal.events.debug()
           _ = send(cfg: cfg, slack: slack, signal: signal, info: info)
         }
       }
@@ -181,7 +177,7 @@ public final class Slacker {
   ) -> Json.SlackMessage? {
     let body: String
     do {
-      body = try generate(cfg.report(template: signal.body, info: info)).debug()
+      body = try generate(cfg.report(template: signal.body, info: info))
     } catch {
       log(info: info, signal: signal, error: error, action: "generate")
       return nil
@@ -190,9 +186,8 @@ public final class Slacker {
     defer { sleep(1) }
     do {
       let data = try Execute.parseData(reply: execute(cfg.curlSlack(
-        token: slack.token, method: signal.method.debug(), body: body
+        token: slack.token, method: signal.method, body: body
       )))
-      String(data: data, encoding: .utf8)?.debug()
       return try? jsonDecoder.decode(Json.SlackMessage.self, from: data)
     } catch {
       log(info: info, signal: signal, error: error, action: "send")
