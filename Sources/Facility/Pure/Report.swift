@@ -287,7 +287,8 @@ public extension Configuration {
       teams: state.teams.sortedNonEmpty,
       diff: state.approves[user]?.commit.value,
       reason: reason
-    )
+    ),
+    subevent: [reason.rawValue]
   ))}
   func reportReviewQueue(
     state: Review.State,
