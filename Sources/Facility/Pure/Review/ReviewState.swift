@@ -410,18 +410,16 @@ extension Review {
       if enqueued.contains(review) { queue.append(.enqueued) }
       if dequeued.contains(review) { queue.append(.dequeued) }
       queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
-      for user in approvers {
-        guard let approve = approves[user] else {
-          ctx.cfg.reportReviewApprove(user: user, state: self, reason: .create)
-          continue
-        }
-        guard
-          approve.resolution.approved.not,
-          let old = old?.approves[user],
-          old.resolution.approved
-        else { continue }
-        ctx.cfg.reportReviewApprove(user: user, state: self, reason: .change)
-      }
+      approvers
+        .subtracting(old.map(\.approvers).get([]))
+        .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
+        .forEach({ ctx.cfg.reportReviewApprove(user: $0, state: self, reason: .create) })
+      old.map(\.approves).get([:]).values
+        .filter(\.resolution.approved)
+        .map(\.login)
+        .filter(approvers.contains(_:))
+        .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
+        .forEach({ ctx.cfg.reportReviewApprove(user: $0, state: self, reason: .change) })
       guard let merge = merge else { return }
       var update = Report.ReviewUpdated(
         merge: merge,
