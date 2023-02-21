@@ -407,8 +407,8 @@ extension Review {
     ) {
       var queue: [Report.ReviewQueue.Reason] = []
       if foremost.contains(review) { queue.append(.foremost) }
-      if enqueued.contains(review) { queue.append(.enqueued) }
-      if dequeued.contains(review) { queue.append(.dequeued) }
+      else if enqueued.contains(review) { queue.append(.enqueued) }
+      else if dequeued.contains(review) { queue.append(.dequeued) }
       queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
       approvers
         .subtracting(old.map(\.approvers).get([]))
@@ -465,7 +465,9 @@ extension Review {
       if phase == .block, old?.phase != .block { shift.append(.block) }
       if phase == .stuck, old?.phase != .stuck { shift.append(.stuck) }
       if phase == .amend, old?.phase != .amend { shift.append(.amend) }
-      if phase == .ready, old?.phase != .ready { shift.append(.ready) }
+      if phase == .ready, old?.phase != .ready, enqueued.contains(review).not {
+        shift.append(.ready)
+      }
       shift.forEach({ ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: $0)})
     }
     func selectUsers(

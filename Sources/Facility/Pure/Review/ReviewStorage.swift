@@ -37,7 +37,7 @@ extension Review {
         result += "queues:\n"
         for queue in queues.keys.sorted() {
           let iids = queues[queue].get([]).map({ "\($0)" }).joined(separator: ",")
-          result += "  '\(queue)': [\(iids)]"
+          result += "  '\(queue)': [\(iids)]\n"
         }
       }
       if states.isEmpty { result += "states: {}\n" } else {
