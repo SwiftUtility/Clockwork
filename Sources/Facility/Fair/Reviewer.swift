@@ -52,25 +52,38 @@ public final class Reviewer {
   }
   public func updateReviews(cfg: Configuration, remind: Bool) throws -> Bool {
     var ctx = try makeContext(cfg: cfg)
+    var checked: Set<UInt> = []
     for iid in ctx.storage.queues.values.compactMap(\.first) {
+      checked.insert(iid)
       guard let merge = try getMerge(cfg: cfg, iid: iid) else { continue }
       if merge.lastPipeline.isFailed { ctx.dequeue(merge: merge) }
     }
     for state in ctx.storage.states.values {
       guard
-        state.phase == .stuck,
+        checked.contains(state.review).not,
         let merge = try getMerge(cfg: cfg, iid: state.review),
-        var state = try ctx.makeState(merge: merge),
-        try state.prepareChange(ctx: ctx, merge: merge),
-        state.problems.get([]).isEmpty
+        var state = try ctx.makeState(merge: merge)
       else { continue }
+      guard
+        try state.prepareChange(ctx: ctx, merge: merge),
+        let phase = state.phase,
+        phase != .block
+      else {
+        ctx.trigger.insert(state.review)
+        continue
+      }
       try state.update(
         ctx: ctx,
         merge: merge,
         awards: resolveAwards(cfg: ctx.cfg, review: state.review),
         discussions: []
       )
-      if state.problems.get([]).isEmpty { ctx.trigger.insert(state.review) }
+      if phase == .stuck, state.problems.get([]).isEmpty {
+        ctx.trigger.insert(state.review)
+      }
+      if phase != .stuck, state.problems.get([]).isEmpty.not {
+        ctx.trigger.insert(state.review)
+      }
     }
     try storeContext(ctx: &ctx)
     return true
