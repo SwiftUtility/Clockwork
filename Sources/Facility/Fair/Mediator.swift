@@ -123,7 +123,7 @@ public final class Mediator {
     }
     let gitlab = try cfg.gitlab.get()
     if let review = try? gitlab.merge.get() {
-      threads.reviews.insert("\(review)")
+      threads.reviews.insert("\(review.iid)")
       threads.issues = cfg.issues(branch: review.sourceBranch)
       state = try? resolveState(.make(cfg: cfg, merge: review))
       merge = review

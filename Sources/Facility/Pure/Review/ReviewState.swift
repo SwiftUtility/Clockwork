@@ -457,7 +457,7 @@ extension Review {
       if participants.isEmpty.not {
         update.approvers = participants.keys.sorted().compactMap({ participants[$0] })
       }
-      ctx.cfg.reportReviewUpdated(state: self, report: update)
+      if change != nil { ctx.cfg.reportReviewUpdated(state: self, report: update) }
       var shift: [Report.ReviewEvent.Reason] = []
       if old == nil { shift.append(.created) }
       if emergent != nil, old?.emergent == nil { shift.append(.emergent) }

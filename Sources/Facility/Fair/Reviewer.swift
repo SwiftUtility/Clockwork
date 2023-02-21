@@ -44,30 +44,6 @@ public final class Reviewer {
     self.logMessage = logMessage
     self.jsonDecoder = jsonDecoder
   }
-  public func signal(
-    cfg: Configuration,
-    event: String,
-    stdin: Configuration.ParseStdin,
-    args: [String]
-  ) throws -> Bool {
-    let stdin = try parseStdin(stdin)
-    let gitlab = try cfg.gitlab.get()
-    let merge = try gitlab.merge.get()
-    var ctx = try makeContext(cfg: cfg)
-    let state = try ctx.makeState(merge: merge).get(.make(merge: merge, bots: ctx.bots))
-    try storeContext(ctx: &ctx)
-    cfg.reportCustom(
-      event: event,
-      threads: .make(
-        users: cfg.defaultUsers.union(state.authors),
-        reviews: [merge.iid],
-        branches: [merge.targetBranch]
-      ),
-      stdin: stdin,
-      args: args
-    )
-    return true
-  }
   public func resolveState(query: Review.State.Resolve) throws -> Review.State.Resolve.Reply {
     var ctx = try makeContext(cfg: query.cfg)
     let state = try ctx.makeState(merge: query.merge).get(.make(merge: query.merge, bots: ctx.bots))
