@@ -919,20 +919,8 @@ extension Reviewer {
     let result = try gitlab
       .putMrMerge(
         parameters: .init(
-          mergeCommitMessage: ctx.cfg
-            .createMergeCommitMessage(
-              merge: change.merge,
-              review: ctx.review,
-              fusion: change.fusion
-            )
-            .map(generate),
-          squashCommitMessage: ctx.cfg
-            .createSquashCommitMessage(
-              merge: change.merge,
-              review: ctx.review,
-              fusion: change.fusion
-            )
-            .map(generate),
+          mergeCommitMessage: "asdasd",
+          squashCommitMessage: "asdasd",
           squash: state.squash,
           shouldRemoveSourceBranch: true,
           sha: change.head
