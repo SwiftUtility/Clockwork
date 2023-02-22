@@ -315,6 +315,9 @@ public struct Flow {
     public var product: String
     public var version: AlphaNumeric
     public var build: AlphaNumeric
+    public func include(deploy: Deploy) -> Bool {
+      tag != deploy.tag && product == deploy.product && version >= deploy.version
+    }
     public static func make(
       release: Release,
       build: AlphaNumeric,

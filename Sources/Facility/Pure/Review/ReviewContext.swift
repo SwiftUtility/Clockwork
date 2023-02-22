@@ -12,6 +12,7 @@ extension Review {
     public var originalStorage: Review.Storage
     public var trigger: Set<UInt> = []
     public var award: Set<UInt> = []
+    public var updates: Set<UInt> = []
     public var message: Generate.CreateReviewStorageCommitMessage = .init()
     public mutating func makeState(merge: Json.GitlabMergeState) throws -> State? {
       guard merge.isClosed.not else {
@@ -46,6 +47,7 @@ extension Review {
       storage.dequeue(review: merge.iid)
     }
     public mutating func update(state: State) {
+      updates.insert(state.review)
       storage.states[state.review] = state
       if state.phase == .ready {
         storage.enqueue(state: state)
@@ -109,6 +111,7 @@ extension Review {
         .intersection(oldPresent)
         .filter({ storage.states[$0]?.change != nil })
         .union(newPresent.subtracting(oldPresent))
+        .union(updates)
         .subtracting(enqueued)
       message = .init(
         update: update.sortedNonEmpty,

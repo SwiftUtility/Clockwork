@@ -212,12 +212,13 @@ public extension Git {
   func mergeBase(_ one: Ref, _ two: Ref) -> Execute { proc(
     args: ["merge-base", one.value, two.value]
   )}
-//  func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
-//    args: ["push", ssh]
-//      + force.then(["--force"]).get([])
-//      + ["\(sha.value):\(Ref.make(local: branch).value)"],
-//    env: ["GIT_SSH_COMMAND": "ssh -q -F /dev/null -o IdentitiesOnly=yes -i '\(key)'"]
-//  )}
+  #warning("TBD implement ssh push")
+  func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
+    args: ["push", ssh]
+      + force.then(["--force"]).get([])
+      + ["\(sha.value):\(Ref.make(local: branch).value)"],
+    env: ["GIT_SSH_COMMAND": "ssh -q -F /dev/null -o IdentitiesOnly=yes -i '\(key)'"]
+  )}
   func push(gitlab: Gitlab, branch: Branch, sha: Sha, force: Bool) throws -> Execute {
     let rest = try gitlab.rest.get()
     return proc(
@@ -234,6 +235,10 @@ public extension Git {
   func fetchBranch(_ branch: Branch) -> Execute { proc(
     args: ["fetch", "origin", Ref.make(local: branch).value, "--no-tags"]
   )}
+  func fetchTag(_ tag: Tag) -> Execute {
+    let tag = Ref.make(tag: tag).value
+    return proc(args: ["fetch", "origin", "\(tag):\(tag)", "--no-tags"])
+  }
   func cat(file: File) throws -> Execute {
     var result = proc(args: ["show", "\(file.ref.value):\(file.path.value)"])
     result.tasks += lfs.then(proc(args: ["lfs", "smudge"])).map(\.tasks).get([])

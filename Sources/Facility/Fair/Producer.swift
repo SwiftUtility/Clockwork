@@ -202,11 +202,12 @@ public final class Producer {
         .get()
         .protected
       else { throw Thrown("Tag not protected \(deploy.tag.name)") }
+      try Execute.checkStatus(reply: execute(cfg.git.fetchTag(deploy.tag)))
       try cfg.reportDeployTagCreated(
         commit: sha,
         release: release,
         deploy: deploy,
-        notes: makeNotes(cfg: cfg, storage: storage, release: release, deploy: sha)
+        notes: makeNotes(cfg: cfg, storage: storage, release: release, deploy: deploy)
       )
       return cfg.createFlowStorageCommitMessage(
         flow: storage.flow,
@@ -256,6 +257,7 @@ public final class Producer {
         .get()
         .protected
       else { throw Thrown("Release \(release.branch.name) not protected") }
+      try Execute.checkStatus(reply: execute(cfg.git.fetchBranch(release.branch)))
       cfg.reportReleaseBranchCreated(
         release: release,
         kind: .release
@@ -331,6 +333,7 @@ public final class Producer {
         .get()
         .protected
       else { throw Thrown("Release \(release.branch.name) not protected") }
+      try Execute.checkStatus(reply: execute(cfg.git.fetchBranch(release.branch)))
       cfg.reportReleaseBranchCreated(
         release: release,
         kind: .hotfix
@@ -372,13 +375,14 @@ public final class Producer {
       )}
       storage.accessories[accessory.branch] = accessory
       guard try gitlab
-        .postBranches(name: name, ref: commit.value)
+        .postBranches(name: accessory.branch.name, ref: commit.value)
         .map(execute)
         .map(Execute.parseData(reply:))
         .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
         .get()
         .protected
-      else { throw Thrown("\(name) not protected") }
+      else { throw Thrown("\(accessory.branch.name) not protected") }
+      try Execute.checkStatus(reply: execute(cfg.git.fetchBranch(accessory.branch)))
       cfg.reportAccessoryBranchCreated(commit: commit, accessory: accessory)
       return cfg.createFlowStorageCommitMessage(
         flow: storage.flow, reason: .createAccessoryBranch, branch: accessory.branch.name
@@ -473,6 +477,7 @@ public final class Producer {
         .get()
         .protected
       else { throw Thrown("Stage not protected \(stage.tag.name)") }
+      try Execute.checkStatus(reply: execute(cfg.git.fetchTag(stage.tag)))
       cfg.reportStageTagCreated(commit: build.commit, stage: stage)
       return cfg.createFlowStorageCommitMessage(
         flow: storage.flow,
@@ -552,64 +557,51 @@ public final class Producer {
     cfg: Configuration,
     storage: Flow.Storage,
     release: Flow.Release,
-    deploy: Git.Sha? = nil
+    deploy: Flow.Deploy? = nil
   ) throws -> Flow.ReleaseNotes {
-    let commit: Git.Sha
-    var refs = storage.deploys.values
-      .filter(release.include(deploy:))
-      .map(\.tag)
-      .map(Git.Ref.make(tag:))
+    let current = deploy.map(\.tag).map(Git.Ref.make(tag:)).get(.make(sha: release.start))
+    let deploys: [Flow.Deploy]
     if let deploy = deploy {
-      commit = deploy
-      refs.append(.make(sha: release.start))
+      deploys = storage.deploys.values.filter(deploy.include(deploy:))
     } else {
-      commit = release.start
+      deploys = storage.deploys.values.filter(release.include(deploy:))
     }
-    if commit != release.start { refs.append(.make(sha: release.start)) }
-    let previous = try Id(refs)
-      .map(cfg.git.excludeParents(refs:))
-      .map(execute)
-      .map(Execute.parseLines(reply:))
-      .get()
-      .map(Git.Sha.make(value:))
-      .map(Git.Ref.make(sha:))
-    guard previous.isEmpty.not else { return .make(uniq: [], lack: []) }
+    var commits: [Git.Sha] = []
+    for deploy in deploys {
+      guard let sha = try? Execute.parseText(
+        reply: execute(cfg.git.getSha(ref: .make(tag: deploy.tag)))
+      ) else { continue }
+      try commits.append(.make(value: sha))
+    }
+    if deploy != nil { commits.append(release.start) }
+    guard commits.isEmpty.not else { return .make(uniq: [], lack: []) }
     var trees: Set<String> = []
-    let uniq = try Execute
-      .parseLines(reply: execute(cfg.git.listCommits(
-        in: [.make(sha: commit)],
-        notIn: previous,
-        ignoreMissing: true
-      )))
-      .map(Git.Sha.make(value:))
-      .filter({ sha in try trees
-        .insert(Execute
-          .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: sha))))
-          .dropSuffix(sha.value)
-        )
-        .inserted
-      })
-      .compactMap({ sha in try storage.flow.makeNote(sha: sha.value, msg: Execute.parseText(
-        reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha)))
-      ))})
+    var uniq: Set<Git.Sha> = []
+    for commit in try Execute.parseLines(reply: execute(cfg.git.listCommits(
+      in: [current],
+      notIn: commits.map(Git.Ref.make(sha:))
+    ))) {
+      let sha = try Git.Sha.make(value: commit)
+      let patch = try Execute
+        .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: sha))))
+        .dropSuffix(commit)
+      guard trees.insert(patch).inserted else { continue }
+      uniq.insert(sha)
+    }
     let lack = try Execute
       .parseLines(reply: execute(cfg.git.listCommits(
-        in: previous,
-        notIn: [.make(sha: commit)],
-        ignoreMissing: true
+        in: commits.map(Git.Ref.make(sha:)),
+        notIn: [current]
       )))
       .map(Git.Sha.make(value:))
-      .filter({ sha in try trees
-        .insert(Execute
-          .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: sha))))
-          .dropSuffix(sha.value)
-        )
-        .inserted
-      })
-      .compactMap({ sha in try storage.flow.makeNote(sha: sha.value, msg: Execute.parseText(
+    return try Flow.ReleaseNotes.make(
+      uniq: uniq.compactMap({ sha in try storage.flow.makeNote(sha: sha.value, msg: Execute.parseText(
+        reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha)))
+      ))}),
+      lack: lack.compactMap({ sha in try storage.flow.makeNote(sha: sha.value, msg: Execute.parseText(
         reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha)))
       ))})
-    return Flow.ReleaseNotes.make(uniq: uniq, lack: lack)
+    )
   }
 }
 extension Producer {
@@ -640,3 +632,4 @@ extension Producer {
     }
   }
 }
+
