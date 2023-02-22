@@ -209,7 +209,7 @@ public final class Reviewer {
       cfg: cfg, review: review, prefix: prefix, target: target, source: source, fork: fork
     ) else { return true }
     var head = try Git.Sha.make(value: fork)
-    let pick: Git.Sha?
+    var pick: Git.Sha? = nil
     if prefix == .duplicate {
       guard let commit = try cherry(cfg: cfg, sha: head, to: .make(remote: fusion.target)) else {
         cfg.reportFusionFail(source: source, target: target, fork: fork, reason: .duplicate)
@@ -217,10 +217,7 @@ public final class Reviewer {
       }
       pick = commit
       head = commit
-    } else {
-      pick = nil
-    }
-    if prefix == .propogate {
+    } else if prefix == .propogate {
       guard try Execute.parseSuccess(reply: execute(cfg.git.check(
         child: .make(sha: head),
         parent: .make(remote: fusion.target)
@@ -228,8 +225,6 @@ public final class Reviewer {
         cfg.reportFusionFail(source: source, target: target, fork: fork, reason: .propogate)
         return false
       }
-    } else {
-      head = try squashPoint(cfg: cfg, fusion: fusion, fork: head, head: head).get(head)
     }
     return try createReview(cfg: cfg, review: review, fusion: fusion, head: head, pick: pick)
   }
@@ -739,7 +734,8 @@ extension Reviewer {
     cfg: Configuration,
     fusion: Review.Fusion,
     fork: Git.Sha,
-    head: Git.Sha
+    head: Git.Sha,
+    message: String
   ) throws -> Git.Sha? {
     let fork = Git.Ref.make(sha: fork)
     let message = "Merge \(fusion.source.name) into \(fusion.target.name)"
@@ -766,16 +762,34 @@ extension Reviewer {
     state: inout Review.State,
     fork: Git.Sha
   ) throws -> Bool {
-    guard let change = state.change else { return false }
-    let target = try Execute.parseText(reply: execute(ctx.cfg.git.getSha(
+    guard
+      let change = state.change,
+      let message = try ctx.cfg
+        .createMergeCommitMessage(merge: change.merge, review: ctx.review, fusion: change.fusion)
+        .map(generate)
+    else { return false }
+    let target = try Git.Sha.make(value: Execute.parseText(reply: execute(ctx.cfg.git.getSha(
       ref: .make(remote: state.target)
-    )))
+    ))))
     let parents = try Execute.parseLines(reply: execute(ctx.cfg.git.listParents(
       ref: .make(sha: change.head)
     )))
-    guard parents != [target, fork.value] else { return true }
+    let checks = [
+      ctx.cfg.git.getAuthorName(ref:),
+      ctx.cfg.git.getAuthorEmail(ref:),
+      ctx.cfg.git.getCommiterName(ref:),
+      ctx.cfg.git.getCommiterEmail(ref:),
+    ]
+    let forkInfo = try checks
+      .map({ try Execute.parseText(reply: execute($0(.make(sha: fork)))) })
+    let headInfo = try checks
+      .map({ try Execute.parseText(reply: execute($0(.make(sha: change.head)))) })
+    let headMessage = try Execute
+      .parseText(reply: execute(ctx.cfg.git.getSha(ref: .make(sha: change.head))))
+    guard message != headMessage || forkInfo != headInfo || parents != [target.value, fork.value]
+    else { return true }
     guard let head = try squashPoint(
-      cfg: ctx.cfg, fusion: change.fusion, fork: fork, head: change.head
+      cfg: ctx.cfg, fusion: change.fusion, fork: fork, head: change.head, message: message
     ) else {
       state.add(problem: .conflicts)
       ctx.update(state: state)
@@ -919,8 +933,13 @@ extension Reviewer {
     let result = try gitlab
       .putMrMerge(
         parameters: .init(
-          mergeCommitMessage: "asdasd",
-          squashCommitMessage: "asdasd",
+          squashCommitMessage: ctx.cfg
+            .createSquashCommitMessage(
+              merge: change.merge,
+              review: ctx.review,
+              fusion: change.fusion
+            )
+            .map(generate),
           squash: state.squash,
           shouldRemoveSourceBranch: true,
           sha: change.head
