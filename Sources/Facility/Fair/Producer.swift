@@ -579,7 +579,8 @@ public final class Producer {
     var uniq: Set<Git.Sha> = []
     for commit in try Execute.parseLines(reply: execute(cfg.git.listCommits(
       in: [current],
-      notIn: commits.map(Git.Ref.make(sha:))
+      notIn: commits.map(Git.Ref.make(sha:)),
+      noMerges: true
     ))) {
       let sha = try Git.Sha.make(value: commit)
       let patch = try Execute
@@ -591,7 +592,8 @@ public final class Producer {
     let lack = try Execute
       .parseLines(reply: execute(cfg.git.listCommits(
         in: commits.map(Git.Ref.make(sha:)),
-        notIn: [current]
+        notIn: [current],
+        noMerges: true
       )))
       .map(Git.Sha.make(value:))
     return try Flow.ReleaseNotes.make(
