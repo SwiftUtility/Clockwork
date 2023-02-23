@@ -37,12 +37,15 @@ public enum Yaml {
     public var url: Secret
     public var token: Secret
     public var issue: String
-    public var issues: [String: Signal]?
-    public struct Signal: Decodable {
-      public var url: Template
-      public var body: Template
-      public var method: String
+    public var chains: [String: Chain]?
+    public struct Chain: Decodable {
+      public var links: [Link]
       public var events: [String]
+      public struct Link: Decodable {
+        public var url: Template
+        public var body: Template?
+        public var method: String?
+      }
     }
   }
   public struct Slack: Decodable {

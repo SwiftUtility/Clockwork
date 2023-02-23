@@ -48,16 +48,25 @@ extension Reporter {
   func sendJira(cfg: Configuration, reports: [Report]) {
     guard let jira = try? cfg.jira.get() else { return }
     for report in reports {
-      for signal in jira.issues.filter(report.info.match(jira:)) {
-        for issue in report.threads.issues {
+      for issue in report.threads.issues {
+        for chain in jira.chains.filter(report.info.match(chain:)) {
           var info = report.info
+          info.mark = chain.mark
           info.jira?.issue = issue
           do {
-            let url = try generate(cfg.report(template: signal.url, info: info))
-            let body = try generate(cfg.report(template: signal.body, info: info))
-            try Execute.checkStatus(reply: execute(cfg.curlJira(
-              jira: jira, url: url, method: signal.method, body: body
-            )))
+            for link in chain.links {
+              guard let url = try generate(cfg.report(template: link.url, info: info)).notEmpty
+              else { continue }
+              let body = try link.body
+                .flatMap({ try generate(cfg.report(template: $0, info: info)).notEmpty })
+              let data = try Execute
+                .parseData(reply: execute(cfg.curlJira(
+                  jira: jira, url: url, method: link.method, body: body
+                )))
+                .notEmpty
+                .reduce(AnyCodable.self, jsonDecoder.decode(_:from:))
+              info.jira?.chain.append(data)
+            }
           } catch {
             logMessage(.make(error: error))
           }

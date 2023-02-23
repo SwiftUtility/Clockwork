@@ -212,7 +212,7 @@ public extension Git {
   func mergeBase(_ one: Ref, _ two: Ref) -> Execute { proc(
     args: ["merge-base", one.value, two.value]
   )}
-  #warning("TBD implement ssh push")
+  #warning("TBD fix ssh push")
   func push(ssh: String, key: String, branch: Branch, sha: Sha, force: Bool) -> Execute { proc(
     args: ["push", ssh]
       + force.then(["--force"]).get([])

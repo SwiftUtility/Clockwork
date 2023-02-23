@@ -24,7 +24,7 @@ public extension GenerateInfo {
     .contains(where: { zip(event, $0).contains(where: !=).not })
   }
   func match(slack: Slack.Signal) -> Bool { match(events: slack.events) }
-  func match(jira: Jira.Signal) -> Bool { match(events: jira.events) }
+  func match(chain: Jira.Chain) -> Bool { match(events: chain.events) }
   func match(create: Slack.Thread) -> Bool { match(slack: create.create) }
   func match(update: Slack.Thread) -> [Slack.Signal] { update.update.filter(match(slack:)) }
 }
@@ -157,14 +157,14 @@ public struct Generate: Query {
   public struct CreateMergeTitle: GenerateContext {
     public var kind: String
     public var fork: String
-    public var original: String
+    public var fusion: String
     public var target: String
   }
   public struct CreateMergeCommit: GenerateContext {
     public var kind: String
     public var merge: Json.GitlabMergeState
     public var fork: String
-    public var original: String
+    public var fusion: String
   }
   public struct CreateSquashCommit: GenerateContext {
     public var kind: String
@@ -339,7 +339,7 @@ public extension Configuration {
         kind: fusion.kind,
         merge: merge,
         fork: fork.value,
-        original: original.name
+        fusion: original.name
       ),
       subevent: [fusion.kind]
     )
@@ -355,7 +355,7 @@ public extension Configuration {
       ctx: Generate.CreateMergeTitle(
         kind: fusion.kind,
         fork: fork.value,
-        original: original.name,
+        fusion: original.name,
         target: fusion.target.name
       ),
       subevent: [fusion.kind]

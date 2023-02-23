@@ -119,7 +119,7 @@ public extension Configuration {
     headers: [Json.utf8, "Authorization: Bearer \(token)"],
     secrets: [token]
   )}
-  func curlJira(jira: Jira, url: String, method: String, body: String) throws -> Execute { .makeCurl(
+  func curlJira(jira: Jira, url: String, method: String, body: String?) throws -> Execute { .makeCurl(
     url: url,
     method: method,
     data: body,
