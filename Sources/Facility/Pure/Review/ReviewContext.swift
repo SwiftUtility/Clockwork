@@ -108,10 +108,9 @@ extension Review {
         .filter(\.addAward)
         .forEach({ award.insert($0.merge.iid) })
       let update = newPresent
-        .intersection(oldPresent)
         .filter({ storage.states[$0]?.change != nil })
         .union(newPresent.subtracting(oldPresent))
-        .union(updates)
+        .union(updates.intersection(newPresent))
         .subtracting(enqueued)
       message = .init(
         update: update.sortedNonEmpty,
