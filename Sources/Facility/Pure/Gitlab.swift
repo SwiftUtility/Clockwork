@@ -183,6 +183,7 @@ public extension Gitlab {
     id: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/jobs/\(id)",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
@@ -191,6 +192,7 @@ public extension Gitlab {
     file: String
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/jobs/\(job)/artifacts/\(file)",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
@@ -198,6 +200,7 @@ public extension Gitlab {
     pipeline: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/pipelines/\(pipeline)",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
@@ -205,6 +208,7 @@ public extension Gitlab {
     review: UInt
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/merge_requests/\(review)?include_rebase_in_progress=true",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
@@ -214,6 +218,7 @@ public extension Gitlab {
     count: Int
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/merge_requests/\(review)/award_emoji?page=\(page)&per_page=\(count)",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
@@ -223,6 +228,7 @@ public extension Gitlab {
     count: Int
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/merge_requests/\(review)/discussions?page=\(page)&per_page=\(count)",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
@@ -310,6 +316,7 @@ public extension Gitlab {
     sha: Git.Sha
   ) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/commits/\(sha.value)/merge_requests",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
@@ -327,6 +334,7 @@ public extension Gitlab {
     ] + scopes.flatMapEmpty(action.scopes).map { "scope[]=\($0.rawValue)" }
     return .init(try .makeCurl(
       url: "\(api)/pipelines/\(pipeline)/jobs?\(query.joined(separator: "&"))",
+      retry: 2,
       headers: [rest.get().auth],
       secrets: [rest.get().secret]
     ))
@@ -382,11 +390,13 @@ public extension Gitlab {
   ))}
   func getBranches(page: Int, count: Int) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/branches?page=\(page)&per_page=\(count)",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
   func getBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/branches/\(name.urlEncoded.get())",
+    retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
