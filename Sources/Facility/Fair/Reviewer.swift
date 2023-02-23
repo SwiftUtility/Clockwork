@@ -738,7 +738,6 @@ extension Reviewer {
     message: String
   ) throws -> Git.Sha? {
     let fork = Git.Ref.make(sha: fork)
-    let message = "Merge \(fusion.source.name) into \(fusion.target.name)"
     guard let head = try mergeReview(
       cfg: cfg,
       commit: .make(remote: fusion.target),
