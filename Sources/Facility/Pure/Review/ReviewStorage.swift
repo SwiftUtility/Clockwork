@@ -63,7 +63,7 @@ extension Review {
             result += "    teams: ['\(teams.joined(separator: "','"))']\n"
           }
           if let emergent = state.emergent {
-            result += "    emergent: '\(emergent)'\n"
+            result += "    emergent: '\(emergent.value)'\n"
           }
           if let verified = state.verified {
             result += "    verified: '\(verified.value)'\n"
