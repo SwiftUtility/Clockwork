@@ -349,10 +349,10 @@ public final class Mediator {
       case .register: break
       case .activate:
         user.active = true
-        #warning("tbd trigger reviews")
+        #warning("TBD trigger reviews")
       case .deactivate:
         user.active = false
-        #warning("tbd trigger reviews")
+        #warning("TBD trigger reviews")
       case .unwatchAuthors(let authors):
         let unknown = authors.filter({ user.watchAuthors.contains($0).not })
         guard unknown.isEmpty

@@ -104,7 +104,7 @@ public final class Producer {
       }
       return message
     })
-    try gitlab.deleteTag(name: name)
+    try gitlab.deleteTag(name: tag.name)
       .map(execute)
       .map(Execute.checkStatus(reply:))
       .get()
@@ -289,8 +289,7 @@ public final class Producer {
       if let commit = try commit.isEmpty.not.then(Git.Sha.make(value: commit)) {
         fixCommit = commit
         fixVersion = version.alphaNumeric
-        let product = try storage.product(name: product)
-        fixProduct = product
+        fixProduct = try storage.product(name: product)
       } else {
         let tag = try Git.Tag.make(job: gitlab.job)
         guard let deploy = storage.deploys[tag]
