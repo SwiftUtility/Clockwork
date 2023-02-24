@@ -585,8 +585,6 @@ extension Reviewer {
     return tree1 == tree2
   }
   func isCherryPick(cfg: Configuration, one: Git.Sha, two: Git.Sha) throws -> Bool {
-    one.value.debug()
-    two.value.debug()
     guard
       let patch1 = try? Execute
         .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: one))))
@@ -594,7 +592,7 @@ extension Reviewer {
       let patch2 = try? Execute
         .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: two))))
         .dropSuffix(two.value),
-      patch1.debug() == patch2.debug()
+      patch1 == patch2
     else { return false }
     let checks = [
       cfg.git.getCommitMessage(ref:),
@@ -606,7 +604,7 @@ extension Reviewer {
     let shas = [one, two].map(Git.Ref.make(sha:))
     for check in checks {
       let results = try shas.map(check).map(execute).map(Execute.parseText(reply:))
-      guard results.first.debug() == results.last.debug() else { return false }
+      guard results.first == results.last else { return false }
     }
     return true
   }

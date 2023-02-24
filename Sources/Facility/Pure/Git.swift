@@ -185,7 +185,7 @@ public extension Git {
     parents: [Ref],
     env: [String: String]
   ) -> Execute { proc(
-    args: ["commit-tree", tree.value, "-m", message] + parents.flatMap { ["-p", $0.value] },
+    args: ["commit-tree", tree.value, "-m", message] + parents.flatMap({ ["-p", $0.value] }),
     env: env
   )}
   func getAuthorName(ref: Ref) -> Execute { proc(
@@ -290,7 +290,8 @@ public extension Git {
     env: [String: String] = [:]
   ) -> Execute { proc(
     args: ["commit", "-m", message]
-    + allowEmpty.then("--allow-empty").array
+    + allowEmpty.then("--allow-empty").array,
+    env: env
   )}
   var listTags: Execute { proc(
     args: ["ls-remote", "--tags", "--refs"]
