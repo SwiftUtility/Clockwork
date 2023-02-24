@@ -475,23 +475,14 @@ extension Reviewer {
       diffs: [:],
       ownage: ownage
     )}
-    if change.fusion.duplication {
-      fork = try pickPoint(cfg: ctx.cfg, head: change.head, target: change.fusion.target)
-        .map(Git.Ref.make(sha:))
-    }
-    for sha in try Execute.parseLines(reply: execute(ctx.cfg.git.listCommits(
-      in: [head],
-      notIn: [target] + fork.array,
-      boundary: true
-    ))) {
-      let sha = try Git.Sha.make(value: sha)
-      childs[sha] = try Execute
-        .parseLines(reply: execute(ctx.cfg.git.listCommits(
-          in: [head],
-          notIn: [target, .make(sha: sha)] + fork.array
-        )))
-        .map(Git.Sha.make(value:))
-        .reduce(into: [], { $0.insert($1) })
+    if
+      change.fusion.duplication,
+      let pick = try pickPoint(cfg: ctx.cfg, head: change.head, target: change.fusion.target)
+    {
+      fork = .make(sha: pick)
+      childs[pick] = []
+    } else if let fork = change.fusion.fork {
+      childs[fork] = []
     }
     var diff: [String] = []
     var diffs: [Git.Sha: [String]] = [:]
@@ -509,6 +500,13 @@ extension Reviewer {
     ))) {
       let sha = try Git.Sha.make(value: sha)
       diffs[sha] = try listChangedFiles(cfg: ctx.cfg, sha: sha)
+      childs[sha] = try Execute
+        .parseLines(reply: execute(ctx.cfg.git.listCommits(
+          in: [head],
+          notIn: [target, .make(sha: sha)] + fork.array
+        )))
+        .map(Git.Sha.make(value:))
+        .reduce(into: [], { $0.insert($1) })
     }
     state.update(ctx: ctx, childs: childs, diff: diff, diffs: diffs, ownage: ownage)
   }
