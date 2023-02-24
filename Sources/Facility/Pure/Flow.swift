@@ -347,10 +347,10 @@ public struct Flow {
     )}
     public static func make(
       branch: String,
-      yaml: Yaml.Flow.Storage.Accessory
+      yaml: [String: String]?
     ) throws -> Self { try .init(
       branch: .make(name: branch),
-      versions: yaml.versions.get([:]).mapValues(\.alphaNumeric)
+      versions: yaml.get([:]).mapValues(\.alphaNumeric)
     )}
   }
   public struct ReleaseNotes: Encodable {

@@ -110,7 +110,7 @@ public enum Yaml {
       public var families: [String: Family]
       public var products: [String: Product]
       public var releases: [String: Release]
-      public var accessories: [String: Accessory]
+      public var accessories: [String: [String: String]?]
       public struct Family: Decodable {
         public var nextBuild: String
         public var prevBuilds: [String: Build]?
@@ -141,9 +141,6 @@ public enum Yaml {
         public var product: String
         public var version: String
         public var build: String
-      }
-      public struct Accessory: Decodable {
-        public var versions: [String: String]?
       }
     }
   }
