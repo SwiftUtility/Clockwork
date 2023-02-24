@@ -475,6 +475,10 @@ extension Reviewer {
       diffs: [:],
       ownage: ownage
     )}
+    if change.fusion.duplication {
+      fork = try pickPoint(cfg: ctx.cfg, head: change.head, target: change.fusion.target)
+        .map(Git.Ref.make(sha:))
+    }
     for sha in try Execute.parseLines(reply: execute(ctx.cfg.git.listCommits(
       in: [head],
       notIn: [target] + fork.array,
@@ -484,19 +488,13 @@ extension Reviewer {
       childs[sha] = try Execute
         .parseLines(reply: execute(ctx.cfg.git.listCommits(
           in: [head],
-          notIn: [.make(sha: sha)]
+          notIn: [target, .make(sha: sha)] + fork.array
         )))
         .map(Git.Sha.make(value:))
         .reduce(into: [], { $0.insert($1) })
     }
     var diff: [String] = []
     var diffs: [Git.Sha: [String]] = [:]
-    if change.fusion.duplication {
-      fork = try .make(sha: .make(value: Execute.parseLines(reply: execute(ctx.cfg.git.listCommits(
-        in: [head],
-        notIn: [target]
-      ))).end))
-    }
     if let fork = fork {
       diff = try listMergeChanges(cfg: ctx.cfg, ref: head, parents: [target, fork])
     } else {

@@ -269,12 +269,9 @@ extension Review {
         changes[sha] = teams
       }
       for approve in approves.values {
-        guard let childs = childs[approve.commit] else {
-          approves[approve.login] = nil
-          continue
-        }
+        guard let childs = childs[approve.commit] else { continue }
         guard approve.resolution != .obsolete else { continue }
-        guard childs.contains(where: { changes[$0] != nil }).not else { continue }
+        guard childs.contains(where: { changes[$0] != nil }) else { continue }
         guard fragilUsers.contains(approve.login) else {
           approves[approve.login]?.resolution = .obsolete
           continue
