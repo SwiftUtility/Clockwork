@@ -563,8 +563,6 @@ struct Clockwork: ParsableCommand {
     struct Update: ClockworkCommand {
       static var abstract: String { "Update status for stuck reviews" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Should ping slackers")
-      var remind: Bool = false
     }
   }
   struct Validate: ParsableCommand {

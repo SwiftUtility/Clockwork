@@ -50,7 +50,7 @@ public final class Reviewer {
     try storeContext(ctx: &ctx)
     return state
   }
-  public func updateReviews(cfg: Configuration, remind: Bool) throws -> Bool {
+  public func updateReviews(cfg: Configuration) throws -> Bool {
     var ctx = try makeContext(cfg: cfg)
     var checked: Set<UInt> = []
     for iid in ctx.storage.queues.values.compactMap(\.first) {

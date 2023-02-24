@@ -372,7 +372,7 @@ extension Clockwork.Review.Unown: RunnableCommand {
 }
 extension Clockwork.Review.Update: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateReviews(cfg: cfg, remind: remind)
+    try Assembler.reviewer.updateReviews(cfg: cfg)
   }
 }
 extension Clockwork.Validate.ConflictMarkers: RunnableCommand {
