@@ -180,6 +180,8 @@ extension Review {
       ownage: [String: Criteria]
     ) {
       childs.debug()
+      diff.debug()
+      diffs.debug()
       skip.formIntersection(childs.keys)
       var changes: [Git.Sha: Set<String>] = [:]
       guard let change = change else { return }
