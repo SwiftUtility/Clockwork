@@ -958,7 +958,9 @@ extension Reviewer {
     }
   }
   func helpReviews(ctx: inout Review.Context, state: Review.State) throws {
-    guard let fork = state.change?.fusion.fork else { return }
+    guard let change = state.change else { return }
+    guard let fork = change.fusion.fork else { return }
+    guard change.fusion.duplication.not else { return }
     let queued = Set(ctx.storage.queues[state.target.name].get([]))
     let prefix = Review.Fusion.Prefix.replicate.prefix(target: state.target)
     for state in ctx.storage.states.values.filter({ queued.contains($0.review).not }) {
