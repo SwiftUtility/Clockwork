@@ -11,9 +11,8 @@ enum Assembler {
   )
   static let reporter = Reporter(
     execute: execute,
-    writeStdout: writeStdout,
-    readStdin: readStdin,
     generate: stencilParser.generate(query:),
+    sendSlack: slacker.sendSlack(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -22,6 +21,7 @@ enum Assembler {
     decodeYaml: YamlParser.decodeYaml(query:),
     resolveAbsolute: Finder.resolveAbsolute(query:),
     readFile: Finder.readFile(query:),
+    readStdin: readStdin,
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
     logMessage: logger.logMessage(query:),
@@ -32,7 +32,7 @@ enum Assembler {
   static let validator = Validator(
     execute: execute,
     parseCodeOwnage: configurator.parseYamlFile(query:),
-    resolveFileTaboos: configurator.resolveFileTaboos(query:),
+    parseFileTaboos: configurator.parseYamlFile(query:),
     listFileLines: FileLiner.listFileLines(query:),
     logMessage: logger.logMessage(query:),
     stdoutData: stdoutData,
@@ -40,38 +40,45 @@ enum Assembler {
   )
   static let requisitor = Requisitor(
     execute: execute,
-    report: reporter.report(query:),
     resolveAbsolute: Finder.resolveAbsolute(query:),
-    resolveRequisition: configurator.resolveRequisition(query:),
+    parseRequisition: configurator.parseYamlFile(query:),
     resolveSecret: configurator.resolveSecret(query:),
-    resolveCocoapods: configurator.resolveCocoapods(query:),
-    persistCocoapods: configurator.persistCocoapods(query:),
+    parseCocoapods: configurator.parseYamlFile(query:),
+    writeFile: Finder.writeFile(query:),
     listFileSystem: Finder.listFileSystem(query:),
     getTime: Date.init,
     plistDecoder: .init()
   )
   static let reviewer = Reviewer(
     execute: execute,
-    resolveFusion: configurator.resolveFusion(query:),
-    resolveFusionStatuses: configurator.resolveFusionStatuses(query:),
-    resolveReviewQueue: configurator.resolveReviewQueue(query:),
-    parseApprovers: configurator.parseYamlFile(query:),
-    parseApprovalRules: configurator.parseYamlFile(query:),
+    parseReview: configurator.parseYamlFile(query:),
+    parseReviewStorage: configurator.parseYamlFile(query:),
+    parseReviewRules: configurator.parseYamlSecret(query:),
     parseCodeOwnage: configurator.parseYamlFile(query:),
     parseProfile: configurator.parseYamlFile(query:),
-    parseAntagonists: configurator.parseYamlSecret(query:),
+    parseStdin: configurator.parseStdin(query:),
     persistAsset: configurator.persistAsset(query:),
     writeStdout: writeStdout,
     generate: stencilParser.generate(query:),
-    report: reporter.report(query:),
-    readStdin: reporter.readStdin(query:),
-    createThread: reporter.createThread(query:),
+    readStdin: readStdin,
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
   static let mediator = Mediator(
     execute: execute,
+    resolveState: reviewer.resolveState(query:),
+    parseReview: configurator.parseYamlFile(query:),
+    parseReviewStorage: configurator.parseYamlFile(query:),
+    parseReviewRules: configurator.parseYamlSecret(query:),
+    parseFlow: configurator.parseYamlFile(query:),
+    parseFlowStorage: configurator.parseYamlFile(query:),
+    registerSlackUser: slacker.registerSlackUser(query:),
+    cleanSlack: slacker.cleanSlack(query:),
+    persistAsset: configurator.persistAsset(query:),
+    parseStdin: configurator.parseStdin(query:),
+    generate: stencilParser.generate(query:),
     logMessage: logger.logMessage(query:),
+    writeStdout: writeStdout,
     stdoutData: stdoutData,
     jsonDecoder: jsonDecoder
   )
@@ -79,15 +86,20 @@ enum Assembler {
     execute: execute,
     generate: stencilParser.generate(query:),
     writeFile: Finder.writeFile(query:),
-    resolveProduction: configurator.resolveProduction(query:),
-    parseBuilds: configurator.parseYamlFile(query:),
-    parseVersions: configurator.parseYamlFile(query:),
+    parseFlow: configurator.parseYamlFile(query:),
+    parseFlowStorage: configurator.parseYamlFile(query:),
+    parseStdin: configurator.parseStdin(query:),
     persistAsset: configurator.persistAsset(query:),
-    report: reporter.report(query:),
-    readStdin: reporter.readStdin(query:),
-    createThread: reporter.createThread(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
+    jsonDecoder: jsonDecoder
+  )
+  static let slacker = Slacker(
+    execute: execute,
+    generate: stencilParser.generate(query:),
+    logMessage: logger.logMessage(query:),
+    parseSlackStorage: configurator.parseYamlFile(query:),
+    persistAsset: configurator.persistAsset(query:),
     jsonDecoder: jsonDecoder
   )
   static let stencilParser = StencilParser(notation: .json)

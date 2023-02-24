@@ -3,16 +3,16 @@ import Facility
 import FacilityPure
 public final class Validator {
   let execute: Try.Reply<Execute>
-  let parseCodeOwnage: Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>
-  let resolveFileTaboos: Try.Reply<Configuration.ResolveFileTaboos>
+  let parseCodeOwnage: Try.Reply<ParseYamlFile<[String: Criteria]>>
+  let parseFileTaboos: Try.Reply<ParseYamlFile<[FileTaboo]>>
   let listFileLines: Try.Reply<Files.ListFileLines>
   let logMessage: Act.Reply<LogMessage>
   let stdoutData: Act.Of<Data>.Go
   let jsonDecoder: JSONDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    parseCodeOwnage: @escaping Try.Reply<Configuration.ParseYamlFile<[String: Yaml.Criteria]>>,
-    resolveFileTaboos: @escaping Try.Reply<Configuration.ResolveFileTaboos>,
+    parseCodeOwnage: @escaping Try.Reply<ParseYamlFile<[String: Criteria]>>,
+    parseFileTaboos: @escaping Try.Reply<ParseYamlFile<[FileTaboo]>>,
     listFileLines: @escaping Try.Reply<Files.ListFileLines>,
     logMessage: @escaping Act.Reply<LogMessage>,
     stdoutData: @escaping Act.Of<Data>.Go,
@@ -20,7 +20,7 @@ public final class Validator {
   ) {
     self.execute = execute
     self.parseCodeOwnage = parseCodeOwnage
-    self.resolveFileTaboos = resolveFileTaboos
+    self.parseFileTaboos = parseFileTaboos
     self.listFileLines = listFileLines
     self.logMessage = logMessage
     self.stdoutData = stdoutData
@@ -29,12 +29,10 @@ public final class Validator {
   public func validateUnownedCode(cfg: Configuration, json: Bool) throws -> Bool {
     guard try Execute.parseLines(reply: execute(cfg.git.changesList)).isEmpty
     else { throw Thrown("Git is dirty") }
-    let approvals = try cfg.profile.codeOwnage
-      .reduce(cfg.git, Configuration.ParseYamlFile<[String: Yaml.Criteria]>.init(git:file:))
+    let approvals = try cfg.parseCodeOwnage(profile: cfg.profile)
       .map(parseCodeOwnage)
       .get { throw Thrown("No codeOwnage in profile") }
       .values
-      .map(Criteria.init(yaml:))
     var result: [String] = []
     for file in try Execute.parseLines(reply: execute(cfg.git.listAllTrackedFiles(ref: .head))) {
       guard approvals.contains(where: file.isMet(criteria:)).not else { continue }
@@ -47,7 +45,7 @@ public final class Validator {
   public func validateFileTaboos(cfg: Configuration, json: Bool) throws -> Bool {
     guard try Execute.parseLines(reply: execute(cfg.git.changesList)).isEmpty
     else { throw Thrown("Git is dirty") }
-    let rules = try resolveFileTaboos(.init(cfg: cfg, profile: cfg.profile))
+    let rules = try cfg.parseFileTaboos.map(parseFileTaboos).get()
     let nameRules = rules.filter(\.lines.isEmpty)
     let lineRules = rules.filter(\.lines.isEmpty.not)
     let files = try Execute.parseLines(reply: execute(cfg.git.listAllTrackedFiles(ref: .head)))
@@ -61,7 +59,7 @@ public final class Validator {
       let lines = try listFileLines(.init(file: .init(value: "\(cfg.git.root.value)/\(file)")))
       for (row, line) in lines.enumerated() {
         for rule in lineRules where rule.lines.isMet(line) {
-          result.append(.make(rule: rule.rule, file: file, line: row))
+          result.append(.make(rule: rule.rule, file: file, line: row + 1))
         }
       }
     }}
@@ -79,7 +77,7 @@ public final class Validator {
     let fork = try Execute
       .parseLines(reply: execute(cfg.git.listCommits(
         in: [.head],
-        notIn: [.make(remote: .init(name: target))],
+        notIn: [.make(remote: .make(name: target))],
         boundary: true
       )))
       .last

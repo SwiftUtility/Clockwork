@@ -24,11 +24,14 @@ extension ClockworkCommand {
       profile: clockwork.profile,
       env: Assembler.environment
     )
-    try Lossy(cfg)
-      .map(runnableCommand.run(cfg:))
-      .reduceError(cfg, Assembler.reporter.report(cfg:error:))
-      .reduce(cfg, Assembler.reporter.finish(cfg:success:))
-      .get()
+    defer { Assembler.reporter.sendReports(cfg: cfg) }
+    do {
+      guard try runnableCommand.run(cfg: cfg).not else { return }
+    } catch {
+      cfg.reportUnexpected(error: error)
+      throw error
+    }
+    throw Thrown("Execution considered unsuccessful")
   }
 }
 extension Clockwork.Cocoapods.ResetSpecs: RunnableCommand {
@@ -41,14 +44,33 @@ extension Clockwork.Cocoapods.UpdateSpecs: RunnableCommand {
     try Assembler.requisitor.updateCocoapodsSpecs(cfg: cfg)
   }
 }
-extension Clockwork.Flow.ChangeVersion: RunnableCommand {
+extension Clockwork.Connect.Clean: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.changeVersion(cfg: cfg, product: product, next: next, version: version)
+    try Assembler.mediator.clean(cfg: cfg)
+  }
+}
+extension Clockwork.Connect.Signal: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.signal(
+      cfg: cfg, event: event, stdin: stdin.mode, args: args
+    )
+  }
+}
+extension Clockwork.Flow.ChangeAccessoryVersion: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.changeAccessoryVersion(
+      cfg: cfg, product: product, branch: branch, version: version
+    )
+  }
+}
+extension Clockwork.Flow.ChangeNextVersion: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.changeNextVersion(cfg: cfg, product: product, version: version)
   }
 }
 extension Clockwork.Flow.CreateAccessoryBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.createAccessoryBranch(cfg: cfg, name: name)
+    try Assembler.producer.createAccessoryBranch(cfg: cfg, name: name, commit: sha)
   }
 }
 extension Clockwork.Flow.CreateDeployTag: RunnableCommand {
@@ -56,54 +78,39 @@ extension Clockwork.Flow.CreateDeployTag: RunnableCommand {
     try Assembler.producer.createDeployTag(cfg: cfg)
   }
 }
-extension Clockwork.Flow.CreateHotfixBranch: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.createHotfixBranch(cfg: cfg)
-  }
-}
-extension Clockwork.Flow.CreateReleaseBranch: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.createReleaseBranch(cfg: cfg, product: product)
-  }
-}
 extension Clockwork.Flow.CreateStageTag: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.stageBuild(cfg: cfg, product: product, build: build)
+    try Assembler.producer.stageBuild(cfg: cfg, build: build, product: product)
   }
 }
-extension Clockwork.Flow.DeleteAccessoryBranch: RunnableCommand {
+extension Clockwork.Flow.DeleteBranch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.deleteBranch(cfg: cfg, revoke: nil)
+    try Assembler.producer.deleteBranch(cfg: cfg, name: name)
   }
 }
-extension Clockwork.Flow.DeleteReleaseBranch: RunnableCommand {
+extension Clockwork.Flow.DeleteTag: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.deleteBranch(cfg: cfg, revoke: revoke)
-  }
-}
-extension Clockwork.Flow.DeleteStageTag: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.deleteStageTag(cfg: cfg)
-  }
-}
-extension Clockwork.Flow.ExportBuild: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.renderBuild(cfg: cfg)
+    try Assembler.producer.deleteTag(cfg: cfg, name: name)
   }
 }
 extension Clockwork.Flow.ExportVersions: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.renderNextVersions(cfg: cfg)
-  }
-}
-extension Clockwork.Flow.ForwardBranch: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.forwardBranch(cfg: cfg, name: name)
-  }
+  func run(cfg: Configuration) throws -> Bool { try Assembler.producer.renderVersions(
+    cfg: cfg, product: product, stdin: stdin.mode, args: args
+  )}
 }
 extension Clockwork.Flow.ReserveBuild: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reserveBranchBuild(cfg: cfg)
+    try Assembler.producer.reserveBuild(cfg: cfg, review: false, product: product)
+  }
+}
+extension Clockwork.Flow.StartHotfix: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.startHotfix(cfg: cfg, product: product, commit: commit, version: version)
+  }
+}
+extension Clockwork.Flow.StartRelease: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.startRelease(cfg: cfg, product: product, commit: commit)
   }
 }
 extension Clockwork.Gitlab.Artifacts.LoadFile: RunnableCommand {
@@ -139,7 +146,7 @@ extension Clockwork.Gitlab.Jobs.Retry: RunnableCommand {
   )}
 }
 extension Clockwork.Gitlab.Jobs.Scope {
-  var mode: GitlabCi.JobScope {
+  var mode: Gitlab.JobScope {
     switch self {
     case .canceled: return .canceled
     case .created: return .created
@@ -176,29 +183,52 @@ extension Clockwork.Gitlab.TriggerReviewPipeline: RunnableCommand {
     try Assembler.mediator.triggerReview(cfg: cfg, iid: review)
   }
 }
-extension Clockwork.Report.Custom: RunnableCommand {
+extension Clockwork.Gitlab.User.Activate: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reporter.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
+    try Assembler.mediator.updateUser(cfg: cfg, login: user.login, command: .activate)
   }
 }
-extension Clockwork.Report.ReleaseThread: RunnableCommand {
+extension Clockwork.Gitlab.User.Deactivate: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
+    try Assembler.mediator.updateUser(cfg: cfg, login: user.login, command: .deactivate)
   }
 }
-extension Clockwork.Report.ReviewThread: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.reportCustom(cfg: cfg, event: report.event, stdin: report.stdin.mode)
-  }
+extension Clockwork.Gitlab.User.Register: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .register([
+      .slack: slack,
+    ])
+  )}
 }
-extension Clockwork.Report.Stdin {
-  var mode: Configuration.ReadStdin {
-    switch self {
-    case .ignore: return .ignore
-    case .lines: return .lines
-    case .json: return .json
-    }
-  }
+extension Clockwork.Gitlab.User.UnwatchAuthors: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .watchAuthors(args)
+  )}
+}
+extension Clockwork.Gitlab.User.UnwatchTeams: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .unwatchTeams(args)
+  )}
+}
+extension Clockwork.Gitlab.User.WatchAuthors: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .watchAuthors(args)
+  )}
+}
+extension Clockwork.Gitlab.User.WatchTeams: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool { try Assembler.mediator.updateUser(
+    cfg: cfg,
+    login: user.login,
+    command: .watchTeams(args)
+  )}
 }
 extension Clockwork.Requisites.Erase: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
@@ -225,6 +255,13 @@ extension Clockwork.Requisites.ReportExpiring: RunnableCommand {
     try Assembler.requisitor.reportExpiringRequisites(cfg: cfg, days: days)
   }
 }
+extension Clockwork.Render: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.mediator.render(
+      cfg: cfg, template: template, stdin: stdin.mode, args: args
+    )
+  }
+}
 extension Clockwork.Review.Accept: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.acceptReview(cfg: cfg)
@@ -232,106 +269,67 @@ extension Clockwork.Review.Accept: RunnableCommand {
 }
 extension Clockwork.Review.AddLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.addReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.mediator.addReviewLabels(cfg: cfg, labels: labels)
   }
 }
 extension Clockwork.Review.Approve: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.approveReview(cfg: cfg, resolution: resolution.status)
-  }
-}
-extension Clockwork.Review.Approve.Resolution {
-  var status: Fusion.Approval.Status.Resolution {
-    switch self {
-    case .fragil: return .fragil
-    case .advance: return .advance
-    case .block: return .block
-    }
-  }
-}
-extension Clockwork.Review.Approver.Activate: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .activate)
-  }
-}
-extension Clockwork.Review.Approver.Deactivate: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateApprover(cfg: cfg, gitlab: approver.gitlab, command: .deactivate)
-  }
-}
-extension Clockwork.Review.Approver.Register: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .register(slack)
-  )}
-}
-extension Clockwork.Review.Approver.UnwatchAuthors: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchAuthors(args)
-  )}
-}
-extension Clockwork.Review.Approver.UnwatchTeams: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .unwatchTeams(args)
-  )}
-}
-extension Clockwork.Review.Approver.WatchAuthors: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchAuthors(args)
-  )}
-}
-extension Clockwork.Review.Approver.WatchTeams: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool { try Assembler.reviewer.updateApprover(
-    cfg: cfg,
-    gitlab: approver.gitlab,
-    command: .watchTeams(args)
-  )}
-}
-extension Clockwork.Review.Clean: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.cleanReviews(cfg: cfg, remind: remind)
+    try Assembler.reviewer.approveReview(cfg: cfg, advance: advance)
   }
 }
 extension Clockwork.Review.Dequeue: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.dequeueReview(cfg: cfg)
+    try Assembler.reviewer.dequeueReview(cfg: cfg, iid: iid)
   }
 }
-extension Clockwork.Review.ExportIntegration: RunnableCommand {
+extension Clockwork.Review.Enqueue: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.renderIntegration(cfg: cfg)
+    try Assembler.reviewer.enqueueReview(cfg: cfg)
+  }
+}
+extension Clockwork.Review.ExportTargets: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.renderTargets(cfg: cfg, stdin: stdin.mode, args: args)
+  }
+}
+extension Clockwork.Review.List: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.listReviews(cfg: cfg, user: user)
   }
 }
 extension Clockwork.Review.Own: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.ownReview(cfg: cfg)
+    try Assembler.reviewer.ownReview(cfg: cfg, user: user, iid: iid)
   }
 }
 extension Clockwork.Review.Patch: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.patchReview(cfg: cfg, skip: skip, path: patch, message: message)
+    try Assembler.reviewer.patchReview(cfg: cfg, skip: skip, message: message)
   }
 }
-extension Clockwork.Review.ReserveBuild: RunnableCommand {
+extension Clockwork.Review.Rebase: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.producer.reserveReviewBuild(cfg: cfg)
+    try Assembler.reviewer.rebaseReview(cfg: cfg, iid: iid)
+  }
+}
+extension Clockwork.Review.Remind: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.remindReview(cfg: cfg, iid: iid)
   }
 }
 extension Clockwork.Review.RemoveLabels: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.removeReviewLabels(cfg: cfg, labels: labels)
+    try Assembler.mediator.removeReviewLabels(cfg: cfg, labels: labels)
+  }
+}
+extension Clockwork.Review.ReserveBuild: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.producer.reserveBuild(cfg: cfg, review: true, product: product)
   }
 }
 extension Clockwork.Review.TriggerPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.createReviewPipeline(cfg: cfg)
+    try Assembler.mediator.createReviewPipeline(cfg: cfg)
   }
 }
 extension Clockwork.Review.Skip: RunnableCommand {
@@ -339,24 +337,42 @@ extension Clockwork.Review.Skip: RunnableCommand {
     try Assembler.reviewer.skipReview(cfg: cfg, iid: iid)
   }
 }
-extension Clockwork.Review.StartReplication: RunnableCommand {
+extension Clockwork.Review.StartDuplication: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startReplication(cfg: cfg)
+    try Assembler.reviewer.startFusion(
+      cfg: cfg, prefix: .duplicate, source: source, target: target, fork: fork
+    )
   }
 }
 extension Clockwork.Review.StartIntegration: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.startIntegration(cfg: cfg, source: source, target: target, fork: fork)
+    try Assembler.reviewer.startFusion(
+      cfg: cfg, prefix: .integrate, source: source, target: target, fork: fork
+    )
+  }
+}
+extension Clockwork.Review.StartPropogation: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.startFusion(
+      cfg: cfg, prefix: .propogate, source: source, target: target, fork: fork
+    )
+  }
+}
+extension Clockwork.Review.StartReplication: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.reviewer.startFusion(
+      cfg: cfg, prefix: .replicate, source: source, target: target, fork: fork
+    )
   }
 }
 extension Clockwork.Review.Unown: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.unownReview(cfg: cfg)
+    try Assembler.reviewer.unownReview(cfg: cfg, user: user, iid: iid)
   }
 }
 extension Clockwork.Review.Update: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.updateReview(cfg: cfg)
+    try Assembler.reviewer.updateReviews(cfg: cfg)
   }
 }
 extension Clockwork.Validate.ConflictMarkers: RunnableCommand {
@@ -376,5 +392,15 @@ extension Clockwork.Validate.FileTaboos: RunnableCommand {
 extension Clockwork.Validate.UnownedCode: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.validator.validateUnownedCode(cfg: cfg, json: validate.json)
+  }
+}
+extension Common.Stdin {
+  var mode: Configuration.ParseStdin {
+    switch self {
+    case .ignore: return .ignore
+    case .lines: return .lines
+    case .json: return .json
+    case .yaml: return .yaml
+    }
   }
 }

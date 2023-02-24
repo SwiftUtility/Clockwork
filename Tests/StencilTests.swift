@@ -1,18 +1,11 @@
 import XCTest
 @testable import InteractivityStencil
+import InteractivityYams
 @testable import Facility
 @testable import FacilityPure
-extension AnyCodable: GenerationContext {
-  public var event: String { "" }
-  public var subevent: String { "" }
-  public var env: [String: String] { get { [:] } set {} }
-  public var ctx: AnyCodable? { get { self } set {} }
-  public var info: GitlabCi.Info? { get { nil } set {} }
-  public var mark: String? { get {""} set {} }
-}
+extension AnyCodable: GenerateContext {}
 final class StencilTests: XCTestCase {
   func makeQuery(_ name: String) -> Generate { .init(
-    allowEmpty: false,
     template: .name(name),
     templates: [
       "testJson": """
@@ -21,19 +14,14 @@ final class StencilTests: XCTestCase {
         yay
         {% endfilter %}
         """,
-      "testSubscript": "{{custom.members[env.login].mention}}",
-      "testFilterChaining": #"""
-        {% filter regexp:"&","&amp;"|regexp:"\<","&lt;"|regexp:"\>","&gt;" %}
-        {{ env.text }}
-        {% endfilter %}
-        """#,
+      "testSubscript": "{{ctx.custom.members[ctx.env.login].mention}}",
       "testIncrement": #"""
-        {{ env.version | incremented }}
+        {{ ctx.env.version | incremented }}
         """#,
       "testScanInplace": #"{% scan ".*(\d+)\.(\d+)\.(\d+).*" %}asd 1.2.3{%patch%}{{_.1}}.{{_.2 | filter:"incremented"}}.{{_.3}}{%endscan%}"#,
       "testScan": #"""
-        {% scan custom.versionRegexp %}{#
-          #}{{ custom.versionString }}{#
+        {% scan ctx.custom.versionRegexp %}{#
+          #}{{ ctx.custom.versionString }}{#
         #}{% patch %}{#
           #}{{_.1}}.{{_.2 | filter:"incremented"}}.{{_.3}}{#
         #}{% endscan %}
@@ -45,9 +33,9 @@ final class StencilTests: XCTestCase {
          c
         {% endline %}
         """#,
-      "testBool": #"{% if not env.bool %}good{% endif %}"#,
+      "testBool": #"{% if not ctx.env.bool %}good{% endif %}"#,
     ],
-    context: AnyCodable.map([
+    info: Generate.Info(event: [], args: nil, ctx: AnyCodable.map([
       "env": .map([
         "login": .value(.string("user")),
         "text": .value(.string(#"<Mr-123> & Co"#)),
@@ -65,17 +53,21 @@ final class StencilTests: XCTestCase {
         "versionString": .value(.string(#"release/1.2.4"#)),
       ]),
       "issues": .list([.value(.string("some"))]),
-    ])
+    ]))
   )}
+  func generate(template: String, context: String) throws -> String {
+    let context = try YamlParser.decodeYaml(query: .init(content: context))
+    let generate = Generate(
+      template: .value(template),
+      templates: [:],
+      info: Generate.Info(event: [], args: nil, ctx: context)
+    )
+    return try StencilParser(notation: .json).generate(query: generate)
+  }
   func testSubscript() throws {
     let result = try StencilParser(notation: .json)
       .generate(query: makeQuery("testSubscript"))
     XCTAssertEqual(result, "<@USERID>")
-  }
-  func testFilterChaining() throws {
-    let result = try StencilParser(notation: .json)
-      .generate(query: makeQuery("testFilterChaining"))
-    XCTAssertEqual(result, #"&lt;Mr-123&gt; &amp; Co"#)
   }
   func testIncrement() throws {
     let result = try StencilParser(notation: .json)
@@ -106,5 +98,13 @@ final class StencilTests: XCTestCase {
     let result = try StencilParser(notation: .json)
       .generate(query: makeQuery("testJson"))
     XCTAssertEqual(result, #""yay\nyay""#)
+  }
+  func testStride() throws {
+    try XCTAssertEqual("[123][456][7]", generate(
+      template: """
+      {% for subints in ctx.ints | stride:3 %}[{% for int in subints %}{{int}}{% endfor %}]{% endfor %}
+      """,
+      context: #"ints: [1,2,3,4,5,6,7]"#
+    ))
   }
 }

@@ -8,15 +8,15 @@ public struct StencilParser {
     self.notation = notation
   }
   public func generate(query: Generate) throws -> Generate.Reply {
-    let context = try notation
-      .write(query.context)
-      .anyObject as? [String: Any] ?? [:]
+    guard let context = try notation.write(query.info).anyObject as? [String: Any]
+    else { throw MayDay("Wrong info format") }
     let ext = Extension()
     ext.registerFilter("incremented", filter: Filters.incremented(value:))
     ext.registerFilter("emptyLines", filter: Filters.emptyLines(value:))
     ext.registerFilter("escapeSlack", filter: Filters.escapeSlack(value:))
     ext.registerFilter("escapeJson", filter: Filters.escapeJson(value:))
     ext.registerFilter("escapeUrlQueryAllowed", filter: Filters.escapeUrlQueryAllowed(value:))
+    ext.registerFilter("stride", filter: Filters.stride(value:args:))
     ext.registerTag("scan", parser: ScanNode.parse(parser:token:))
     ext.registerTag("line", parser: LineNode.parse(parser:token:))
     var result: String
@@ -32,8 +32,8 @@ public struct StencilParser {
       .renderTemplate(string: value, context: context)
     }
     result = result.trimmingCharacters(in: .newlines)
-    guard query.allowEmpty || !result.isEmpty
-    else { throw Thrown("Empty rendering result") }
+    guard query.info.allowEmpty || !result.isEmpty
+    else { throw Thrown("Empty rendering \(query.template.name)") }
     return result
   }
 }

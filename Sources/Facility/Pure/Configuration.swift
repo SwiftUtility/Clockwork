@@ -1,34 +1,32 @@
 import Foundation
 import Facility
 public struct Configuration {
+  public let bag = Report.Bag.shared
   public var git: Git
   public var env: [String: String]
   public var profile: Profile
-  public var templates: [String: String]
-  public var gitlabCi: Lossy<GitlabCi>
-  public var slack: Lossy<Slack>
+  public var templates: [String: String] = [:]
+  public var gitlab: Lossy<Gitlab> = .error(Thrown())
+  public var slack: Lossy<Slack> = .error(Thrown())
+  public var jira: Lossy<Jira> = .error(Thrown())
+  public var clean: Clean { .init(cfg: self) }
   public static func make(
     git: Git,
     env: [String: String],
-    profile: Configuration.Profile,
-    templates: [String: String],
-    gitlabCi: Lossy<GitlabCi>,
-    slack: Lossy<Slack>
+    profile: Configuration.Profile
   ) -> Self { .init(
     git: git,
     env: env,
-    profile: profile,
-    templates: templates,
-    gitlabCi: gitlabCi,
-    slack: slack
+    profile: profile
   )}
   public struct Profile {
     public var location: Git.File
-    public var gitlabCi: Lossy<Git.File>
-    public var slack: Lossy<Git.File>
+    public var gitlab: Git.File?
+    public var slack: Git.File?
+    public var jira: Git.File?
     public var templates: Git.Dir?
-    public var fusion: Lossy<Git.File>
     public var codeOwnage: Git.File?
+    public var review: Lossy<Git.File>
     public var fileTaboos: Lossy<Git.File>
     public var cocoapods: Lossy<Git.File>
     public var production: Lossy<Git.File>
@@ -38,27 +36,26 @@ public struct Configuration {
       yaml: Yaml.Profile
     ) throws -> Self { try .init(
       location: location,
-      gitlabCi: yaml.gitlab
+      gitlab: yaml.gitlab
         .map(Files.Relative.init(value:))
-        .reduce(location.ref, Git.File.init(ref:path:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("gitlab not configured"))),
+        .reduce(location.ref, Git.File.init(ref:path:)),
       slack: yaml.slack
         .map(Files.Relative.init(value:))
-        .reduce(location.ref, Git.File.init(ref:path:))
-        .map(Lossy.value(_:))
-        .get(.error(Thrown("slack not configured"))),
+        .reduce(location.ref, Git.File.init(ref:path:)),
+      jira: yaml.jira
+        .map(Files.Relative.init(value:))
+        .reduce(location.ref, Git.File.init(ref:path:)),
       templates: yaml.templates
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.Dir.init(ref:path:)),
-      fusion: yaml.review
+      codeOwnage: yaml.codeOwnage
+        .map(Files.Relative.init(value:))
+        .reduce(location.ref, Git.File.init(ref:path:)),
+      review: yaml.review
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:))
         .map(Lossy.value(_:))
         .get(.error(Thrown("fusion not configured"))),
-      codeOwnage: yaml.codeOwnage
-        .map(Files.Relative.init(value:))
-        .reduce(location.ref, Git.File.init(ref:path:)),
       fileTaboos: yaml.fileTaboos
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:))
@@ -86,11 +83,20 @@ public struct Configuration {
       return criteria.isMet(location.path.value) && criteria.isMet(codeOwnage.path.value)
     }
   }
-  public enum ReadStdin: Query {
+  public enum ParseStdin: Query {
     case ignore
     case lines
     case json
+    case yaml
     public typealias Reply = AnyCodable?
+  }
+  public struct Clean: Query {
+    public var cfg: Configuration
+    public var tags: Set<String> = []
+    public var issues: Set<String> = []
+    public var reviews: Set<String> = []
+    public var branches: Set<String> = []
+    public typealias Reply = Void
   }
   public struct Asset {
     public var file: Files.Relative
@@ -100,13 +106,19 @@ public struct Configuration {
       yaml: Yaml.Asset
     ) throws -> Self { try .init(
       file: .init(value: yaml.path),
-      branch: .init(name: yaml.branch),
+      branch: .make(name: yaml.branch),
       createCommitMessage: .make(yaml: yaml.createCommitMessage)
     )}
   }
   public enum Template {
     case name(String)
     case value(String)
+    public var name: String {
+      switch self {
+      case .value(let value): return String(value.prefix(30))
+      case .name(let name): return name
+      }
+    }
     public static func make(yaml: Yaml.Template) throws -> Self {
       guard [yaml.name, yaml.value].compactMap({$0}).count < 2
       else { throw Thrown("Multiple values in template") }
@@ -128,34 +140,12 @@ public struct Configuration {
       case (nil, nil, let envFile?, nil, nil): return .envFile(envFile)
       case (nil, nil, nil, let sysFile?, nil): return .sysFile(sysFile)
       case (nil, nil, nil, nil, let gitFile?): return try .gitFile(.init(
-        ref: .make(remote: .init(name: gitFile.branch)),
+        ref: .make(remote: .make(name: gitFile.branch)),
         path: .init(value: gitFile.path)
       ))
       default: throw Thrown("Wrong secret format")
       }
     }
-  }
-  public struct Thread: Encodable {
-    public var channel: String
-    public var message: String
-    public static func make(yaml: Yaml.Thread) -> Self { .init(
-      channel: yaml.channel,
-      message: yaml.message
-    )}
-    public static func make(slack: Json.SlackMessage) -> Self { .init(
-      channel: slack.channel,
-      message: slack.ts
-    )}
-    func serialize() -> String { "{channel: '\(channel)', message: '\(message)'}" }
-  }
-  public struct ResolveProfile: Query {
-    public var git: Git
-    public var file: Git.File
-    public init(git: Git, file: Git.File) {
-      self.git = git
-      self.file = file
-    }
-    public typealias Reply = Configuration.Profile
   }
   public struct ResolveSecret: Query {
     public var cfg: Configuration
@@ -165,114 +155,6 @@ public struct Configuration {
       self.secret = secret
     }
     public typealias Reply = String
-  }
-  public struct ResolveFileTaboos: Query {
-    public var cfg: Configuration
-    public var profile: Configuration.Profile
-    public init(cfg: Configuration, profile: Configuration.Profile) {
-      self.cfg = cfg
-      self.profile = profile
-    }
-    public typealias Reply = [FileTaboo]
-  }
-  public struct ResolveCocoapods: Query {
-    public var cfg: Configuration
-    public var profile: Configuration.Profile
-    public init(cfg: Configuration, profile: Configuration.Profile) {
-      self.cfg = cfg
-      self.profile = profile
-    }
-    public typealias Reply = Cocoapods
-  }
-  public struct PersistCocoapods: Query {
-    public var cfg: Configuration
-    public var cocoapods: Cocoapods
-    public init(cfg: Configuration, cocoapods: Cocoapods) {
-      self.cfg = cfg
-      self.cocoapods = cocoapods
-    }
-    public typealias Reply = Void
-  }
-  public struct ResolveFusionStatuses: Query {
-    public var cfg: Configuration
-    public var approval: Fusion.Approval
-    public init(cfg: Configuration, approval: Fusion.Approval) {
-      self.cfg = cfg
-      self.approval = approval
-    }
-    public typealias Reply = [UInt: Fusion.Approval.Status]
-  }
-  public struct ResolveApprovers: Query {
-    public var cfg: Configuration
-    public var approval: Fusion.Approval
-    public init(cfg: Configuration, approval: Fusion.Approval) {
-      self.cfg = cfg
-      self.approval = approval
-    }
-    public typealias Reply = [String: Fusion.Approval.Approver]
-  }
-  public struct ResolveRequisition: Query {
-    public var cfg: Configuration
-    public init(cfg: Configuration) {
-      self.cfg = cfg
-    }
-    public typealias Reply = Requisition
-  }
-  public struct ResolveFusion: Query {
-    public var cfg: Configuration
-    public init(cfg: Configuration) {
-      self.cfg = cfg
-    }
-    public typealias Reply = Fusion
-  }
-  public struct ResolveProduction: Query {
-    public var cfg: Configuration
-    public init(cfg: Configuration) {
-      self.cfg = cfg
-    }
-    public typealias Reply = Production
-  }
-  public struct ResolveProductionBuilds: Query {
-    public var cfg: Configuration
-    public var production: Production
-    public init(cfg: Configuration, production: Production) {
-      self.cfg = cfg
-      self.production = production
-    }
-    public typealias Reply = [Production.Build]
-  }
-  public struct ResolveProductionVersions: Query {
-    public var cfg: Configuration
-    public var production: Production
-    public init(cfg: Configuration, production: Production) {
-      self.cfg = cfg
-      self.production = production
-    }
-    public typealias Reply = [String: String]
-  }
-  public struct ParseYamlFile<T: Decodable>: Query {
-    public var git: Git
-    public var file: Git.File
-    public init(
-      git: Git,
-      file: Git.File
-    ) {
-      self.git = git
-      self.file = file
-    }
-    public typealias Reply = T
-  }
-  public struct ParseYamlSecret<T: Decodable>: Query {
-    public var cfg: Configuration
-    public var secret: Configuration.Secret
-    public init(
-      cfg: Configuration,
-      secret: Configuration.Secret
-    ) {
-      self.cfg = cfg
-      self.secret = secret
-    }
-    public typealias Reply = T
   }
   public struct PersistAsset: Query {
     public var cfg: Configuration

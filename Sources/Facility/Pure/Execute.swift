@@ -14,7 +14,7 @@ public struct Execute: Query {
     headers: [String] = [],
     secrets: [String]
   ) -> Self {
-    var arguments = ["curl", "--url", url]
+    var arguments = ["curl", "--no-progress-meter", "--url", url]
     arguments += checkHttp.then(["--fail"]).get([])
     arguments += (retry > 0).then(["--retry", "\(retry)"]).get([])
     arguments += (method == "GET").else(["--request", method]).get([])
@@ -115,10 +115,16 @@ public extension Configuration {
   func curlSlack(token: String, method: String, body: String) throws -> Execute { .makeCurl(
     url: "https://slack.com/api/\(method)",
     method: "POST",
-    retry: 1,
     data: body,
     headers: [Json.utf8, "Authorization: Bearer \(token)"],
     secrets: [token]
+  )}
+  func curlJira(jira: Jira, url: String, method: String, body: String?) throws -> Execute { .makeCurl(
+    url: url,
+    method: method,
+    data: body,
+    headers: [Json.utf8, "Authorization: Bearer \(jira.token)", "X-Atlassian-Token: no-check"],
+    secrets: [jira.token]
   )}
   func write(file: Files.Absolute, execute: Execute) -> Execute {
     var execute = execute

@@ -3,34 +3,31 @@ import Facility
 import FacilityPure
 public final class Requisitor {
   let execute: Try.Reply<Execute>
-  let report: Act.Reply<Report>
   let resolveAbsolute: Try.Reply<Files.ResolveAbsolute>
-  let resolveRequisition: Try.Reply<Configuration.ResolveRequisition>
+  let parseRequisition: Try.Reply<ParseYamlFile<Requisition>>
   let resolveSecret: Try.Reply<Configuration.ResolveSecret>
-  let resolveCocoapods: Try.Reply<Configuration.ResolveCocoapods>
-  let persistCocoapods: Try.Reply<Configuration.PersistCocoapods>
+  let parseCocoapods: Try.Reply<ParseYamlFile<Cocoapods>>
+  let writeFile: Try.Reply<Files.WriteFile>
   let listFileSystem: Try.Reply<Files.ListFileSystem>
   let getTime: Act.Do<Date>
   let plistDecoder: PropertyListDecoder
   public init(
     execute: @escaping Try.Reply<Execute>,
-    report: @escaping Act.Reply<Report>,
     resolveAbsolute: @escaping Try.Reply<Files.ResolveAbsolute>,
-    resolveRequisition: @escaping Try.Reply<Configuration.ResolveRequisition>,
+    parseRequisition: @escaping Try.Reply<ParseYamlFile<Requisition>>,
     resolveSecret: @escaping Try.Reply<Configuration.ResolveSecret>,
-    resolveCocoapods: @escaping Try.Reply<Configuration.ResolveCocoapods>,
-    persistCocoapods: @escaping Try.Reply<Configuration.PersistCocoapods>,
+    parseCocoapods: @escaping Try.Reply<ParseYamlFile<Cocoapods>>,
+    writeFile: @escaping Try.Reply<Files.WriteFile>,
     listFileSystem: @escaping Try.Reply<Files.ListFileSystem>,
     getTime: @escaping Act.Do<Date>,
     plistDecoder: PropertyListDecoder
   ) {
     self.execute = execute
-    self.report = report
     self.resolveAbsolute = resolveAbsolute
-    self.resolveRequisition = resolveRequisition
+    self.parseRequisition = parseRequisition
     self.resolveSecret = resolveSecret
-    self.resolveCocoapods = resolveCocoapods
-    self.persistCocoapods = persistCocoapods
+    self.parseCocoapods = parseCocoapods
+    self.writeFile = writeFile
     self.listFileSystem = listFileSystem
     self.getTime = getTime
     self.plistDecoder = plistDecoder
@@ -39,7 +36,7 @@ public final class Requisitor {
     cfg: Configuration,
     requisites: [String]
   ) throws -> Bool {
-    let requisition = try resolveRequisition(.init(cfg: cfg))
+    let requisition = try cfg.parseRequisition.map(parseRequisition).get()
     let requisites = requisites.isEmpty
       .else(requisites)
       .get(.init(requisition.requisites.keys))
@@ -52,7 +49,7 @@ public final class Requisitor {
     cfg: Configuration,
     requisites: [String]
   ) throws -> Bool {
-    let requisition = try resolveRequisition(.init(cfg: cfg))
+    let requisition = try cfg.parseRequisition.map(parseRequisition).get()
     let password = try resolveSecret(.init(cfg: cfg, secret: requisition.keychain.password))
     try cleanKeychain(cfg: cfg, requisition: requisition, password: password)
     try requisites.isEmpty
@@ -70,7 +67,7 @@ public final class Requisitor {
     cfg: Configuration,
     requisites: [String]
   ) throws -> Bool {
-    let requisition = try resolveRequisition(.init(cfg: cfg))
+    let requisition = try cfg.parseRequisition.map(parseRequisition).get()
     let password = try resolveSecret(.init(cfg: cfg, secret: requisition.keychain.password))
     let requisites = requisites.isEmpty
       .else(requisites)
@@ -88,7 +85,7 @@ public final class Requisitor {
     return true
   }
   public func clearRequisites(cfg: Configuration) throws -> Bool {
-    let requisition = try resolveRequisition(.init(cfg: cfg))
+    let requisition = try cfg.parseRequisition.map(parseRequisition).get()
     try prepareProvisions(cfg: cfg)
     try Execute.checkStatus(reply: execute(requisition.deleteKeychain))
     return true
@@ -97,7 +94,7 @@ public final class Requisitor {
     cfg: Configuration,
     days: UInt
   ) throws -> Bool {
-    let requisition = try resolveRequisition(.init(cfg: cfg))
+    let requisition = try cfg.parseRequisition.map(parseRequisition).get()
     let now = getTime()
     let threshold = now.advanced(by: .init(days) * .day)
     var items: [Report.ExpiringRequisites.Item] = []
@@ -136,6 +133,7 @@ public final class Requisitor {
     for requisite in requisition.requisites.values {
       let password = try resolveSecret(.init(cfg: cfg, secret: requisite.password))
       let certs = try Id(requisite.pkcs12)
+        .reduce(.make(remote: requisition.branch), Git.File.init(ref:path:))
         .map(cfg.git.cat(file:))
         .reduce(password, requisition.parsePkcs12Certs(password:execute:))
         .map(execute)
@@ -177,22 +175,22 @@ public final class Requisitor {
           .replacingOccurrences(of: "\\U", with: "\\u")
         let name = NSMutableString(string: escaped)
         CFStringTransform(name, nil, "Any-Hex/Java" as NSString, true)
-        try items.append(.init(
-          file: requisite.pkcs12.path.value,
-          branch: requisite.pkcs12.ref.value.dropPrefix("refs/remotes/origin/"),
+        items.append(.init(
+          file: requisite.pkcs12.value,
+          branch: requisition.branch.name,
           name: .init(name),
           days: expirationDate.timeIntervalSince(now) / .day
         ))
       }
     }
     guard !items.isEmpty else { return true }
-    report(cfg.reportExpiringRequisites(items: items))
+    cfg.reportExpiringRequisites(items: items)
     return true
   }
   public func restoreCocoapodsSpecs(
     cfg: Configuration
   ) throws -> Bool {
-    let cocoapods = try resolveCocoapods(.init(cfg: cfg, profile: cfg.profile))
+    let cocoapods = try cfg.parseCocoapods.map(parseCocoapods).get()
     let specs = try resolveAbsolute(.make(path: "~/.cocoapods/repos"))
     try deleteWrongSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
     try installSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
@@ -202,12 +200,18 @@ public final class Requisitor {
   public func updateCocoapodsSpecs(
     cfg: Configuration
   ) throws -> Bool {
-    var cocoapods = try resolveCocoapods(.init(cfg: cfg, profile: cfg.profile))
+    var cocoapods = try cfg.parseCocoapods.map(parseCocoapods).get()
     let specs = try resolveAbsolute(.make(path: "~/.cocoapods/repos"))
     try deleteWrongSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
     try installSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
     cocoapods = try updateSpecs(cfg: cfg, cocoapods: cocoapods, specs: specs)
-    try persistCocoapods(.init(cfg: cfg, cocoapods: cocoapods))
+    try writeFile(.init(
+      file: cfg.profile.cocoapods
+        .map { "\(cfg.git.root.value)/\($0.path.value)" }
+        .map(Files.Absolute.init(value:))
+        .get(),
+      data: .init(cocoapods.yaml.utf8)
+    ))
     return true
   }
   func deleteWrongSpecs(
@@ -303,6 +307,7 @@ public final class Requisitor {
       .get()
     defer { try? Execute.checkStatus(reply: execute(cfg.systemDelete(path: temp))) }
     try Id(requisite.pkcs12)
+      .reduce(.make(remote: requisition.branch), Git.File.init(ref:path:))
       .map(cfg.git.cat(file:))
       .reduce(temp, cfg.write(file:execute:))
       .map(execute)
@@ -317,20 +322,22 @@ public final class Requisitor {
     git: Git,
     requisition: Requisition,
     requisites: [String]
-  ) throws -> Set<Git.File> {
-    var result: Set<Git.File> = []
+  ) throws -> [Git.File] {
+    var files: Set<Files.Relative> = []
     let dirs = try requisites
       .map(requisition.requisite(name:))
       .flatMap(\.provisions)
+    let ref = Git.Ref.make(remote: requisition.branch)
     for dir in dirs { try Id(dir)
+      .reduce(ref, Git.Dir.init(ref:path:))
       .map(git.listTreeTrackedFiles(dir:))
       .map(execute)
       .map(Execute.parseLines(reply:))
       .get()
       .map(Files.Relative.init(value:))
-      .forEach { result.insert(.init(ref: dir.ref, path: $0)) }
+      .forEach { files.insert($0) }
     }
-    return result
+    return files.map({ Git.File.init(ref: ref, path: $0) })
   }
   func prepareProvisions(cfg: Configuration) throws {
     let provisions = try Id("~/Library/MobileDevice/Provisioning Profiles")

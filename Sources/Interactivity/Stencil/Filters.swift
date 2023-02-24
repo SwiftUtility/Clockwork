@@ -38,4 +38,12 @@ enum Filters {
     return value
       .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
   }
+  static func stride(value: Any?, args: [Any?]) throws -> Any? {
+    guard let value = value as? [Any?]
+    else { throw TemplateSyntaxError("stride: not Array \(value ?? "nil")") }
+    guard let count = args.first as? Int, count >= 0
+    else { throw TemplateSyntaxError("stride: no positive int argument") }
+    return Swift.stride(from: 0, to: value.count, by: count)
+      .map({ Array(value.suffix(from: $0).prefix(count)) })
+  }
 }

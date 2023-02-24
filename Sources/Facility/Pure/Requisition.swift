@@ -2,6 +2,7 @@ import Foundation
 import Facility
 public struct Requisition {
   public var env: [String: String]
+  public var branch: Git.Branch
   public var keychain: Keychain
   public var requisites: [String: Requisite]
   public func requisite(name: String) throws -> Requisite {
@@ -10,36 +11,26 @@ public struct Requisition {
   public static func make(
     env: [String: String],
     yaml: Yaml.Requisition
-  ) throws -> Self {
-    let ref = try Git.Ref.make(remote: .init(name: yaml.branch))
-    return try .init(
-      env: env,
-      keychain: .init(name: yaml.keychain.name, password: .make(yaml: yaml.keychain.password)),
-      requisites: yaml.requisites
-        .mapValues { try .make(ref: ref, yaml: $0) }
-    )
-  }
+  ) throws -> Self { try .init(
+    env: env,
+    branch: .make(name: yaml.branch),
+    keychain: .init(name: yaml.keychain.name, password: .make(yaml: yaml.keychain.password)),
+    requisites: yaml.requisites.mapValues(Requisite.make(yaml:))
+  )}
   public struct Keychain {
     public var name: String
     public var password: Configuration.Secret
   }
   public struct Requisite {
-    public var pkcs12: Git.File
+    public var pkcs12: Files.Relative
     public var password: Configuration.Secret
-    public var provisions: [Git.Dir]
+    public var provisions: [Files.Relative]
     public static func make(
-      ref: Git.Ref,
       yaml: Yaml.Requisition.Requisite
     ) throws -> Self { try .init(
-      pkcs12: .init(
-        ref: ref,
-        path: .init(value: yaml.pkcs12)
-      ),
+      pkcs12: .init(value: yaml.pkcs12),
       password: .make(yaml: yaml.password),
-      provisions: yaml.provisions.map { yaml in try .init(
-        ref: ref,
-        path: .init(value: yaml)
-      )}
+      provisions: yaml.provisions.map(Files.Relative.init(value:))
     )}
   }
 }

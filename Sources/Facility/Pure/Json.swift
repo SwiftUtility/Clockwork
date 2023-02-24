@@ -11,6 +11,17 @@ public enum Json {
     public var tag: Bool
     public var user: GitlabUser
   }
+  public struct GitlabDiscussion: Codable {
+    public var id: String
+    public var individualNote: Bool
+    public var notes: [GitlabNote]
+  }
+  public struct GitlabNote: Codable {
+    public var id: UInt
+    public var author: GitlabUser
+    public var resolved: Bool?
+    public var resolvable: Bool
+  }
   public struct GitlabJob: Codable {
     public var id: UInt
     public var name: String
@@ -21,33 +32,7 @@ public enum Json {
     public var review: Lossy<UInt> {
       .init(try pipeline.ref.dropPrefix("refs/merge-requests/").dropSuffix("/head").getUInt())
     }
-    public func matches(build: Production.Build) -> Bool {
-      guard !tag else { return false }
-      if let review = try? review.get() {
-        guard case .review(let value) = build else { return false }
-        return value.sha == pipeline.sha && value.review == review
-      } else {
-        guard case .branch(let value) = build else { return false }
-        return value.sha == pipeline.sha && value.branch == pipeline.ref
-      }
-    }
-    public func makeBuild(build: String) -> Production.Build {
-      if tag {
-        return .tag(.make(build: build.alphaNumeric, sha: pipeline.sha, tag: pipeline.ref))
-      } else {
-        return .branch(.make(build: build.alphaNumeric, sha: pipeline.sha, branch: pipeline.ref))
-      }
-    }
-    public func makeBuild(
-      review: GitlabReviewState,
-      build: String
-    ) -> Production.Build { .review(.make(
-      build: build.alphaNumeric,
-      sha: pipeline.sha,
-      review: review.iid,
-      target: review.targetBranch
-    ))}
-    public func getLogin(approvers: [String: Fusion.Approval.Approver]) throws -> String {
+    public func getLogin(approvers: [String: Gitlab.Storage.User]) throws -> String {
       let login = user.username
       guard let approver = approvers[login] else { throw Thrown("Unknown user: \(login)") }
       guard approver.active else { throw Thrown("Inactive approver: \(login)") }
@@ -60,13 +45,16 @@ public enum Json {
       public var projectId: UInt
     }
   }
+  public struct GitlabTag: Codable {
+    public var protected: Bool
+  }
   public struct GitlabCommitMergeRequest: Codable {
     public var squashCommitSha: String?
     public var iid: UInt
     public var projectId: UInt
     public var author: GitlabUser
   }
-  public struct GitlabReviewState: Codable {
+  public struct GitlabMergeState: Codable {
     public var title: String
     public var state: String
     public var targetBranch: String
@@ -87,14 +75,13 @@ public enum Json {
     public var labels: [String]
     public var iid: UInt
     public var webUrl: String
-    public func matches(build: Production.Build) -> Bool {
-      guard case .review(let value) = build else { return false }
-      return value.sha == lastPipeline.sha && value.review == iid
-    }
+    public var isClosed: Bool { state == "closed" }
+    public var isMerged: Bool { state == "merged" }
     public struct Pipeline: Codable {
       public var id: UInt
       public var sha: String
       public var status: String
+      public var isFailed: Bool { status == "failed" }
     }
   }
   public struct GitlabAward: Codable {
@@ -114,6 +101,7 @@ public enum Json {
   }
   public struct GitlabProject: Codable {
     public var defaultBranch: String
+    public var sshUrlToRepo: String // git@example.com:diaspora/diaspora-project-site.git
     public var httpUrlToRepo: String // http://example.com/diaspora/diaspora-project-site.git
     public var webUrl: String // http://example.com/diaspora/diaspora-project-site
   }
