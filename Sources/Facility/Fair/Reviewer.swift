@@ -488,7 +488,7 @@ extension Reviewer {
     var diffs: [Git.Sha: [String]] = [:]
     if let fork = fork {
       let base = try Git.Ref.make(sha: .make(value: Execute.parseText(
-        reply: execute(ctx.cfg.git.mergeBase(target, fork))
+        reply: execute(ctx.cfg.git.mergeBase(target, head))
       )))
       diff = try listMergeChanges(cfg: ctx.cfg, ref: head, parents: [base, fork])
     } else {
