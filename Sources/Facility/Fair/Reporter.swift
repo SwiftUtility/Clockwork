@@ -57,8 +57,12 @@ extension Reporter {
             for link in chain.links {
               guard let url = try generate(cfg.report(template: link.url, info: info)).notEmpty
               else { continue }
-              let body = try link.body
-                .flatMap({ try generate(cfg.report(template: $0, info: info)).notEmpty })
+              let body: String?
+              if let template = link.body {
+                guard let data = try generate(cfg.report(template: template, info: info)).notEmpty
+                else { continue }
+                body = data
+              } else { body = nil }
               let data = try Execute
                 .parseData(reply: execute(cfg.curlJira(
                   jira: jira, url: url, method: link.method, body: body

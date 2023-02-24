@@ -785,6 +785,13 @@ extension Reviewer {
       .map({ try Execute.parseText(reply: execute($0(.make(sha: change.head)))) })
     let headMessage = try Execute
       .parseText(reply: execute(ctx.cfg.git.getCommitMessage(ref: .make(sha: change.head))))
+    message.debug()
+    headMessage.debug()
+    forkInfo.debug()
+    headInfo.debug()
+    parents.debug()
+    target.value.debug()
+    fork.value.debug()
     guard message != headMessage || forkInfo != headInfo || parents != [target.value, fork.value]
     else { return true }
     guard let head = try squashPoint(
