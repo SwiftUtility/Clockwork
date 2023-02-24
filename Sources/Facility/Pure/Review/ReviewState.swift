@@ -179,6 +179,7 @@ extension Review {
       diffs: [Git.Sha: [String]],
       ownage: [String: Criteria]
     ) {
+      childs.debug()
       skip.formIntersection(childs.keys)
       var changes: [Git.Sha: Set<String>] = [:]
       guard let change = change else { return }
