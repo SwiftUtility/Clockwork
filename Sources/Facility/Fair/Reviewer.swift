@@ -94,7 +94,7 @@ public final class Reviewer {
     message: String
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    guard let merge = try checkActual(cfg: cfg) else { return false }
+    guard let merge = try getMerge(cfg: cfg, iid: nil) else { return false }
     let branch = try Git.Branch.make(name: merge.sourceBranch)
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
@@ -135,7 +135,7 @@ public final class Reviewer {
   }
   public func approveReview(cfg: Configuration, advance: Bool) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    let merge = try gitlab.merge.get()
+    guard let merge = try getMerge(cfg: cfg, iid: nil) else { return false }
     var ctx = try makeContext(cfg: cfg)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     try state.approve(job: gitlab.parent.get(), advance: advance)
@@ -143,7 +143,8 @@ public final class Reviewer {
     return true
   }
   public func dequeueReview(cfg: Configuration, iid: UInt) throws -> Bool {
-    guard let merge = try getMerge(cfg: cfg, iid: iid) else { return false }
+    guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid), latest: true)
+    else { return false }
     var ctx = try makeContext(cfg: cfg)
     ctx.dequeue(merge: merge)
     try storeContext(ctx: &ctx, skip: merge.iid)
@@ -331,7 +332,7 @@ public final class Reviewer {
     return true
   }
   public func enqueueReview(cfg: Configuration) throws -> Bool {
-    guard let merge = try checkActual(cfg: cfg) else { return false }
+    guard let merge = try getMerge(cfg: cfg, iid: nil, latest: true) else { return false }
     var ctx = try makeContext(cfg: cfg)
     guard
       var state = try ctx.makeState(merge: merge),
@@ -345,7 +346,7 @@ public final class Reviewer {
     return true
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
-    guard let merge = try checkActual(cfg: cfg) else { return true }
+    guard let merge = try getMerge(cfg: cfg, iid: nil, latest: true) else { return true }
     var ctx = try makeContext(cfg: cfg)
     if ctx.isFirst(merge: merge).not {
       ctx.trigger.insert(merge.iid)
@@ -362,15 +363,33 @@ public final class Reviewer {
   }
 }
 extension Reviewer {
-  func getMerge(cfg: Configuration, iid: UInt?) throws -> Json.GitlabMergeState? {
-    if let iid = iid {
-      let gitlab = try cfg.gitlab.get()
-      return try gitlab
-        .getMrState(review: iid)
-        .map(execute)
-        .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
-        .get()
-    } else { return try checkActual(cfg: cfg) }
+  func getMerge(
+    cfg: Configuration,
+    iid: UInt?,
+    latest: Bool = false
+  ) throws -> Json.GitlabMergeState? {
+    let gitlab = try cfg.gitlab.get()
+    if let iid = iid { return try gitlab
+      .getMrState(review: iid)
+      .map(execute)
+      .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
+      .get()
+    } else {
+      let parent = try gitlab.parent.get()
+      let merge = try gitlab.merge.get()
+      if latest {
+        guard parent.pipeline.id == merge.lastPipeline.id else {
+          cfg.reportReviewFail(merge: merge, state: nil, reason: .pipelineOutdated)
+          return nil
+        }
+      } else {
+        guard parent.pipeline.sha == merge.lastPipeline.sha else {
+          cfg.reportReviewFail(merge: merge, state: nil, reason: .pipelineOutdated)
+          return nil
+        }
+      }
+      return merge
+    }
   }
   func createReview(
     cfg: Configuration,
@@ -650,16 +669,6 @@ extension Reviewer {
     state.updatePhase()
     ctx.update(state: state)
     return state.phase == .ready
-  }
-  func checkActual(cfg: Configuration) throws -> Json.GitlabMergeState? {
-    let gitlab = try cfg.gitlab.get()
-    let parent = try gitlab.parent.get()
-    let merge = try gitlab.merge.get()
-    guard parent.pipeline.id == merge.lastPipeline.id else {
-      cfg.reportReviewFail(merge: merge, state: nil, reason: .pipelineOutdated)
-      return nil
-    }
-    return merge
   }
   func prepareChange(
     ctx: inout Review.Context,

@@ -35,6 +35,7 @@ final class StencilTests: XCTestCase {
         """#,
       "testBool": #"{% if not ctx.env.bool %}good{% endif %}"#,
     ],
+    allowEmpty: false,
     info: Generate.Info(event: [], args: nil, ctx: AnyCodable.map([
       "env": .map([
         "login": .value(.string("user")),
@@ -60,6 +61,7 @@ final class StencilTests: XCTestCase {
     let generate = Generate(
       template: .value(template),
       templates: [:],
+      allowEmpty: false,
       info: Generate.Info(event: [], args: nil, ctx: context)
     )
     return try StencilParser(notation: .json).generate(query: generate)

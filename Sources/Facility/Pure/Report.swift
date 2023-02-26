@@ -1,14 +1,9 @@
 import Foundation
 import Facility
-public protocol ReportContext: GenerateContext {}
-public extension ReportContext {
-  static var allowEmpty: Bool { true }
-}
 public struct Report {
   public var threads: Threads
   public var info: GenerateInfo
-  public var merge: Json.GitlabMergeState?
-  fileprivate static func make<Context: ReportContext>(
+  fileprivate static func make<Context: GenerateContext>(
     cfg: Configuration,
     threads: Threads,
     ctx: Context,
@@ -44,7 +39,7 @@ public struct Report {
       branches: branches
     )}
   }
-  public struct FusionFail: ReportContext {
+  public struct FusionFail: GenerateContext {
     public var source: String
     public var target: String
     public var fork: String
@@ -54,7 +49,7 @@ public struct Report {
       case duplicate
     }
   }
-  public struct ReviewFail: ReportContext {
+  public struct ReviewFail: GenerateContext {
     public var merge: Json.GitlabMergeState
     public var reason: Reason
     public enum Reason: String, Encodable {
@@ -64,26 +59,30 @@ public struct Report {
       case patchFailed
     }
   }
-  public struct ReviewList: ReportContext {
+  public struct ReviewList: GenerateContext {
+    public var user: String
     public var reviews: [ReviewApprove]
     public enum Reason: String, Encodable {
       case full
       case empty
     }
   }
-  public struct ReviewWatch: ReportContext {
+  public struct ReviewWatch: GenerateContext {
     public var iid: UInt
+    public var user: String
     public var authors: [String]?
     public var teams: [String]?
   }
-  public struct ReviewApprove: ReportContext {
+  public struct ReviewApprove: GenerateContext {
     public var iid: UInt
+    public var user: String
     public var authors: [String]?
     public var teams: [String]?
     public var diff: String?
     public var reason: Reason
     public static func make(state: Review.State, user: String) -> Self { .init(
       iid: state.review,
+      user: user,
       authors: state.authors.sortedNonEmpty,
       teams: state.teams.sortedNonEmpty,
       diff: state.approves[user]?.diff,
@@ -95,7 +94,7 @@ public struct Report {
       case create
     }
   }
-  public struct ReviewQueue: ReportContext {
+  public struct ReviewQueue: GenerateContext {
     public var iid: UInt
     public var authors: [String]?
     public var teams: [String]?
@@ -106,7 +105,7 @@ public struct Report {
       case dequeued
     }
   }
-  public struct ReviewEvent: ReportContext {
+  public struct ReviewEvent: GenerateContext {
     public var merge: Json.GitlabMergeState
     public var authors: [String]?
     public var teams: [String]?
@@ -124,13 +123,13 @@ public struct Report {
       case conflicts
     }
   }
-  public struct ReviewMergeError: ReportContext {
+  public struct ReviewMergeError: GenerateContext {
     public var merge: Json.GitlabMergeState
     public var authors: [String]?
     public var teams: [String]?
     public var error: String
   }
-  public struct ReviewUpdated: ReportContext {
+  public struct ReviewUpdated: GenerateContext {
     public var merge: Json.GitlabMergeState
     public var authors: [String]?
     public var teams: [String]?
@@ -149,27 +148,27 @@ public struct Report {
       }
     }
   }
-  public struct ReleaseBranchCreated: ReportContext {
+  public struct ReleaseBranchCreated: GenerateContext {
     public var commit: String
     public var branch: String
     public var product: String
     public var version: String
     public var kind: Flow.Release.Kind
   }
-  public struct ReleaseBranchDeleted: ReportContext {
+  public struct ReleaseBranchDeleted: GenerateContext {
     public var branch: String
     public var product: String
     public var version: String
     public var kind: Flow.Release.Kind
   }
-  public struct ReleaseBranchSummary: ReportContext {
+  public struct ReleaseBranchSummary: GenerateContext {
     public var commit: String
     public var branch: String
     public var product: String
     public var version: String
     public var notes: Flow.ReleaseNotes?
   }
-  public struct DeployTagCreated: ReportContext {
+  public struct DeployTagCreated: GenerateContext {
     public var commit: String
     public var branch: String
     public var tag: String
@@ -178,43 +177,43 @@ public struct Report {
     public var build: String
     public var notes: Flow.ReleaseNotes?
   }
-  public struct DeployTagDeleted: ReportContext {
+  public struct DeployTagDeleted: GenerateContext {
     public var tag: String
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct StageTagCreated: ReportContext {
+  public struct StageTagCreated: GenerateContext {
     public var commit: String
     public var tag: String
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct StageTagDeleted: ReportContext {
+  public struct StageTagDeleted: GenerateContext {
     public var tag: String
     public var product: String
     public var version: String
     public var build: String
   }
-  public struct AccessoryBranchCreated: ReportContext {
+  public struct AccessoryBranchCreated: GenerateContext {
     public var commit: String
     public var branch: String
   }
-  public struct AccessoryBranchDeleted: ReportContext {
+  public struct AccessoryBranchDeleted: GenerateContext {
     public var branch: String
   }
-  public struct Custom: ReportContext {
+  public struct Custom: GenerateContext {
     public var authors: [String]?
     public var merge: Json.GitlabMergeState?
     public var product: String?
     public var version: String?
   }
-  public struct Unexpected: ReportContext {
+  public struct Unexpected: GenerateContext {
     public var merge: Json.GitlabMergeState?
     public var error: String
   }
-  public struct ExpiringRequisites: ReportContext {
+  public struct ExpiringRequisites: GenerateContext {
     public var items: [Item]
     public struct Item: Encodable {
       public var file: String
@@ -277,6 +276,7 @@ public extension Configuration {
     threads: .make(users: [user]),
     ctx: Report.ReviewWatch(
       iid: state.review,
+      user: user,
       authors: state.authors.sorted().notEmpty,
       teams: state.teams.sorted().notEmpty
     )
@@ -287,7 +287,7 @@ public extension Configuration {
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(users: [user]),
-    ctx: Report.ReviewList(reviews: reviews),
+    ctx: Report.ReviewList(user: user, reviews: reviews),
     subevent: [reviews.isEmpty.then(Report.ReviewList.Reason.empty).get(.full).rawValue]
   ))}
   func reportReviewApprove(
@@ -299,6 +299,7 @@ public extension Configuration {
     threads: .make(users: [user], reviews: [state.review]),
     ctx: Report.ReviewApprove.init(
       iid: state.review,
+      user: user,
       authors: state.authors.sortedNonEmpty,
       teams: state.teams.sortedNonEmpty,
       diff: state.approves[user]?.commit.value,

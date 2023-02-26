@@ -1,36 +1,36 @@
 import Foundation
 import Facility
 public protocol GenerateContext: Encodable {
-  static var allowEmpty: Bool { get }
   static var name: String { get }
 }
 public extension GenerateContext {
-  static var allowEmpty: Bool { false }
   static var name: String { "\(Self.self)" }
 }
 public protocol GenerateInfo: Encodable {
   var event: [String] { get }
-  var args: [String]? { get }
-  var allowEmpty: Bool { get }
   var env: [String: String] { get set }
   var gitlab: Gitlab.Info? { get set }
   var mark: String? { get set }
   var jira: Jira.Info? { get set }
-  var slack: Slack.Info? { get set }
+  var chat: Chat.Info? { get set }
 }
 public extension GenerateInfo {
   func match(events: [[String]]) -> Bool { events.lazy
     .filter({ event.count >= $0.count })
     .contains(where: { zip(event, $0).contains(where: !=).not })
   }
-  func match(slack: Slack.Signal) -> Bool { match(events: slack.events) }
+  func match(chat: Chat.Diffusion.Signal) -> Bool { match(events: chat.events) }
+  func match(create: Chat.Diffusion.Thread) -> Bool { match(chat: create.create) }
+  func match(update: Chat.Diffusion.Thread) -> [Chat.Diffusion.Signal] {
+    update.update.filter(match(chat:))
+  }
   func match(chain: Jira.Chain) -> Bool { match(events: chain.events) }
-  func match(create: Slack.Thread) -> Bool { match(slack: create.create) }
-  func match(update: Slack.Thread) -> [Slack.Signal] { update.update.filter(match(slack:)) }
+  func match(note: Gitlab.Note) -> Bool { match(events: note.events) }
 }
 public struct Generate: Query {
   public var template: Configuration.Template
   public var templates: [String: String]
+  public var allowEmpty: Bool
   public var info: GenerateInfo
   public typealias Reply = String
   public struct Info<Context: GenerateContext>: GenerateInfo {
@@ -41,9 +41,8 @@ public struct Generate: Query {
     public var env: [String: String] = [:]
     public var gitlab: Gitlab.Info? = nil
     public var jira: Jira.Info? = nil
-    public var slack: Slack.Info? = nil
+    public var chat: Chat.Info? = nil
     public var mark: String? = nil
-    public var allowEmpty: Bool { Context.allowEmpty }
     static func make(
       cfg: Configuration,
       context: Context,
@@ -127,16 +126,16 @@ public struct Generate: Query {
     }
   }
   public struct CreateGitlabStorageCommitMessage: GenerateContext {
-    public var user: String
+    public var user: String?
+    public var reviews: [String]?
     public var reason: Reason
     public enum Reason: String, Encodable {
-      case activate
-      case deactivate
-      case register
-      case unwatchAuthors
-      case unwatchTeams
-      case watchAuthors
-      case watchTeams
+      case activateUser
+      case deactivateUser
+      case registerUser
+      case updateUserWatchList
+      case updateReviews
+      case cleanReviews
     }
   }
   public struct CreateReviewStorageCommitMessage: GenerateContext {
@@ -145,8 +144,9 @@ public struct Generate: Query {
     public var enqueue: [UInt]? = nil
     public var dequeue: [UInt]? = nil
   }
-  public struct CreateSlackStorageCommitMessage: GenerateContext {
+  public struct CreateChatStorageCommitMessage: GenerateContext {
     public var user: String?
+    public var kind: Chat.Kind
     public var reason: Reason
     public enum Reason: String, Encodable {
       case registerUser
@@ -176,7 +176,7 @@ public struct Generate: Query {
 }
 public extension Configuration {
   func report(template: Configuration.Template, info: GenerateInfo) -> Generate {
-    .init(template: template, templates: templates, info: info)
+    .init(template: template, templates: templates, allowEmpty: true, info: info)
   }
   func render(template: String, stdin: AnyCodable?, args: [String]) -> Generate { generate(
     template: .name(template),
@@ -287,12 +287,17 @@ public extension Configuration {
     subevent: [kind.rawValue]
   )}
   func createGitlabStorageCommitMessage(
-    user: String,
+    user: String?,
+    reviews: [String],
     gitlab: Gitlab,
     reason: Generate.CreateGitlabStorageCommitMessage.Reason
   ) -> Generate { generate(
     template: gitlab.storage.asset.createCommitMessage,
-    ctx: Generate.CreateGitlabStorageCommitMessage(user: user, reason: reason),
+    ctx: Generate.CreateGitlabStorageCommitMessage(
+      user: user,
+      reviews: reviews.sorted().notEmpty,
+      reason: reason
+    ),
     subevent: [reason.rawValue]
   )}
   func createReviewStorageCommitMessage(
@@ -302,14 +307,14 @@ public extension Configuration {
     template: review.storage.createCommitMessage,
     ctx: context
   )}
-  func createSlackStorageCommitMessage(
-    slack: Slack,
+  func createChatStorageCommitMessage(
+    chat: Chat,
     user: String?,
-    reason: Generate.CreateSlackStorageCommitMessage.Reason
+    reason: Generate.CreateChatStorageCommitMessage.Reason
   ) -> Generate { generate(
-    template: slack.storage.createCommitMessage,
-    ctx: Generate.CreateSlackStorageCommitMessage(user: user, reason: reason),
-    subevent: [reason.rawValue]
+    template: chat.storage.createCommitMessage,
+    ctx: Generate.CreateChatStorageCommitMessage(user: user, kind: chat.kind, reason: reason),
+    subevent: [reason.rawValue, chat.kind.rawValue]
   )}
   func createSquashCommitMessage(
     merge: Json.GitlabMergeState,
@@ -402,6 +407,6 @@ private extension Configuration {
     info.gitlab = try? gitlab.get().info
     info.jira = try? jira.get().info
     info.stdin = stdin
-    return .init(template: template, templates: templates, info: info)
+    return .init(template: template, templates: templates, allowEmpty: false, info: info)
   }
 }

@@ -13,6 +13,22 @@ public extension Configuration {
     file: profile.review.get(),
     parse: { try .make(yaml: $0.read(Yaml.Review.self, from: $1)) }
   ))}
+  var parseSlack: Lossy<ParseYamlFile<Chat.Slack>>? {
+    guard let slack = profile.slack else { return nil }
+    return .init(.init(
+      git: git,
+      file: slack,
+      parse: { try .make(yaml: $0.read(Yaml.Chat.Slack.self, from: $1)) }
+    ))
+  }
+  var parseRocket: Lossy<ParseYamlFile<Chat.Rocket>>? {
+    guard let rocket = profile.rocket else { return nil }
+    return .init(.init(
+      git: git,
+      file: rocket,
+      parse: { try .make(yaml: $0.read(Yaml.Chat.Rocket.self, from: $1)) }
+    ))
+  }
   var parseFlow: Lossy<ParseYamlFile<Flow>> { .init(try .init(
     git: git,
     file: profile.production.get(),
@@ -72,11 +88,11 @@ public extension Configuration {
     file: .make(asset: review.storage),
     parse: { try .make(review: review, yaml: $0.read(Yaml.Review.Storage.self, from: $1)) }
   )}
-  func parseSlackStorage(
-    slack: Slack
-  ) -> ParseYamlFile<Slack.Storage> { .init(
+  func parseChatStorage(
+    chat: Chat
+  ) -> ParseYamlFile<Chat.Storage> { .init(
     git: git,
-    file: .make(asset: slack.storage),
-    parse: { try .make(slack: slack, yaml: $0.read(Yaml.Slack.Storage.self, from: $1)) }
+    file: .make(asset: chat.storage),
+    parse: { try .make(chat: chat, yaml: $0.read(Yaml.Chat.Storage.self, from: $1)) }
   )}
 }

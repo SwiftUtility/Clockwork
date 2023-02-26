@@ -12,7 +12,11 @@ enum Assembler {
   static let reporter = Reporter(
     execute: execute,
     generate: stencilParser.generate(query:),
-    sendSlack: slacker.sendSlack(query:),
+    resolveSecret: configurator.resolveSecret(query:),
+    parseSlack: configurator.parseYamlFile(query:),
+    parseRocket: configurator.parseYamlFile(query:),
+    parseChatStorage: configurator.parseYamlFile(query:),
+    persistAsset: configurator.persistAsset(query:),
     logMessage: logger.logMessage(query:),
     jsonDecoder: jsonDecoder
   )
@@ -72,8 +76,9 @@ enum Assembler {
     parseReviewRules: configurator.parseYamlSecret(query:),
     parseFlow: configurator.parseYamlFile(query:),
     parseFlowStorage: configurator.parseYamlFile(query:),
-    registerSlackUser: slacker.registerSlackUser(query:),
-    cleanSlack: slacker.cleanSlack(query:),
+    cleanChat: reporter.clean(query:),
+    registerChat: reporter.registerChat(query:),
+    updateUser: reporter.updateUser(query:),
     persistAsset: configurator.persistAsset(query:),
     parseStdin: configurator.parseStdin(query:),
     generate: stencilParser.generate(query:),
@@ -92,14 +97,6 @@ enum Assembler {
     persistAsset: configurator.persistAsset(query:),
     logMessage: logger.logMessage(query:),
     writeStdout: writeStdout,
-    jsonDecoder: jsonDecoder
-  )
-  static let slacker = Slacker(
-    execute: execute,
-    generate: stencilParser.generate(query:),
-    logMessage: logger.logMessage(query:),
-    parseSlackStorage: configurator.parseYamlFile(query:),
-    persistAsset: configurator.persistAsset(query:),
     jsonDecoder: jsonDecoder
   )
   static let stencilParser = StencilParser(notation: .json)

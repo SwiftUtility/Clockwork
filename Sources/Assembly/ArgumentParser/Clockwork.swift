@@ -1,6 +1,6 @@
 import ArgumentParser
 struct Clockwork: ParsableCommand {
-  static var version: String { "0.5.3" }
+  static var version: String { "0.6.0" }
   static let configuration = CommandConfiguration(
     abstract: "Distributed scalable monorepo management tool",
     version: Clockwork.version,
@@ -312,6 +312,8 @@ struct Clockwork: ParsableCommand {
         @OptionGroup var user: User
         @Option(help: "Approver's slack id")
         var slack: String = ""
+        @Option(help: "Approver's rocket id")
+        var rocket: String = ""
       }
       struct UnwatchAuthors: ClockworkCommand {
         static var abstract: String { "Remove user from watchers for authors provided in arguments" }

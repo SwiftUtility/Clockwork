@@ -4,6 +4,7 @@ public enum Yaml {
   public struct Profile: Decodable {
     public var gitlab: String?
     public var slack: String?
+    public var rocket: String?
     public var jira: String?
     public var codeOwnage: String?
     public var fileTaboos: String?
@@ -18,6 +19,12 @@ public enum Yaml {
     public var deployKey: String
     public var storage: Asset
     public var trigger: Trigger
+    public var review: Template?
+    public var notes: [String: Note]?
+    public struct Note: Decodable {
+      public var text: Template
+      public var events: [String]
+    }
     public struct Trigger: Decodable {
       public var jobId: String
       public var jobName: String
@@ -26,6 +33,7 @@ public enum Yaml {
     public struct Storage: Decodable {
       public var bots: [String]
       public var users: [String: User]
+      public var reviews: [String: UInt]?
       public struct User: Decodable {
         public var active: Bool
         public var watchTeams: Set<String>?
@@ -48,24 +56,7 @@ public enum Yaml {
       }
     }
   }
-  public struct Slack: Decodable {
-    public var token: Secret
-    public var storage: Asset
-    public var signals: [String: Signal]?
-    public var directs: [String: Signal]?
-    public var tags: [String: Thread]?
-    public var issues: [String: Thread]?
-    public var reviews: [String: Thread]?
-    public var branches: [String: Thread]?
-    public struct Thread: Decodable {
-      public var create: Signal
-      public var update: [String: Signal]?
-    }
-    public struct Signal: Decodable {
-      public var method: String?
-      public var body: Template
-      public var events: [String]
-    }
+  public enum Chat {
     public struct Storage: Decodable {
       public var users: [String: String]?
       public var channels: [String: String]?
@@ -78,6 +69,36 @@ public enum Yaml {
         public var channel: String
         public var message: String
       }
+    }
+    public struct Diffusion: Decodable {
+      public var signals: [String: Signal]?
+      public var directs: [String: Signal]?
+      public var tags: [String: Thread]?
+      public var issues: [String: Thread]?
+      public var reviews: [String: Thread]?
+      public var branches: [String: Thread]?
+      public struct Signal: Decodable {
+        public var path: String
+        public var body: Template
+        public var method: String?
+        public var events: [String]
+      }
+      public struct Thread: Decodable {
+        public var create: Signal
+        public var update: [String: Signal]?
+      }
+    }
+    public struct Rocket: Decodable {
+      public var url: Secret
+      public var user: Secret
+      public var token: Secret
+      public var storage: Asset
+      public var diffusion: Diffusion
+    }
+    public struct Slack: Decodable {
+      public var token: Secret
+      public var storage: Asset
+      public var diffusion: Diffusion
     }
   }
   public struct FileTaboo: Decodable {
@@ -181,6 +202,7 @@ public enum Yaml {
       public var ignore: [String: Set<String>]?
       public var sourceBranch: [String: Criteria]?
       public var targetBranch: [String: Criteria]?
+      public var labels: Labels?
       public struct Team: Decodable {
         public var quorum: Int
         public var advance: Bool?
@@ -188,6 +210,13 @@ public enum Yaml {
         public var reserve: [String]?
         public var optional: [String]?
         public var required: [String]?
+      }
+      public struct Labels: Decodable {
+        public var emergent: String?
+        public var team: [String: [String]]?
+        public var phase: [String: [String]]?
+        public var merge: [String: [String]]?
+        public var squash: [String: [String]]?
       }
     }
     public struct Storage: Decodable {

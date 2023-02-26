@@ -7,6 +7,7 @@ public struct StencilParser {
   public init(notation: AnyCodable.Notation) {
     self.notation = notation
   }
+  #warning("TBD make lazy git template loader")
   public func generate(query: Generate) throws -> Generate.Reply {
     guard let context = try notation.write(query.info).anyObject as? [String: Any]
     else { throw MayDay("Wrong info format") }
@@ -32,7 +33,7 @@ public struct StencilParser {
       .renderTemplate(string: value, context: context)
     }
     result = result.trimmingCharacters(in: .newlines)
-    guard query.info.allowEmpty || !result.isEmpty
+    guard query.allowEmpty || !result.isEmpty
     else { throw Thrown("Empty rendering \(query.template.name)") }
     return result
   }
