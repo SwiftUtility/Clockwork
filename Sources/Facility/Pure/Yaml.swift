@@ -202,6 +202,7 @@ public enum Yaml {
       public var ignore: [String: Set<String>]?
       public var sourceBranch: [String: Criteria]?
       public var targetBranch: [String: Criteria]?
+      #warning("TBD implement labels")
       public var labels: Labels?
       public struct Team: Decodable {
         public var quorum: Int
