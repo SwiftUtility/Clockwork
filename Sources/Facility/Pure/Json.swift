@@ -109,6 +109,17 @@ public enum Json {
     public var channel: String
     public var ts: String
   }
+  public struct RocketReply: Codable {
+    public var message: Message
+    public struct Message: Codable {
+      public var id: String
+      public var rid: String
+      public enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case rid = "rid"
+      }
+    }
+  }
   public struct FileTaboo: Codable {
     public var rule: String
     public var file: String

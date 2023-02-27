@@ -7,9 +7,8 @@ public struct Configuration {
   public var profile: Profile
   public var templates: [String: String] = [:]
   public var gitlab: Lossy<Gitlab> = .error(Thrown())
-  public var slack: Lossy<Slack> = .error(Thrown())
   public var jira: Lossy<Jira> = .error(Thrown())
-  public var clean: Clean { .init(cfg: self) }
+  public var clean: Chat.Clean { .init(cfg: self) }
   public static func make(
     git: Git,
     env: [String: String],
@@ -23,6 +22,7 @@ public struct Configuration {
     public var location: Git.File
     public var gitlab: Git.File?
     public var slack: Git.File?
+    public var rocket: Git.File?
     public var jira: Git.File?
     public var templates: Git.Dir?
     public var codeOwnage: Git.File?
@@ -40,6 +40,9 @@ public struct Configuration {
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:)),
       slack: yaml.slack
+        .map(Files.Relative.init(value:))
+        .reduce(location.ref, Git.File.init(ref:path:)),
+      rocket: yaml.rocket
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:)),
       jira: yaml.jira
@@ -89,14 +92,6 @@ public struct Configuration {
     case json
     case yaml
     public typealias Reply = AnyCodable?
-  }
-  public struct Clean: Query {
-    public var cfg: Configuration
-    public var tags: Set<String> = []
-    public var issues: Set<String> = []
-    public var reviews: Set<String> = []
-    public var branches: Set<String> = []
-    public typealias Reply = Void
   }
   public struct Asset {
     public var file: Files.Relative

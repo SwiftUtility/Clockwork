@@ -141,6 +141,7 @@ extension Review {
           .reduce(into: [:], { $0[$1, default: 0] += 1 })
         add(problem: .discussions(discussions))
       }
+      if merge.hasConflicts { add(problem: .conflicts) }
       if case .propose(let propose) = change?.fusion {
         if let criteria = propose.proposition.title {
           var title = merge.title
@@ -166,7 +167,7 @@ extension Review {
     public var needApprovalCheck: Bool {
       guard
         let change = change,
-        problems.get([]).contains(where: \.blocking).not,
+        problems.get([]).contains(where: \.verifiable.not).not,
         emergent != change.head,
         verified != change.head || isApproved.not
       else { return false }

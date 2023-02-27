@@ -9,8 +9,9 @@ public final class Mediator {
   let parseReviewRules: Try.Reply<ParseYamlSecret<Review.Rules>>
   let parseFlow: Try.Reply<ParseYamlFile<Flow>>
   let parseFlowStorage: Try.Reply<ParseYamlFile<Flow.Storage>>
-  let registerSlackUser: Try.Reply<Slack.RegisterUser>
-  let cleanSlack: Try.Reply<Configuration.Clean>
+  let cleanChat: Act.Reply<Chat.Clean>
+  let registerChat: Try.Reply<Chat.Register>
+  let updateUser: Try.Reply<Gitlab.Storage.User.Update>
   let persistAsset: Try.Reply<Configuration.PersistAsset>
   let parseStdin: Try.Reply<Configuration.ParseStdin>
   let generate: Try.Reply<Generate>
@@ -26,8 +27,9 @@ public final class Mediator {
     parseReviewRules: @escaping Try.Reply<ParseYamlSecret<Review.Rules>>,
     parseFlow: @escaping Try.Reply<ParseYamlFile<Flow>>,
     parseFlowStorage: @escaping Try.Reply<ParseYamlFile<Flow.Storage>>,
-    registerSlackUser: @escaping Try.Reply<Slack.RegisterUser>,
-    cleanSlack: @escaping Try.Reply<Configuration.Clean>,
+    cleanChat: @escaping Act.Reply<Chat.Clean>,
+    registerChat: @escaping Try.Reply<Chat.Register>,
+    updateUser: @escaping Try.Reply<Gitlab.Storage.User.Update>,
     persistAsset: @escaping Try.Reply<Configuration.PersistAsset>,
     parseStdin: @escaping Try.Reply<Configuration.ParseStdin>,
     generate: @escaping Try.Reply<Generate>,
@@ -43,9 +45,10 @@ public final class Mediator {
     self.parseReviewRules = parseReviewRules
     self.parseFlow = parseFlow
     self.parseFlowStorage = parseFlowStorage
-    self.registerSlackUser = registerSlackUser
     self.persistAsset = persistAsset
-    self.cleanSlack = cleanSlack
+    self.cleanChat = cleanChat
+    self.registerChat = registerChat
+    self.updateUser = updateUser
     self.parseStdin = parseStdin
     self.generate = generate
     self.logMessage = logMessage
@@ -78,7 +81,7 @@ public final class Mediator {
         clean.issues.formUnion(cfg.issues(branch: branch.name))
       }
     }
-    try cleanSlack(clean)
+    cleanChat(clean)
     return true
   }
   public func render(
@@ -330,66 +333,48 @@ public final class Mediator {
     command: Gitlab.Storage.Command
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    var storage = gitlab.storage
-    try storage.bots.formUnion([gitlab.rest.get().user.username])
     let login = login.isEmpty
       .else(login)
       .get(gitlab.job.user.username)
-    if case .register(let servises) = command {
-      for servise in servises.keys {
-        switch servise {
-        case .slack:
-          guard let slack = servises[servise], slack.isEmpty.not else { continue }
-          try registerSlackUser(.make(cfg: cfg, slack: slack, gitlab: login))
-        }
+    var user = gitlab.storage.users[login, default: .make(login: login)]
+    switch command {
+    case .register(let servises):
+      for (servise, user) in servises {
+        guard user.isEmpty.not else { continue }
+        try registerChat(.make(cfg: cfg, kind: servise, user: user, gitlab: login))
       }
-    } else {
-      guard var user = storage.users[login] else { throw Thrown("No approver \(login)") }
-      switch command {
-      case .register: break
-      case .activate:
-        user.active = true
-        #warning("TBD trigger reviews")
-      case .deactivate:
-        user.active = false
-        #warning("TBD trigger reviews")
-      case .unwatchAuthors(let authors):
-        let unknown = authors.filter({ user.watchAuthors.contains($0).not })
-        guard unknown.isEmpty
-        else { throw Thrown("Not watching authors: \(unknown.joined(separator: ", "))") }
-        user.watchAuthors = user.watchAuthors.subtracting(authors)
-      case .unwatchTeams(let teams):
-        let unknown = teams.filter({ user.watchTeams.contains($0).not })
-        guard unknown.isEmpty
-        else { throw Thrown("Not watching teams: \(unknown.joined(separator: ", "))") }
-        user.watchTeams = user.watchTeams.subtracting(teams)
-      case .watchAuthors(let authors):
-        let known = storage.users.values.reduce(into: Set(), { $0.insert($1.login) })
-        let unknown = authors.filter({ known.contains($0).not })
-        guard unknown.isEmpty
-        else { throw Thrown("Unknown users: \(unknown.joined(separator: ", "))") }
-        user.watchAuthors.formUnion(authors)
-      case .watchTeams(let teams):
-        let review = try cfg.parseReview.map(parseReview).get()
-        let rules = try parseReviewRules(cfg.parseReviewRules(review: review))
-        let known = rules.teams.values.reduce(into: Set(), { $0.insert($1.name) })
-        let unknown = teams.filter({ known.contains($0).not })
-        guard unknown.isEmpty
-        else { throw Thrown("Unknown teams: \(unknown.joined(separator: ", "))") }
-        user.watchTeams.formUnion(teams)
-      }
-      storage.users[login] = user
+    case .activate:
+      user.active = true
+      #warning("TBD trigger reviews")
+    case .deactivate:
+      user.active = false
+      #warning("TBD trigger reviews")
+    case .unwatchAuthors(let authors):
+      let unknown = authors.filter({ user.watchAuthors.contains($0).not })
+      guard unknown.isEmpty
+      else { throw Thrown("Not watching authors: \(unknown.joined(separator: ", "))") }
+      user.watchAuthors = user.watchAuthors.subtracting(authors)
+    case .unwatchTeams(let teams):
+      let unknown = teams.filter({ user.watchTeams.contains($0).not })
+      guard unknown.isEmpty
+      else { throw Thrown("Not watching teams: \(unknown.joined(separator: ", "))") }
+      user.watchTeams = user.watchTeams.subtracting(teams)
+    case .watchAuthors(let authors):
+      let known = gitlab.storage.users.values.reduce(into: Set(), { $0.insert($1.login) })
+      let unknown = authors.filter({ known.contains($0).not })
+      guard unknown.isEmpty
+      else { throw Thrown("Unknown users: \(unknown.joined(separator: ", "))") }
+      user.watchAuthors.formUnion(authors)
+    case .watchTeams(let teams):
+      let review = try cfg.parseReview.map(parseReview).get()
+      let rules = try parseReviewRules(cfg.parseReviewRules(review: review))
+      let known = rules.teams.values.reduce(into: Set(), { $0.insert($1.name) })
+      let unknown = teams.filter({ known.contains($0).not })
+      guard unknown.isEmpty
+      else { throw Thrown("Unknown teams: \(unknown.joined(separator: ", "))") }
+      user.watchTeams.formUnion(teams)
     }
-    _ = try persistAsset(.init(
-      cfg: cfg,
-      asset: storage.asset,
-      content: storage.serialize(),
-      message: generate(cfg.createGitlabStorageCommitMessage(
-        user: login,
-        gitlab: gitlab,
-        reason: command.reason
-      ))
-    ))
+    try updateUser(user.makeUpdate(cfg: cfg, reason: command.reason))
     return true
   }
 }

@@ -204,6 +204,7 @@ public struct Review {
       case .badTitle: return true
       case .taskMismatch: return true
       case .holders: return true
+      case .conflicts: return true
       default: return false
       }
     }

@@ -199,6 +199,7 @@ extension Clockwork.Gitlab.User.Register: RunnableCommand {
     login: user.login,
     command: .register([
       .slack: slack,
+      .rocket: rocket,
     ])
   )}
 }

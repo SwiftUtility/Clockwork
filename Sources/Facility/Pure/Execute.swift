@@ -112,14 +112,24 @@ public extension Configuration {
     input: execute.input,
     tasks: execute.tasks + [.init(environment: env, arguments: ["tee", file.value], secrets: [])]
   )}
-  func curlSlack(token: String, method: String, body: String) throws -> Execute { .makeCurl(
-    url: "https://slack.com/api/\(method)",
-    method: "POST",
-    data: body,
-    headers: [Json.utf8, "Authorization: Bearer \(token)"],
-    secrets: [token]
-  )}
-  func curlJira(jira: Jira, url: String, method: String, body: String?) throws -> Execute { .makeCurl(
+  func curl(chat: Chat, signal: Chat.Diffusion.Signal, body: String) throws -> Execute {
+    switch chat {
+    case .slack(let slack): return .makeCurl(
+      url: "https://slack.com/api/\(signal.path)",
+      method: signal.method,
+      data: body,
+      headers: [Json.utf8, "Authorization: Bearer \(slack.token)"],
+      secrets: [slack.token]
+    )
+    case .rocket(let rocket): return .makeCurl(
+      url: "\(rocket.url)/\(signal.path)",
+      method: signal.method,
+      data: body,
+      headers: [Json.utf8, "X-Auth-Token: \(rocket.token)", "X-User-Id: \(rocket.user)"],
+      secrets: [rocket.token, rocket.user]
+    )}
+  }
+  func curl(jira: Jira, url: String, method: String, body: String?) throws -> Execute { .makeCurl(
     url: url,
     method: method,
     data: body,

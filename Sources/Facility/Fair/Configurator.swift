@@ -73,7 +73,6 @@ public final class Configurator {
       .reduce(cfg.git, parse(git:templates:))
       .get([:])
     cfg.gitlab = .init(try resolveGitlab(cfg: cfg))
-    cfg.slack = .init(try resolveSlack(cfg: cfg))
     cfg.jira = .init(try resolveJira(cfg: cfg))
     return cfg
   }
@@ -146,7 +145,7 @@ extension Configurator {
       .reduce(Json.GitlabJob.self, jsonDecoder.decode(success:reply:))
       .get()
     let storage = try parseYamlFile(query: cfg.parseGitlabStorage(asset: env.storage))
-    var gitlab = Gitlab.make(env: env, job: job, storage: storage, yaml: yaml)
+    var gitlab = try Gitlab.make(env: env, job: job, storage: storage, yaml: yaml)
     gitlab.rest = Lossy
       .make({ try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.apiToken)) })
       .map({ token in try .make(
@@ -174,16 +173,6 @@ extension Configurator {
         .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
     }
     return gitlab
-  }
-  func resolveSlack(cfg: Configuration) throws -> Slack {
-    let yaml = try cfg.profile.slack
-      .reduce(cfg.git, parse(git:yaml:))
-      .reduce(Yaml.Slack.self, dialect.read(_:from:))
-      .get { throw Thrown("slack not configured") }
-    let token = try parse(git: cfg.git, env: cfg.env, secret: .make(yaml: yaml.token))
-    var result = try Slack.make(token: token, yaml: yaml)
-    result.info = try .make(storage: parseYamlFile(query: cfg.parseSlackStorage(slack: result)))
-    return result
   }
   func resolveJira(cfg: Configuration) throws -> Jira {
     let yaml = try cfg.profile.jira

@@ -4,6 +4,8 @@ public struct Gitlab {
   public var env: Env
   public let job: Json.GitlabJob
   public var api: String
+  public var notes: [Note]
+  public var review: Configuration.Template?
   public var trigger: Yaml.Gitlab.Trigger
   public var storage: Storage
   public var rest: Lossy<Rest> = .error(Thrown("Not protected ref pipeline"))
@@ -26,18 +28,35 @@ public struct Gitlab {
     job: Json.GitlabJob,
     storage: Storage,
     yaml: Yaml.Gitlab
-  ) -> Self { .init(
+  ) throws -> Self { try .init(
     env: env,
     job: job,
     api: "\(env.api)/projects/\(job.pipeline.projectId)",
+    notes: yaml.notes.get([:]).map(Note.make(mark:yaml:)),
+    review: yaml.review.map(Configuration.Template.make(yaml:)),
     trigger: yaml.trigger,
     storage: storage
   )}
+  public struct Note {
+    public var mark: String
+    public var text: Configuration.Template
+    public var events: [[String]]
+    public static func make(mark: String, yaml: Yaml.Gitlab.Note) throws -> Self { try .init(
+      mark: mark,
+      text: .make(yaml: yaml.text),
+      events: yaml.events.map({ $0.components(separatedBy: "/") })
+    )}
+  }
+  public struct Description {
+    public var delimiter: String
+    public var text: Configuration.Template
+  }
   public struct Storage {
     public var asset: Configuration.Asset
     public var bots: Set<String>
     public var users: [String: User]
-    public func serialize() -> String {
+    public var reviews: [String: UInt]
+    public var serialized: String {
       var result: String = ""
       let bots = bots.sorted().map({ "'\($0)'" }).joined(separator: ",")
       result += "bots: [\(bots)]\n"
@@ -51,6 +70,11 @@ public struct Gitlab {
         let watchAuthors = user.watchAuthors.sorted().joined(separator: "','")
         if watchAuthors.isEmpty.not { result += "    watchAuthors: ['\(watchAuthors)']\n" }
       }
+      let reviews = reviews.sorted(\.key)
+      result += "reviews:\(reviews.isEmpty.then(" {}").get(""))\n"
+      for review in reviews {
+        result += "  '\(review.key)': \(review.value)"
+      }
       return result
     }
     public static func make(
@@ -59,7 +83,8 @@ public struct Gitlab {
     ) -> Self { .init(
       asset: asset,
       bots: Set(yaml.bots),
-      users: yaml.users.map(User.make(login:yaml:)).indexed(\.login)
+      users: yaml.users.map(User.make(login:yaml:)).indexed(\.login),
+      reviews: yaml.reviews.get([:])
     )}
     public struct User {
       public var login: String
@@ -81,28 +106,34 @@ public struct Gitlab {
         watchTeams: [],
         watchAuthors: []
       )}
+      public func makeUpdate(
+        cfg: Configuration,
+        reason: Generate.CreateGitlabStorageCommitMessage.Reason
+      ) -> Update {
+        .init(cfg: cfg, user: self, reason: reason)
+      }
+      public struct Update: Query {
+        public var cfg: Configuration
+        public var user: User
+        public var reason: Generate.CreateGitlabStorageCommitMessage.Reason
+        public typealias Reply = Void
+      }
     }
     public enum Command {
       case activate
       case deactivate
-      case register([Service: String])
+      case register([Chat.Kind: String])
       case unwatchAuthors([String])
       case unwatchTeams([String])
       case watchAuthors([String])
       case watchTeams([String])
       public var reason: Generate.CreateGitlabStorageCommitMessage.Reason {
         switch self {
-        case .activate: return .activate
-        case .deactivate: return .deactivate
-        case .register: return .register
-        case .unwatchAuthors: return .unwatchAuthors
-        case .unwatchTeams: return .unwatchTeams
-        case .watchAuthors: return .watchAuthors
-        case .watchTeams: return .watchTeams
+        case .activate: return .activateUser
+        case .deactivate: return .deactivateUser
+        case .register: return .registerUser
+        default: return .updateUserWatchList
         }
-      }
-      public enum Service: String {
-        case slack
       }
     }
   }
@@ -230,6 +261,27 @@ public extension Gitlab {
     url: "\(api)/merge_requests/\(review)/discussions?page=\(page)&per_page=\(count)",
     retry: 2,
     headers: [rest.get().auth],
+    secrets: [rest.get().secret]
+  ))}
+  func postMrNotes(
+    review: UInt,
+    body: String
+  ) -> Lossy<Execute> { .init(try .makeCurl(
+    url: "\(api)/merge_requests/\(review)/notes",
+    method: "POST",
+    data: MrNote(body: body).curl.get(),
+    headers: [rest.get().auth, Json.utf8],
+    secrets: [rest.get().secret]
+  ))}
+  func putMrNotes(
+    review: UInt,
+    note: UInt,
+    body: String
+  ) -> Lossy<Execute> { .init(try .makeCurl(
+    url: "\(api)/merge_requests/\(review)/notes/\(note)",
+    method: "PUT",
+    data: MrNote(body: body).curl.get(),
+    headers: [rest.get().auth, Json.utf8],
     secrets: [rest.get().secret]
   ))}
   func postMrPipelines(
@@ -419,6 +471,9 @@ public extension Gitlab {
       self.removeLabels = removeLabels
       self.stateEvent = stateEvent
     }
+  }
+  struct MrNote: Encodable {
+    public var body: String
   }
   struct PutMrMerge: Encodable {
     public var mergeCommitMessage: String?
