@@ -270,7 +270,7 @@ public extension Gitlab {
     url: "\(api)/merge_requests/\(review)/notes",
     method: "POST",
     data: MrNote(body: body).curl.get(),
-    headers: [rest.get().auth],
+    headers: [rest.get().auth, Json.utf8],
     secrets: [rest.get().secret]
   ))}
   func putMrNotes(
@@ -281,7 +281,7 @@ public extension Gitlab {
     url: "\(api)/merge_requests/\(review)/notes/\(note)",
     method: "PUT",
     data: MrNote(body: body).curl.get(),
-    headers: [rest.get().auth],
+    headers: [rest.get().auth, Json.utf8],
     secrets: [rest.get().secret]
   ))}
   func postMrPipelines(
