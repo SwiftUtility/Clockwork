@@ -73,7 +73,7 @@ public struct Gitlab {
       let reviews = reviews.sorted(\.key)
       result += "reviews:\(reviews.isEmpty.then(" {}").get(""))\n"
       for review in reviews {
-        result += "  '\(review.key)': \(review.value)"
+        result += "  '\(review.key)': \(review.value)\n"
       }
       return result
     }
