@@ -20,17 +20,14 @@ public struct StencilParser {
     ext.registerFilter("stride", filter: Filters.stride(value:args:))
     ext.registerTag("scan", parser: ScanNode.parse(parser:token:))
     ext.registerTag("line", parser: LineNode.parse(parser:token:))
+    let environment = Environment(
+      loader: DictionaryLoader(templates: query.templates),
+      extensions: [ext]
+    )
     var result: String
     switch query.template {
-    case .name(let value): result = try Environment
-      .init(
-        loader: DictionaryLoader(templates: query.templates),
-        extensions: [ext]
-      )
-      .renderTemplate(name: value, context: context)
-    case .value(let value): result = try Environment
-      .init(extensions: [ext])
-      .renderTemplate(string: value, context: context)
+    case .name(let value): result = try environment.renderTemplate(name: value, context: context)
+    case .value(let value): result = try environment.renderTemplate(string: value, context: context)
     }
     result = result.trimmingCharacters(in: .newlines)
     guard query.allowEmpty || !result.isEmpty

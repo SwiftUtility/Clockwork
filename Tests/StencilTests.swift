@@ -5,36 +5,38 @@ import InteractivityYams
 @testable import FacilityPure
 extension AnyCodable: GenerateContext {}
 final class StencilTests: XCTestCase {
+  static let templates: [String: String] = [
+    "testJson": """
+      {% filter escapeJson %}
+      yay
+      yay
+      {% endfilter %}
+      """,
+    "testSubscript": "{{ctx.custom.members[ctx.env.login].mention}}",
+    "testIncrement": #"""
+      {{ ctx.env.version | incremented }}
+      """#,
+    "testScanInplace": #"{% scan ".*(\d+)\.(\d+)\.(\d+).*" %}asd 1.2.3{%patch%}{{_.1}}.{{_.2 | filter:"incremented"}}.{{_.3}}{%endscan%}"#,
+    "testScan": #"""
+      {% scan ctx.custom.versionRegexp %}{#
+        #}{{ ctx.custom.versionString }}{#
+      #}{% patch %}{#
+        #}{{_.1}}.{{_.2 | filter:"incremented"}}.{{_.3}}{#
+      #}{% endscan %}
+      """#,
+    "testLine": #"""
+      {% line %}
+      a
+      b
+       c
+      {% endline %}
+      """#,
+    "testBool": #"{% if not ctx.env.bool %}good{% endif %}"#,
+    "Included.stencil": #"{{ value }}"#,
+  ]
   func makeQuery(_ name: String) -> Generate { .init(
     template: .name(name),
-    templates: [
-      "testJson": """
-        {% filter escapeJson %}
-        yay
-        yay
-        {% endfilter %}
-        """,
-      "testSubscript": "{{ctx.custom.members[ctx.env.login].mention}}",
-      "testIncrement": #"""
-        {{ ctx.env.version | incremented }}
-        """#,
-      "testScanInplace": #"{% scan ".*(\d+)\.(\d+)\.(\d+).*" %}asd 1.2.3{%patch%}{{_.1}}.{{_.2 | filter:"incremented"}}.{{_.3}}{%endscan%}"#,
-      "testScan": #"""
-        {% scan ctx.custom.versionRegexp %}{#
-          #}{{ ctx.custom.versionString }}{#
-        #}{% patch %}{#
-          #}{{_.1}}.{{_.2 | filter:"incremented"}}.{{_.3}}{#
-        #}{% endscan %}
-        """#,
-      "testLine": #"""
-        {% line %}
-        a
-        b
-         c
-        {% endline %}
-        """#,
-      "testBool": #"{% if not ctx.env.bool %}good{% endif %}"#,
-    ],
+    templates: StencilTests.templates,
     allowEmpty: false,
     info: Generate.Info(event: [], args: nil, ctx: AnyCodable.map([
       "env": .map([
@@ -60,7 +62,7 @@ final class StencilTests: XCTestCase {
     let context = try YamlParser.decodeYaml(query: .init(content: context))
     let generate = Generate(
       template: .value(template),
-      templates: [:],
+      templates: StencilTests.templates,
       allowEmpty: false,
       info: Generate.Info(event: [], args: nil, ctx: context)
     )
@@ -107,6 +109,14 @@ final class StencilTests: XCTestCase {
       {% for subints in ctx.ints | stride:3 %}[{% for int in subints %}{{int}}{% endfor %}]{% endfor %}
       """,
       context: #"ints: [1,2,3,4,5,6,7]"#
+    ))
+  }
+  func testInclude() throws {
+    try XCTAssertEqual("hello", generate(
+      template: """
+      {% include "Included.stencil" ctx %}
+      """,
+      context: #"value: hello"#
     ))
   }
 }

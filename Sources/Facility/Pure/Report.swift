@@ -51,6 +51,7 @@ public struct Report {
   }
   public struct ReviewFail: GenerateContext {
     public var merge: Json.GitlabMergeState
+    public var review: Review.Info
     public var reason: Reason
     public enum Reason: String, Encodable {
       case pipelineOutdated
@@ -68,24 +69,25 @@ public struct Report {
     }
   }
   public struct ReviewWatch: GenerateContext {
-    public var iid: UInt
     public var user: String
-    public var authors: [String]?
-    public var teams: [String]?
+    public var merge: Json.GitlabMergeState
+    public var review: Review.Info
   }
   public struct ReviewApprove: GenerateContext {
-    public var iid: UInt
     public var user: String
-    public var authors: [String]?
-    public var teams: [String]?
     public var diff: String?
+    public var merge: Json.GitlabMergeState
+    public var review: Review.Info
     public var reason: Reason
-    public static func make(state: Review.State, user: String) -> Self { .init(
-      iid: state.review,
+    public static func make(
+      merge: Json.GitlabMergeState,
+      state: Review.State,
+      user: String
+    ) -> Self { .init(
       user: user,
-      authors: state.authors.sortedNonEmpty,
-      teams: state.teams.sortedNonEmpty,
       diff: state.approves[user]?.diff,
+      merge: merge,
+      review: .init(state: state),
       reason: .remind
     )}
     public enum Reason: String, Encodable {
@@ -95,9 +97,7 @@ public struct Report {
     }
   }
   public struct ReviewQueue: GenerateContext {
-    public var iid: UInt
-    public var authors: [String]?
-    public var teams: [String]?
+    public var review: Review.Info
     public var reason: Reason
     public enum Reason: String, Encodable {
       case foremost
@@ -107,8 +107,7 @@ public struct Report {
   }
   public struct ReviewEvent: GenerateContext {
     public var merge: Json.GitlabMergeState
-    public var authors: [String]?
-    public var teams: [String]?
+    public var review: Review.Info
     public var reason: Reason
     public enum Reason: String, Encodable {
       case block
@@ -125,28 +124,12 @@ public struct Report {
   }
   public struct ReviewMergeError: GenerateContext {
     public var merge: Json.GitlabMergeState
-    public var authors: [String]?
-    public var teams: [String]?
+    public var review: Review.Info
     public var error: String
   }
   public struct ReviewUpdated: GenerateContext {
     public var merge: Json.GitlabMergeState
-    public var authors: [String]?
-    public var teams: [String]?
-    public var approvers: [Review.Approver]? = nil
-    public var problems: Review.Problems? = nil
-    public var ready: Bool = false
-    public var amend: Bool = false
-    public var block: Bool = false
-    public var alarm: Bool = false
-    public mutating func change(state: Review.State) {
-      switch state.phase {
-      case .block: block = true
-      case .ready:
-        if state.emergent == nil { ready = true } else { alarm = true }
-      default: amend = true
-      }
-    }
+    public var review: Review.Info
   }
   public struct ReleaseBranchCreated: GenerateContext {
     public var commit: String
@@ -260,26 +243,22 @@ public extension Configuration {
   ))}
   func reportReviewFail(
     merge: Json.GitlabMergeState,
-    state: Review.State?,
+    state: Review.State,
     reason: Report.ReviewFail.Reason
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
-    threads: .make(users: defaultUsers.union(state.map(\.authors).get([])), reviews: [merge.iid]),
-    ctx: Report.ReviewFail(merge: merge, reason: reason),
+    threads: .make(users: defaultUsers.union(state.authors), reviews: [merge.iid]),
+    ctx: Report.ReviewFail(merge: merge, review: .init(state: state), reason: reason),
     subevent: [reason.rawValue]
   ))}
   func reportReviewWatch(
     user: String,
+    merge: Json.GitlabMergeState,
     state: Review.State
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(users: [user]),
-    ctx: Report.ReviewWatch(
-      iid: state.review,
-      user: user,
-      authors: state.authors.sorted().notEmpty,
-      teams: state.teams.sorted().notEmpty
-    )
+    ctx: Report.ReviewWatch(user: user, merge: merge, review: .init(state: state))
   ))}
   func reportReviewList(
     user: String,
@@ -292,17 +271,17 @@ public extension Configuration {
   ))}
   func reportReviewApprove(
     user: String,
+    merge: Json.GitlabMergeState,
     state: Review.State,
     reason: Report.ReviewApprove.Reason
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(users: [user], reviews: [state.review]),
     ctx: Report.ReviewApprove.init(
-      iid: state.review,
       user: user,
-      authors: state.authors.sortedNonEmpty,
-      teams: state.teams.sortedNonEmpty,
       diff: state.approves[user]?.commit.value,
+      merge: merge,
+      review: .init(state: state),
       reason: reason
     ),
     subevent: [reason.rawValue]
@@ -317,12 +296,7 @@ public extension Configuration {
       reviews: [state.review],
       branches: [state.target.name]
     ),
-    ctx: Report.ReviewQueue(
-      iid: state.review,
-      authors: state.authors.sortedNonEmpty,
-      teams: state.teams.sortedNonEmpty,
-      reason: reason
-    ),
+    ctx: Report.ReviewQueue(review: .init(state: state), reason: reason),
     subevent: [reason.rawValue]
   ))}
   func reportReviewEvent(
@@ -337,21 +311,16 @@ public extension Configuration {
       reviews: [state.review],
       branches: [state.target.name]
     ),
-    ctx: Report.ReviewEvent(
-      merge: merge,
-      authors: state.authors.sortedNonEmpty,
-      teams: state.teams.sortedNonEmpty,
-      reason: reason
-    ),
+    ctx: Report.ReviewEvent(merge: merge, review: .init(state: state), reason: reason),
     subevent: [reason.rawValue]
   ))}
   func reportReviewUpdated(
     state: Review.State,
-    report: Report.ReviewUpdated
+    merge: Json.GitlabMergeState
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(reviews: [state.review]),
-    ctx: report
+    ctx: Report.ReviewUpdated(merge: merge, review: .init(state: state))
   ))}
   func reportReviewMergeError(
     state: Review.State,
@@ -360,12 +329,7 @@ public extension Configuration {
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(users: state.authors, reviews: [merge.iid]),
-    ctx: Report.ReviewMergeError(
-      merge: merge,
-      authors: state.authors.sortedNonEmpty,
-      teams: state.teams.sortedNonEmpty,
-      error: error
-    )
+    ctx: Report.ReviewMergeError(merge: merge, review: .init(state: state), error: error)
   ))}
   func reportReleaseBranchCreated(
     release: Flow.Release,

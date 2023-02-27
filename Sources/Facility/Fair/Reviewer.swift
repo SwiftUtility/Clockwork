@@ -55,13 +55,13 @@ public final class Reviewer {
     var checked: Set<UInt> = []
     for iid in ctx.storage.queues.values.compactMap(\.first) {
       checked.insert(iid)
-      guard let merge = try getMerge(cfg: cfg, iid: iid) else { continue }
+      guard let merge = try getMerge(ctx: &ctx, iid: iid) else { continue }
       if merge.lastPipeline.isFailed { ctx.dequeue(merge: merge) }
     }
     for state in ctx.storage.states.values {
       guard
         checked.contains(state.review).not,
-        let merge = try getMerge(cfg: cfg, iid: state.review),
+        let merge = try getMerge(ctx: &ctx, iid: state.review),
         var state = try ctx.makeState(merge: merge)
       else { continue }
       guard
@@ -94,9 +94,9 @@ public final class Reviewer {
     message: String
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    guard let merge = try getMerge(cfg: cfg, iid: nil) else { return false }
-    let branch = try Git.Branch.make(name: merge.sourceBranch)
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: nil) else { return false }
+    let branch = try Git.Branch.make(name: merge.sourceBranch)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     guard
       let patch = try readStdin(),
@@ -124,8 +124,8 @@ public final class Reviewer {
     iid: UInt
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    guard let merge = try getMerge(cfg: cfg, iid: iid) else { return false }
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: iid) else { return false }
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let sha = try Git.Sha.make(merge: merge)
     state.emergent = sha
@@ -135,25 +135,25 @@ public final class Reviewer {
   }
   public func approveReview(cfg: Configuration, advance: Bool) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    guard let merge = try getMerge(cfg: cfg, iid: nil) else { return false }
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: nil) else { return false }
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     try state.approve(job: gitlab.parent.get(), advance: advance)
     try storeChange(ctx: &ctx, state: &state, merge: merge)
     return true
   }
   public func dequeueReview(cfg: Configuration, iid: UInt) throws -> Bool {
-    guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid), latest: true)
-    else { return false }
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: (iid > 0).then(iid), latest: true)
+    else { return false }
     ctx.dequeue(merge: merge)
     try storeContext(ctx: &ctx, skip: merge.iid)
     return true
   }
   public func ownReview(cfg: Configuration, user: String, iid: UInt) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid)) else { return false }
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: (iid > 0).then(iid)) else { return false }
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let user = user.isEmpty.not.then(user).get(gitlab.job.user.username)
     state.authors.insert(user)
@@ -162,8 +162,8 @@ public final class Reviewer {
   }
   public func unownReview(cfg: Configuration, user: String, iid: UInt) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
-    guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid)) else { return false }
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: (iid > 0).then(iid)) else { return false }
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     let user = user.isEmpty.not.then(user).get(gitlab.job.user.username)
     state.authors.remove(user)
@@ -172,30 +172,35 @@ public final class Reviewer {
   }
   public func remindReview(cfg: Configuration, iid: UInt) throws -> Bool {
     let iid = try (iid > 0).then(iid).get(cfg.gitlab.flatMap(\.parent).flatMap(\.review).get())
-    let ctx = try makeContext(cfg: cfg)
+    var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: (iid > 0).then(iid)) else { return false }
     guard let state = ctx.storage.states[iid] else { return false }
     for user in state.approvers.filter(state.isUnapproved(user:)) {
-      cfg.reportReviewApprove(user: user, state: state, reason: .remind)
+      cfg.reportReviewApprove(user: user, merge: merge, state: state, reason: .remind)
     }
+    try storeContext(ctx: &ctx)
     return true
   }
   public func listReviews(cfg: Configuration, user: String) throws -> Bool {
-    let ctx = try makeContext(cfg: cfg)
+    var ctx = try makeContext(cfg: cfg)
     let users = user.isEmpty.then(ctx.approvers).get([user])
-    var reviews: [UInt: Set<String>] = [:]
+    var reviews: [UInt: [String: Report.ReviewApprove]] = [:]
     for state in ctx.storage.states.values {
       guard state.verified != nil else { continue }
-      reviews[state.review] = state.approvers.intersection(users).filter(state.isUnapproved(user:))
+      let users = state.approvers.intersection(users).filter(state.isUnapproved(user:))
+      guard users.isEmpty.not else { continue }
+      guard let merge = try getMerge(ctx: &ctx, iid: state.review) else { continue }
+      reviews[state.review] = users
+        .map({ .make(merge: merge, state: state, user: $0) })
+        .indexed(\.user)
     }
     for user in users {
-      let reviews = reviews
-        .filter({ $0.value.contains(user) })
-        .keys
-        .sorted()
-        .compactMap({ ctx.storage.states[$0] })
-        .map({ Report.ReviewApprove.make(state: $0, user: user) })
+      let reviews = reviews.values
+        .compactMap({ $0[user] })
+        .sorted(\.review.iid)
       cfg.reportReviewList(user: user, reviews: reviews)
     }
+    try storeContext(ctx: &ctx)
     return true
   }
   public func startFusion(
@@ -269,8 +274,8 @@ public final class Reviewer {
     return true
   }
   public func rebaseReview(cfg: Configuration, iid: UInt) throws -> Bool {
-    guard let merge = try getMerge(cfg: cfg, iid: (iid > 0).then(iid)) else { return false }
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: (iid > 0).then(iid)) else { return false }
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     _ = try checkReady(ctx: &ctx, state: &state, merge: merge)
     guard let change = state.change, state.canRebase else {
@@ -332,8 +337,8 @@ public final class Reviewer {
     return true
   }
   public func enqueueReview(cfg: Configuration) throws -> Bool {
-    guard let merge = try getMerge(cfg: cfg, iid: nil, latest: true) else { return false }
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: nil, latest: true) else { return false }
     guard
       var state = try ctx.makeState(merge: merge),
       try checkReady(ctx: &ctx, state: &state, merge: merge),
@@ -346,8 +351,8 @@ public final class Reviewer {
     return true
   }
   public func acceptReview(cfg: Configuration) throws -> Bool {
-    guard let merge = try getMerge(cfg: cfg, iid: nil, latest: true) else { return true }
     var ctx = try makeContext(cfg: cfg)
+    guard let merge = try getMerge(ctx: &ctx, iid: nil, latest: true) else { return true }
     if ctx.isFirst(merge: merge).not {
       ctx.trigger.insert(merge.iid)
     } else if
@@ -364,11 +369,11 @@ public final class Reviewer {
 }
 extension Reviewer {
   func getMerge(
-    cfg: Configuration,
+    ctx: inout Review.Context,
     iid: UInt?,
     latest: Bool = false
   ) throws -> Json.GitlabMergeState? {
-    let gitlab = try cfg.gitlab.get()
+    let gitlab = try ctx.cfg.gitlab.get()
     if let iid = iid { return try gitlab
       .getMrState(review: iid)
       .map(execute)
@@ -379,12 +384,20 @@ extension Reviewer {
       let merge = try gitlab.merge.get()
       if latest {
         guard parent.pipeline.id == merge.lastPipeline.id else {
-          cfg.reportReviewFail(merge: merge, state: nil, reason: .pipelineOutdated)
+          if let state = try ctx.makeState(merge: merge) {
+            ctx.cfg.reportReviewFail(merge: merge, state: state, reason: .pipelineOutdated)
+          } else {
+            try storeContext(ctx: &ctx)
+          }
           return nil
         }
       } else {
         guard parent.pipeline.sha == merge.lastPipeline.sha else {
-          cfg.reportReviewFail(merge: merge, state: nil, reason: .pipelineOutdated)
+          if let state = try ctx.makeState(merge: merge) {
+            ctx.cfg.reportReviewFail(merge: merge, state: state, reason: .pipelineOutdated)
+          } else {
+            try storeContext(ctx: &ctx)
+          }
           return nil
         }
       }
@@ -674,12 +687,12 @@ extension Reviewer {
     ctx: inout Review.Context,
     merge: Json.GitlabMergeState
   ) throws -> Review.State? {
-    guard ctx.isQueued(merge: merge).not else {
-      ctx.cfg.reportReviewFail(merge: merge, state: nil, reason: .reviewQueued)
-      return nil
-    }
     guard let state = try ctx.makeState(merge: merge) else {
       try storeContext(ctx: &ctx)
+      return nil
+    }
+    guard ctx.isQueued(merge: merge).not else {
+      ctx.cfg.reportReviewFail(merge: merge, state: state, reason: .reviewQueued)
       return nil
     }
     return state
