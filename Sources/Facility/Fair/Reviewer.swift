@@ -198,6 +198,7 @@ public final class Reviewer {
       let reviews = reviews.values
         .compactMap({ $0[user] })
         .sorted(\.review.iid)
+      guard reviews.isEmpty.not || users.count == 1 else { continue }
       cfg.reportReviewList(user: user, reviews: reviews)
     }
     try storeContext(ctx: &ctx)
