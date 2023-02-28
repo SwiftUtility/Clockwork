@@ -187,8 +187,8 @@ public struct Report {
     public var branch: String
   }
   public struct Custom: GenerateContext {
-    public var authors: [String]?
     public var merge: Json.GitlabMergeState?
+    public var review: Review.Info?
     public var product: String?
     public var version: String?
   }
@@ -463,8 +463,8 @@ public extension Configuration {
     cfg: self,
     threads: threads,
     ctx: Report.Custom(
-      authors: state?.authors.sortedNonEmpty,
       merge: merge,
+      review: state.map(Review.Info.init(state:)),
       product: product,
       version: version
     ),
