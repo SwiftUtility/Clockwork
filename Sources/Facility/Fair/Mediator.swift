@@ -110,6 +110,7 @@ public final class Mediator {
     var state: Review.State? = nil
     var product: String? = nil
     var version: String? = nil
+    let gitlab = try cfg.gitlab.get()
     defer {
       if let merge = merge { threads.reviews.insert("\(merge)") }
       if let authors = state?.authors { threads.users.formUnion(authors) }
@@ -124,11 +125,10 @@ public final class Mediator {
         version: version
       )
     }
-    let gitlab = try cfg.gitlab.get()
     if let review = try? gitlab.merge.get() {
       threads.reviews.insert("\(review.iid)")
       threads.issues = cfg.issues(branch: review.sourceBranch)
-      state = try? resolveState(.make(cfg: cfg, merge: review))
+      state = try resolveState(.make(cfg: cfg, merge: review))
       merge = review
       return true
     }

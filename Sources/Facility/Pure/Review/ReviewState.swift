@@ -408,54 +408,28 @@ extension Review {
       else if enqueued.contains(review) { queue.append(.enqueued) }
       else if dequeued.contains(review) { queue.append(.dequeued) }
       queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
+      guard let merge = merge else { return }
       approvers
         .subtracting(old.map(\.approvers).get([]))
         .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
-        .forEach({ ctx.cfg.reportReviewApprove(user: $0, state: self, reason: .create) })
+        .forEach({ ctx.cfg.reportReviewApprove(
+          user: $0, merge: merge, state: self, reason: .create
+        )})
       old.map(\.approves).get([:]).values
         .filter(\.resolution.approved)
         .map(\.login)
         .filter(approvers.contains(_:))
         .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
-        .forEach({ ctx.cfg.reportReviewApprove(user: $0, state: self, reason: .change) })
+        .forEach({ ctx.cfg.reportReviewApprove(
+          user: $0, merge: merge, state: self, reason: .change
+        )})
       ctx.watchers(state: self, old: old)
-        .forEach({ ctx.cfg.reportReviewWatch(user: $0, state: self) })
-      guard let merge = merge else { return }
-      var update = Report.ReviewUpdated(
-        merge: merge,
-        authors: authors.intersection(ctx.approvers).sortedNonEmpty,
-        teams: teams.sortedNonEmpty
-      )
-      update.change(state: self)
-      var participants: [String: Approver] = [:]
-      for approve in approvers {
-        if let approve = approves[approve] {
-          participants[approve.login] = .present(reviewer: approve)
-        } else {
-          participants[approve] = .init(login: approve, miss: true)
-        }
+        .forEach({ ctx.cfg.reportReviewWatch(user: $0, merge: merge, state: self) })
+      for problem in self.problems.get([]) {
+        guard case .conflicts = problem else { continue }
+        ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: .conflicts)
       }
-      if problems.get([]).isEmpty.not {
-        var problems = Problems()
-        for problem in self.problems.get([]) {
-          problems.register(problem: problem)
-          switch problem {
-          case .discussions(let value): for (user, count) in value {
-            participants[user, default: .init(login: user, miss: false)].comments = count
-          }
-          case .holders(let value): for user in value {
-            participants[user, default: .init(login: user, miss: false)].hold = true
-          }
-          case .conflicts: ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: .conflicts)
-          default: break
-          }
-        }
-        update.problems = problems
-      }
-      if participants.isEmpty.not {
-        update.approvers = participants.keys.sorted().compactMap({ participants[$0] })
-      }
-      if change != nil { ctx.cfg.reportReviewUpdated(state: self, report: update) }
+      if change != nil { ctx.cfg.reportReviewUpdated(state: self, merge: merge) }
       var shift: [Report.ReviewEvent.Reason] = []
       if old == nil { shift.append(.created) }
       if emergent != nil, old?.emergent == nil { shift.append(.emergent) }
