@@ -96,6 +96,7 @@ public enum Yaml {
       public var diffusion: Diffusion
     }
     public struct Slack: Decodable {
+      public var url: Secret
       public var token: Secret
       public var storage: Asset
       public var diffusion: Diffusion

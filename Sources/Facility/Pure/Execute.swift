@@ -122,7 +122,7 @@ public extension Configuration {
       secrets: [slack.token]
     )
     case .rocket(let rocket): return .makeCurl(
-      url: "\(rocket.url)/\(signal.path)",
+      url: "\(rocket.url)/api/v1/\(signal.path)",
       method: signal.method,
       data: body,
       headers: [Json.utf8, "X-Auth-Token: \(rocket.token)", "X-User-Id: \(rocket.user)"],
