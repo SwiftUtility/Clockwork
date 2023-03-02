@@ -273,7 +273,7 @@ extension Review {
         guard let childs = childs[approve.commit] else { continue }
         guard approve.resolution != .obsolete else { continue }
         guard childs.contains(where: { changes[$0] != nil }) else { continue }
-        guard fragilUsers.contains(approve.login) else {
+        guard fragilUsers.contains(approve.login).not else {
           approves[approve.login]?.resolution = .obsolete
           continue
         }
