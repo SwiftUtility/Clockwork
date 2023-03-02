@@ -118,6 +118,7 @@ extension Reporter {
   func makeSlack(cfg: Configuration) throws -> Chat? {
     guard let slack = try cfg.parseSlack?.map(parseSlack).get() else { return nil }
     let chat = try slack.makeChat(
+      url: resolveSecret(.init(cfg: cfg, secret: slack.url)),
       token: resolveSecret(.init(cfg: cfg, secret: slack.token)),
       slack: slack
     )
@@ -241,9 +242,8 @@ extension Reporter {
     guard let chat = chat else { return }
     try perform(cfg: cfg, chat: chat, action: { storage in
       var updated = false
-      let info = storage.info
       for var report in reports {
-        report.info.chat = info
+        report.info.chat = storage.info
         if send(storage: &storage, cfg: cfg, report: report) { updated = true }
       }
       guard updated else { return nil }

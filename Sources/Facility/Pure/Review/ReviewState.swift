@@ -52,8 +52,16 @@ extension Review {
       guard let approve = approves[user] else { return true }
       return approve.resolution.approved.not
     }
-    public var approvers: Set<String> { authors.union(legates).union(randoms) }
-    var isApproved: Bool { approvers.contains(where: isUnapproved(user:)).not }
+    public var approvers: Set<String> {
+      guard phase != nil else { return [] }
+      return authors.union(legates).union(randoms)
+    }
+    var isApproved: Bool { authors
+      .union(legates)
+      .union(randoms)
+      .contains(where: isUnapproved(user:))
+      .not
+    }
     public mutating func prepareChange(
       ctx: Context,
       merge: Json.GitlabMergeState
@@ -403,12 +411,15 @@ extension Review {
       enqueued: Set<UInt>,
       dequeued: Set<UInt>
     ) {
-      var queue: [Report.ReviewQueue.Reason] = []
-      if foremost.contains(review) { queue.append(.foremost) }
-      else if enqueued.contains(review) { queue.append(.enqueued) }
-      else if dequeued.contains(review) { queue.append(.dequeued) }
-      queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
+      defer {
+        var queue: [Report.ReviewQueue.Reason] = []
+        if foremost.contains(review) { queue.append(.foremost) }
+        else if enqueued.contains(review) { queue.append(.enqueued) }
+        else if dequeued.contains(review) { queue.append(.dequeued) }
+        queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
+      }
       guard let merge = merge else { return }
+      if change != nil { ctx.cfg.reportReviewUpdated(state: self, merge: merge) }
       approvers
         .subtracting(old.map(\.approvers).get([]))
         .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
@@ -429,7 +440,6 @@ extension Review {
         guard case .conflicts = problem else { continue }
         ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: .conflicts)
       }
-      if change != nil { ctx.cfg.reportReviewUpdated(state: self, merge: merge) }
       var shift: [Report.ReviewEvent.Reason] = []
       if old == nil { shift.append(.created) }
       if emergent != nil, old?.emergent == nil { shift.append(.emergent) }

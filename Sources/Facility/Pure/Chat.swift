@@ -3,6 +3,17 @@ import Facility
 public enum Chat {
   case slack(Slack.Chat)
   case rocket(Rocket.Chat)
+  public func archive(threads: [String: Storage.Thread]) -> [String: String] {
+    threads.mapValues({ thread in
+      switch self {
+      case .slack(let slack):
+        let message = thread.message.replacingOccurrences(of: ".", with: "")
+        return "\(slack.url)/archives/\(thread.channel)/p\(message)"
+      case .rocket(let rocket):
+        return "\(rocket.url)/channel/\(thread.channel)?msg=\(thread.message)"
+      }
+    })
+  }
   public var storage: Configuration.Asset {
     switch self {
     case .slack(let slack): return slack.storage
@@ -52,23 +63,28 @@ public enum Chat {
     public typealias Reply = Void
   }
   public struct Slack {
+    public var url: Configuration.Secret
     public var token: Configuration.Secret
     public var storage: Configuration.Asset
     public var diffusion: Diffusion
     public static func make(yaml: Yaml.Chat.Slack) throws -> Self { try .init(
+      url: .make(yaml: yaml.url),
       token: .make(yaml: yaml.token),
       storage: .make(yaml: yaml.storage),
       diffusion: .make(yaml: yaml.diffusion)
     )}
     public func makeChat(
+      url: String,
       token: String,
       slack: Slack
     ) throws -> Chat { .init(
+      url: url,
       token: token,
       storage: slack.storage,
       diffusion: slack.diffusion
     )}
     public struct Chat {
+      public var url: String
       public var token: String
       public var storage: Configuration.Asset
       public var diffusion: Diffusion
@@ -168,7 +184,13 @@ public enum Chat {
       kind: chat.kind,
       users: users,
       channels: channels,
-      mentions: mentions
+      mentions: mentions,
+      archive: .init(
+        tags: tags.mapValues(chat.archive(threads:)),
+        issues: issues.mapValues(chat.archive(threads:)),
+        reviews: reviews.mapValues(chat.archive(threads:)),
+        branches: branches.mapValues(chat.archive(threads:))
+      )
     )}
     public var serialized: String {
       var result = ""
@@ -242,6 +264,7 @@ public enum Chat {
     public var mentions: [String: String]
     public var thread: Thread?
     public var person: String?
+    public var archive: Archive
     public struct Thread: Encodable {
       public var update: String
       public var channel: String
@@ -251,6 +274,12 @@ public enum Chat {
         channel: thread.channel,
         message: thread.message
       )}
+    }
+    public struct Archive: Encodable {
+      public var tags: [String: [String: String]]
+      public var issues: [String: [String: String]]
+      public var reviews: [String: [String: String]]
+      public var branches: [String: [String: String]]
     }
   }
 }
