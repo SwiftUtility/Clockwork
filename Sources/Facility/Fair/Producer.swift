@@ -582,10 +582,9 @@ public final class Producer {
       noMerges: true
     ))) {
       let sha = try Git.Sha.make(value: commit)
-      let patch = try Execute
-        .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: sha))))
-        .dropSuffix(commit)
-      guard trees.insert(patch).inserted else { continue }
+      let patch = try Execute.parseText(reply: execute(cfg.git.patchId(ref: .make(sha: sha))))
+      guard patch.isEmpty.not else { continue }
+      guard try trees.insert(patch.dropSuffix(commit)).inserted else { continue }
       uniq.insert(sha)
     }
     let lack = try Execute
