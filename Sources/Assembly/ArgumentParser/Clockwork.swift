@@ -42,6 +42,7 @@ struct Clockwork: ParsableCommand {
       subcommands: [
         Clean.self,
         Signal.self,
+        Support.self,
       ]
     )
     struct Clean: ClockworkCommand {
@@ -57,6 +58,15 @@ struct Clockwork: ParsableCommand {
       var event: String
       @Argument(help: "Context to make available during rendering")
       var args: [String] = []
+    }
+    struct Support: ClockworkCommand {
+      static let configuration = CommandConfiguration(
+        abstract: "Communication commands subset",
+        version: Clockwork.version,
+        subcommands: [
+        ]
+      )
+      @OptionGroup var clockwork: Clockwork
     }
   }
   struct Flow: ParsableCommand {
