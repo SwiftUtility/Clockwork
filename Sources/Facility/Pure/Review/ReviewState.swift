@@ -173,13 +173,11 @@ extension Review {
       if holders.isEmpty.not { add(problem: .holders(holders)) }
     }
     public var needApprovalCheck: Bool {
-      guard
-        let change = change,
-        problems.get([]).contains(where: \.verifiable.not).not,
-        emergent != change.head,
-        verified != change.head || isApproved.not
-      else { return false }
-      return true
+      guard let change = change else { return false }
+      guard problems.get([]).contains(where: \.verifiable.not).not else { return false }
+      guard emergent != change.head else { return false }
+      guard verified == change.head else { return true }
+      return isApproved.not
     }
     public mutating func update(
       ctx: Context,
