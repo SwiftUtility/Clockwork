@@ -94,4 +94,6 @@ public final class Validator {
     else { result.map(LogMessage.init(message:)).forEach(logMessage) }
     return result.isEmpty
   }
+  #warning("TBD implement configuration check")
+  #warning("TBD implement default branch clockwork version check")
 }
