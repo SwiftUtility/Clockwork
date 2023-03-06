@@ -29,8 +29,6 @@ public extension GenerateInfo {
 }
 public struct Generate: Query {
   public var template: Configuration.Template
-  public var templates: Git.Dir
-  public var git: Git?
   public var allowEmpty: Bool
   public var info: GenerateInfo
   public typealias Reply = String
@@ -180,11 +178,7 @@ public struct Generate: Query {
 }
 public extension Configuration {
   func report(template: Configuration.Template, info: GenerateInfo) -> Generate { .init(
-    template: template,
-    templates: profile.templates.get(.init(ref: profile.location.ref, path: .init(value: ""))),
-    git: git,
-    allowEmpty: true,
-    info: info
+    template: template, allowEmpty: true, info: info
   )}
   func render(template: String, stdin: AnyCodable?, args: [String]) -> Generate { generate(
     template: .name(template),
@@ -422,12 +416,6 @@ private extension Configuration {
     info.gitlab = try? gitlab.get().info
     info.jira = try? jira.get().info
     info.stdin = stdin
-    return .init(
-      template: template,
-      templates: profile.templates.get(.init(ref: profile.location.ref, path: .empty)),
-      git: git,
-      allowEmpty: false,
-      info: info
-    )
+    return .init(template: template, allowEmpty: false, info: info)
   }
 }

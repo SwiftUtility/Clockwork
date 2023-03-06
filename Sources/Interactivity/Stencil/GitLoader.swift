@@ -2,22 +2,28 @@ import Foundation
 import Stencil
 import Facility
 import FacilityPure
-struct GitLoader: Loader {
-  var git: Git?
-  var templates: Git.Dir
-  let parser: StencilParser
+final class GitLoader: Loader {
+  let git: Ctx.Git
+  let ref: Ctx.Git.Ref
+  let prefix: String
+  let sh: Ctx.Sh
+  var cache: [String: String]
+  init(sh: Ctx.Sh, git: Ctx.Git, profile: Profile) {
+    self.sh = sh
+    self.cache = [:]
+    self.git = git
+    self.ref = profile.location.ref
+    self.prefix = profile.templates.map({ "\($0.path.value)/" }).get("")
+  }
   func loadTemplate(name: String, environment: Environment) throws -> Template {
     let content: String
-    if let template = parser.cache[name] {
+    if let template = cache[name] {
       content = template
-    } else if let git = git, let template = try? Execute.parseText(
-      reply: parser.execute(git.cat(file: .init(
-        ref: templates.ref,
-        path: .make(value: "\(templates.path.value)/\(name)")
-      )))
-    ) {
+    } else if let template = try? String.make(utf8: sh.cat(
+      git: git, file: .make(ref: ref, path: .make(value: "\(prefix)\(name)"))
+    )) {
       content = template
-      parser.cache[name] = template
+      cache[name] = template
     } else {
       throw TemplateDoesNotExist(templateNames: [name], loader: self)
     }

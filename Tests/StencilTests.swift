@@ -36,8 +36,6 @@ final class StencilTests: XCTestCase {
   ]
   func makeQuery(_ name: String) -> Generate { .init(
     template: .name(name),
-    templates: .init(ref: .head, path: .empty),
-    git: try? .init(env: [:], root: .init(value: "/")),
     allowEmpty: false,
     info: Generate.Info(event: [], args: nil, ctx: AnyCodable.map([
       "env": .map([
@@ -63,14 +61,10 @@ final class StencilTests: XCTestCase {
     let context = try YamlParser.decodeYaml(query: .init(content: context))
     let generate = Generate(
       template: .value(template),
-      templates: .init(ref: .head, path: .empty),
       allowEmpty: false,
       info: Generate.Info(event: [], args: nil, ctx: context)
     )
-    return try StencilParser(
-      execute: {_ in throw Thrown()},
-      notation: .json, cache: Self.templates
-    ).generate(query: generate)
+    return try StencilParser(notation: .json, cache: Self.templates).generate(query: generate)
   }
 //  func testSubscript() throws {
 //    let result = try StencilParser(notation: .json)

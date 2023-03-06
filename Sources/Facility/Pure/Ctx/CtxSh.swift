@@ -48,4 +48,15 @@ public extension Ctx.Sh {
       .then(name)
       .map(Ctx.Git.Branch.make(name:))
   }
+  func cat(git: Ctx.Git, file: Ctx.Git.File) throws -> Data {
+    var tasks: [Execute.Task] = []
+    tasks.append(.init(
+      environment: env,
+      arguments: ["git", "-C", git.root.value, "show", "\(file.ref.value):\(file.path.value)"]
+    ))
+    if git.lfs { tasks.append(.init(
+      environment: env, arguments: ["git", "-C", git.root.value, "lfs", "smudge"]
+    ))}
+    return try Execute.parseData(reply: execute(.init(tasks: tasks)))
+  }
 }

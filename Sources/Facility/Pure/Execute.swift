@@ -34,7 +34,7 @@ public struct Execute: Query {
     public var escalate: Bool = true
     public var environment: [String: String]
     public var arguments: [String]
-    public var secrets: [String]
+    public var secrets: [String] = []
   }
   public struct Reply {
     public var data: Data?

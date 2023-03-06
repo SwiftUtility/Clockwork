@@ -20,22 +20,24 @@ enum Context {
         execute: Processor.execute(query:),
         dialect: .json
       )
-      let profile = try Finder.resolve(query: .make(path: profile))
-      var git = try Ctx.Git.make(root: sh.gitTopLevel(path: Finder.parent(path: profile)))
+      let file = try Finder.resolve(query: .make(path: profile))
+      var git = try Ctx.Git.make(root: sh.gitTopLevel(path: Finder.parent(path: file)))
       try sh.updateLfs(git: &git)
       let sha = try sh.getSha(git: git, ref: .head)
+      let profile = try Profile.make(
+        location: .make(ref: sha.ref, path: file.relative(to: git.root)),
+        yaml: sh.dialect.read(
+          Yaml.Profile.self,
+          from: sh.unyaml(String.make(utf8: FileLiner.read(file: file)))
+        )
+      )
       self.repo = try .make(
         git: git,
         sha: sha,
         branch: sh.getCurrentBranch(git: git),
-        profile: .make(
-          location: .make(ref: sha.ref, path: profile.relative(to: git.root)),
-          yaml: sh.dialect.read(
-            Yaml.Profile.self,
-            from: sh.unyaml(String.make(utf8: FileLiner.read(file: profile)))
-          )
-        ),
-        generate: StencilParser(execute: sh.execute, notation: .json).generate(query:)
+        profile: profile,
+        generate: StencilParser(notation: .json, sh: sh, git: git, profile: profile)
+          .generate(query:)
       )
     }
   }

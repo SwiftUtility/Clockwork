@@ -4,16 +4,15 @@ import Facility
 import FacilityPure
 public final class StencilParser {
   let notation: AnyCodable.Notation
-  let extensions: [Extension]
-  let execute: Try.Reply<Execute>
-  var cache: [String: String]
+  let environment: Environment
   public init(
-    execute: @escaping Try.Reply<Execute>,
     notation: AnyCodable.Notation,
+    sh: Ctx.Sh? = nil,
+    git: Ctx.Git? = nil,
+    profile: Profile? = nil,
     cache: [String: String] = [:]
   ) {
     self.notation = notation
-    self.execute = execute
     let extensions = Extension()
     extensions.registerFilter("incremented", filter: Filters.incremented(value:))
     extensions.registerFilter("emptyLines", filter: Filters.emptyLines(value:))
@@ -23,17 +22,18 @@ public final class StencilParser {
     extensions.registerFilter("stride", filter: Filters.stride(value:args:))
     extensions.registerTag("scan", parser: ScanNode.parse(parser:token:))
     extensions.registerTag("line", parser: LineNode.parse(parser:token:))
-    self.extensions = [extensions]
-    self.cache = cache
+    let loader: Loader
+    if let sh = sh, let git = git, let profile = profile {
+      loader = GitLoader(sh: sh, git: git, profile: profile)
+    } else {
+      loader = DictionaryLoader(templates: cache)
+    }
+    self.environment = Environment(loader: loader, extensions: [extensions])
   }
   public func generate(query: Generate) throws -> Generate.Reply {
     guard let context = try notation.write(query.info).anyObject as? [String: Any]
     else { throw MayDay("Wrong info format") }
     var result: String
-    let environment = Environment(
-      loader: query.git.map({ GitLoader(git: $0, templates: query.templates, parser: self) }),
-      extensions: extensions
-    )
     switch query.template {
     case .name(let value): result = try environment.renderTemplate(name: value, context: context)
     case .value(let value): result = try environment.renderTemplate(string: value, context: context)
