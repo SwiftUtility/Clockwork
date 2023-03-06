@@ -2,29 +2,38 @@ import Foundation
 import Stencil
 import Facility
 import FacilityPure
-public struct StencilParser {
+public final class StencilParser {
   let notation: AnyCodable.Notation
-  public init(notation: AnyCodable.Notation) {
+  let extensions: [Extension]
+  let execute: Try.Reply<Execute>
+  var cache: [String: String]
+  public init(
+    execute: @escaping Try.Reply<Execute>,
+    notation: AnyCodable.Notation,
+    cache: [String: String] = [:]
+  ) {
     self.notation = notation
+    self.execute = execute
+    let extensions = Extension()
+    extensions.registerFilter("incremented", filter: Filters.incremented(value:))
+    extensions.registerFilter("emptyLines", filter: Filters.emptyLines(value:))
+    extensions.registerFilter("escapeSlack", filter: Filters.escapeSlack(value:))
+    extensions.registerFilter("escapeJson", filter: Filters.escapeJson(value:))
+    extensions.registerFilter("escapeUrlQueryAllowed", filter: Filters.escapeUrlQueryAllowed(value:))
+    extensions.registerFilter("stride", filter: Filters.stride(value:args:))
+    extensions.registerTag("scan", parser: ScanNode.parse(parser:token:))
+    extensions.registerTag("line", parser: LineNode.parse(parser:token:))
+    self.extensions = [extensions]
+    self.cache = cache
   }
-  #warning("TBD make lazy git template loader")
   public func generate(query: Generate) throws -> Generate.Reply {
     guard let context = try notation.write(query.info).anyObject as? [String: Any]
     else { throw MayDay("Wrong info format") }
-    let ext = Extension()
-    ext.registerFilter("incremented", filter: Filters.incremented(value:))
-    ext.registerFilter("emptyLines", filter: Filters.emptyLines(value:))
-    ext.registerFilter("escapeSlack", filter: Filters.escapeSlack(value:))
-    ext.registerFilter("escapeJson", filter: Filters.escapeJson(value:))
-    ext.registerFilter("escapeUrlQueryAllowed", filter: Filters.escapeUrlQueryAllowed(value:))
-    ext.registerFilter("stride", filter: Filters.stride(value:args:))
-    ext.registerTag("scan", parser: ScanNode.parse(parser:token:))
-    ext.registerTag("line", parser: LineNode.parse(parser:token:))
-    let environment = Environment(
-      loader: DictionaryLoader(templates: query.templates),
-      extensions: [ext]
-    )
     var result: String
+    let environment = Environment(
+      loader: query.git.map({ GitLoader(git: $0, templates: query.templates, parser: self) }),
+      extensions: extensions
+    )
     switch query.template {
     case .name(let value): result = try environment.renderTemplate(name: value, context: context)
     case .value(let value): result = try environment.renderTemplate(string: value, context: context)

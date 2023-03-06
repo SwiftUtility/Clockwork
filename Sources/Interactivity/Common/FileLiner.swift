@@ -21,4 +21,7 @@ public class FileLiner {
   public static func listFileLines(query: Files.ListFileLines) throws -> Files.ListFileLines.Reply {
     try .init(FileLiner(file: query.file).readLine)
   }
+  public static func read(file: Ctx.Sys.Absolute) throws -> Data {
+    try .init(contentsOf: .init(fileURLWithPath: file.value))
+  }
 }

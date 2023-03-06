@@ -43,6 +43,10 @@ public struct Execute: Query {
       self.data = data
       self.statuses = statuses
     }
+    public var void: Lossy<Void> { .init(try Execute.checkStatus(reply: self)) }
+    public var text: Lossy<String> { .init(try Execute.parseText(reply: self)) }
+    public var lines: Lossy<[String]> { .init(try Execute.parseLines(reply: self)) }
+    public var success: Bool { Execute.parseSuccess(reply: self) }
     public func checkStatus() throws {
       for status in statuses {
         guard status.task.escalate, status.termination != 0 else { continue }

@@ -19,6 +19,12 @@ public final class Finder {
     try? path = Path(?!query.relativeTo?.value) + path
     return try .init(value: path.absolute().string)
   }
+  public static func resolveFileDirectory(path: String) throws -> String {
+    return Path(path).parent().absolute().string
+  }
+  public static func resolveFile(path: String) throws -> String {
+    return Path(path).absolute().string
+  }
   public static func writeFile(query: Files.WriteFile) throws -> Files.WriteFile.Reply {
     try Path(query.file.value).write(query.data)
   }
@@ -27,5 +33,16 @@ public final class Finder {
   }
   static func ensure(isDirectory path: PathKit.Path) throws {
     try path.isDirectory.else { throw Thrown("Not a directory \(path.absolute().string)") }
+  }
+  public static func resolve(
+    query: Ctx.Sys.Absolute.Resolve
+  ) throws -> Ctx.Sys.Absolute.Resolve.Reply {
+    let path = query.relativeTo.map({ "\($0.value)/\(query.path)" }).get(query.path)
+    return try .make(value: Path(path).absolute().string)
+  }
+  public static func parent(
+    path: Ctx.Sys.Absolute
+  ) throws -> Ctx.Sys.Absolute {
+    return try .make(value: Path(path.value).parent().absolute().string)
   }
 }

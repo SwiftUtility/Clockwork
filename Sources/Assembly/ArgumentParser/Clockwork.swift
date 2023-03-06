@@ -42,7 +42,6 @@ struct Clockwork: ParsableCommand {
       subcommands: [
         Clean.self,
         Signal.self,
-        Support.self,
       ]
     )
     struct Clean: ClockworkCommand {
@@ -58,15 +57,6 @@ struct Clockwork: ParsableCommand {
       var event: String
       @Argument(help: "Context to make available during rendering")
       var args: [String] = []
-    }
-    struct Support: ClockworkCommand {
-      static let configuration = CommandConfiguration(
-        abstract: "Communication commands subset",
-        version: Clockwork.version,
-        subcommands: [
-        ]
-      )
-      @OptionGroup var clockwork: Clockwork
     }
   }
   struct Flow: ParsableCommand {
@@ -178,8 +168,10 @@ struct Clockwork: ParsableCommand {
       version: Clockwork.version,
       subcommands: [
         Artifacts.self,
+        Contract.self,
         Jobs.self,
         Pipeline.self,
+        Review.self,
         TriggerPipeline.self,
         TriggerReviewPipeline.self,
         User.self,
@@ -202,6 +194,10 @@ struct Clockwork: ParsableCommand {
         @Argument(help: "Path to the file")
         var path: String
       }
+    }
+    struct Contract: ClockworkCommand {
+      static var abstract: String { "Execute contract" }
+      @OptionGroup var clockwork: Clockwork
     }
     struct Jobs: ParsableCommand {
       static let configuration = CommandConfiguration(
@@ -250,7 +246,7 @@ struct Clockwork: ParsableCommand {
     }
     struct Pipeline: ParsableCommand {
       static let configuration = CommandConfiguration(
-        abstract: "Pipeline batch commands subser",
+        abstract: "Pipeline batch commands subset",
         version: Clockwork.version,
         subcommands: [
           Cancel.self,
@@ -274,6 +270,23 @@ struct Clockwork: ParsableCommand {
         static var abstract: String { "Retry all failed pipeline jobs" }
         @OptionGroup var clockwork: Clockwork
         @OptionGroup var pipeline: Pipeline
+      }
+    }
+    struct Review: ParsableCommand {
+      static let configuration = CommandConfiguration(
+        abstract: "Review lifecycle management command subset",
+        version: Clockwork.version,
+        subcommands: [
+          Patch.self,
+        ]
+      )
+      struct Patch: ClockworkCommand {
+        static var abstract: String { "Apply patch to current MR sha" }
+        @OptionGroup var clockwork: Clockwork
+        @Flag(help: "Should skip commit approval")
+        var skip: Bool = false
+        @Argument(help: "Additional context")
+        var args: [String] = []
       }
     }
     struct TriggerPipeline: ClockworkCommand {
@@ -419,7 +432,6 @@ struct Clockwork: ParsableCommand {
         ExportTargets.self,
         List.self,
         Own.self,
-        Patch.self,
         Rebase.self,
         Remind.self,
         RemoveLabels.self,
@@ -481,14 +493,6 @@ struct Clockwork: ParsableCommand {
       var user: String = ""
       @Option(help: "Merge request iid or parent merge iid")
       var iid: UInt = 0
-    }
-    struct Patch: ClockworkCommand {
-      static var abstract: String { "Apply parrent job generated patch" }
-      @OptionGroup var clockwork: Clockwork
-      @Flag(help: "Should skip commit approval")
-      var skip: Bool = false
-      @Option(help: "Commit message")
-      var message: String
     }
     struct Rebase: ClockworkCommand {
       static var abstract: String { "Rebase parent review" }

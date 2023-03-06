@@ -99,7 +99,12 @@ enum Assembler {
     writeStdout: writeStdout,
     jsonDecoder: jsonDecoder
   )
-  static let stencilParser = StencilParser(notation: .json)
+  static let gitlab = GitlabAgent(
+    execute: execute,
+    readStdin: FileHandle.readStdin,
+    writeStderr: writeStderr
+  )
+  static let stencilParser = StencilParser(execute: execute, notation: .json)
   static let jsonDecoder: JSONDecoder = {
     let result = JSONDecoder()
     result.keyDecodingStrategy = .convertFromSnakeCase

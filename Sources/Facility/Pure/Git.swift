@@ -51,6 +51,7 @@ public struct Git {
   }
   public struct Sha: Hashable, Comparable {
     public let value: String
+    public var ref: Ref { .make(sha: self) }
     private init(value: String) { self.value = value }
     public static func make(value: String) throws -> Self {
       guard value.count == 40, value.trimmingCharacters(in: .hexadecimalDigits).isEmpty
@@ -76,6 +77,8 @@ public struct Git {
   }
   public struct Branch: Hashable, Comparable {
     public let name: String
+    public var local: Ref { .make(local: self) }
+    public var remote: Ref { .make(remote: self) }
     private init(name: String) { self.name = name }
     public static func make(name: String) throws -> Self {
       guard !name.isEmpty, !name.hasPrefix("/"), !name.hasSuffix("/"), !name.contains(" ")
@@ -92,6 +95,7 @@ public struct Git {
   }
   public struct Tag: Hashable, Comparable {
     public let name: String
+    public var ref: Ref { .make(tag: self) }
     private init(name: String) { self.name = name }
     public static func make(name: String) throws -> Self {
       guard !name.isEmpty, !name.hasPrefix("/"), !name.hasSuffix("/"), !name.contains(" ")

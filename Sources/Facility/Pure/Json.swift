@@ -54,6 +54,7 @@ public enum Json {
     public var projectId: UInt
     public var author: GitlabUser
   }
+  #warning("TBD rename GitlabMerge")
   public struct GitlabMergeState: Codable {
     public var title: String
     public var state: String

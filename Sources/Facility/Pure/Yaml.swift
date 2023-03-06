@@ -2,6 +2,7 @@ import Foundation
 import Facility
 public enum Yaml {
   public struct Profile: Decodable {
+    public var version: String
     public var gitlab: String?
     public var slack: String?
     public var rocket: String?
@@ -13,8 +14,10 @@ public enum Yaml {
     public var flow: String?
     public var requisites: String?
     public var review: String?
+    public var storage: Storage?
   }
   public struct Gitlab: Decodable {
+    public var contract: String
     public var apiToken: Secret
     public var deployKey: String
     public var storage: Asset
@@ -185,6 +188,7 @@ public enum Yaml {
     public var storage: Asset
     public var exportFusion: Template
     public var createMergeTitle: Template
+    public var createPatchCommit: Template
     public var createMergeCommit: Template
     public var createSquashCommit: Template
     public var replication: Replication
@@ -274,6 +278,10 @@ public enum Yaml {
   }
   public struct Asset: Decodable {
     public var path: String
+    public var branch: String
+    public var createCommitMessage: Template
+  }
+  public struct Storage: Decodable {
     public var branch: String
     public var createCommitMessage: Template
   }

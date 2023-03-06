@@ -8,6 +8,7 @@ public struct Gitlab {
   public var review: Configuration.Template?
   public var trigger: Yaml.Gitlab.Trigger
   public var storage: Storage
+  public var contract: Git.Tag
   public var rest: Lossy<Rest> = .error(Thrown("Not protected ref pipeline"))
   public var deployKey: Lossy<String> = .error(Thrown("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
@@ -35,7 +36,8 @@ public struct Gitlab {
     notes: yaml.notes.get([:]).map(Note.make(mark:yaml:)),
     review: yaml.review.map(Configuration.Template.make(yaml:)),
     trigger: yaml.trigger,
-    storage: storage
+    storage: storage,
+    contract: .make(name: yaml.contract)
   )}
   public struct Note {
     public var mark: String
@@ -335,6 +337,18 @@ public extension Gitlab {
       "ref=\(ref)",
     ] + variables
       .map { try "variables[\($0.key)]=\($0.value.urlEncoded.get())" },
+    secrets: [env.token]
+  ))}
+  func postTriggerPipeline(
+    ref: String,
+    forms: [String]
+  ) -> Lossy<Execute> { .init(.makeCurl(
+    url: "\(api)/trigger/pipeline",
+    method: "POST",
+    form: [
+      "token=\(env.token)",
+      "ref=\(ref)",
+    ] + forms,
     secrets: [env.token]
   ))}
   func affectPipeline(

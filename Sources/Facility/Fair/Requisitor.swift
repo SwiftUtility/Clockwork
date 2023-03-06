@@ -334,7 +334,7 @@ public final class Requisitor {
       .map(execute)
       .map(Execute.parseLines(reply:))
       .get()
-      .map(Files.Relative.init(value:))
+      .map(Files.Relative.make(value:))
       .forEach { files.insert($0) }
     }
     return files.map({ Git.File.init(ref: ref, path: $0) })

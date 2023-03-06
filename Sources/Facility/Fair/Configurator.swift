@@ -60,8 +60,8 @@ public final class Configurator {
       .map(Execute.parseSuccess(reply:))
       .get()
     let profile = try Git.File(
-      ref: .head,
-      path: .init(value: profilePath.value.dropPrefix("\(git.root.value)/"))
+      ref: .make(sha: .make(value: Execute.parseText(reply: execute(git.getSha(ref: .head))))),
+      path: .make(value: profilePath.value.dropPrefix("\(git.root.value)/"))
     )
     var cfg = try Id(profile)
       .reduce(git, parse(git:yaml:))
@@ -266,7 +266,7 @@ extension Configurator {
     for file in files {
       let template = try file.dropPrefix("\(templates.path.value)/")
       result[template] = try Id(file)
-        .map(Files.Relative.init(value:))
+        .map(Files.Relative.make(value:))
         .reduce(templates.ref, Git.File.init(ref:path:))
         .map(git.cat(file:))
         .map(execute)

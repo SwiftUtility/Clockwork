@@ -20,6 +20,9 @@ public struct Configuration {
   )}
   public struct Profile {
     public var location: Git.File
+    public var version: String
+    public var storageBranch: Git.Branch?
+    public var storageTemplate: Template?
     public var gitlab: Git.File?
     public var slack: Git.File?
     public var rocket: Git.File?
@@ -36,6 +39,9 @@ public struct Configuration {
       yaml: Yaml.Profile
     ) throws -> Self { try .init(
       location: location,
+      version: yaml.version,
+      storageBranch: yaml.storage.map(\.branch).map(Git.Branch.make(name:)),
+      storageTemplate: yaml.storage.map(\.createCommitMessage).map(Template.make(yaml:)),
       gitlab: yaml.gitlab
         .map(Files.Relative.init(value:))
         .reduce(location.ref, Git.File.init(ref:path:)),

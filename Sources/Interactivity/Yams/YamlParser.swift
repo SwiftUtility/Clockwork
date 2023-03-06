@@ -7,4 +7,8 @@ public enum YamlParser {
     let any = try load(yaml: query.content)
     return try .init(any: any)
   }
+  public static func decodeYaml(content: String) throws -> AnyCodable {
+    let any = try load(yaml: content)
+    return try .init(any: any)
+  }
 }

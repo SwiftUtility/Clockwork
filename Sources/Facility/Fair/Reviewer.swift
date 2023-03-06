@@ -90,20 +90,27 @@ public final class Reviewer {
   }
   public func patchReview(
     cfg: Configuration,
-    skip: Bool,
-    message: String
+    subject: Contract.Subject<Contract.PatchReview>
   ) throws -> Bool {
     let gitlab = try cfg.gitlab.get()
     var ctx = try makeContext(cfg: cfg)
-    guard let merge = try getMerge(ctx: &ctx, iid: nil) else { return false }
+    let merge = try gitlab
+      .getMrState(review: subject.contract.job)
+      .map(execute)
+      .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
+      .get()
     let branch = try Git.Branch.make(name: merge.sourceBranch)
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
+    let message = try generate(ctx.cfg.createPatchCommitMessage(merge: merge, review: ctx.review))
+    guard subject.payload.sha == merge.lastPipeline.sha else {
+      ctx.cfg.reportReviewFail(merge: merge, state: state, reason: .pipelineOutdated)
+      return false
+    }
     guard
-      let patch = try readStdin(),
-      patch.isEmpty.not,
+      subject.payload.patch.isEmpty.not,
       let sha = try apply(
         cfg: cfg,
-        patch: patch,
+        patch: subject.payload.patch,
         message: message,
         to: .make(sha: .make(merge: merge))
       )
@@ -114,7 +121,7 @@ public final class Reviewer {
     try Execute.checkStatus(reply: execute(cfg.git.push(
       gitlab: gitlab, branch: branch, sha: sha, force: false
     )))
-    state.skip.insert(sha)
+    if subject.payload.skip { state.skip.insert(sha) }
     ctx.update(state: state)
     try storeContext(ctx: &ctx, skip: state.review)
     return true

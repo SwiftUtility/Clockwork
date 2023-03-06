@@ -173,6 +173,11 @@ extension Clockwork.Gitlab.Pipeline.Retry: RunnableCommand {
     try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .retry)
   }
 }
+extension Clockwork.Gitlab.Review.Patch: RunnableCommand {
+  func run(cfg: Configuration) throws -> Bool {
+    try Assembler.gitlab.patchReview(cfg: cfg, skip: skip, args: args)
+  }
+}
 extension Clockwork.Gitlab.TriggerPipeline: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.triggerPipeline(cfg: cfg, ref: ref, context: context)
@@ -301,11 +306,6 @@ extension Clockwork.Review.List: RunnableCommand {
 extension Clockwork.Review.Own: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.reviewer.ownReview(cfg: cfg, user: user, iid: iid)
-  }
-}
-extension Clockwork.Review.Patch: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.reviewer.patchReview(cfg: cfg, skip: skip, message: message)
   }
 }
 extension Clockwork.Review.Rebase: RunnableCommand {

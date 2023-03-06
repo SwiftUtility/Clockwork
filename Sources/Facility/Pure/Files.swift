@@ -14,10 +14,11 @@ public enum Files {
   }
   public struct Relative: Hashable {
     public let value: String
-    public init(value: String) throws {
+    public static func make(value: String) throws -> Self {
       try value.starts(with: "/").then { throw Thrown("Not relative path \(value)") }
-      self.value = value
+      return .init(value: value)
     }
+    public static var empty: Self { .init(value: "") }
   }
   public struct ReadFile: Query {
     public var file: Absolute

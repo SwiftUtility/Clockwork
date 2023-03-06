@@ -5,6 +5,7 @@ public struct Review {
   public var rules: Configuration.Secret
   public var exportTargets: Configuration.Template
   public var createMergeTitle: Configuration.Template
+  public var createPatchCommit: Configuration.Template
   public var createMergeCommit: Configuration.Template
   public var createSquashCommit: Configuration.Template
   public var duplication: Duplication
@@ -19,6 +20,7 @@ public struct Review {
     rules: .make(yaml: yaml.rules),
     exportTargets: .make(yaml: yaml.exportFusion),
     createMergeTitle: .make(yaml: yaml.createMergeTitle),
+    createPatchCommit: .make(yaml: yaml.createPatchCommit),
     createMergeCommit: .make(yaml: yaml.createMergeCommit),
     createSquashCommit: .make(yaml: yaml.createSquashCommit),
     duplication: .init(
