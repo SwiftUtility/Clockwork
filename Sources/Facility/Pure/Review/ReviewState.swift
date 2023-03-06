@@ -66,6 +66,7 @@ extension Review {
       ctx: Context,
       merge: Json.GitlabMergeState
     ) throws -> Bool {
+      change = try .make(merge: merge)
       let source = try Git.Branch.make(name: merge.sourceBranch)
       let target = try Git.Branch.make(name: merge.targetBranch)
       if target != self.target {
@@ -87,7 +88,7 @@ extension Review {
             original: original
           )})
         {
-          change = try .make(merge: merge, fusion: fusion)
+          change?.fusion = fusion
           if source != fusion.source { add(problem: .targetMismatch(fusion.target)) }
         } else {
           add(problem: .badSource(self.source.name))
@@ -99,7 +100,7 @@ extension Review {
         if fusions.isEmpty { add(problem: .undefinedKind) }
         else if fusions.count > 1 { add(problem: .multipleKinds(fusions.map(\.kind))) }
         else if let fusion = fusions.first {
-          change = try .make(merge: merge, fusion: fusion)
+          change?.fusion = fusion
         }
       }
       return change != nil
@@ -124,14 +125,14 @@ extension Review {
     public mutating func makeGitCheck(
       branches: [Json.GitlabBranch]
     ) throws -> [Fusion.GitCheck] {
-      guard let change = change else { return [] }
+      guard let change = change, let fusion = change.fusion else { return [] }
       let protected = branches
         .filter(\.protected)
         .reduce(into: Set(), { $0.insert($1.name) })
-      if protected.contains(change.fusion.source.name) { add(problem: .sourceIsProtected) }
-      if protected.contains(change.fusion.target.name).not { add(problem: .targetNotProtected) }
+      if protected.contains(fusion.source.name) { add(problem: .sourceIsProtected) }
+      if protected.contains(fusion.target.name).not { add(problem: .targetNotProtected) }
       guard problems.get([]).contains(where: \.blocking).not else { return [] }
-      return try change.fusion.makeGitChecks(head: change.head, protected: protected)
+      return try fusion.makeGitChecks(head: change.head, protected: protected)
     }
     public mutating func update(
       ctx: Context,
@@ -190,24 +191,24 @@ extension Review {
     ) {
       skip.formIntersection(childs.keys)
       var changes: [Git.Sha: Set<String>] = [:]
-      guard let change = change else { return }
+      guard let change = change, let fusion = change.fusion else { return }
       let sourceTeams = ctx.rules.sourceBranch
-        .filter({ $0.value.isMet(change.fusion.source.name) })
+        .filter({ $0.value.isMet(fusion.source.name) })
         .keySet
       let targetTeams = ctx.rules.targetBranch
-        .filter({ $0.value.isMet(change.fusion.target.name) })
+        .filter({ $0.value.isMet(fusion.target.name) })
         .keySet
       let diffTeams = ownage
         .filter({ diff.contains(where: $0.value.isMet(_:)) })
         .keySet
-      let authorshipTeams = change.fusion.authorshipApproval.then(ctx.rules.authorship).get([:])
+      let authorshipTeams = fusion.authorshipApproval.then(ctx.rules.authorship).get([:])
         .filter({ $0.value.isDisjoint(with: authors).not })
         .keySet
       let approvableTeams = diffTeams
         .union(sourceTeams)
         .union(targetTeams)
         .union(authorshipTeams)
-      let randomTeams = change.fusion.randomApproval.then(ctx.rules.randoms).get([:])
+      let randomTeams = fusion.randomApproval.then(ctx.rules.randoms).get([:])
         .filter({ $0.value.isDisjoint(with: approvableTeams).not })
         .keySet
       authors = authors.subtracting(ctx.bots)
@@ -302,7 +303,7 @@ extension Review {
         .flatMap({ $0.contains(where: { changes[$0] != nil }).else(change.head) })
       guard emergent == nil else { return }
       if
-        change.fusion.allowOrphaned.not,
+        fusion.allowOrphaned.not,
         diff.isEmpty.not,
         authors.intersection(ctx.approvers).isEmpty
       { add(problem: .orphaned(authors)) }
@@ -339,7 +340,7 @@ extension Review {
       }
       var updateTeams = teams.compactMap({ ctx.rules.teams[$0] })
       updateTeams.indices.forEach({ updateTeams[$0].update(active: ctx.approvers) })
-      var ignore = change.fusion.selfApproval.not.then(authors).get([])
+      var ignore = fusion.selfApproval.not.then(authors).get([])
       updateTeams.indices.forEach({ updateTeams[$0].update(exclude: ignore) })
       let unapprovable = updateTeams
         .filter(\.isUnapprovable)
@@ -376,7 +377,8 @@ extension Review {
       verified = change.head
     }
     public var canRebase: Bool {
-      guard let change = change, change.fusion.proposition, emergent == nil else { return false }
+      guard let change = change, let fusion = change.fusion, fusion.proposition, emergent == nil
+      else { return false }
       return verified == change.head
     }
     public mutating func updatePhase() {

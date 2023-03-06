@@ -286,12 +286,12 @@ public final class Reviewer {
     guard let merge = try getMerge(ctx: &ctx, iid: (iid > 0).then(iid)) else { return false }
     guard var state = try prepareChange(ctx: &ctx, merge: merge) else { return false }
     _ = try checkReady(ctx: &ctx, state: &state, merge: merge)
-    guard let change = state.change, state.canRebase else {
+    guard let change = state.change, let fusion = change.fusion, state.canRebase else {
       ctx.cfg.reportReviewFail(merge: merge, state: state, reason: .rebaseBlocked)
       return false
     }
     var head = Git.Ref.make(sha: change.head)
-    let target = Git.Ref.make(remote: change.fusion.target)
+    let target = Git.Ref.make(remote: fusion.target)
     var commit = try Git.Sha.make(value: Execute.parseText(reply: execute(cfg.git.mergeBase(
       target,
       head
@@ -337,7 +337,7 @@ public final class Reviewer {
     let gitlab = try cfg.gitlab.get()
     try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
       gitlab: gitlab,
-      branch: change.fusion.source,
+      branch: fusion.source,
       sha: commit,
       force: true
     )))
@@ -503,12 +503,12 @@ extension Reviewer {
     state: inout Review.State,
     ownage: [String: Criteria]
   ) throws {
-    guard let change = state.change, state.needApprovalCheck else { return }
+    guard let change = state.change, let fusion = change.fusion, state.needApprovalCheck else { return }
     let head = Git.Ref.make(sha: change.head)
-    let target = Git.Ref.make(remote: change.fusion.target)
-    var fork = change.fusion.fork.map(Git.Ref.make(sha:))
+    let target = Git.Ref.make(remote: fusion.target)
+    var fork = fusion.fork.map(Git.Ref.make(sha:))
     var childs: [Git.Sha: Set<Git.Sha>] = [:]
-    if change.fusion.propogation, let fork = change.fusion.fork { return state.update(
+    if fusion.propogation, let fork = fusion.fork { return state.update(
       ctx: ctx,
       childs: [fork: []],
       diff: [],
@@ -516,12 +516,12 @@ extension Reviewer {
       ownage: ownage
     )}
     if
-      change.fusion.duplication,
-      let pick = try pickPoint(cfg: ctx.cfg, head: change.head, target: change.fusion.target)
+      fusion.duplication,
+      let pick = try pickPoint(cfg: ctx.cfg, head: change.head, target: fusion.target)
     {
       fork = .make(sha: pick)
       childs[pick] = []
-    } else if let fork = change.fusion.fork {
+    } else if let fork = fusion.fork {
       childs[fork] = []
     }
     var diff: [String] = []
@@ -716,8 +716,8 @@ extension Reviewer {
     ctx: inout Review.Context,
     state: inout Review.State
   ) throws -> Bool {
-    guard let change = state.change else { return false }
-    switch change.fusion {
+    guard let change = state.change, let fusion = change.fusion else { return false }
+    switch fusion {
     case .propose:
       guard try syncReview(ctx: &ctx, state: &state) else { return false }
     case .replicate(let replicate):
@@ -737,16 +737,16 @@ extension Reviewer {
     ctx: inout Review.Context,
     state: inout Review.State
   ) throws -> Bool {
-    guard let change = state.change else { return false }
+    guard let change = state.change, let fusion = change.fusion else { return false }
     guard try Execute.parseSuccess(reply: execute(ctx.cfg.git.check(
       child: .make(sha: change.head),
-      parent: .make(remote: change.fusion.target)
+      parent: .make(remote: fusion.target)
     ))).not else { return true }
     if let sha = try mergeReview(
       cfg: ctx.cfg,
-      commit: .make(remote: change.fusion.target),
+      commit: .make(remote: fusion.target),
       into: .make(sha: change.head),
-      message: "Merge \(change.fusion.target.name) into \(change.fusion.source.name)"
+      message: "Merge \(fusion.target.name) into \(fusion.source.name)"
     ) {
       let gitlab = try ctx.cfg.gitlab.get()
       try Execute.checkStatus(reply: execute(ctx.cfg.git.push(
@@ -792,8 +792,9 @@ extension Reviewer {
   ) throws -> Bool {
     guard
       let change = state.change,
+      let fusion = change.fusion,
       let message = try ctx.cfg
-        .createMergeCommitMessage(merge: change.merge, review: ctx.review, fusion: change.fusion)
+        .createMergeCommitMessage(merge: change.merge, review: ctx.review, fusion: fusion)
         .map(generate)
     else { return false }
     let target = try Git.Sha.make(value: Execute.parseText(reply: execute(ctx.cfg.git.getSha(
@@ -817,7 +818,7 @@ extension Reviewer {
     guard message != headMessage || forkInfo != headInfo || parents != [target.value, fork.value]
     else { return true }
     guard let head = try squashPoint(
-      cfg: ctx.cfg, fusion: change.fusion, fork: fork, head: change.head, message: message
+      cfg: ctx.cfg, fusion: fusion, fork: fork, head: change.head, message: message
     ) else {
       state.add(problem: .conflicts)
       ctx.update(state: state)
@@ -956,7 +957,8 @@ extension Reviewer {
     ctx: inout Review.Context,
     state: Review.State
   ) throws -> Bool {
-    guard let change = state.change else { throw MayDay("Unexpected merge state") }
+    guard let change = state.change, let fusion = change.fusion
+    else { throw MayDay("Unexpected merge state") }
     let gitlab = try ctx.cfg.gitlab.get()
     let result = try gitlab
       .putMrMerge(
@@ -965,7 +967,7 @@ extension Reviewer {
             .createSquashCommitMessage(
               merge: change.merge,
               review: ctx.review,
-              fusion: change.fusion
+              fusion: fusion
             )
             .map(generate),
           squash: state.squash,
@@ -991,9 +993,9 @@ extension Reviewer {
     }
   }
   func helpReviews(ctx: inout Review.Context, state: Review.State) throws {
-    guard let change = state.change else { return }
-    guard let fork = change.fusion.fork else { return }
-    guard change.fusion.duplication.not else { return }
+    guard let change = state.change, let fusion = change.fusion else { return }
+    guard let fork = fusion.fork else { return }
+    guard fusion.duplication.not else { return }
     let queued = Set(ctx.storage.queues[state.target.name].get([]))
     let prefix = Review.Fusion.Prefix.replicate.prefix(target: state.target)
     for state in ctx.storage.states.values.filter({ queued.contains($0.review).not }) {
