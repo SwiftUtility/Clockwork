@@ -21,6 +21,7 @@ public enum Yaml {
     public var apiToken: Secret
     public var deployKey: String
     public var storage: Asset
+    #warning("TBD delete")
     public var trigger: Trigger
     public var review: Template?
     public var notes: [String: Note]?

@@ -7,17 +7,6 @@ protocol RunnableCommand: ClockworkCommand {
 }
 extension ClockworkCommand {
   mutating func run() throws {
-    SideEffects.reportMayDay = { mayDay in Assembler.writeStderr("""
-      ⚠️⚠️⚠️
-      Please submit an issue at https://github.com/SwiftUtility/Clockwork/issues/new/choose
-      Version: \(Clockwork.version)
-      What: \(mayDay.what)
-      File: \(mayDay.file)
-      Line: \(mayDay.line)
-      ⚠️⚠️⚠️
-      """
-    )}
-    SideEffects.printDebug = Assembler.writeStderr
     guard let runnableCommand = self as? RunnableCommand
     else { throw MayDay("\(Self.self) not configured") }
     let cfg = try Assembler.configurator.configure(
@@ -171,11 +160,6 @@ extension Clockwork.Gitlab.Pipeline.Delete: RunnableCommand {
 extension Clockwork.Gitlab.Pipeline.Retry: RunnableCommand {
   func run(cfg: Configuration) throws -> Bool {
     try Assembler.mediator.affectPipeline(cfg: cfg, id: pipeline.id, action: .retry)
-  }
-}
-extension Clockwork.Gitlab.Review.Patch: RunnableCommand {
-  func run(cfg: Configuration) throws -> Bool {
-    try Assembler.gitlab.patchReview(cfg: cfg, skip: skip, args: args)
   }
 }
 extension Clockwork.Gitlab.TriggerPipeline: RunnableCommand {

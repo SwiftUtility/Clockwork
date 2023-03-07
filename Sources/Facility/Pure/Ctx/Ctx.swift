@@ -6,24 +6,30 @@ public enum Ctx {
     public let stdin: Try.Do<Data?>
     public let stdout: Act.Of<Data>.Go
     public let stderr: Act.Of<Data>.Go
+    public let read: Try.Of<Sys.Absolute>.Do<Data>
     public let unyaml: Try.Of<String>.Do<AnyCodable>
     public let execute: Try.Reply<Execute>
+    public let resolveAbsolute: Try.Reply<Ctx.Sys.Absolute.Resolve>
     public let dialect: AnyCodable.Dialect
     public static func make(
       env: [String : String],
       stdin: @escaping Try.Do<Data?>,
       stdout: @escaping Act.Of<Data>.Go,
       stderr: @escaping Act.Of<Data>.Go,
+      read: @escaping Try.Of<Sys.Absolute>.Do<Data>,
       unyaml: @escaping Try.Of<String>.Do<AnyCodable>,
       execute: @escaping Try.Reply<Execute>,
+      resolveAbsolute: @escaping Try.Reply<Ctx.Sys.Absolute.Resolve>,
       dialect: AnyCodable.Dialect
     ) -> Self { .init(
       env: env,
       stdin: stdin,
       stdout: stdout,
       stderr: stderr,
+      read: read,
       unyaml: unyaml,
       execute: execute,
+      resolveAbsolute: resolveAbsolute,
       dialect: dialect
     )}
   }
@@ -152,34 +158,118 @@ public enum Ctx {
       }
     }
   }
+  public enum Secret {
+    case value(String)
+    case envVar(String)
+    case envFile(String)
+    case sysFile(String)
+    case gitFile(Git.File)
+    public static func make(yaml: Yaml.Secret) throws -> Self {
+      switch (yaml.value, yaml.envVar, yaml.envFile, yaml.sysFile, yaml.gitFile) {
+      case (let value?, nil, nil, nil, nil): return .value(value)
+      case (nil, let envVar?, nil, nil, nil): return .envVar(envVar)
+      case (nil, nil, let envFile?, nil, nil): return .envFile(envFile)
+      case (nil, nil, nil, let sysFile?, nil): return .sysFile(sysFile)
+      case (nil, nil, nil, nil, let gitFile?): return try .gitFile(.init(
+        ref: Git.Branch.make(name: gitFile.branch).remote,
+        path: .init(value: gitFile.path)
+      ))
+      default: throw Thrown("Wrong secret format")
+      }
+    }
+  }
+  public enum Template {
+    case name(String)
+    case value(String)
+    public var name: String {
+      switch self {
+      case .value(let value): return String(value.prefix(30))
+      case .name(let name): return name
+      }
+    }
+    public static func make(yaml: Yaml.Template) throws -> Self {
+      guard [yaml.name, yaml.value].compactMap({$0}).count < 2
+      else { throw Thrown("Multiple values in template") }
+      if let value = yaml.name { return .name(value) }
+      else if let value = yaml.value { return .value(value) }
+      else { throw Thrown("No values in template") }
+    }
+  }
   public struct Gitlab {
+    public let cfg: Cfg
     public let api: String
     public let token: String
+    public let protected: Lossy<Protected>
     public let current: Json.GitlabJob
+    public let apiEncoder: JSONEncoder
+    public let apiDecoder: JSONDecoder
     public static func make(
+      cfg: Cfg,
       api: String,
       token: String,
-      current: Json.GitlabJob
-    ) -> Self { .init(
-      api: api,
-      token: token,
-      current: current
-    )}
+      protected: Lossy<Protected>,
+      current: Json.GitlabJob,
+      apiEncoder: JSONEncoder,
+      apiDecoder: JSONDecoder
+    ) -> Self {
+      return .init(
+        cfg: cfg,
+        api: api,
+        token: token,
+        protected: protected,
+        current: current,
+        apiEncoder: apiEncoder,
+        apiDecoder: apiDecoder
+      )
+    }
+    public struct Cfg {
+      public var contract: Git.Tag
+      public var apiToken: Secret
+      public var storage: Sys.Relative
+      public var review: Template?
+      public var notes: [String: Note]?
+      public static func make(yaml: Yaml.Gitlab) throws -> Self { try .init(
+        contract: .make(name: yaml.contract),
+        apiToken: .make(yaml: yaml.apiToken),
+        storage: .make(value: yaml.storage.path),
+        review: yaml.review.map(Template.make(yaml:)),
+        notes: yaml.notes.get([:]).map(Note.make(mark:yaml:)).indexed(\.mark)
+      )}
+      public struct Note {
+        public var mark: String
+        public var text: Configuration.Template
+        public var events: [[String]]
+        public static func make(mark: String, yaml: Yaml.Gitlab.Note) throws -> Self { try .init(
+          mark: mark,
+          text: .make(yaml: yaml.text),
+          events: yaml.events.map({ $0.components(separatedBy: "/") })
+        )}
+      }
+    }
     public struct Protected {
       public let rest: String
-      public let user: Json.GitlabUser
       public let proj: Json.GitlabProject
+      public static func make(
+        rest: String,
+        proj: Json.GitlabProject
+      ) -> Self { .init(
+        rest: rest,
+        proj: proj
+      )}
     }
     public struct Contracted {
       public let sender: Sender
+      public let user: Json.GitlabUser
       public let parent: Json.GitlabJob
       public let contract: Contract
       public static func make(
         sender: Sender,
+        user: Json.GitlabUser,
         parent: Json.GitlabJob,
         contract: Contract
       ) -> Self { .init(
         sender: sender,
+        user: user,
         parent: parent,
         contract: contract
       )}
@@ -198,12 +288,7 @@ public protocol ContextLocal {
 public protocol ContextGitlab: ContextLocal {
   var gitlab: Ctx.Gitlab { get }
 }
-public protocol ContextGitlabReview: ContextGitlab {
-  var review: UInt { get }
-}
-public protocol ContextGitlabProtected: ContextGitlab {
+public protocol ContextGitlabContracted: ContextGitlab {
   var protected: Ctx.Gitlab.Protected { get }
-}
-public protocol ContextGitlabContracted: ContextGitlabProtected {
   var contracted: Ctx.Gitlab.Contracted { get }
 }

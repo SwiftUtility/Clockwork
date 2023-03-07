@@ -339,18 +339,6 @@ public extension Gitlab {
       .map { try "variables[\($0.key)]=\($0.value.urlEncoded.get())" },
     secrets: [env.token]
   ))}
-  func postTriggerPipeline(
-    ref: String,
-    forms: [String]
-  ) -> Lossy<Execute> { .init(.makeCurl(
-    url: "\(api)/trigger/pipeline",
-    method: "POST",
-    form: [
-      "token=\(env.token)",
-      "ref=\(ref)",
-    ] + forms,
-    secrets: [env.token]
-  ))}
   func affectPipeline(
     cfg: Configuration,
     pipeline: UInt,

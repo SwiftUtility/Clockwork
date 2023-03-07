@@ -1,6 +1,7 @@
 import ArgumentParser
+import FacilityPure
 struct Clockwork: ParsableCommand {
-  static var version: String { "1.0.0" }
+  static var version: String { "0.6.0" }
   static let configuration = CommandConfiguration(
     abstract: "Distributed scalable monorepo management tool",
     version: Clockwork.version,
@@ -168,7 +169,7 @@ struct Clockwork: ParsableCommand {
       version: Clockwork.version,
       subcommands: [
         Artifacts.self,
-        Contract.self,
+        Support.self,
         Jobs.self,
         Pipeline.self,
         Review.self,
@@ -194,10 +195,6 @@ struct Clockwork: ParsableCommand {
         @Argument(help: "Path to the file")
         var path: String
       }
-    }
-    struct Contract: ClockworkCommand {
-      static var abstract: String { "Execute contract" }
-      @OptionGroup var clockwork: Clockwork
     }
     struct Jobs: ParsableCommand {
       static let configuration = CommandConfiguration(
@@ -277,17 +274,239 @@ struct Clockwork: ParsableCommand {
         abstract: "Review lifecycle management command subset",
         version: Clockwork.version,
         subcommands: [
+          Accept.self,
+          AddLabels.self,
+          Approve.self,
+          Dequeue.self,
+          Enqueue.self,
+          ExportTargets.self,
+          List.self,
+          Own.self,
           Patch.self,
+          Rebase.self,
+          Remind.self,
+          RemoveLabels.self,
+          ReserveBuild.self,
+          TriggerPipeline.self,
+          Skip.self,
+          StartDuplication.self,
+          StartIntegration.self,
+          StartPropogation.self,
+          StartReplication.self,
+          Unown.self,
+          Update.self,
         ]
       )
-      struct Patch: ClockworkCommand {
+      struct Accept: ContextCommand {
+        static var abstract: String { "Accept parent review" }
+        @OptionGroup var clockwork: Clockwork
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct AddLabels: ContextCommand {
+        static var abstract: String { "Add labels to parent review" }
+        @OptionGroup var clockwork: Clockwork
+        @Argument(help: "Labels to be added to parent review")
+        var labels: [String]
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Approve: ContextCommand {
+        static var abstract: String { "Approve parent review" }
+        @OptionGroup var clockwork: Clockwork
+        @Flag(help: "Should approve persist regardless of further commits")
+        var advance: Bool = false
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Dequeue: ContextCommand {
+        static var abstract: String { "Dequeue parent review" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Merge request iid or parent merge iid")
+        var iid: UInt = 0
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Enqueue: ContextCommand {
+        static var abstract: String { "Update parent review state" }
+        @OptionGroup var clockwork: Clockwork
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct ExportTargets: ContextCommand {
+        static var abstract: String { "Render integration suitable branches to stdout" }
+        @OptionGroup var clockwork: Clockwork
+        @Argument(help: "Context to make available during rendering")
+        var args: [String] = []
+        @Flag(help: "Should read stdin and pass as a context for generation")
+        var stdin: Common.Stdin = .ignore
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct List: ContextCommand {
+        static var abstract: String { "List all reviews to be approved" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Approver login or all active users")
+        var user: String = ""
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Own: ContextCommand {
+        static var abstract: String { "Add user to authors" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Approver login or job runner")
+        var user: String = ""
+        @Option(help: "Merge request iid or parent merge iid")
+        var iid: UInt = 0
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Patch: ContextCommand {
         static var abstract: String { "Apply patch to current MR sha" }
         @OptionGroup var clockwork: Clockwork
         @Flag(help: "Should skip commit approval")
         var skip: Bool = false
         @Argument(help: "Additional context")
         var args: [String] = []
+        func execute(ctx: Shell) throws { try Contract.PatchReview
+          .make(skip: skip, args: args, patch: ctx.sh.stdin())
+          .supportGitlabReview(ctx: ctx)
+        }
       }
+      struct Rebase: ContextCommand {
+        static var abstract: String { "Rebase parent review" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Merge request iid or parent merge iid")
+        var iid: UInt = 0
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Remind: ContextCommand {
+        static var abstract: String { "Ask approvers to pay attention" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Merge request iid or parent merge iid")
+        var iid: UInt = 0
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct RemoveLabels: ContextCommand {
+        static var abstract: String { "Remove parent review labels" }
+        @OptionGroup var clockwork: Clockwork
+        @Argument(help: "Labels to be removed from parent review")
+        var labels: [String]
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct ReserveBuild: ContextCommand {
+        static var abstract: String { "Reserve build number for parrent review pipeline" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Product name to make branch for")
+        var product: String
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct TriggerPipeline: ContextCommand {
+        static var abstract: String { "Create new pipeline for parent review" }
+        @OptionGroup var clockwork: Clockwork
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Skip: ContextCommand {
+        static var abstract: String { "Mark review as emergent" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Merge request iid")
+        var iid: UInt
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct StartDuplication: ContextCommand {
+        static var abstract: String { "Create duplication review" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Duplicated commit sha")
+        var fork: String
+        @Option(help: "Duplication target branch name")
+        var target: String
+        @Option(help: "Duplication source branch name")
+        var source: String
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct StartIntegration: ContextCommand {
+        static var abstract: String { "Create integration review" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Integrated commit sha")
+        var fork: String
+        @Option(help: "Integration target branch name")
+        var target: String
+        @Option(help: "Integration source branch name")
+        var source: String
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct StartPropogation: ContextCommand {
+        static var abstract: String { "Create propogation review" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Propogated commit sha")
+        var fork: String
+        @Option(help: "Propogation target branch name")
+        var target: String
+        @Option(help: "Propogation source branch name")
+        var source: String
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct StartReplication: ContextCommand {
+        static var abstract: String { "Create replication review" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Propogated commit sha")
+        var fork: String
+        @Option(help: "Propogation target branch name")
+        var target: String
+        @Option(help: "Propogation source branch name")
+        var source: String
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Unown: ContextCommand {
+        static var abstract: String { "Remove user from authors" }
+        @OptionGroup var clockwork: Clockwork
+        @Option(help: "Approver login or job runner")
+        var user: String = ""
+        @Option(help: "Merge request iid or parent merge iid")
+        var iid: UInt = 0
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+      struct Update: ContextCommand {
+        static var abstract: String { "Update status for stuck reviews" }
+        @OptionGroup var clockwork: Clockwork
+        func execute(ctx: Shell) throws {
+          #warning("TBD")
+        }
+      }
+    }
+    struct Support: ClockworkCommand {
+      static var abstract: String { "Execute contract" }
+      @OptionGroup var clockwork: Clockwork
     }
     struct TriggerPipeline: ClockworkCommand {
       static var abstract: String { "Trigger pipeline configured and custom context" }
@@ -621,6 +840,19 @@ protocol ClockworkCommand: ParsableCommand {
 extension ClockworkCommand {
   static var configuration: CommandConfiguration {
     .init(abstract: abstract)
+  }
+}
+protocol ContextCommand: ParsableCommand {
+  var clockwork: Clockwork { get }
+  static var abstract: String { get }
+  func execute(ctx: Shell) throws
+}
+extension ContextCommand {
+  static var configuration: CommandConfiguration {
+    .init(abstract: abstract)
+  }
+  mutating func run() throws {
+    try execute(ctx: .init(profile: clockwork.profile, version: Clockwork.version))
   }
 }
 enum Common {
