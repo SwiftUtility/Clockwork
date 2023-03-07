@@ -90,7 +90,7 @@ public final class Reviewer {
   }
   public func patchReview(
     cfg: Configuration,
-    subject: Contract.Subject<Contract.PatchReview>
+    subject: Contract.Subject<Contract.ReviewPatch>
   ) throws -> Bool {
     #warning("TBD")
     return false

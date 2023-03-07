@@ -201,7 +201,7 @@ extension Review {
       case forkNotInSource(fork: Git.Sha, head: Git.Sha)
       case forkParentNotInTarget(fork: Git.Sha, target: Git.Branch)
     }
-    public enum Prefix: String, Encodable {
+    public enum Prefix: String, Codable {
       case replicate
       case integrate
       case duplicate
