@@ -31,10 +31,16 @@ struct Clockwork: ParsableCommand {
     struct ResetSpecs: ClockworkCommand {
       static var abstract: String { "Reset cocoapods specs to configured commits" }
       @OptionGroup var clockwork: Clockwork
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct UpdateSpecs: ClockworkCommand {
       static var abstract: String { "Update cocoapods specs and configured commist" }
       @OptionGroup var clockwork: Clockwork
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
   }
   struct Connect: ParsableCommand {
@@ -51,22 +57,30 @@ struct Clockwork: ParsableCommand {
     struct Clean: ClockworkCommand {
       static var abstract: String { "Clean outdated threads" }
       @OptionGroup var clockwork: Clockwork
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct Signal: ClockworkCommand {
       static var abstract: String { "Send custom preconfigured report" }
       @OptionGroup var clockwork: Clockwork
-      @Flag(help: Common.Stdin.help)
-      var stdin: Common.Stdin = .ignore
+      @OptionGroup var stdin: Common.Stdin
       @Option(help: "Event name to send report for")
       var event: String
       @Argument(help: "Context to make available during rendering")
       var args: [String] = []
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct Support: ClockworkCommand {
       static var abstract: String { "Execute contract" }
       @OptionGroup var clockwork: Clockwork
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
-    struct Trigger: ContextCommand {
+    struct Trigger: ClockworkCommand {
       static var abstract: String { "Trigger default branch child pipeline from protected ref" }
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
@@ -103,6 +117,9 @@ struct Clockwork: ParsableCommand {
       var branch: String = ""
       @Option(help: "Version to set")
       var version: String
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct ChangeNextVersion: ClockworkCommand {
       static var abstract: String { "Change product next release version" }
@@ -111,6 +128,9 @@ struct Clockwork: ParsableCommand {
       var product: String
       @Option(help: "Version to set")
       var version: String
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct CreateAccessoryBranch: ClockworkCommand {
       static var abstract: String { "Cut custom protected branch" }
@@ -119,10 +139,16 @@ struct Clockwork: ParsableCommand {
       var name: String
       @Option(help: "Commit sha to cut form or parrent or current")
       var sha: String = ""
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct CreateDeployTag: ClockworkCommand {
       static var abstract: String { "Create deploy tag on release branch" }
       @OptionGroup var clockwork: Clockwork
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct CreateStageTag: ClockworkCommand {
       static var abstract: String { "Create stage tag on reserved build" }
@@ -131,35 +157,46 @@ struct Clockwork: ParsableCommand {
       var product: String
       @Option(help: "Build number to stage")
       var build: String
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct DeleteBranch: ClockworkCommand {
       static var abstract: String { "Delete protected branch and clear its assets" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Name of branch to delete or current")
       var name: String = ""
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct DeleteTag: ClockworkCommand {
       static var abstract: String { "Delete protected tag" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Name of tag to delete or current")
       var name: String = ""
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct ExportVersions: ClockworkCommand {
       static var abstract: String { "Render versions to stdout" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "If specified ensure product has build reserved")
       var product: String = ""
-      @Argument(help: "Context to make available during rendering")
-      var args: [String] = []
-      @Flag(help: Common.Stdin.help)
-      var stdin: Common.Stdin = .ignore
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct ReserveBuild: ClockworkCommand {
       static var abstract: String { "Reserve build number for current protected branch pipeline" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Product name to make branch for")
       var product: String
-    }
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
+}
     struct StartHotfix: ClockworkCommand {
       static var abstract: String { "Cut hotfix branch from deploy tag or using passed options" }
       @OptionGroup var clockwork: Clockwork
@@ -169,6 +206,9 @@ struct Clockwork: ParsableCommand {
       var commit: String = ""
       @Option(help: "Version of hotfix")
       var version: String = ""
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct StartRelease: ClockworkCommand {
       static var abstract: String { "Cut release branch and bump product version" }
@@ -177,6 +217,9 @@ struct Clockwork: ParsableCommand {
       var product: String
       @Option(help: "Commit sha to start from or current")
       var commit: String = ""
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
   }
   struct Fusion: ParsableCommand {
@@ -191,74 +234,60 @@ struct Clockwork: ParsableCommand {
         Replicate.self,
       ]
     )
-    struct Duplicate: ContextCommand {
+    @Option(help: "Fusion commit sha")
+    var fork: String
+    @Option(help: "Fusion target branch name")
+    var target: String
+    @Option(help: "Fusion source branch name")
+    var source: String
+    struct Duplicate: ClockworkCommand {
       static var abstract: String { "Create duplication review" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Duplicated commit sha")
-      var fork: String
-      @Option(help: "Duplication target branch name")
-      var target: String
-      @Option(help: "Duplication source branch name")
-      var source: String
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.fusionStart(
-        fork: fork,
-        target: target,
-        source: source,
+      @OptionGroup var fusion: Fusion
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.fusionStart(
+        fork: fusion.fork,
+        target: fusion.target,
+        source: fusion.source,
         prefix: .duplicate
       ))}
     }
-    struct Integrate: ContextCommand {
+    struct Integrate: ClockworkCommand {
       static var abstract: String { "Create integration review" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Integrated commit sha")
-      var fork: String
-      @Option(help: "Integration target branch name")
-      var target: String
-      @Option(help: "Integration source branch name")
-      var source: String
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.fusionStart(
-        fork: fork,
-        target: target,
-        source: source,
+      @OptionGroup var fusion: Fusion
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.fusionStart(
+        fork: fusion.fork,
+        target: fusion.target,
+        source: fusion.source,
         prefix: .integrate
       ))}
     }
-    struct Export: ContextCommand {
+    struct Export: ClockworkCommand {
       static var abstract: String { "Render integration suitable branches to stdout" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws {
         #warning("TBD")
       }
     }
-    struct Propogate: ContextCommand {
+    struct Propogate: ClockworkCommand {
       static var abstract: String { "Create propogation review" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Propogated commit sha")
-      var fork: String
-      @Option(help: "Propogation target branch name")
-      var target: String
-      @Option(help: "Propogation source branch name")
-      var source: String
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.fusionStart(
-        fork: fork,
-        target: target,
-        source: source,
+      @OptionGroup var fusion: Fusion
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.fusionStart(
+        fork: fusion.fork,
+        target: fusion.target,
+        source: fusion.source,
         prefix: .propogate
       ))}
     }
-    struct Replicate: ContextCommand {
+    struct Replicate: ClockworkCommand {
       static var abstract: String { "Create replication review" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Propogated commit sha")
-      var fork: String
-      @Option(help: "Propogation target branch name")
-      var target: String
-      @Option(help: "Propogation source branch name")
-      var source: String
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.fusionStart(
-        fork: fork,
-        target: target,
-        source: source,
+      @OptionGroup var fusion: Fusion
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.fusionStart(
+        fork: fusion.fork,
+        target: fusion.target,
+        source: fusion.source,
         prefix: .replicate
       ))}
     }
@@ -275,44 +304,60 @@ struct Clockwork: ParsableCommand {
         ReportExpiring.self,
       ]
     )
+    @Argument(help: "Requisite to install or all")
+    var requisites: [String] = []
     struct Erase: ClockworkCommand {
       static var abstract: String { "Delete keychain and provisions" }
       @OptionGroup var clockwork: Clockwork
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct Import: ClockworkCommand {
       static var abstract: String { "Import p12 and provisions" }
       @OptionGroup var clockwork: Clockwork
-      @Argument(help: "Requisite to install or all")
-      var requisites: [String] = []
+      @OptionGroup var requisites: Requisites
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct ImportPkcs12: ClockworkCommand {
       static var abstract: String { "Import p12" }
       @OptionGroup var clockwork: Clockwork
-      @Argument(help: "Requisites to install or all")
-      var requisites: [String] = []
+      @OptionGroup var requisites: Requisites
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct ImportProvisions: ClockworkCommand {
       static var abstract: String { "Import provisions" }
       @OptionGroup var clockwork: Clockwork
-      @Argument(help: "Requisites to install or all")
-      var requisites: [String] = []
+      @OptionGroup var requisites: Requisites
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct ReportExpiring: ClockworkCommand {
       static var abstract: String { "Report expiring provisions and certificates" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Days till expired threashold or 0")
       var days: UInt = 0
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
   }
   struct Render: ClockworkCommand {
     static var abstract: String { "Renders custom template to stdout" }
     @OptionGroup var clockwork: Clockwork
-    @Flag(help: Common.Stdin.help)
-    var stdin: Common.Stdin = .ignore
+    @OptionGroup var stdin: Common.Stdin
     @Option(help: "Template name to render")
     var template: String
     @Argument(help: "Context to make available during rendering")
     var args: [String] = []
+    func execute(ctx: Shell) throws {
+      #warning("TBD")
+    }
   }
   struct Review: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -335,138 +380,136 @@ struct Clockwork: ParsableCommand {
         Update.self,
       ]
     )
-    struct Accept: ContextCommand {
+    @Option(help: "Merge request iid or parent merge iid")
+    var iid: UInt = 0
+    struct Accept: ClockworkCommand {
       static var abstract: String { "Accept parent review" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws {
-        try ctx.supportGitlabReview(Contract.ReviewPerform.accept)
+        try ctx.contractReview(Contract.ReviewPerform.accept)
       }
     }
-    struct AddLabels: ContextCommand {
+    struct AddLabels: ClockworkCommand {
       static var abstract: String { "Add labels to parent review" }
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Labels to be added to parent review")
       var labels: [String]
-      func execute(ctx: Shell) throws { try ctx.supportGitlabReview(Contract.reviewLabels(
+      func execute(ctx: Shell) throws { try ctx.contractReview(Contract.reviewLabels(
         labels: labels,
         add: true
       ))}
     }
-    struct Approve: ContextCommand {
+    struct Approve: ClockworkCommand {
       static var abstract: String { "Approve parent review" }
       @OptionGroup var clockwork: Clockwork
       @Flag(help: "Should approve persist regardless of further commits")
       var advance: Bool = false
-      func execute(ctx: Shell) throws { try ctx.supportGitlabReview(Contract.reviewApprove(
+      func execute(ctx: Shell) throws { try ctx.contractReview(Contract.reviewApprove(
         advance: advance
       ))}
     }
-    struct Dequeue: ContextCommand {
+    struct Dequeue: ClockworkCommand {
       static var abstract: String { "Dequeue parent review" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Merge request iid or parent merge iid")
-      var iid: UInt = 0
-      func execute(ctx: Shell) throws { try ctx.supportGitlab(Contract.reviewDequeue(
-        iid: iid
+      @OptionGroup var review: Review
+      func execute(ctx: Shell) throws { try ctx.contract(Contract.reviewDequeue(
+        iid: review.iid
       ))}
     }
-    struct Enqueue: ContextCommand {
+    struct Enqueue: ClockworkCommand {
       static var abstract: String { "Update parent review state" }
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Jobs to start before accepting merge")
       var jobs: [String] = []
       func execute(ctx: Shell) throws {
-        try ctx.supportGitlabReview(Contract.reviewEnqueue(jobs: jobs))
+        try ctx.contractReview(Contract.reviewEnqueue(jobs: jobs))
       }
     }
-    struct List: ContextCommand {
+    struct List: ClockworkCommand {
       static var abstract: String { "List all reviews to be approved" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Approver login or all active users")
       var user: String = ""
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.reviewList(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.reviewList(
         user: user
       ))}
     }
-    struct Own: ContextCommand {
+    struct Own: ClockworkCommand {
       static var abstract: String { "Add user to authors" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Approver login or job runner")
       var user: String = ""
-      @Option(help: "Merge request iid or parent merge iid")
-      var iid: UInt = 0
-      func execute(ctx: Shell) throws { try ctx.supportGitlab(Contract.reviewOwnage(
+      @OptionGroup var review: Review
+      func execute(ctx: Shell) throws { try ctx.contract(Contract.reviewOwnage(
         user: user,
-        iid: iid,
+        iid: review.iid,
         own: true
       ))}
     }
-    struct Patch: ContextCommand {
+    struct Patch: ClockworkCommand {
       static var abstract: String { "Apply patch to current MR sha" }
       @OptionGroup var clockwork: Clockwork
       @Flag(help: "Should skip commit approval")
       var skip: Bool = false
       @Argument(help: "Additional context")
       var args: [String] = []
-      func execute(ctx: Shell) throws { try ctx.supportGitlabReview(Contract.reviewPatch(
+      func execute(ctx: Shell) throws { try ctx.contractReview(Contract.reviewPatch(
         skip: skip,
         args: args,
         patch: ctx.sh.stdin()
       ))}
     }
-    struct Rebase: ContextCommand {
+    struct Rebase: ClockworkCommand {
       static var abstract: String { "Rebase parent review" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws {
-        try ctx.supportGitlabReview(Contract.ReviewPerform.rebase)
+        try ctx.contractReview(Contract.ReviewPerform.rebase)
       }
     }
-    struct Remind: ContextCommand {
+    struct Remind: ClockworkCommand {
       static var abstract: String { "Ask approvers to pay attention" }
       @OptionGroup var clockwork: Clockwork
-      @Option(help: "Merge request iid or parent merge iid")
-      var iid: UInt = 0
+      @OptionGroup var review: Review
       func execute(ctx: Shell) throws {
-        try ctx.supportGitlabReview(Contract.ReviewPerform.remind)
+        try ctx.contractReview(Contract.ReviewPerform.remind)
       }
     }
-    struct RemoveLabels: ContextCommand {
+    struct RemoveLabels: ClockworkCommand {
       static var abstract: String { "Remove parent review labels" }
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Labels to be removed from parent review")
       var labels: [String]
-      func execute(ctx: Shell) throws { try ctx.supportGitlabReview(Contract.reviewLabels(
+      func execute(ctx: Shell) throws { try ctx.contractReview(Contract.reviewLabels(
         labels: labels,
         add: false
       ))}
     }
-    struct Skip: ContextCommand {
+    struct Skip: ClockworkCommand {
       static var abstract: String { "Mark review as emergent" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Merge request iid")
       var iid: UInt
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.reviewSkip(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.reviewSkip(
         iid: iid
       ))}
     }
-    struct Unown: ContextCommand {
+    struct Unown: ClockworkCommand {
       static var abstract: String { "Remove user from authors" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Approver login or job runner")
       var user: String = ""
-      @Option(help: "Merge request iid or parent merge iid")
-      var iid: UInt = 0
-      func execute(ctx: Shell) throws { try ctx.supportGitlab(Contract.reviewOwnage(
+      @OptionGroup var review: Review
+      func execute(ctx: Shell) throws { try ctx.contract(Contract.reviewOwnage(
         user: user,
-        iid: iid,
+        iid: review.iid,
         own: false
       ))}
     }
-    struct Update: ContextCommand {
+    struct Update: ClockworkCommand {
       static var abstract: String { "Update status for stuck reviews" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws {
-        try ctx.supportGitlabReview(Contract.ReviewPerform.update)
+        try ctx.contractReview(Contract.ReviewPerform.update)
       }
     }
   }
@@ -486,25 +529,25 @@ struct Clockwork: ParsableCommand {
     )
     @Option(help: "Gitlab user login or current")
     var login: String = ""
-    struct Activate: ContextCommand {
+    struct Activate: ClockworkCommand {
       static var abstract: String { "Activate user" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.userAcvivity(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.userAcvivity(
         login: user.login,
         active: true
       ))}
     }
-    struct Deactivate: ContextCommand {
+    struct Deactivate: ClockworkCommand {
       static var abstract: String { "Deactivate user" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.userAcvivity(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.userAcvivity(
         login: user.login,
         active: false
       ))}
     }
-    struct Register: ContextCommand {
+    struct Register: ClockworkCommand {
       static var abstract: String { "Add new user" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
@@ -512,55 +555,55 @@ struct Clockwork: ParsableCommand {
       var slack: String = ""
       @Option(help: "Approver's rocket id")
       var rocket: String = ""
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.userRegister(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.userRegister(
         login: user.login,
         slack: slack,
         rocket: rocket
       ))}
     }
-    struct UnwatchAuthors: ContextCommand {
+    struct UnwatchAuthors: ClockworkCommand {
       static var abstract: String { "Remove user from watchers for authors provided in arguments" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
       @Argument(help: "List of authors to unwatch")
       var args: [String] = []
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.userWatch(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.userWatch(
         login: user.login,
         update: args,
         kind: .delAuthors
       ))}
     }
-    struct UnwatchTeams: ContextCommand {
+    struct UnwatchTeams: ClockworkCommand {
       static var abstract: String { "Remove user from watchers for teams provided in arguments" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
       @Argument(help: "List of teams to unwatch")
       var args: [String] = []
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.userWatch(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.userWatch(
         login: user.login,
         update: args,
         kind: .delTeams
       ))}
     }
-    struct WatchAuthors: ContextCommand {
+    struct WatchAuthors: ClockworkCommand {
       static var abstract: String { "Add user to watchers for authors provided in arguments" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
       @Argument(help: "List of authors to watch")
       var args: [String] = []
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.userWatch(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.userWatch(
         login: user.login,
         update: args,
         kind: .addAuthors
       ))}
     }
-    struct WatchTeams: ContextCommand {
+    struct WatchTeams: ClockworkCommand {
       static var abstract: String { "Add user to watchers for teams provided in arguments" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
       @Argument(help: "List of teams to watch")
       var args: [String] = []
-      func execute(ctx: Shell) throws { try ctx.supportGitlabProtected(Contract.userWatch(
+      func execute(ctx: Shell) throws { try ctx.contractProtected(Contract.userWatch(
         login: user.login,
         update: args,
         kind: .addTeams
@@ -578,43 +621,49 @@ struct Clockwork: ParsableCommand {
       ]
     )
     @Flag(help: "Should render json to stdout")
-    var json = false
+    var stdout = false
     struct ConflictMarkers: ClockworkCommand {
       static var abstract: String { "Ensure no conflict markers against base" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var validate: Validate
       @Option(help: "The name of target branch")
       var target: String
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct FileTaboos: ClockworkCommand {
       static var abstract: String { "Ensure files match defined rules" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var validate: Validate
-      @Flag(help: "Should render json to stdout")
-      var json = false
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
     struct UnownedCode: ClockworkCommand {
       static var abstract: String { "Ensure no unowned files" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var validate: Validate
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
+    }
+    struct Configuration: ClockworkCommand {
+      static var abstract: String { "Ensure configuration not broken" }
+      @OptionGroup var clockwork: Clockwork
+      @OptionGroup var validate: Validate
+      func execute(ctx: Shell) throws {
+        #warning("TBD")
+      }
     }
   }
 }
 protocol ClockworkCommand: ParsableCommand {
   var clockwork: Clockwork { get }
   static var abstract: String { get }
-}
-extension ClockworkCommand {
-  static var configuration: CommandConfiguration {
-    .init(abstract: abstract)
-  }
-}
-protocol ContextCommand: ParsableCommand {
-  var clockwork: Clockwork { get }
-  static var abstract: String { get }
   func execute(ctx: Shell) throws
 }
-extension ContextCommand {
+extension ClockworkCommand {
   static var configuration: CommandConfiguration {
     .init(abstract: abstract)
   }
@@ -623,19 +672,26 @@ extension ContextCommand {
   }
 }
 enum Common {
-  enum Stdin: EnumerableFlag {
-    static var help: ArgumentHelp { "Should read stdin and pass as a context for generation" }
-    case ignore
-    case lines
-    case json
-    case yaml
-    static func help(for value: Self) -> ArgumentHelp? {
-      switch value {
-      case .ignore: return "Do not read stdin"
-      case .lines: return "Interpret stdin as lines array"
-      case .json: return "Interpret stdin as json"
-      case .yaml: return "Interpret stdin as yaml"
-      }
+  struct Stdin: ParsableArguments {
+    @Option(help: "How should stdin be interpreted")
+    var stdin: Kind = .ignore
+    enum Kind: String, CaseIterable, ExpressibleByArgument {
+      case ignore
+      case lines
+      case json
+      case yaml
     }
   }
+//
+//  enum Stdin: EnumerableFlag {
+//    static var help: ArgumentHelp { "Should read stdin and pass as a context for generation" }
+//    static func help(for value: Self) -> ArgumentHelp? {
+//      switch value {
+//      case .ignore: return "Do not read stdin"
+//      case .lines: return "Interpret stdin as lines array"
+//      case .json: return "Interpret stdin as json"
+//      case .yaml: return "Interpret stdin as yaml"
+//      }
+//    }
+//  }
 }
