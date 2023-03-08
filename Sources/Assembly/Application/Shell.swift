@@ -9,6 +9,7 @@ import InteractivityPathKit
 final class Shell: ContextLocal {
   public let sh: Ctx.Sh
   public let repo: Ctx.Repo
+  var stensil: StencilParser { .init(sh: sh, git: repo.git, profile: repo.profile) }
   init(profile: String, version: String) throws {
     self.sh = Ctx.Sh.make(
       env: ProcessInfo.processInfo.environment,
@@ -39,8 +40,7 @@ final class Shell: ContextLocal {
       git: git,
       sha: sha,
       branch: git.currentBranch(sh: sh),
-      profile: profile,
-      generate: StencilParser(sh: sh, git: git, profile: profile).generate(query:)
+      profile: profile
     )
   }
   func contractReview(_ payload: ContractPayload) throws -> Bool {
@@ -78,7 +78,7 @@ final class Shell: ContextLocal {
         stdin: parse(stdin: stdin),
         args: args
       ))
-      .map(repo.generate)
+      .map(stensil.generate)
       .map(\.utf8)
       .map(Data.init(_:))
       .map(sh.stdout)

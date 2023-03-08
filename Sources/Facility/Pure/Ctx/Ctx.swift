@@ -58,14 +58,12 @@ public enum Ctx {
     public let sha: Git.Sha
     public let branch: Git.Branch?
     public let profile: Profile
-    public let generate: Try.Reply<Generate>
     public static func make(
       git: Git, sha: Git.Sha,
       branch: Git.Branch?,
-      profile: Profile,
-      generate: @escaping Try.Reply<Generate>
+      profile: Profile
     ) -> Self { .init(
-      git: git, sha: sha, branch: branch, profile: profile, generate: generate
+      git: git, sha: sha, branch: branch, profile: profile
     )}
   }
   public enum Sys {
