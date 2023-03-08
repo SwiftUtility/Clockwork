@@ -22,8 +22,8 @@ final class GitLoader: Loader {
     let content: String
     if let template = cache[name] {
       content = template
-    } else if let template = try? String.make(utf8: sh.cat(
-      git: git, file: .make(ref: ref, path: .make(value: "\(prefix)\(name)"))
+    } else if let template = try? String.make(utf8: git.cat(
+      sh: sh, file: .make(ref: ref, path: .make(value: "\(prefix)\(name)"))
     )) {
       content = template
       cache[name] = template

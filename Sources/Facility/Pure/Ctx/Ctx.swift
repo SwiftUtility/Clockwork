@@ -7,30 +7,45 @@ public enum Ctx {
     public let stdout: Act.Of<Data>.Go
     public let stderr: Act.Of<Data>.Go
     public let read: Try.Of<Sys.Absolute>.Do<Data>
+    public let lineIterator: Try.Of<Sys.Absolute>.Do<AnyIterator<String>>
     public let unyaml: Try.Of<String>.Do<AnyCodable>
     public let execute: Try.Reply<Execute>
     public let resolveAbsolute: Try.Reply<Ctx.Sys.Absolute.Resolve>
+    public let getTime: Act.Do<Date>
     public let dialect: AnyCodable.Dialect
+    public let formatter: DateFormatter
+    public let rawEncoder: JSONEncoder
+    public let rawDecoder: JSONDecoder
     public static func make(
       env: [String : String],
       stdin: @escaping Try.Do<Data?>,
       stdout: @escaping Act.Of<Data>.Go,
       stderr: @escaping Act.Of<Data>.Go,
       read: @escaping Try.Of<Sys.Absolute>.Do<Data>,
+      lineIterator: @escaping Try.Of<Sys.Absolute>.Do<AnyIterator<String>>,
       unyaml: @escaping Try.Of<String>.Do<AnyCodable>,
       execute: @escaping Try.Reply<Execute>,
       resolveAbsolute: @escaping Try.Reply<Ctx.Sys.Absolute.Resolve>,
-      dialect: AnyCodable.Dialect
+      getTime: @escaping Act.Do<Date>
     ) -> Self { .init(
       env: env,
       stdin: stdin,
       stdout: stdout,
       stderr: stderr,
       read: read,
+      lineIterator: lineIterator,
       unyaml: unyaml,
       execute: execute,
       resolveAbsolute: resolveAbsolute,
-      dialect: dialect
+      getTime: getTime,
+      dialect: .json,
+      formatter: {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+      }(),
+      rawEncoder: .init(),
+      rawDecoder: .init()
     )}
   }
   public struct Repo {
@@ -98,11 +113,23 @@ public enum Ctx {
     public struct Ref {
       public var value: String
       public var tree: Tree { .init(value: "\(value)^{tree}") }
+      public static var head: Self { .init(value: "HEAD") }
+      public static func make(sha: String) throws -> Self {
+        return try Sha.make(value: sha).ref
+      }
+      public static func make(tag: String) throws -> Self {
+        return try Tag.make(name: tag).ref
+      }
+      public static func make(local branch: String) throws -> Self {
+        return try Branch.make(name: branch).local
+      }
+      public static func make(remote branch: String) throws -> Self {
+        return try Branch.make(name: branch).remote
+      }
       public func make(parent number: Int) throws -> Self {
         guard number > 0 else { throw MayDay("commit parent must be > 0") }
         return .init(value: "\(value)^\(number)")
       }
-      public static var head: Self { .init(value: "HEAD") }
     }
     public struct Sha: Hashable, Comparable {
       public var value: String

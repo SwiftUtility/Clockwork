@@ -15,21 +15,21 @@ final class Shell: ContextLocal {
       stdin: FileHandle.standardInput.readToEnd,
       stdout: FileHandle.standardOutput.write(_:),
       stderr: FileHandle.standardError.write(_:),
-      read: FileLiner.read(file:),
+      read: FileHandle.read(file:),
+      lineIterator: FileHandle.lineIterator(file:),
       unyaml: YamlParser.decodeYaml(content:),
       execute: Processor.execute(query:),
       resolveAbsolute: Finder.resolve(query:),
-      dialect: .json
+      getTime: Date.init
     )
     let file = try sh.resolveAbsolute(.make(path: profile))
-    var git = try Ctx.Git.make(root: sh.gitTopLevel(path: Finder.parent(path: file)))
-    try sh.updateLfs(git: &git)
-    let sha = try sh.getSha(git: git, ref: .head)
+    var git = try Ctx.Git.make(sh: sh, dir: Finder.parent(path: file))
+    let sha = try git.getSha(sh: sh, ref: .head)
     let profile = try Profile.make(
       location: .make(ref: sha.ref, path: file.relative(to: git.root)),
       yaml: sh.dialect.read(
         Yaml.Profile.self,
-        from: sh.unyaml(String.make(utf8: FileLiner.read(file: file)))
+        from: sh.unyaml(String.make(utf8: FileHandle.read(file: file)))
       )
     )
     guard version == profile.version
@@ -37,27 +37,29 @@ final class Shell: ContextLocal {
     self.repo = try .make(
       git: git,
       sha: sha,
-      branch: sh.getCurrentBranch(git: git),
+      branch: git.currentBranch(sh: sh),
       profile: profile,
-      generate: StencilParser(notation: .json, sh: sh, git: git, profile: profile)
+      generate: StencilParser(sh: sh, git: git, profile: profile)
         .generate(query:)
     )
   }
-  func contractReview(_ payload: ContractPayload) throws {
+  func contractReview(_ payload: ContractPayload) throws -> Bool {
     let sender = try GitlabSender(ctx: self)
     guard case .value = sender.gitlab.current.review else { throw Thrown("Not review job") }
     try sender.triggerPipeline(variables: payload.encode(
       job: sender.gitlab.current.id, version: repo.profile.version
     ))
+    return true
   }
-  func contractProtected(_ payload: ContractPayload) throws {
+  func contractProtected(_ payload: ContractPayload) throws -> Bool {
     let sender = try GitlabSender(ctx: self)
     let protected = try sender.gitlab.protected.get()
     try sender.createPipeline(protected: protected, variables: payload.encode(
       job: sender.gitlab.current.id, version: repo.profile.version
     ))
+    return true
   }
-  func contract(_ payload: ContractPayload) throws {
+  func contract(_ payload: ContractPayload) throws -> Bool {
     let sender = try GitlabSender(ctx: self)
     let variables = try payload.encode(job: sender.gitlab.current.id, version: repo.profile.version)
     if let protected = try? sender.gitlab.protected.get() {
@@ -67,5 +69,6 @@ final class Shell: ContextLocal {
     } else {
       throw Thrown("Not either review or protected ref job")
     }
+    return true
   }
 }

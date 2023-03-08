@@ -64,7 +64,7 @@ final class StencilTests: XCTestCase {
       allowEmpty: false,
       info: Generate.Info(event: [], args: nil, ctx: context)
     )
-    return try StencilParser(notation: .json, cache: Self.templates).generate(query: generate)
+    return try StencilParser(cache: Self.templates).generate(query: generate)
   }
 //  func testSubscript() throws {
 //    let result = try StencilParser(notation: .json)

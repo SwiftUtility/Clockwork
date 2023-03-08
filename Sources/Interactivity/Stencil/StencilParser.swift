@@ -6,13 +6,12 @@ public final class StencilParser {
   let notation: AnyCodable.Notation
   let environment: Environment
   public init(
-    notation: AnyCodable.Notation,
     sh: Ctx.Sh? = nil,
     git: Ctx.Git? = nil,
     profile: Profile? = nil,
     cache: [String: String] = [:]
   ) {
-    self.notation = notation
+    self.notation = .json
     let extensions = Extension()
     extensions.registerFilter("incremented", filter: Filters.incremented(value:))
     extensions.registerFilter("emptyLines", filter: Filters.emptyLines(value:))
