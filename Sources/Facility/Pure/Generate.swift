@@ -419,3 +419,16 @@ private extension Configuration {
     return .init(template: template, allowEmpty: false, info: info)
   }
 }
+extension ContextLocal {
+  public func generate(template: String, stdin: AnyCodable?, args: [String]) -> Generate { .init(
+    template: .name(template),
+    allowEmpty: false,
+    info: Generate.Info.init(
+      event: [],
+      args: args,
+      ctx: Generate.Render(template: template),
+      stdin: stdin,
+      env: sh.env
+    )
+  )}
+}

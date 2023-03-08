@@ -50,6 +50,11 @@ public extension ContextLocal {
       yaml: parse(type: Yaml.Cocoapods.self, yaml: cocoapods)
     )
   }
+  func parseRequisition() throws -> Requisition {
+    guard let requisition = repo.profile.requisition
+    else { throw Thrown("No requisition in profile") }
+    return try Requisition.make(yaml: parse(type: Yaml.Requisition.self, yaml: requisition))
+  }
 }
 private extension ContextLocal {
   func parse<T: Decodable>(type: T.Type, yaml: Ctx.Git.File) throws -> T {

@@ -20,7 +20,7 @@ struct Clockwork: ParsableCommand {
     ]
   )
   @Option(help: "The path to the profile")
-  var profile = ".clockwork.yml"
+  var profile = "Clockwork/Profile.yml"
   struct Cocoapods: ParsableCommand {
     static let configuration = CommandConfiguration(
       abstract: "Cocoapods management commands subset",
@@ -318,7 +318,7 @@ struct Clockwork: ParsableCommand {
         Import.self,
         ImportPkcs12.self,
         ImportProvisions.self,
-        ReportExpiring.self,
+        CheckExpire.self,
       ]
     )
     @Argument(help: "Requisite to install or all")
@@ -327,8 +327,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Delete keychain and provisions" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.requisitesClear()
       }
     }
     struct Import: ClockworkCommand {
@@ -336,8 +335,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var requisites: Requisites
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.requisitesImport(requisites: requisites.requisites)
       }
     }
     struct ImportPkcs12: ClockworkCommand {
@@ -345,8 +343,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var requisites: Requisites
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.requisitesImport(pkcs12: requisites.requisites)
       }
     }
     struct ImportProvisions: ClockworkCommand {
@@ -354,18 +351,18 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var requisites: Requisites
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.requisitesImport(provisions: requisites.requisites)
       }
     }
-    struct ReportExpiring: ClockworkCommand {
+    struct CheckExpire: ClockworkCommand {
       static var abstract: String { "Report expiring provisions and certificates" }
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Days till expired threashold or 0")
       var days: UInt = 0
+      @Flag(help: "Should render json to stdout")
+      var stdout = false
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.requisitesCheckExpire(days: days, stdout: stdout)
       }
     }
   }
@@ -378,8 +375,7 @@ struct Clockwork: ParsableCommand {
     @Argument(help: "Context to make available during rendering")
     var args: [String] = []
     func execute(ctx: Shell) throws -> Bool {
-      #warning("TBD")
-      return false
+      try ctx.render(template: template, stdin: stdin.stdin, args: args)
     }
   }
   struct Review: ParsableCommand {

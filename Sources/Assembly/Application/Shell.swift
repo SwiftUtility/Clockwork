@@ -71,4 +71,33 @@ final class Shell: ContextLocal {
     }
     return true
   }
+  func render(template: String, stdin: Common.Stdin.Kind, args: [String]) throws -> Bool {
+    try Id
+      .make(generate(
+        template: template,
+        stdin: parse(stdin: stdin),
+        args: args
+      ))
+      .map(repo.generate)
+      .map(\.utf8)
+      .map(Data.init(_:))
+      .map(sh.stdout)
+      .get()
+    return true
+  }
+  func parse(stdin: Common.Stdin.Kind) throws -> AnyCodable? {
+    switch stdin {
+    case .ignore: return nil
+    case .lines:
+      let stdin = try sh.stdin()
+        .map(String.make(utf8:))?
+        .trimmingCharacters(in: .newlines)
+        .components(separatedBy: .newlines)
+      return try stdin.map(AnyCodable.init(any:))
+    case .json: return try sh.stdin().reduce(AnyCodable.self, sh.rawDecoder.decode(_:from:))
+    case .yaml: return try sh.stdin()
+      .map(String.make(utf8:))
+      .map(sh.unyaml)
+    }
+  }
 }

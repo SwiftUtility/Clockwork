@@ -58,6 +58,18 @@ public extension Ctx.Git {
     .map(Execute.parseLines(reply:))
     .get()
   }
+  func listTreeTrackedFiles(sh: Ctx.Sh, dir: Dir) throws -> [Ctx.Sys.Relative] { try Id
+    .make(Execute.make(.make(
+      environment: sh.env,
+      arguments: base + unicode + [
+        "ls-tree", "-r", "--name-only", "--full-tree", dir.ref.value, dir.path.value
+      ]
+    )))
+    .map(sh.execute)
+    .map(Execute.parseLines(reply:))
+    .get()
+    .map(Ctx.Sys.Relative.make(value:))
+  }
   func listCommits(
     sh: Ctx.Sh,
     in include: [Ctx.Git.Ref],

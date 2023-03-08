@@ -138,4 +138,25 @@ public enum Json {
       line: line
     )}
   }
+  public struct ExpiringRequisite: Encodable {
+    public var file: String
+    public var branch: String
+    public var name: String
+    public var days: String?
+    public var logMessage: String {
+      let expire = days.map({ "expires in \($0) days" }).get("expired")
+      return "\(branch):\(file): \(name) \(expire)"
+    }
+    public static func make(
+      file: String,
+      branch: String,
+      name: String,
+      days: TimeInterval
+    ) -> Self { .init(
+      file: file,
+      branch: branch,
+      name: name,
+      days: (days > 0).then("\(Int(days))")
+    )}
+  }
 }

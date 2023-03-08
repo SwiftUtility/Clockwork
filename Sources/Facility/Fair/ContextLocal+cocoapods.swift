@@ -17,7 +17,7 @@ public extension ContextLocal {
     try installSpecs(cocoapods: cocoapods, specs: specs)
     try updateSpecs(cocoapods: &cocoapods, specs: specs)
     try sh.write(
-      file: .init(value: "\(repo.git.root)/\(cocoapods.path)"),
+      file: "\(repo.git.root)/\(cocoapods.path)",
       data: .init(cocoapods.yaml.utf8)
     )
     return true
@@ -31,7 +31,7 @@ private extension ContextLocal {
       guard let url = try? git.getOriginUrl(sh: sh) else { continue }
       for spec in cocoapods.specs {
         guard spec.url == url else { continue }
-        if spec.name != name { try sh.delete(path: git.root) }
+        if spec.name != name { try sh.delete(path: git.root.value) }
       }
     }
   }

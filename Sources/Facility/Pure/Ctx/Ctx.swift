@@ -17,6 +17,7 @@ public enum Ctx {
     public let formatter: DateFormatter
     public let rawEncoder: JSONEncoder
     public let rawDecoder: JSONDecoder
+    public let plistDecoder: PropertyListDecoder
     public static func make(
       env: [String : String],
       stdin: @escaping Try.Do<Data?>,
@@ -48,7 +49,8 @@ public enum Ctx {
         return formatter
       }(),
       rawEncoder: .init(),
-      rawDecoder: .init()
+      rawDecoder: .init(),
+      plistDecoder: .init()
     )}
   }
   public struct Repo {
@@ -67,7 +69,7 @@ public enum Ctx {
     )}
   }
   public enum Sys {
-    public struct Relative {
+    public struct Relative: Hashable {
       public var value: String
       public static func make(value: String) throws -> Self {
         guard value.starts(with: "/").not else { throw Thrown("Not relative path \(value)") }
