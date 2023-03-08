@@ -9,12 +9,14 @@ final class GitLoader: Loader {
   let prefix: String
   let sh: Ctx.Sh
   var cache: [String: String]
-  init(sh: Ctx.Sh, git: Ctx.Git, profile: Profile) {
+  init?(sh: Ctx.Sh?, git: Ctx.Git?, profile: Profile?) {
+    guard let sh = sh, let git = git, let profile = profile, let templates = profile.templates
+    else { return nil }
     self.sh = sh
     self.cache = [:]
     self.git = git
     self.ref = profile.location.ref
-    self.prefix = profile.templates.map({ "\($0.path.value)/" }).get("")
+    self.prefix = "\(templates.path.value)/"
   }
   func loadTemplate(name: String, environment: Environment) throws -> Template {
     let content: String

@@ -23,8 +23,8 @@ public final class StencilParser {
     extensions.registerTag("scan", parser: ScanNode.parse(parser:token:))
     extensions.registerTag("line", parser: LineNode.parse(parser:token:))
     let loader: Loader
-    if let sh = sh, let git = git, let profile = profile {
-      loader = GitLoader(sh: sh, git: git, profile: profile)
+    if let gitLoader = GitLoader(sh: sh, git: git, profile: profile) {
+      loader = gitLoader
     } else {
       loader = DictionaryLoader(templates: cache)
     }
