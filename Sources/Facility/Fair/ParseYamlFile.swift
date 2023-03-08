@@ -39,11 +39,6 @@ public extension Configuration {
     file: profile.requisition.get(),
     parse: { try .make(env: env, yaml: $0.read(Yaml.Requisition.self, from: $1)) }
   ))}
-  var parseCocoapods: Lossy<ParseYamlFile<Cocoapods>> { .init(try .init(
-    git: git,
-    file: profile.cocoapods.get(),
-    parse: { try .make(yaml: $0.read(Yaml.Cocoapods.self, from: $1)) }
-  ))}
   var parseFileTaboos: Lossy<ParseYamlFile<[FileTaboo]>> { .init(try .init(
     git: git,
     file: profile.fileTaboos.get(),

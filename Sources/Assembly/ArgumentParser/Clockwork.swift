@@ -34,16 +34,14 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Reset cocoapods specs to configured commits" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.cocoapodsRestoreSpecs()
       }
     }
     struct UpdateSpecs: ClockworkCommand {
       static var abstract: String { "Update cocoapods specs and configured commist" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.cocoapodsUpdateSpecs()
       }
     }
   }

@@ -5,13 +5,10 @@ import Facility
 import FacilityPure
 import InteractivityCommon
 public final class Finder {
-  public static func listFileSystem(query: Files.ListFileSystem) throws -> Files.ListFileSystem.Reply {
-    let path = Path(query.path.value)
+  public static func listDirectories(path: Ctx.Sys.Absolute) throws -> [String] {
+    let path = Path(path.value)
     try ensure(isDirectory: path)
-    return try path.children().compactMap { child in
-      (query.include.files && child.isFile).then(child.lastComponent) ??
-      (query.include.directories && child.isDirectory).then(child.lastComponent)
-    }
+    return try path.children().filter(\.isDirectory).map(\.lastComponent)
   }
   public static func resolveAbsolute(query: Files.ResolveAbsolute) throws -> Files.ResolveAbsolute.Reply {
     var path = Path(query.path)

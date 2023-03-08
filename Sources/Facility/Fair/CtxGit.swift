@@ -119,6 +119,15 @@ public extension Ctx.Git {
     .map(Execute.parseLines(reply:))
     .get()
   }
+  func getOriginUrl(sh: Ctx.Sh) throws -> String { try Id
+    .make(Execute.make(.make(
+      environment: sh.env,
+      arguments: base + ["config", "--get", "remote.origin.url"]
+    )))
+    .map(sh.execute)
+    .map(Execute.parseText(reply:))
+    .get()
+  }
   static func make(sh: Ctx.Sh, dir: Ctx.Sys.Absolute) throws -> Self {
     var result = try Id
       .make(Execute.make(.make(

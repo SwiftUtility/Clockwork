@@ -8,10 +8,7 @@ public final class GitlabSender: ContextGitlab {
   public init(ctx: ContextLocal) throws {
     self.sh = ctx.sh
     self.repo = ctx.repo
-    guard let cfg = try repo.profile.gitlab
-      .reduce(Yaml.Gitlab.self, ctx.parse(type:yaml:))
-      .map(Ctx.Gitlab.Cfg.make(yaml:))
-    else { throw Thrown("Gitlab not configured") }
+    guard let cfg = try ctx.parseGitlab() else { throw Thrown("No gitlab in profile") }
     let apiEncoder = JSONEncoder()
     apiEncoder.keyEncodingStrategy = .convertToSnakeCase
     let apiDecoder = JSONDecoder()
@@ -84,6 +81,7 @@ public final class GitlabSender: ContextGitlab {
     .map(Execute.checkStatus(reply:))
     .get()
   }
+#warning("TBD implement default branch clockwork version check")
 //  public func fulfillContract(cfg: Configuration) throws -> Bool {
 //    let contract = try Contract.decode(env: cfg.env, decoder: jsonDecoder)
 //    if let subject = try Contract.PatchReview.decode(

@@ -1,11 +1,13 @@
 import Foundation
 import Facility
 public struct Cocoapods {
+  public var path: Ctx.Sys.Relative
   public var specs: [Spec]
-  public static var empty: Self { .init(
-    specs: []
-  )}
-  public static func make(yaml: Yaml.Cocoapods) throws -> Self { try .init(
+  public static func make(
+    path: Ctx.Sys.Relative,
+    yaml: Yaml.Cocoapods
+  ) throws -> Self { try .init(
+    path: path,
     specs: yaml.specs
       .get([])
       .map(Spec.make(yaml:))
@@ -23,7 +25,7 @@ public struct Cocoapods {
   public struct Spec {
     public var name: String
     public var url: String
-    public var sha: Git.Sha
+    public var sha: Ctx.Git.Sha
     public static func make(yaml: Yaml.Cocoapods.Spec) throws -> Self { try .init(
       name: yaml.name,
       url: yaml.url,

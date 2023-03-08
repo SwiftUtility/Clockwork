@@ -17,13 +17,14 @@ final class Shell: ContextLocal {
       stderr: FileHandle.standardError.write(_:),
       read: FileHandle.read(file:),
       lineIterator: FileHandle.lineIterator(file:),
+      listDirectories: Finder.listDirectories(path:),
       unyaml: YamlParser.decodeYaml(content:),
       execute: Processor.execute(query:),
       resolveAbsolute: Finder.resolve(query:),
       getTime: Date.init
     )
     let file = try sh.resolveAbsolute(.make(path: profile))
-    var git = try Ctx.Git.make(sh: sh, dir: Finder.parent(path: file))
+    let git = try Ctx.Git.make(sh: sh, dir: Finder.parent(path: file))
     let sha = try git.getSha(sh: sh, ref: .head)
     let profile = try Profile.make(
       location: .make(ref: sha.ref, path: file.relative(to: git.root)),
@@ -39,8 +40,7 @@ final class Shell: ContextLocal {
       sha: sha,
       branch: git.currentBranch(sh: sh),
       profile: profile,
-      generate: StencilParser(sh: sh, git: git, profile: profile)
-        .generate(query:)
+      generate: StencilParser(sh: sh, git: git, profile: profile).generate(query:)
     )
   }
   func contractReview(_ payload: ContractPayload) throws -> Bool {

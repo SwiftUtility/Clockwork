@@ -8,6 +8,7 @@ public enum Ctx {
     public let stderr: Act.Of<Data>.Go
     public let read: Try.Of<Sys.Absolute>.Do<Data>
     public let lineIterator: Try.Of<Sys.Absolute>.Do<AnyIterator<String>>
+    public let listDirectories: Try.Of<Sys.Absolute>.Do<[String]>
     public let unyaml: Try.Of<String>.Do<AnyCodable>
     public let execute: Try.Reply<Execute>
     public let resolveAbsolute: Try.Reply<Ctx.Sys.Absolute.Resolve>
@@ -23,6 +24,7 @@ public enum Ctx {
       stderr: @escaping Act.Of<Data>.Go,
       read: @escaping Try.Of<Sys.Absolute>.Do<Data>,
       lineIterator: @escaping Try.Of<Sys.Absolute>.Do<AnyIterator<String>>,
+      listDirectories: @escaping Try.Of<Sys.Absolute>.Do<[String]>,
       unyaml: @escaping Try.Of<String>.Do<AnyCodable>,
       execute: @escaping Try.Reply<Execute>,
       resolveAbsolute: @escaping Try.Reply<Ctx.Sys.Absolute.Resolve>,
@@ -34,6 +36,7 @@ public enum Ctx {
       stderr: stderr,
       read: read,
       lineIterator: lineIterator,
+      listDirectories: listDirectories,
       unyaml: unyaml,
       execute: execute,
       resolveAbsolute: resolveAbsolute,
