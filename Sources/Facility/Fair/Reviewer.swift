@@ -609,6 +609,7 @@ extension Reviewer {
         child: .make(remote: target),
         parent: .make(sha: fork).make(parent: 1)
       ))).not { result.append(.forkParentNotInTarget) }
+    #warning("Configuration & sanity check")
     }
     return result
   }

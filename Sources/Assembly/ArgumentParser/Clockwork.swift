@@ -8,6 +8,7 @@ struct Clockwork: ParsableCommand {
     subcommands: [
       Cocoapods.self,
       Connect.self,
+      Execute.self,
       Flow.self,
       Fusion.self,
       Requisites.self,
@@ -50,7 +51,6 @@ struct Clockwork: ParsableCommand {
       subcommands: [
         Clean.self,
         Signal.self,
-        Support.self,
         Trigger.self,
       ]
     )
@@ -73,13 +73,6 @@ struct Clockwork: ParsableCommand {
         #warning("TBD")
       }
     }
-    struct Support: ClockworkCommand {
-      static var abstract: String { "Execute contract" }
-      @OptionGroup var clockwork: Clockwork
-      func execute(ctx: Shell) throws {
-        #warning("TBD")
-      }
-    }
     struct Trigger: ClockworkCommand {
       static var abstract: String { "Trigger default branch child pipeline from protected ref" }
       @OptionGroup var clockwork: Clockwork
@@ -88,6 +81,13 @@ struct Clockwork: ParsableCommand {
       func execute(ctx: Shell) throws {
         #warning("TBD")
       }
+    }
+  }
+  struct Execute: ClockworkCommand {
+    static var abstract: String { "Execute contract" }
+    @OptionGroup var clockwork: Clockwork
+    func execute(ctx: Shell) throws {
+      #warning("TBD")
     }
   }
   struct Flow: ParsableCommand {
@@ -642,14 +642,6 @@ struct Clockwork: ParsableCommand {
     }
     struct UnownedCode: ClockworkCommand {
       static var abstract: String { "Ensure no unowned files" }
-      @OptionGroup var clockwork: Clockwork
-      @OptionGroup var validate: Validate
-      func execute(ctx: Shell) throws {
-        #warning("TBD")
-      }
-    }
-    struct Configuration: ClockworkCommand {
-      static var abstract: String { "Ensure configuration not broken" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var validate: Validate
       func execute(ctx: Shell) throws {

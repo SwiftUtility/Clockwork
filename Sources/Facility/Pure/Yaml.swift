@@ -126,7 +126,6 @@ public enum Yaml {
     public var bumpBuild: Template
     public var bumpVersion: Template
     public var exportVersions: Template
-    public var matchReleaseNote: Criteria
     public var createTagName: Template
     public var createTagAnnotation: Template
     public var createReleaseBranchName: Template

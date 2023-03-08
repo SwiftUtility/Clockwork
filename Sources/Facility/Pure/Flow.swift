@@ -6,7 +6,6 @@ public struct Flow {
   public var releaseCount: Int
   public var bumpBuild: Configuration.Template
   public var bumpVersion: Configuration.Template
-  public var matchReleaseNote: Criteria
   public var exportVersions: Configuration.Template
   public var createTagName: Configuration.Template
   public var createTagAnnotation: Configuration.Template
@@ -19,16 +18,11 @@ public struct Flow {
     releaseCount: max(3, yaml.releaseCount),
     bumpBuild: .make(yaml: yaml.bumpBuild),
     bumpVersion: .make(yaml: yaml.bumpVersion),
-    matchReleaseNote: .init(yaml: yaml.matchReleaseNote),
     exportVersions: .make(yaml: yaml.exportVersions),
     createTagName: .make(yaml: yaml.createTagName),
     createTagAnnotation: .make(yaml: yaml.createTagAnnotation),
     createReleaseBranchName: .make(yaml: yaml.createReleaseBranchName)
   )}
-  public func makeNote(sha: String, msg: String) -> ReleaseNotes.Note? {
-    guard msg.isMet(criteria: matchReleaseNote) else { return nil }
-    return .init(sha: sha, msg: msg)
-  }
   public struct Storage {
     public var flow: Flow
     public var stages: [Git.Tag: Stage]
@@ -364,6 +358,13 @@ public struct Flow {
     public struct Note: Encodable {
       public var sha: String
       public var msg: String
+      public static func make(
+        sha: Git.Sha,
+        msg: String
+      ) -> Self { .init(
+        sha: sha.value,
+        msg: msg
+      )}
     }
   }
 }

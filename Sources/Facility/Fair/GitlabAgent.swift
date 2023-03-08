@@ -16,8 +16,8 @@ public final class GitlabSender: ContextGitlab {
     apiEncoder.keyEncodingStrategy = .convertToSnakeCase
     let apiDecoder = JSONDecoder()
     apiDecoder.keyDecodingStrategy = .convertFromSnakeCase
-    let api = try sh.get(env: "CI_API_V4_URL")
-    let token = try sh.get(env: "CI_JOB_TOKEN")
+    let api = try ctx.get(env: "CI_API_V4_URL")
+    let token = try ctx.get(env: "CI_JOB_TOKEN")
     let job = try Id
       .make(Execute.makeCurl(
         url: "\(api)/job",

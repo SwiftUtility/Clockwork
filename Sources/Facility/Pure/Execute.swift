@@ -3,6 +3,10 @@ import Facility
 public struct Execute: Query {
   public var input: Data? = nil
   public var tasks: [Task]
+  public static func make(input: Data? = nil, _ tasks: Task?...) -> Self { .init(
+    input: input,
+    tasks: tasks.compactMap({ $0 })
+  )}
   public static func makeCurl(
     url: String,
     method: String = "GET",
@@ -35,6 +39,19 @@ public struct Execute: Query {
     public var environment: [String: String]
     public var arguments: [String]
     public var secrets: [String] = []
+    public static func make(
+      launch: String = "/usr/bin/env",
+      escalate: Bool = true,
+      environment: [String: String],
+      arguments: [String],
+      secrets: [String] = []
+    ) -> Self { .init(
+      launch: launch,
+      escalate: escalate,
+      environment: environment,
+      arguments: arguments,
+      secrets: secrets
+    )}
   }
   public struct Reply {
     public var data: Data?

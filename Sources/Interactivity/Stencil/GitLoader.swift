@@ -2,6 +2,7 @@ import Foundation
 import Stencil
 import Facility
 import FacilityPure
+import FacilityFair
 final class GitLoader: Loader {
   let git: Ctx.Git
   let ref: Ctx.Git.Ref

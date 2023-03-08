@@ -596,12 +596,14 @@ public final class Producer {
       )))
       .map(Git.Sha.make(value:))
     return try Flow.ReleaseNotes.make(
-      uniq: uniq.compactMap({ sha in try storage.flow.makeNote(sha: sha.value, msg: Execute.parseText(
-        reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha)))
-      ))}),
-      lack: lack.compactMap({ sha in try storage.flow.makeNote(sha: sha.value, msg: Execute.parseText(
-        reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha)))
-      ))})
+      uniq: uniq.map({ sha in try Flow.ReleaseNotes.Note.make(
+        sha: sha,
+        msg: Execute.parseText(reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha))))
+      )}),
+      lack: lack.map({ sha in try Flow.ReleaseNotes.Note.make(
+        sha: sha,
+        msg: Execute.parseText(reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha))))
+      )})
     )
   }
 }
