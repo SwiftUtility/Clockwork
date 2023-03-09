@@ -124,6 +124,70 @@ public struct Contract: Codable {
   ) -> UserWatch { .init(
     login: login, update: update, kind: kind
   )}
+  public static func сonnectSignal(
+    event: String, args: [String], stdin: AnyCodable?
+  ) -> ConnectSignal { .init(
+    event: event, args: args, stdin: stdin
+  )}
+  public static func flowChangeAccessory(
+    product: String, branch: String, version: String
+  ) -> FlowChangeAccessory { .init(
+    product: product,
+    branch: branch,
+    version: version
+  )}
+  public static func flowChangeNext(
+    product: String, version: String
+  ) -> FlowChangeNext { .init(
+    product: product,
+    version: version
+  )}
+  public static func flowCreateAccessory(
+    name: String, commit: String
+  ) -> FlowCreateAccessory { .init(
+    name: name,
+    commit: commit
+  )}
+  public static func flowCreateDeploy(
+    branch: String, commit: String
+  ) -> FlowCreateDeploy { .init(
+    branch: branch,
+    commit: commit
+  )}
+  public static func flowCreateStage(
+    product: String, build: String
+  ) -> FlowCreateStage { .init(
+    product: product,
+    build: build
+  )}
+  public static func flowDeleteBranch(
+    name: String
+  ) -> FlowDeleteBranch { .init(
+    name: name
+  )}
+  public static func flowDeleteTag(
+    name: String
+  ) -> FlowDeleteTag { .init(
+    name: name
+  )}
+  public static func flowReserveBuild(
+    product: String
+  ) -> FlowReserveBuild { .init(
+    product: product
+  )}
+  public static func flowStartHotfix(
+    product: String, commit: String, version: String
+  ) -> FlowStartHotfix { .init(
+    product: product,
+    commit: commit,
+    version: version
+  )}
+  public static func flowStartRelease(
+    product: String, commit: String
+  ) -> FlowStartRelease { .init(
+    product: product,
+    commit: commit
+  )}
   public struct Subject<Payload: ContractPayload> {
     public var contract: Contract
     public var payload: Payload
@@ -175,11 +239,12 @@ public struct Contract: Codable {
     public var args: [String]
     public var patch: Data?
   }
-  public enum ReviewPerform: String, ContractPayload {
-    case accept
-    case update
-    case rebase
-    case remind
+  public enum Perform: String, ContractPayload {
+    case acceptReview
+    case updateReview
+    case rebaseReview
+    case remindReview
+    case cleanConnect
   }
   public struct ReviewSkip: ContractPayload {
     public var iid: UInt
@@ -203,5 +268,49 @@ public struct Contract: Codable {
       case addAuthors
       case delAuthors
     }
+  }
+  public struct ConnectSignal: ContractPayload {
+    public var event: String
+    public var args: [String]
+    public var stdin: AnyCodable?
+  }
+  public struct FlowChangeAccessory: ContractPayload {
+    var product: String
+    var branch: String
+    var version: String
+  }
+  public struct FlowChangeNext: ContractPayload {
+    var product: String
+    var version: String
+  }
+  public struct FlowCreateAccessory: ContractPayload {
+    var name: String
+    var commit: String
+  }
+  public struct FlowCreateDeploy: ContractPayload {
+    var branch: String
+    var commit: String
+  }
+  public struct FlowCreateStage: ContractPayload {
+    var product: String
+    var build: String
+  }
+  public struct FlowDeleteBranch: ContractPayload {
+    var name: String
+  }
+  public struct FlowDeleteTag: ContractPayload {
+    var name: String
+  }
+  public struct FlowReserveBuild: ContractPayload {
+    var product: String
+  }
+  public struct FlowStartHotfix: ContractPayload {
+    var product: String
+    var commit: String
+    var version: String
+  }
+  public struct FlowStartRelease: ContractPayload {
+    var product: String
+    var commit: String
   }
 }
