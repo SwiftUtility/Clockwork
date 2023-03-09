@@ -43,33 +43,8 @@ final class Shell: ContextLocal {
       profile: profile
     )
   }
-  func contractReview(_ payload: ContractPayload) throws -> Bool {
-    let sender = try GitlabSender(ctx: self)
-    guard case .value = sender.gitlab.current.review else { throw Thrown("Not review job") }
-    try sender.triggerPipeline(variables: payload.encode(
-      job: sender.gitlab.current.id, version: repo.profile.version
-    ))
-    return true
-  }
-  func contractProtected(_ payload: ContractPayload) throws -> Bool {
-    let sender = try GitlabSender(ctx: self)
-    let protected = try sender.gitlab.protected.get()
-    try sender.createPipeline(protected: protected, variables: payload.encode(
-      job: sender.gitlab.current.id, version: repo.profile.version
-    ))
-    return true
-  }
-  func contract(_ payload: ContractPayload) throws -> Bool {
-    let sender = try GitlabSender(ctx: self)
-    let variables = try payload.encode(job: sender.gitlab.current.id, version: repo.profile.version)
-    if let protected = try? sender.gitlab.protected.get() {
-      try sender.createPipeline(protected: protected, variables: variables)
-    } else if case .value = sender.gitlab.current.review {
-      try sender.triggerPipeline(variables: variables)
-    } else {
-      throw Thrown("Not either review or protected ref job")
-    }
-    return true
+  func sender() throws -> GitlabSender {
+    try GitlabSender(ctx: self)
   }
   func render(template: String, stdin: Common.Stdin.Kind, args: [String]) throws -> Bool {
     try Id

@@ -159,4 +159,24 @@ public enum Json {
       days: (days > 0).then("\(Int(days))")
     )}
   }
+  public struct FusionTargets: Encodable {
+    public var fork: String
+    public var source: String
+    public var integrate: [String]
+    public var duplicate: [String]?
+    public var propogate: [String]?
+    public static func make(
+      fork: Ctx.Git.Sha,
+      source: Ctx.Git.Branch,
+      integrate: [Ctx.Git.Branch],
+      duplicate: Bool,
+      propogate: [Ctx.Git.Branch]
+    ) -> Self { .init(
+      fork: fork.value,
+      source: source.name,
+      integrate: integrate.map(\.name),
+      duplicate: duplicate.then(integrate.map(\.name)),
+      propogate: propogate.isEmpty.not.then(propogate.map(\.name))
+    )}
+  }
 }

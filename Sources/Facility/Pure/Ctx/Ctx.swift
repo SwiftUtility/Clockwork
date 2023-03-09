@@ -233,6 +233,7 @@ public enum Ctx {
     public let current: Json.GitlabJob
     public let apiEncoder: JSONEncoder
     public let apiDecoder: JSONDecoder
+    public var project: String { "\(api)/projects/\(current.pipeline.projectId)" }
     public static func make(
       cfg: Cfg,
       api: String,

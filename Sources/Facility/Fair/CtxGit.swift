@@ -78,7 +78,7 @@ public extension Ctx.Git {
     firstParents: Bool = false,
     boundary: Bool = false,
     ignoreMissing: Bool = false
-  ) throws -> [Ctx.Git.Sha] {
+  ) throws -> [Sha] {
     var arguments = base + ["log", "--format=%H"]
     if boundary { arguments.append("--boundary") }
     if firstParents { arguments.append("--first-parent") }
@@ -91,7 +91,7 @@ public extension Ctx.Git {
       .map(sh.execute)
       .map(Execute.parseLines(reply:))
       .get()
-      .map(Ctx.Git.Sha.make(value:))
+      .map(Sha.make(value:))
   }
   func reset(
     sh: Ctx.Sh,
@@ -117,6 +117,35 @@ public extension Ctx.Git {
       .map(sh.execute)
       .map(Execute.checkStatus(reply:))
       .get()
+  }
+  func mergeBase(sh: Ctx.Sh, _ one: Ref, _ two: Ref) throws -> Sha { try Id
+    .make(Execute.make(.make(
+      environment: sh.env,
+      arguments: base + ["merge-base", one.value, two.value]
+    )))
+    .map(sh.execute)
+    .map(Execute.parseText(reply:))
+    .map(Sha.make(value:))
+    .get()
+  }
+  func check(sh: Ctx.Sh, child: Ref, parent: Ref) throws -> Bool { try Id
+    .make(Execute.make(.make(
+      environment: sh.env,
+      arguments: base + ["merge-base", "--is-ancestor", parent.value, child.value]
+    )))
+    .map(sh.execute)
+    .map(Execute.parseSuccess(reply:))
+    .get()
+  }
+  func listParents(sh: Ctx.Sh, ref: Ref) throws -> [Sha] { try Id
+    .make(Execute.make(.make(
+      environment: sh.env,
+      arguments: base + ["rev-parse", "\(ref.value)^@"]
+    )))
+    .map(sh.execute)
+    .map(Execute.parseLines(reply:))
+    .get()
+    .map(Sha.make(value:))
   }
   func listConflictMarkers(sh: Ctx.Sh) throws -> [String] { try Id
     .make(Execute.make(.make(

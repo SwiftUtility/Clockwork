@@ -260,7 +260,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Create duplication review" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var fusion: Fusion
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.fusionStart(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.fusionStart(
         fork: fusion.fork,
         target: fusion.target,
         source: fusion.source,
@@ -271,7 +271,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Create integration review" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var fusion: Fusion
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.fusionStart(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.fusionStart(
         fork: fusion.fork,
         target: fusion.target,
         source: fusion.source,
@@ -281,16 +281,19 @@ struct Clockwork: ParsableCommand {
     struct Export: ClockworkCommand {
       static var abstract: String { "Render integration suitable branches to stdout" }
       @OptionGroup var clockwork: Clockwork
+      @Option(help: "Fusion commit sha")
+      var fork: String
+      @Option(help: "Fusion source branch name")
+      var source: String
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.sender().exportFusion(fork: fork, source: source)
       }
     }
     struct Propogate: ClockworkCommand {
       static var abstract: String { "Create propogation review" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var fusion: Fusion
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.fusionStart(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.fusionStart(
         fork: fusion.fork,
         target: fusion.target,
         source: fusion.source,
@@ -301,7 +304,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Create replication review" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var fusion: Fusion
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.fusionStart(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.fusionStart(
         fork: fusion.fork,
         target: fusion.target,
         source: fusion.source,
@@ -405,7 +408,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Accept parent review" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws -> Bool {
-        try ctx.contractReview(Contract.ReviewPerform.accept)
+        try ctx.sender().contractReview(Contract.ReviewPerform.accept)
       }
     }
     struct AddLabels: ClockworkCommand {
@@ -413,7 +416,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Labels to be added to parent review")
       var labels: [String]
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractReview(Contract.reviewLabels(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractReview(Contract.reviewLabels(
         labels: labels,
         add: true
       ))}
@@ -423,7 +426,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Flag(help: "Should approve persist regardless of further commits")
       var advance: Bool = false
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractReview(Contract.reviewApprove(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractReview(Contract.reviewApprove(
         advance: advance
       ))}
     }
@@ -431,7 +434,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Dequeue parent review" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var review: Review
-      func execute(ctx: Shell) throws -> Bool { try ctx.contract(Contract.reviewDequeue(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contract(Contract.reviewDequeue(
         iid: review.iid
       ))}
     }
@@ -441,7 +444,7 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Jobs to start before accepting merge")
       var jobs: [String] = []
       func execute(ctx: Shell) throws -> Bool {
-        try ctx.contractReview(Contract.reviewEnqueue(jobs: jobs))
+        try ctx.sender().contractReview(Contract.reviewEnqueue(jobs: jobs))
       }
     }
     struct List: ClockworkCommand {
@@ -449,7 +452,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Approver login or all active users")
       var user: String = ""
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.reviewList(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.reviewList(
         user: user
       ))}
     }
@@ -459,7 +462,7 @@ struct Clockwork: ParsableCommand {
       @Option(help: "Approver login or job runner")
       var user: String = ""
       @OptionGroup var review: Review
-      func execute(ctx: Shell) throws -> Bool { try ctx.contract(Contract.reviewOwnage(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contract(Contract.reviewOwnage(
         user: user,
         iid: review.iid,
         own: true
@@ -472,7 +475,7 @@ struct Clockwork: ParsableCommand {
       var skip: Bool = false
       @Argument(help: "Additional context")
       var args: [String] = []
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractReview(Contract.reviewPatch(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractReview(Contract.reviewPatch(
         skip: skip,
         args: args,
         patch: ctx.sh.stdin()
@@ -482,7 +485,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Rebase parent review" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws -> Bool {
-        try ctx.contractReview(Contract.ReviewPerform.rebase)
+        try ctx.sender().contractReview(Contract.ReviewPerform.rebase)
       }
     }
     struct Remind: ClockworkCommand {
@@ -490,7 +493,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var review: Review
       func execute(ctx: Shell) throws -> Bool {
-        try ctx.contractReview(Contract.ReviewPerform.remind)
+        try ctx.sender().contractReview(Contract.ReviewPerform.remind)
       }
     }
     struct RemoveLabels: ClockworkCommand {
@@ -498,7 +501,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Argument(help: "Labels to be removed from parent review")
       var labels: [String]
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractReview(Contract.reviewLabels(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractReview(Contract.reviewLabels(
         labels: labels,
         add: false
       ))}
@@ -508,7 +511,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @Option(help: "Merge request iid")
       var iid: UInt
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.reviewSkip(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.reviewSkip(
         iid: iid
       ))}
     }
@@ -518,7 +521,7 @@ struct Clockwork: ParsableCommand {
       @Option(help: "Approver login or job runner")
       var user: String = ""
       @OptionGroup var review: Review
-      func execute(ctx: Shell) throws -> Bool { try ctx.contract(Contract.reviewOwnage(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contract(Contract.reviewOwnage(
         user: user,
         iid: review.iid,
         own: false
@@ -528,7 +531,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Update status for stuck reviews" }
       @OptionGroup var clockwork: Clockwork
       func execute(ctx: Shell) throws -> Bool {
-        try ctx.contractReview(Contract.ReviewPerform.update)
+        try ctx.sender().contractReview(Contract.ReviewPerform.update)
       }
     }
   }
@@ -552,7 +555,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Activate user" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.userAcvivity(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.userAcvivity(
         login: user.login,
         active: true
       ))}
@@ -561,7 +564,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Deactivate user" }
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var user: User
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.userAcvivity(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.userAcvivity(
         login: user.login,
         active: false
       ))}
@@ -574,7 +577,7 @@ struct Clockwork: ParsableCommand {
       var slack: String = ""
       @Option(help: "Approver's rocket id")
       var rocket: String = ""
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.userRegister(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.userRegister(
         login: user.login,
         slack: slack,
         rocket: rocket
@@ -586,7 +589,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var user: User
       @Argument(help: "List of authors to unwatch")
       var args: [String] = []
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.userWatch(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.userWatch(
         login: user.login,
         update: args,
         kind: .delAuthors
@@ -598,7 +601,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var user: User
       @Argument(help: "List of teams to unwatch")
       var args: [String] = []
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.userWatch(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.userWatch(
         login: user.login,
         update: args,
         kind: .delTeams
@@ -610,7 +613,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var user: User
       @Argument(help: "List of authors to watch")
       var args: [String] = []
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.userWatch(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.userWatch(
         login: user.login,
         update: args,
         kind: .addAuthors
@@ -622,7 +625,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var user: User
       @Argument(help: "List of teams to watch")
       var args: [String] = []
-      func execute(ctx: Shell) throws -> Bool { try ctx.contractProtected(Contract.userWatch(
+      func execute(ctx: Shell) throws -> Bool { try ctx.sender().contractProtected(Contract.userWatch(
         login: user.login,
         update: args,
         kind: .addTeams
