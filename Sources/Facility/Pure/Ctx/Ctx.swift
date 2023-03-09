@@ -145,7 +145,7 @@ public enum Ctx {
       public static func make(job: Json.GitlabJob) throws -> Self {
         return try .make(value: job.pipeline.sha)
       }
-      public static func make(merge: Json.GitlabMergeState) throws -> Self {
+      public static func make(merge: Json.GitlabMerge) throws -> Self {
         return try .make(value: merge.lastPipeline.sha)
       }
       public static func < (lhs: Git.Sha, rhs: Git.Sha) -> Bool { lhs.value < rhs.value }
@@ -306,7 +306,7 @@ public enum Ctx {
       )}
       public enum Sender {
         case tag(Json.GitlabTag)
-        case merge(Json.GitlabMergeState)
+        case merge(Json.GitlabMerge)
         case branch(Json.GitlabBranch)
       }
     }

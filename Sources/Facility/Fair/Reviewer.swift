@@ -382,12 +382,12 @@ extension Reviewer {
     ctx: inout Review.Context,
     iid: UInt?,
     latest: Bool = false
-  ) throws -> Json.GitlabMergeState? {
+  ) throws -> Json.GitlabMerge? {
     let gitlab = try ctx.cfg.gitlab.get()
     if let iid = iid { return try gitlab
       .getMrState(review: iid)
       .map(execute)
-      .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
+      .reduce(Json.GitlabMerge.self, jsonDecoder.decode(success:reply:))
       .get()
     } else {
       let parent = try gitlab.parent.get()
@@ -433,7 +433,7 @@ extension Reviewer {
       ))
       .map(execute)
       .map(Execute.parseData(reply:))
-      .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(_:from:))
+      .reduce(Json.GitlabMerge.self, jsonDecoder.decode(_:from:))
       .get()
     ctx.award.insert(merge.iid)
     guard var state = try ctx.makeState(merge: merge) else { return false }
@@ -666,7 +666,7 @@ extension Reviewer {
   func checkReady(
     ctx: inout Review.Context,
     state: inout Review.State,
-    merge: Json.GitlabMergeState
+    merge: Json.GitlabMerge
   ) throws -> Bool {
     let profile = try parseProfile(ctx.cfg.parseProfile(ref: .make(sha: .make(merge: merge))))
     let ownage = try ctx.cfg.parseCodeOwnage(profile: profile)
@@ -696,7 +696,7 @@ extension Reviewer {
   }
   func prepareChange(
     ctx: inout Review.Context,
-    merge: Json.GitlabMergeState
+    merge: Json.GitlabMerge
   ) throws -> Review.State? {
     guard let state = try ctx.makeState(merge: merge) else {
       try storeContext(ctx: &ctx)
@@ -708,7 +708,7 @@ extension Reviewer {
     }
     return state
   }
-  func storeChange(ctx: inout Review.Context, state: inout Review.State, merge: Json.GitlabMergeState) throws {
+  func storeChange(ctx: inout Review.Context, state: inout Review.State, merge: Json.GitlabMerge) throws {
     guard
       try checkReady(ctx: &ctx, state: &state, merge: merge),
       try normalize(ctx: &ctx, state: &state)

@@ -14,7 +14,7 @@ extension Review {
     public var award: Set<UInt> = []
     public var updates: Set<UInt> = []
     public var message: Generate.CreateReviewStorageCommitMessage = .init()
-    public mutating func makeState(merge: Json.GitlabMergeState) throws -> State? {
+    public mutating func makeState(merge: Json.GitlabMerge) throws -> State? {
       guard merge.isClosed.not else {
         if let state = storage.delete(review: merge.iid) {
           cfg.reportReviewEvent(state: state, merge: merge, reason: .closed)
@@ -38,12 +38,12 @@ extension Review {
       storage.states[merge.iid] = state
       return state
     }
-    public mutating func merge(merge: Json.GitlabMergeState) {
+    public mutating func merge(merge: Json.GitlabMerge) {
       if let state = storage.delete(review: merge.iid) {
         cfg.reportReviewEvent(state: state, merge: merge, reason: .merged)
       }
     }
-    public mutating func dequeue(merge: Json.GitlabMergeState) {
+    public mutating func dequeue(merge: Json.GitlabMerge) {
       storage.dequeue(review: merge.iid)
     }
     public mutating func update(state: State) {
@@ -55,10 +55,10 @@ extension Review {
         storage.dequeue(review: state.review)
       }
     }
-    public func isFirst(merge: Json.GitlabMergeState) -> Bool {
+    public func isFirst(merge: Json.GitlabMerge) -> Bool {
       storage.queues.compactMap(\.value.first).contains(merge.iid)
     }
-    public func isQueued(merge: Json.GitlabMergeState) -> Bool {
+    public func isQueued(merge: Json.GitlabMerge) -> Bool {
       storage.queues[merge.targetBranch].get([]).contains(merge.iid)
     }
     public static func make(

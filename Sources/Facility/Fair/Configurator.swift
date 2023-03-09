@@ -170,7 +170,7 @@ extension Configurator {
     if let review = try? gitlab.parent.flatMap(\.review).get() {
       gitlab.merge = gitlab.getMrState(review: review)
         .map(execute)
-        .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
+        .reduce(Json.GitlabMerge.self, jsonDecoder.decode(success:reply:))
     }
     return gitlab
   }

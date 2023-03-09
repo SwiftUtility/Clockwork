@@ -12,7 +12,7 @@ public struct Gitlab {
   public var rest: Lossy<Rest> = .error(Thrown("Not protected ref pipeline"))
   public var deployKey: Lossy<String> = .error(Thrown("Not protected ref pipeline"))
   public var parent: Lossy<Json.GitlabJob> = .error(Thrown("Not triggered pipeline"))
-  public var merge: Lossy<Json.GitlabMergeState> = .error(Thrown("Not review triggered pipeline"))
+  public var merge: Lossy<Json.GitlabMerge> = .error(Thrown("Not review triggered pipeline"))
   public var info: Info { .init(
     mr: try? job.review.get(),
     url: job.webUrl
@@ -146,7 +146,7 @@ public struct Gitlab {
     public var bot: Json.GitlabUser?
     public var proj: Json.GitlabProject?
     public var parent: Json.GitlabJob?
-    public var merge: Json.GitlabMergeState?
+    public var merge: Json.GitlabMerge?
   }
   public struct Parent {
     public let job: UInt

@@ -160,17 +160,17 @@ public struct Generate: Query {
     public var target: String
   }
   public struct CreatePatchCommit: GenerateContext {
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
   }
   public struct CreateMergeCommit: GenerateContext {
     public var kind: String
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
     public var fork: String
     public var fusion: String
   }
   public struct CreateSquashCommit: GenerateContext {
     public var kind: String
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
   }
   public struct Render: GenerateContext {
     public var template: String
@@ -319,7 +319,7 @@ public extension Configuration {
     subevent: [reason.rawValue, chat.kind.rawValue]
   )}
   func createSquashCommitMessage(
-    merge: Json.GitlabMergeState,
+    merge: Json.GitlabMerge,
     review: Review,
     fusion: Review.Fusion
   ) -> Generate? {
@@ -334,7 +334,7 @@ public extension Configuration {
     )
   }
   func createMergeCommitMessage(
-    merge: Json.GitlabMergeState,
+    merge: Json.GitlabMerge,
     review: Review,
     fusion: Review.Fusion
   ) -> Generate? {
@@ -369,7 +369,7 @@ public extension Configuration {
     )
   }
   func createPatchCommitMessage(
-    merge: Json.GitlabMergeState,
+    merge: Json.GitlabMerge,
     review: Review
   ) throws -> Generate { generate(
     template: review.createPatchCommit,

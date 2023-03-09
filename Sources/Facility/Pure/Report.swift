@@ -50,7 +50,7 @@ public struct Report {
     }
   }
   public struct ReviewFail: GenerateContext {
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
     public var review: Review.Info
     public var reason: Reason
     public enum Reason: String, Encodable {
@@ -70,17 +70,17 @@ public struct Report {
   }
   public struct ReviewWatch: GenerateContext {
     public var user: String
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
     public var review: Review.Info
   }
   public struct ReviewApprove: GenerateContext {
     public var user: String
     public var diff: String?
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
     public var review: Review.Info
     public var reason: Reason
     public static func make(
-      merge: Json.GitlabMergeState,
+      merge: Json.GitlabMerge,
       state: Review.State,
       user: String
     ) -> Self { .init(
@@ -106,7 +106,7 @@ public struct Report {
     }
   }
   public struct ReviewEvent: GenerateContext {
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
     public var review: Review.Info
     public var reason: Reason
     public enum Reason: String, Encodable {
@@ -123,12 +123,12 @@ public struct Report {
     }
   }
   public struct ReviewMergeError: GenerateContext {
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
     public var review: Review.Info
     public var error: String
   }
   public struct ReviewUpdated: GenerateContext {
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
     public var review: Review.Info
   }
   public struct ReleaseBranchCreated: GenerateContext {
@@ -187,13 +187,13 @@ public struct Report {
     public var branch: String
   }
   public struct Custom: GenerateContext {
-    public var merge: Json.GitlabMergeState?
+    public var merge: Json.GitlabMerge?
     public var review: Review.Info?
     public var product: String?
     public var version: String?
   }
   public struct Unexpected: GenerateContext {
-    public var merge: Json.GitlabMergeState?
+    public var merge: Json.GitlabMerge?
     public var error: String
   }
   public struct ExpiringRequisites: GenerateContext {
@@ -242,7 +242,7 @@ public extension Configuration {
     subevent: [reason.rawValue]
   ))}
   func reportReviewFail(
-    merge: Json.GitlabMergeState,
+    merge: Json.GitlabMerge,
     state: Review.State,
     reason: Report.ReviewFail.Reason
   ) { Report.Bag.shared.reports.append(.make(
@@ -253,7 +253,7 @@ public extension Configuration {
   ))}
   func reportReviewWatch(
     user: String,
-    merge: Json.GitlabMergeState,
+    merge: Json.GitlabMerge,
     state: Review.State
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
@@ -271,7 +271,7 @@ public extension Configuration {
   ))}
   func reportReviewApprove(
     user: String,
-    merge: Json.GitlabMergeState,
+    merge: Json.GitlabMerge,
     state: Review.State,
     reason: Report.ReviewApprove.Reason
   ) { Report.Bag.shared.reports.append(.make(
@@ -301,7 +301,7 @@ public extension Configuration {
   ))}
   func reportReviewEvent(
     state: Review.State,
-    merge: Json.GitlabMergeState,
+    merge: Json.GitlabMerge,
     reason: Report.ReviewEvent.Reason
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
@@ -316,7 +316,7 @@ public extension Configuration {
   ))}
   func reportReviewUpdated(
     state: Review.State,
-    merge: Json.GitlabMergeState
+    merge: Json.GitlabMerge
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
     threads: .make(reviews: [state.review]),
@@ -324,7 +324,7 @@ public extension Configuration {
   ))}
   func reportReviewMergeError(
     state: Review.State,
-    merge: Json.GitlabMergeState,
+    merge: Json.GitlabMerge,
     error: String
   ) { Report.Bag.shared.reports.append(.make(
     cfg: self,
@@ -456,7 +456,7 @@ public extension Configuration {
     stdin: AnyCodable?,
     args: [String],
     state: Review.State? = nil,
-    merge: Json.GitlabMergeState? = nil,
+    merge: Json.GitlabMerge? = nil,
     product: String? = nil,
     version: String? = nil
   ) { Report.Bag.shared.reports.append(.make(

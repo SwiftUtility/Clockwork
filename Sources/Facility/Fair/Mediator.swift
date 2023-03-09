@@ -106,7 +106,7 @@ public final class Mediator {
   ) throws -> Bool {
     let stdin = try parseStdin(stdin)
     var threads = Report.Threads.make(users: cfg.defaultUsers)
-    var merge: Json.GitlabMergeState? = nil
+    var merge: Json.GitlabMerge? = nil
     var state: Review.State? = nil
     var product: String? = nil
     var version: String? = nil
@@ -145,7 +145,7 @@ public final class Mediator {
           let review = try gitlab
             .getMrState(review: iid)
             .map(execute)
-            .reduce(Json.GitlabMergeState.self, jsonDecoder.decode(success:reply:))
+            .reduce(Json.GitlabMerge.self, jsonDecoder.decode(success:reply:))
             .get()
           merge = review
           state = try? resolveState(.make(cfg: cfg, merge: review))

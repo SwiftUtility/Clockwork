@@ -133,10 +133,10 @@ public struct Review {
   }
   public struct Change {
     public var head: Git.Sha
-    public var merge: Json.GitlabMergeState
+    public var merge: Json.GitlabMerge
     public var fusion: Fusion?
     public var addAward: Bool = false
-    public static func make(merge: Json.GitlabMergeState) throws -> Self { try .init(
+    public static func make(merge: Json.GitlabMerge) throws -> Self { try .init(
       head: .make(merge: merge), merge: merge
     )}
   }

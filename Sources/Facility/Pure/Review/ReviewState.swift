@@ -7,7 +7,7 @@ extension Review {
     public var target: Git.Branch
     public var original: Git.Branch?
     public var authors: Set<String>
-    public var merge: Json.GitlabMergeState? = nil
+    public var merge: Json.GitlabMerge? = nil
     public var phase: Phase? = nil
     public var skip: Set<Git.Sha> = []
     public var teams: Set<String> = []
@@ -64,7 +64,7 @@ extension Review {
     }
     public mutating func prepareChange(
       ctx: Context,
-      merge: Json.GitlabMergeState
+      merge: Json.GitlabMerge
     ) throws -> Bool {
       change = try .make(merge: merge)
       let source = try Git.Branch.make(name: merge.sourceBranch)
@@ -136,7 +136,7 @@ extension Review {
     }
     public mutating func update(
       ctx: Context,
-      merge: Json.GitlabMergeState,
+      merge: Json.GitlabMerge,
       awards: [Json.GitlabAward],
       discussions: [Json.GitlabDiscussion]
     ) {
@@ -484,7 +484,7 @@ extension Review {
       })
     }
     public static func make(
-      merge: Json.GitlabMergeState,
+      merge: Json.GitlabMerge,
       bots: Set<String>
     ) throws -> Self { try .init(
       review: merge.iid,
@@ -513,10 +513,10 @@ extension Review {
     )}
     public struct Resolve: Query {
       public var cfg: Configuration
-      public var merge: Json.GitlabMergeState
+      public var merge: Json.GitlabMerge
       public static func make(
         cfg: Configuration,
-        merge: Json.GitlabMergeState
+        merge: Json.GitlabMerge
       ) -> Self { .init(
         cfg: cfg,
         merge: merge
