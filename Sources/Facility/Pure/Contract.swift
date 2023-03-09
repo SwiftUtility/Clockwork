@@ -137,6 +137,7 @@ public struct Contract: Codable {
     public struct Variable: Encodable {
       public var key: String
       public var value: String
+      public static func make(key: String, value: String) -> Self { .init(key: key, value: value) }
     }
   }
   public struct BuildReserve: ContractPayload {

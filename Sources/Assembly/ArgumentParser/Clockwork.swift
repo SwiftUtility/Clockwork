@@ -9,7 +9,7 @@ struct Clockwork: ParsableCommand {
     subcommands: [
       Cocoapods.self,
       Connect.self,
-      Execute.self,
+      ExecuteContract.self,
       Flow.self,
       Fusion.self,
       Requisites.self,
@@ -82,12 +82,11 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
       var context: [String] = []
       func execute(ctx: Shell) throws -> Bool {
-        #warning("TBD")
-        return false
+        try ctx.sender().triggerProtected(args: context)
       }
     }
   }
-  struct Execute: ClockworkCommand {
+  struct ExecuteContract: ClockworkCommand {
     static var abstract: String { "Execute contract" }
     @OptionGroup var clockwork: Clockwork
     func execute(ctx: Shell) throws -> Bool {
