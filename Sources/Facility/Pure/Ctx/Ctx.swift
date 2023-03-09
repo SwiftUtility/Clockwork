@@ -312,14 +312,3 @@ public enum Ctx {
     }
   }
 }
-public protocol ContextLocal {
-  var sh: Ctx.Sh { get }
-  var repo: Ctx.Repo { get }
-}
-public protocol ContextGitlab: ContextLocal {
-  var gitlab: Ctx.Gitlab { get }
-}
-public protocol ContextGitlabContracted: ContextGitlab {
-  var protected: Ctx.Gitlab.Protected { get }
-  var contracted: Ctx.Gitlab.Contracted { get }
-}

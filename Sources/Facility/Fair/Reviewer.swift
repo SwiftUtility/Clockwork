@@ -89,8 +89,8 @@ public final class Reviewer {
     return true
   }
   public func patchReview(
-    cfg: Configuration,
-    subject: Contract.Subject<Contract.ReviewPatch>
+//    cfg: Configuration,
+//    subject: Contract.Subject<Contract.ReviewPatch>
   ) throws -> Bool {
     #warning("TBD")
     return false

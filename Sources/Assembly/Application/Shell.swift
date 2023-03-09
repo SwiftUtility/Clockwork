@@ -43,8 +43,21 @@ final class Shell: ContextLocal {
       profile: profile
     )
   }
-  func sender() throws -> GitlabSender {
-    try GitlabSender(ctx: self)
+  func sender() throws -> ContextSender {
+    if repo.profile.gitlab != nil {
+      return try GitlabSender(ctx: self)
+    } else {
+      throw Thrown("No remote repo configured")
+    }
+  }
+  func executeContract() throws -> Bool {
+    if repo.profile.gitlab != nil {
+      return try GitlabExecutor
+        .init(sender: .init(ctx: self), generate: stensil.generate(query:))
+        .execute()
+    } else {
+      throw Thrown("No remote repo configured")
+    }
   }
   func render(template: String, stdin: Common.Stdin.Kind, args: [String]) throws -> Bool {
     try Id
@@ -75,4 +88,7 @@ final class Shell: ContextLocal {
       .map(sh.unyaml)
     }
   }
+}
+private extension Contract {
+  
 }
