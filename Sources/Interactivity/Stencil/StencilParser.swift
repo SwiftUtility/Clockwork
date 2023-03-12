@@ -7,7 +7,7 @@ public final class StencilParser {
   let notation: AnyCodable.Notation
   let environment: Environment
   public init(
-    ctx: ContextRepo? = nil,
+    ctx: ContextLocal? = nil,
     cache: [String: String] = [:]
   ) {
     self.notation = .json

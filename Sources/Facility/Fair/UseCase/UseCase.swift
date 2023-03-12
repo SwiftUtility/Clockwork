@@ -2,33 +2,17 @@ import Foundation
 import Facility
 import FacilityPure
 public enum UseCase {
-  public static func checkConflictMarkers(
-    target: String,
-    stdout: Bool
-  ) -> Performer {
-    CheckConflictMarkers(target: target, stdout: stdout)
+  public static func cocoapodsResetSpecs() -> Performer {
+    CocoapodsResetSpecs()
   }
-  public static func checkFileTaboos(
-    stdout: Bool
-  ) -> Performer {
-    CheckFileTaboos(stdout: stdout)
-  }
-  public static func checkRequisitesExpire(
-    days: UInt,
-    stdout: Bool
-  ) -> Performer {
-    CheckRequisitesExpire(days: days, stdout: stdout)
-  }
-  public static func checkUnownedCode(
-    stdout: Bool
-  ) -> Performer {
-    CheckUnownedCode(stdout: stdout)
-  }
-  public static func clearRequisites() -> Performer {
-    ClearRequisites()
+  public static func cocoapodsUpdateSpecs() -> Performer {
+    CocoapodsUpdateSpecs()
   }
   public static func connectClean() -> Performer {
     ConnectClean()
+  }
+  public static func connectExecuteContract() -> Performer {
+    ConnectExecuteContract()
   }
   public static func connectSignal(
     event: String,
@@ -37,19 +21,10 @@ public enum UseCase {
   ) -> Performer {
     ConnectSignal(event: event, args: args, stdin: stdin)
   }
-  public static func executeContract() -> Performer {
-    ExecuteContract()
-  }
-  public static func exportFusion(
-    fork: String,
-    source: String
+  public static func connectTriggerPipeline(
+    variables: [String]
   ) -> Performer {
-    ExportFusion(fork: fork, source: source)
-  }
-  public static func exportVersions(
-    product: String
-  ) -> Performer {
-    ExportVersions(product: product)
+    ConnectTriggerPipeline(variables: variables)
   }
   public static func flowChangeAccessory(
     product: String,
@@ -92,6 +67,11 @@ public enum UseCase {
   ) -> Performer {
     FlowDeleteTag(name: name)
   }
+  public static func flowExportVersions(
+    product: String
+  ) -> Performer {
+    FlowExportVersions(product: product)
+  }
   public static func flowReserveBuild(
     product: String
   ) -> Performer {
@@ -110,6 +90,12 @@ public enum UseCase {
   ) -> Performer {
     FlowStartRelease(product: product, commit: commit)
   }
+  public static func fusionExport(
+    fork: String,
+    source: String
+  ) -> Performer {
+    FusionExport(fork: fork, source: source)
+  }
   public static func fusionStart(
     fork: String,
     target: String,
@@ -118,12 +104,21 @@ public enum UseCase {
   ) -> Performer {
     FusionStart(fork: fork, target: target, source: source, prefix: prefix)
   }
-  public static func importRequisites(
+  public static func requisitesCheckExpire(
+    days: UInt,
+    stdout: Bool
+  ) -> Performer {
+    RequisitesCheckExpire(days: days, stdout: stdout)
+  }
+  public static func requisitesClear() -> Performer {
+    RequisitesClear()
+  }
+  public static func requisitesImport(
     pkcs12: Bool,
     provisions: Bool,
     requisites: [String]
   ) -> Performer {
-    ImportRequisites(pkcs12: pkcs12, provisions: provisions, requisites: requisites)
+    RequisitesImport(pkcs12: pkcs12, provisions: provisions, requisites: requisites)
   }
   public static func render(
     template: String,
@@ -131,9 +126,6 @@ public enum UseCase {
     args: [String]
   ) -> Performer {
     Render(template: template, stdin: stdin, args: args)
-  }
-  public static func resetCocoapodsSpecs() -> Performer {
-    ResetCocoapodsSpecs()
   }
   public static func reviewAccept() -> Performer {
     ReviewAccept()
@@ -193,14 +185,6 @@ public enum UseCase {
   public static func reviewUpdate() -> Performer {
     ReviewUpdate()
   }
-  public static func triggerPipeline(
-    variables: [String]
-  ) -> Performer {
-    TriggerPipeline(variables: variables)
-  }
-  public static func updateCocoapodsSpecs() -> Performer {
-    UpdateCocoapodsSpecs()
-  }
   public static func userActivity(
     login: String,
     active: Bool
@@ -227,5 +211,21 @@ public enum UseCase {
     add: Bool
   ) -> Performer {
     UserWatchTeams(login: login, watch: watch, add: add)
+  }
+  public static func validateConflictMarkers(
+    target: String,
+    stdout: Bool
+  ) -> Performer {
+    ValidateConflictMarkers(target: target, stdout: stdout)
+  }
+  public static func validateFileTaboos(
+    stdout: Bool
+  ) -> Performer {
+    ValidateFileTaboos(stdout: stdout)
+  }
+  public static func validateUnownedCode(
+    stdout: Bool
+  ) -> Performer {
+    ValidateUnownedCode(stdout: stdout)
   }
 }

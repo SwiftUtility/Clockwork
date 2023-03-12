@@ -2,9 +2,9 @@ import Foundation
 import Facility
 import FacilityPure
 extension UseCase {
-  struct CheckUnownedCode: Performer {
+  struct ValidateUnownedCode: Performer {
     var stdout: Bool
-    func perform(repo ctx: ContextRepo) throws -> Bool {
+    func perform(repo ctx: ContextLocal) throws -> Bool {
       guard try ctx.gitIsClean() else { throw Thrown("Git is dirty") }
       guard let codeOwnage = try ctx.parseCodeOwnage()?.values
       else { throw Thrown("No codeOwnage in profile") }

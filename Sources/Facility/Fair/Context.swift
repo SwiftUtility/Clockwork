@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-extension ContextShell {
+extension Context {
   func get(env value: String) throws -> String {
     guard let result = sh.env[value] else { throw Thrown("No env variable \(value)") }
     return result

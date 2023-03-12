@@ -6,7 +6,7 @@ import InteractivityCommon
 import InteractivityYams
 import InteractivityStencil
 import InteractivityPathKit
-final class Repo: ContextRepo {
+final class Repo: ContextLocal {
   let sh: Ctx.Sh
   let git: Ctx.Git
   let repo: Ctx.Repo
@@ -71,7 +71,4 @@ final class Repo: ContextRepo {
     let repo = try Repo(profile: profile)
     return try handler(repo).perform(repo: repo)
   }
-}
-private extension Contract {
-  
 }

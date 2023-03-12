@@ -6,7 +6,7 @@ public final class GitlabSender: ContextGitlab {
   public let git: Ctx.Git
   public let repo: Ctx.Repo
   public let gitlab: Ctx.Gitlab
-  public init(ctx: ContextRepo) throws {
+  public init(ctx: ContextLocal) throws {
     self.sh = ctx.sh
     self.git = ctx.git
     self.repo = ctx.repo

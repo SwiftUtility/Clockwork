@@ -2,7 +2,7 @@ import Foundation
 import Facility
 import FacilityPure
 extension UseCase {
-  struct ExportFusion: ProtectedGitlabPerformer {
+  struct FusionExport: ProtectedGitlabPerformer {
     var fork: String
     var source: String
     func perform(gitlab ctx: ContextGitlab, protected: Ctx.Gitlab.Protected) throws -> Bool {

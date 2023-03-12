@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-extension ContextShell {
+extension Context {
   func parseGitlab() throws -> Ctx.Gitlab.Cfg? { try repo.profile.gitlab
     .reduce(Yaml.Gitlab.self, parse(type:yaml:))
     .map(Ctx.Gitlab.Cfg.make(yaml:))
@@ -31,7 +31,7 @@ extension ContextShell {
     return try Requisition.make(yaml: parse(type: Yaml.Requisition.self, yaml: requisition))
   }
 }
-private extension ContextShell {
+private extension Context {
   func parse<T: Decodable>(type: T.Type, yaml: Ctx.Git.File) throws -> T {
     let yaml = try Id
     .make(yaml)

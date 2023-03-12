@@ -9,7 +9,7 @@ extension String {
 extension TimeInterval {
   static var day: Self { 24 * 60 * 60 }
 }
-extension ContextRepo {
+extension ContextLocal {
   func deleteProvisions() throws {
     try sh.delete(path: .provisions)
     try sh.createDir(path: .provisions)

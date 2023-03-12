@@ -4,10 +4,10 @@ import Facility
 import FacilityPure
 import FacilityFair
 final class GitLoader: Loader {
-  let ctx: ContextRepo
+  let ctx: ContextLocal
   let prefix: String
   var cache: [String: String] = [:]
-  init?(ctx: ContextRepo?) {
+  init?(ctx: ContextLocal?) {
     guard
       let ctx = ctx, let templates = ctx.repo.profile.templates
     else { return nil }

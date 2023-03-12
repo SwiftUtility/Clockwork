@@ -2,9 +2,9 @@ import Foundation
 import Facility
 import FacilityPure
 extension UseCase {
-  struct CheckFileTaboos: Performer {
+  struct ValidateFileTaboos: Performer {
     var stdout: Bool
-    func perform(repo ctx: ContextRepo) throws -> Bool {
+    func perform(repo ctx: ContextLocal) throws -> Bool {
       guard try ctx.gitIsClean() else { throw Thrown("Git is dirty") }
       let rules = try ctx.parseFileTaboos()
       let nameRules = rules.filter(\.lines.isEmpty)

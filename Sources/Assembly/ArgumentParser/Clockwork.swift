@@ -10,7 +10,6 @@ struct Clockwork: ParsableCommand {
     subcommands: [
       Cocoapods.self,
       Connect.self,
-      ExecuteContract.self,
       Flow.self,
       Fusion.self,
       Requisites.self,
@@ -35,14 +34,14 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Reset cocoapods specs to configured commits" }
       @OptionGroup var clockwork: Clockwork
       func handle(repo: Repo) throws -> Performer {
-        UseCase.resetCocoapodsSpecs()
+        UseCase.cocoapodsResetSpecs()
       }
     }
     struct UpdateSpecs: ClockworkCommand {
       static var abstract: String { "Update cocoapods specs and configured commist" }
       @OptionGroup var clockwork: Clockwork
       func handle(repo: Repo) throws -> Performer {
-        UseCase.updateCocoapodsSpecs()
+        UseCase.cocoapodsUpdateSpecs()
       }
     }
   }
@@ -52,6 +51,7 @@ struct Clockwork: ParsableCommand {
       version: Clockwork.version,
       subcommands: [
         Clean.self,
+        ExecuteContract.self,
         Signal.self,
         Trigger.self,
       ]
@@ -61,6 +61,13 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       func handle(repo: Repo) throws -> Performer {
         UseCase.connectClean()
+      }
+    }
+    struct ExecuteContract: ClockworkCommand {
+      static var abstract: String { "Execute contract" }
+      @OptionGroup var clockwork: Clockwork
+      func handle(repo: Repo) throws -> Performer {
+        UseCase.connectExecuteContract()
       }
     }
     struct Signal: ClockworkCommand {
@@ -85,15 +92,8 @@ struct Clockwork: ParsableCommand {
       @Argument(help: "Additional variables to pass to pipeline in format KEY=value")
       var variables: [String] = []
       func handle(repo: Repo) throws -> Performer {
-        UseCase.triggerPipeline(variables: variables)
+        UseCase.connectTriggerPipeline(variables: variables)
       }
-    }
-  }
-  struct ExecuteContract: ClockworkCommand {
-    static var abstract: String { "Execute contract" }
-    @OptionGroup var clockwork: Clockwork
-    func handle(repo: Repo) throws -> Performer {
-      UseCase.executeContract()
     }
   }
   struct Flow: ParsableCommand {
@@ -195,7 +195,7 @@ struct Clockwork: ParsableCommand {
       @Option(help: "If specified ensure product has build reserved")
       var product: String = ""
       func handle(repo: Repo) throws -> Performer {
-        UseCase.exportVersions(product: product)
+        UseCase.flowExportVersions(product: product)
       }
     }
     struct ReserveBuild: ClockworkCommand {
@@ -284,7 +284,7 @@ struct Clockwork: ParsableCommand {
       @Option(help: "Fusion source branch name")
       var source: String
       func handle(repo: Repo) throws -> Performer {
-        UseCase.exportFusion(fork: fork, source: source)
+        UseCase.fusionExport(fork: fork, source: source)
       }
     }
     struct Propogate: ClockworkCommand {
@@ -332,7 +332,7 @@ struct Clockwork: ParsableCommand {
       static var abstract: String { "Delete keychain and provisions" }
       @OptionGroup var clockwork: Clockwork
       func handle(repo: Repo) throws -> Performer {
-        UseCase.clearRequisites()
+        UseCase.requisitesClear()
       }
     }
     struct Import: ClockworkCommand {
@@ -340,7 +340,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var requisites: Requisites
       func handle(repo: Repo) throws -> Performer {
-        UseCase.importRequisites(
+        UseCase.requisitesImport(
           pkcs12: true,
           provisions: true,
           requisites: requisites.requisites
@@ -352,7 +352,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var requisites: Requisites
       func handle(repo: Repo) throws -> Performer {
-        UseCase.importRequisites(
+        UseCase.requisitesImport(
           pkcs12: true,
           provisions: false,
           requisites: requisites.requisites
@@ -364,7 +364,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var requisites: Requisites
       func handle(repo: Repo) throws -> Performer {
-        UseCase.importRequisites(
+        UseCase.requisitesImport(
           pkcs12: false,
           provisions: true,
           requisites: requisites.requisites
@@ -379,7 +379,7 @@ struct Clockwork: ParsableCommand {
       @Flag(help: "Should render json to stdout")
       var stdout = false
       func handle(repo: Repo) throws -> Performer {
-        UseCase.checkRequisitesExpire(days: days, stdout: stdout)
+        UseCase.requisitesCheckExpire(days: days, stdout: stdout)
       }
     }
   }
@@ -647,7 +647,7 @@ struct Clockwork: ParsableCommand {
       @Option(help: "The name of target branch")
       var target: String
       func handle(repo: Repo) throws -> Performer {
-        UseCase.checkConflictMarkers(target: target, stdout: validate.stdout)
+        UseCase.validateConflictMarkers(target: target, stdout: validate.stdout)
       }
     }
     struct FileTaboos: ClockworkCommand {
@@ -655,7 +655,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var validate: Validate
       func handle(repo: Repo) throws -> Performer {
-        UseCase.checkFileTaboos(stdout: validate.stdout)
+        UseCase.validateFileTaboos(stdout: validate.stdout)
       }
     }
     struct UnownedCode: ClockworkCommand {
@@ -663,7 +663,7 @@ struct Clockwork: ParsableCommand {
       @OptionGroup var clockwork: Clockwork
       @OptionGroup var validate: Validate
       func handle(repo: Repo) throws -> Performer {
-        UseCase.checkUnownedCode(stdout: validate.stdout)
+        UseCase.validateUnownedCode(stdout: validate.stdout)
       }
     }
   }

@@ -2,13 +2,13 @@ import Foundation
 import Facility
 import FacilityPure
 public protocol Performer {
-  func perform(repo: ContextRepo) throws -> Bool
+  func perform(repo: ContextLocal) throws -> Bool
 }
 public protocol GitlabPerformer: Performer {
   func perform(gitlab: ContextGitlab) throws -> Bool
 }
 public extension GitlabPerformer {
-  func perform(repo: ContextRepo) throws -> Bool {
+  func perform(repo: ContextLocal) throws -> Bool {
     try perform(gitlab: repo.gitlab())
   }
 }

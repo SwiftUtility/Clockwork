@@ -1,12 +1,12 @@
 import Foundation
 import Facility
 import FacilityPure
-public struct Contract: Codable {
-  public var job: UInt
-  public var chunks: UInt
-  public var version: String
-  public var subject: String
-  public func unpack<Payload: ContractPerformer>(
+struct Contract: Codable {
+  var job: UInt
+  var chunks: UInt
+  var version: String
+  var subject: String
+  func unpack<Payload: ContractPerformer>(
     payload: Payload.Type,
     env: [String: String],
     decoder: JSONDecoder
@@ -19,9 +19,9 @@ public struct Contract: Codable {
     else { throw Thrown("Contract payload not base64 encoded") }
     return try decoder.decode(Payload.self, from: data)
   }
-  public static var chunkSize: Int { 2047 }
-  public static var contract: String { "CLOCKWORK_CONTRACT" }
-  public static var payloads: [ContractPerformer.Type] {[
+  static var chunkSize: Int { 2047 }
+  static var contract: String { "CLOCKWORK_CONTRACT" }
+  static var payloads: [ContractPerformer.Type] {[
     UseCase.ConnectClean.self,
     UseCase.ConnectSignal.self,
     UseCase.FlowChangeAccessory.self,
@@ -52,7 +52,7 @@ public struct Contract: Codable {
     UseCase.UserWatchAuthors.self,
     UseCase.UserWatchTeams.self,
   ]}
-  public static func pack<Payload: ContractPerformer>(
+  static func pack<Payload: ContractPerformer>(
     job: UInt,
     version: String,
     payload: Payload,
@@ -81,7 +81,7 @@ public struct Contract: Codable {
     ))
     return result
   }
-  public static func unpack(
+  static func unpack(
     env: [String: String],
     decoder: JSONDecoder
   ) throws -> Self {
@@ -89,17 +89,17 @@ public struct Contract: Codable {
     else { throw Thrown("Contract not base64 encoded") }
     return try decoder.decode(Self.self, from: data)
   }
-  public struct Variable: Encodable {
-    public var key: String
-    public var value: String
-    public static func make(key: String, value: String) -> Self {
+  struct Variable: Encodable {
+    var key: String
+    var value: String
+    static func make(key: String, value: String) -> Self {
       .init(key: key, value: value)
     }
   }
-  public struct Payload: Encodable {
-    public var ref: String
-    public var variables: [Variable]
-    public static func make(ref: String, variables: [Variable]) -> Self {
+  struct Payload: Encodable {
+    var ref: String
+    var variables: [Variable]
+    static func make(ref: String, variables: [Variable]) -> Self {
       .init(ref: ref, variables: variables)
     }
   }

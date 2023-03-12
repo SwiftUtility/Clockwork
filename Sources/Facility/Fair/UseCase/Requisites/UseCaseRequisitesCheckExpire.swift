@@ -2,10 +2,10 @@ import Foundation
 import Facility
 import FacilityPure
 extension UseCase {
-  struct CheckRequisitesExpire: Performer {
+  struct RequisitesCheckExpire: Performer {
     var days: UInt
     var stdout: Bool
-    func perform(repo ctx: ContextRepo) throws -> Bool {
+    func perform(repo ctx: ContextLocal) throws -> Bool {
       let requisition = try ctx.parseRequisition()
       let now = ctx.sh.getTime()
       let threshold = now.advanced(by: .init(days) * .day)

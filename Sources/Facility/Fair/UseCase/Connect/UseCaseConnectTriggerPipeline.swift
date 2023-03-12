@@ -2,7 +2,7 @@ import Foundation
 import Facility
 import FacilityPure
 extension UseCase {
-  struct TriggerPipeline: ProtectedGitlabPerformer {
+  struct ConnectTriggerPipeline: ProtectedGitlabPerformer {
     var variables: [String]
     func perform(gitlab ctx: ContextGitlab, protected: Ctx.Gitlab.Protected) throws -> Bool {
       var variables: [Contract.Variable] = []
