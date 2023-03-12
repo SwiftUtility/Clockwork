@@ -32,6 +32,7 @@ public enum Json {
     public var review: Lossy<UInt> {
       .init(try pipeline.ref.dropPrefix("refs/merge-requests/").dropSuffix("/head").getUInt())
     }
+    public var isReview: Bool { pipeline.ref.hasPrefix("refs/merge-requests/") }
     public func getLogin(approvers: [String: Gitlab.Storage.User]) throws -> String {
       let login = user.username
       guard let approver = approvers[login] else { throw Thrown("Unknown user: \(login)") }
@@ -124,9 +125,6 @@ public enum Json {
     public var rule: String
     public var file: String
     public var line: Int?
-    public var logMessage: LogMessage {
-      .init(message: "\(file):\(line.map { "\($0):" }.get("")) \(rule)")
-    }
     public static func make(
       rule: String,
       file: String,

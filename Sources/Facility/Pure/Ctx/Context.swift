@@ -1,21 +1,22 @@
 import Foundation
 import Facility
-public protocol ContextLocal {
+public protocol ContextShell {
   var sh: Ctx.Sh { get }
+  var git: Ctx.Git { get }
   var repo: Ctx.Repo { get }
 }
-public protocol ContextSender: ContextLocal {
-  func contractReview(_: ContractPayload) throws -> Bool
-  func contractProtected(_: ContractPayload) throws -> Bool
-  func contract(_: ContractPayload) throws -> Bool
-  func triggerProtected(args: [String]) throws -> Bool
-  func exportFusion(fork: String, source: String) throws -> Bool
+public protocol ContextRepo: ContextShell {
+  var generate: Try.Of<Generate>.Do<String> { get }
+  func gitlab() throws -> ContextGitlab
+  func exclusive() throws -> ContextExclusive
 }
-public protocol ContextGitlab: ContextSender {
+public protocol ContextGitlab: ContextShell {
   var gitlab: Ctx.Gitlab { get }
+  func protected() throws -> Ctx.Gitlab.Protected
 }
-public protocol ContextExecutor: ContextLocal {
+public protocol ContextExclusive: ContextShell {
+  var gitlab: Ctx.Gitlab { get }
+  var protected: Ctx.Gitlab.Protected { get }
   var generate: Try.Of<Generate>.Do<String> { get }
   func send(report: Report)
-  func execute() throws -> Bool
 }

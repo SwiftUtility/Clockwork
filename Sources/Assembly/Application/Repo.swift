@@ -6,12 +6,12 @@ import InteractivityCommon
 import InteractivityYams
 import InteractivityStencil
 import InteractivityPathKit
-final class Shell: ContextLocal {
-  public let sh: Ctx.Sh
-  public let repo: Ctx.Repo
-  var stensil: StencilParser { .init(sh: sh, git: repo.git, profile: repo.profile) }
-  init(profile: String, version: String) throws {
-    self.sh = Ctx.Sh.make(
+final class Repo: ContextRepo {
+  let sh: Ctx.Sh
+  let git: Ctx.Git
+  let repo: Ctx.Repo
+  init(profile: String) throws {
+    self.sh = .make(
       env: ProcessInfo.processInfo.environment,
       stdin: FileHandle.standardInput.readToEnd,
       stdout: FileHandle.standardOutput.write(_:),
@@ -25,7 +25,7 @@ final class Shell: ContextLocal {
       getTime: Date.init
     )
     let file = try sh.resolveAbsolute(.make(path: profile))
-    let git = try Ctx.Git.make(sh: sh, dir: Finder.parent(path: file))
+    self.git = try Ctx.Git.make(sh: sh, dir: Finder.parent(path: file))
     let sha = try git.getSha(sh: sh, ref: .head)
     let profile = try Profile.make(
       location: .make(ref: sha.ref, path: file.relative(to: git.root)),
@@ -34,47 +34,26 @@ final class Shell: ContextLocal {
         from: sh.unyaml(String.make(utf8: FileHandle.read(file: file)))
       )
     )
+    let version = Clockwork.version
     guard version == profile.version
     else { throw Thrown("Profile version(\(version)) mismatch executable(\(profile.version))") }
     self.repo = try .make(
-      git: git,
       sha: sha,
-      branch: git.currentBranch(sh: sh),
+      branch: git.getCurrentBranch(sh: sh),
       profile: profile
     )
   }
-  func sender() throws -> ContextSender {
-    if repo.profile.gitlab != nil {
-      return try GitlabSender(ctx: self)
-    } else {
-      throw Thrown("No remote repo configured")
-    }
+  var generate: Try.Of<Generate>.Do<String> {
+    StencilParser(ctx: self).generate(query:)
   }
-  func executeContract() throws -> Bool {
-    if repo.profile.gitlab != nil {
-      return try GitlabExecutor
-        .init(sender: .init(ctx: self), generate: stensil.generate(query:))
-        .execute()
-    } else {
-      throw Thrown("No remote repo configured")
-    }
+  func gitlab() throws -> ContextGitlab {
+    try GitlabSender(ctx: self)
   }
-  func render(template: String, stdin: Common.Stdin.Kind, args: [String]) throws -> Bool {
-    try Id
-      .make(generate(
-        template: template,
-        stdin: parse(stdin: stdin),
-        args: args
-      ))
-      .map(stensil.generate)
-      .map(\.utf8)
-      .map(Data.init(_:))
-      .map(sh.stdout)
-      .get()
-    return true
+  func exclusive() throws -> ContextExclusive {
+    try GitlabExecutor(sender: .init(ctx: self), generate: generate)
   }
-  func parse(stdin: Common.Stdin.Kind) throws -> AnyCodable? {
-    switch stdin {
+  func parse(_ parse: Common.Parse) throws -> AnyCodable? {
+    switch parse.stdin {
     case .ignore: return nil
     case .lines:
       let stdin = try sh.stdin()
@@ -87,6 +66,10 @@ final class Shell: ContextLocal {
       .map(String.make(utf8:))
       .map(sh.unyaml)
     }
+  }
+  static func handle(profile: String, handler: Try.Of<Repo>.Do<Performer>) throws -> Bool {
+    let repo = try Repo(profile: profile)
+    return try handler(repo).perform(repo: repo)
   }
 }
 private extension Contract {

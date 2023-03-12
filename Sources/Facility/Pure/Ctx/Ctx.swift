@@ -54,16 +54,15 @@ public enum Ctx {
     )}
   }
   public struct Repo {
-    public let git: Git
-    public let sha: Git.Sha
-    public let branch: Git.Branch?
+    public let initialSha: Git.Sha
+    public let initialBranch: Git.Branch?
     public let profile: Profile
     public static func make(
-      git: Git, sha: Git.Sha,
+      sha: Git.Sha,
       branch: Git.Branch?,
       profile: Profile
     ) -> Self { .init(
-      git: git, sha: sha, branch: branch, profile: profile
+      initialSha: sha, initialBranch: branch, profile: profile
     )}
   }
   public enum Sys {
@@ -229,7 +228,6 @@ public enum Ctx {
     public let cfg: Cfg
     public let api: String
     public let token: String
-    public let protected: Lossy<Protected>
     public let current: Json.GitlabJob
     public let apiEncoder: JSONEncoder
     public let apiDecoder: JSONDecoder
@@ -238,7 +236,6 @@ public enum Ctx {
       cfg: Cfg,
       api: String,
       token: String,
-      protected: Lossy<Protected>,
       current: Json.GitlabJob,
       apiEncoder: JSONEncoder,
       apiDecoder: JSONDecoder
@@ -247,7 +244,6 @@ public enum Ctx {
         cfg: cfg,
         api: api,
         token: token,
-        protected: protected,
         current: current,
         apiEncoder: apiEncoder,
         apiDecoder: apiDecoder
@@ -279,30 +275,27 @@ public enum Ctx {
     }
     public struct Protected {
       public let rest: String
-      public let proj: Json.GitlabProject
+      public let project: Json.GitlabProject
       public static func make(
         rest: String,
-        proj: Json.GitlabProject
+        project: Json.GitlabProject
       ) -> Self { .init(
         rest: rest,
-        proj: proj
+        project: project
       )}
     }
     public struct Contracted {
       public let sender: Sender
       public let user: Json.GitlabUser
       public let parent: Json.GitlabJob
-      public let contract: Contract
       public static func make(
         sender: Sender,
         user: Json.GitlabUser,
-        parent: Json.GitlabJob,
-        contract: Contract
+        parent: Json.GitlabJob
       ) -> Self { .init(
         sender: sender,
         user: user,
-        parent: parent,
-        contract: contract
+        parent: parent
       )}
       public enum Sender {
         case tag(Json.GitlabTag)

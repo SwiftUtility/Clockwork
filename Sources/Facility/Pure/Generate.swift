@@ -31,6 +31,22 @@ public struct Generate: Query {
   public var template: Configuration.Template
   public var allowEmpty: Bool
   public var info: GenerateInfo
+  public static func make(
+    template: String,
+    stdin: AnyCodable?,
+    args: [String],
+    env: [String: String]
+  ) -> Generate { .init(
+    template: .name(template),
+    allowEmpty: false,
+    info: Generate.Info.init(
+      event: [],
+      args: args,
+      ctx: Generate.Render(template: template),
+      stdin: stdin,
+      env: env
+    )
+  )}
   public typealias Reply = String
   public struct Info<Context: GenerateContext>: GenerateInfo {
     public let event: [String]
@@ -418,17 +434,4 @@ private extension Configuration {
     info.stdin = stdin
     return .init(template: template, allowEmpty: false, info: info)
   }
-}
-extension ContextLocal {
-  public func generate(template: String, stdin: AnyCodable?, args: [String]) -> Generate { .init(
-    template: .name(template),
-    allowEmpty: false,
-    info: Generate.Info.init(
-      event: [],
-      args: args,
-      ctx: Generate.Render(template: template),
-      stdin: stdin,
-      env: sh.env
-    )
-  )}
 }

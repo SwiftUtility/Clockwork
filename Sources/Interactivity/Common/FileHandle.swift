@@ -5,12 +5,6 @@ extension FileHandle {
   public func write(message: String) {
     write(.init("\(message)\n".utf8))
   }
-  public func write(data: Data) {
-    write(data)
-  }
-  public static func readStdin() throws -> Data? {
-    try standardInput.readToEnd()
-  }
   public static func read(file: Ctx.Sys.Absolute) throws -> Data {
     try .init(contentsOf: .init(fileURLWithPath: file.value))
   }

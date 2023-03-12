@@ -1,29 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public extension ContextLocal {
-  func cocoapodsRestoreSpecs() throws -> Bool {
-    let cocoapods = try parseCocoapods()
-    let specs = try sh.resolveAbsolute(.make(path: "~/.cocoapods/repos"))
-    try deleteWrongSpecs(cocoapods: cocoapods, specs: specs)
-    try installSpecs(cocoapods: cocoapods, specs: specs)
-    try resetSpecs(cocoapods: cocoapods, specs: specs)
-    return true
-  }
-  func cocoapodsUpdateSpecs() throws -> Bool {
-    var cocoapods = try parseCocoapods()
-    let specs = try sh.resolveAbsolute(.make(path: "~/.cocoapods/repos"))
-    try deleteWrongSpecs(cocoapods: cocoapods, specs: specs)
-    try installSpecs(cocoapods: cocoapods, specs: specs)
-    try updateSpecs(cocoapods: &cocoapods, specs: specs)
-    try sh.write(
-      file: "\(repo.git.root)/\(cocoapods.path)",
-      data: .init(cocoapods.yaml.utf8)
-    )
-    return true
-  }
-}
-private extension ContextLocal {
+extension ContextRepo {
   func deleteWrongSpecs(cocoapods: Cocoapods, specs: Ctx.Sys.Absolute) throws {
     guard let names = try? sh.listDirectories(specs) else { return }
     for name in names {

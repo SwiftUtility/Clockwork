@@ -1,18 +1,22 @@
 import Foundation
 import Facility
 import FacilityPure
-public final class GitlabExecutor: ContextExecutor, ContextGitlab {
+public final class GitlabExecutor: ContextExclusive {
   public let sh: Ctx.Sh
+  public let git: Ctx.Git
   public let repo: Ctx.Repo
   public let gitlab: Ctx.Gitlab
+  public let protected: Ctx.Gitlab.Protected
   public let generate: Try.Of<Generate>.Do<String>
   public init(
     sender: GitlabSender,
     generate: @escaping Try.Of<Generate>.Do<String>
-  ) {
+  ) throws {
     self.sh = sender.sh
+    self.git = sender.git
     self.repo = sender.repo
     self.gitlab = sender.gitlab
+    self.protected = try sender.protected()
     self.generate = generate
   }
   public func execute() throws -> Bool {

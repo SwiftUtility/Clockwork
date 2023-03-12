@@ -1,14 +1,8 @@
 import Foundation
 import Facility
-public protocol ContractPayload: Codable {
-  static var subject: String { get }
-//  mutating func execute(ctx: ContextExecutor) throws -> Bool
-}
-extension ContractPayload {
-  public static var subject: String { "\(Self.self)" }
-}
+import FacilityPure
 public enum Contract {
-  public static var payloads: [ContractPayload.Type] {[
+  public static var payloads: [ContractPerformer.Type] {[
     ConnectClean.self,
     ConnectSignal.self,
     FlowChangeAccessory.self,
@@ -38,12 +32,19 @@ public enum Contract {
     UserRegister.self,
     UserWatch.self,
   ]}
+  public struct Execute: Performer {
+    public static func make() -> Self { .init() }
+    public func perform(repo: FacilityPure.ContextRepo) throws -> Bool {
+      #warning("TBD")
+      return false
+    }
+  }
   public struct GitlabInfo: Codable {
     public var job: UInt
     public var chunks: UInt
     public var version: String
     public var subject: String
-    public func unpack<Payload: ContractPayload>(
+    public func unpack<Payload: ContractPerformer>(
       payload: Payload.Type,
       env: [String: String],
       decoder: JSONDecoder
@@ -58,7 +59,7 @@ public enum Contract {
     }
     public static var chunkSize: Int { 2047 }
     public static var contract: String { "CLOCKWORK_CONTRACT" }
-    public static func pack<Payload: ContractPayload>(
+    public static func pack<Payload: ContractPerformer>(
       job: UInt,
       version: String,
       payload: Payload,
@@ -110,12 +111,12 @@ public enum Contract {
       }
     }
   }
-  public struct ConnectClean: ContractPayload {
+  public struct ConnectClean: ContractPerformer {
     public static func make() -> Self {
       .init()
     }
   }
-  public struct ConnectSignal: ContractPayload {
+  public struct ConnectSignal: ContractPerformer {
     public var event: String
     public var args: [String]
     public var stdin: AnyCodable?
@@ -123,7 +124,7 @@ public enum Contract {
       .init(event: event, args: args, stdin: stdin)
     }
   }
-  public struct FlowChangeAccessory: ContractPayload {
+  public struct FlowChangeAccessory: ContractPerformer {
     var product: String
     var branch: String
     var version: String
@@ -131,28 +132,28 @@ public enum Contract {
       .init(product: product, branch: branch, version: version)
     }
   }
-  public struct FlowChangeNext: ContractPayload {
+  public struct FlowChangeNext: ContractPerformer {
     var product: String
     var version: String
     public static func make(product: String, version: String) -> Self {
       .init(product: product, version: version)
     }
   }
-  public struct FlowCreateAccessory: ContractPayload {
+  public struct FlowCreateAccessory: ContractPerformer {
     var name: String
     var commit: String
     public static func make(name: String, commit: String) -> Self {
       .init(name: name, commit: commit)
     }
   }
-  public struct FlowCreateDeploy: ContractPayload {
+  public struct FlowCreateDeploy: ContractPerformer {
     var branch: String
     var commit: String
     public static func make(branch: String, commit: String) -> Self {
       .init(branch: branch, commit: commit)
     }
   }
-  public struct FlowCreateStage: ContractPayload {
+  public struct FlowCreateStage: ContractPerformer {
     var product: String
     var build: String
     public static func make(
@@ -161,25 +162,25 @@ public enum Contract {
       .init(product: product, build: build)
     }
   }
-  public struct FlowDeleteBranch: ContractPayload {
+  public struct FlowDeleteBranch: ContractPerformer {
     var name: String
     public static func make(name: String) -> Self {
       .init(name: name)
     }
   }
-  public struct FlowDeleteTag: ContractPayload {
+  public struct FlowDeleteTag: ContractPerformer {
     var name: String
     public static func make(name: String) -> Self {
       .init(name: name)
     }
   }
-  public struct FlowReserveBuild: ContractPayload {
+  public struct FlowReserveBuild: ContractPerformer {
     var product: String
     public static func make(product: String) -> Self {
       .init(product: product)
     }
   }
-  public struct FlowStartHotfix: ContractPayload {
+  public struct FlowStartHotfix: ContractPerformer {
     var product: String
     var commit: String
     var version: String
@@ -187,14 +188,14 @@ public enum Contract {
       .init(product: product, commit: commit, version: version)
     }
   }
-  public struct FlowStartRelease: ContractPayload {
+  public struct FlowStartRelease: ContractPerformer {
     var product: String
     var commit: String
     public static func make(product: String, commit: String) -> Self {
       .init(product: product, commit: commit)
     }
   }
-  public struct FusionStart: ContractPayload {
+  public struct FusionStart: ContractPerformer {
     public var fork: String
     public var target: String
     public var source: String
@@ -205,44 +206,44 @@ public enum Contract {
       .init(fork: fork, target: target, source: source, prefix: prefix)
     }
   }
-  public struct ReviewAccept: ContractPayload {
+  public struct ReviewAccept: ContractPerformer {
     public static func make() -> Self {
       .init()
     }
   }
-  public struct ReviewApprove: ContractPayload {
+  public struct ReviewApprove: ContractPerformer {
     public var advance: Bool
     public static func make(advance: Bool) -> Self {
       .init(advance: advance)
     }
   }
-  public struct ReviewDequeue: ContractPayload {
+  public struct ReviewDequeue: ContractPerformer {
     public var iid: UInt
     public static func make(iid: UInt) -> Self {
       .init(iid: iid)
     }
   }
-  public struct ReviewEnqueue: ContractPayload {
+  public struct ReviewEnqueue: ContractPerformer {
     public var jobs: [String]
     public static func make(jobs: [String]) -> Self {
       .init(jobs: jobs)
     }
   }
-  public struct ReviewLabels: ContractPayload {
+  public struct ReviewLabels: ContractPerformer {
     public var labels: [String]
     public var add: Bool
     public static func make(labels: [String], add: Bool) -> Self {
       .init(labels: labels, add: add)
     }
   }
-  public struct ReviewList: ContractPayload {
+  public struct ReviewList: ContractPerformer {
     public var user: String
     public var own: Bool
     public static func make(user: String, own: Bool) -> Self {
       .init(user: user, own: own)
     }
   }
-  public struct ReviewOwnage: ContractPayload {
+  public struct ReviewOwnage: ContractPerformer {
     public var user: String
     public var iid: UInt
     public var own: Bool
@@ -250,7 +251,7 @@ public enum Contract {
       .init(user: user, iid: iid, own: own)
     }
   }
-  public struct ReviewPatch: ContractPayload {
+  public struct ReviewPatch: ContractPerformer {
     public var skip: Bool
     public var args: [String]
     public var patch: Data?
@@ -258,35 +259,35 @@ public enum Contract {
       .init(skip: skip, args: args, patch: patch)
     }
   }
-  public struct ReviewRebase: ContractPayload {
+  public struct ReviewRebase: ContractPerformer {
     public static func make() -> Self {
       .init()
     }
   }
-  public struct ReviewRemind: ContractPayload {
+  public struct ReviewRemind: ContractPerformer {
     public static func make() -> Self {
       .init()
     }
   }
-  public struct ReviewSkip: ContractPayload {
+  public struct ReviewSkip: ContractPerformer {
     public var iid: UInt
     public static func make(iid: UInt) -> Self {
       .init(iid: iid)
     }
   }
-  public struct ReviewUpdate: ContractPayload {
+  public struct ReviewUpdate: ContractPerformer {
     public static func make() -> Self {
       .init()
     }
   }
-  public struct UserActivity: ContractPayload {
+  public struct UserActivity: ContractPerformer {
     public var login: String
     public var active: Bool
     public static func make(login: String, active: Bool) -> Self {
       .init(login: login, active: active)
     }
   }
-  public struct UserRegister: ContractPayload {
+  public struct UserRegister: ContractPerformer {
     public var login: String
     public var slack: String
     public var rocket: String
@@ -294,7 +295,7 @@ public enum Contract {
       .init(login: login, slack: slack, rocket: rocket)
     }
   }
-  public struct UserWatch: ContractPayload {
+  public struct UserWatch: ContractPerformer {
     public var login: String
     public var update: [String]
     public var kind: Kind

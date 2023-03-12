@@ -2,13 +2,12 @@ import Foundation
 import Stencil
 import Facility
 import FacilityPure
+import FacilityFair
 public final class StencilParser {
   let notation: AnyCodable.Notation
   let environment: Environment
   public init(
-    sh: Ctx.Sh? = nil,
-    git: Ctx.Git? = nil,
-    profile: Profile? = nil,
+    ctx: ContextRepo? = nil,
     cache: [String: String] = [:]
   ) {
     self.notation = .json
@@ -22,7 +21,7 @@ public final class StencilParser {
     extensions.registerTag("scan", parser: ScanNode.parse(parser:token:))
     extensions.registerTag("line", parser: LineNode.parse(parser:token:))
     let loader: Loader
-    if let gitLoader = GitLoader(sh: sh, git: git, profile: profile) {
+    if let gitLoader = GitLoader(ctx: ctx) {
       loader = gitLoader
     } else {
       loader = DictionaryLoader(templates: cache)

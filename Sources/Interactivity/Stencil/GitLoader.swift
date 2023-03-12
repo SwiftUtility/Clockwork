@@ -4,27 +4,24 @@ import Facility
 import FacilityPure
 import FacilityFair
 final class GitLoader: Loader {
-  let git: Ctx.Git
-  let ref: Ctx.Git.Ref
+  let ctx: ContextRepo
   let prefix: String
-  let sh: Ctx.Sh
-  var cache: [String: String]
-  init?(sh: Ctx.Sh?, git: Ctx.Git?, profile: Profile?) {
-    guard let sh = sh, let git = git, let profile = profile, let templates = profile.templates
+  var cache: [String: String] = [:]
+  init?(ctx: ContextRepo?) {
+    guard
+      let ctx = ctx, let templates = ctx.repo.profile.templates
     else { return nil }
-    self.sh = sh
-    self.cache = [:]
-    self.git = git
-    self.ref = profile.location.ref
-    self.prefix = "\(templates.path.value)/"
+    self.ctx = ctx
+    self.prefix = templates.path.value.isEmpty.not.then("\(templates.path.value)/").get("")
   }
   func loadTemplate(name: String, environment: Environment) throws -> Template {
     let content: String
     if let template = cache[name] {
       content = template
-    } else if let template = try? String.make(utf8: git.cat(
-      sh: sh, file: .make(ref: ref, path: .make(value: "\(prefix)\(name)"))
-    )) {
+    } else if let template = try? String.make(utf8: ctx.gitCat(file: .make(
+      ref: ctx.repo.initialSha.ref,
+      path: .make(value: "\(prefix)\(name)")
+    ))) {
       content = template
       cache[name] = template
     } else {

@@ -25,7 +25,7 @@ extension ContextGitlab {
       url: "\(gitlab.api)/projects/\(gitlab.current.pipeline.projectId)/pipeline",
       method: "POST",
       data: String.make(utf8: gitlab.apiEncoder.encode(Contract.GitlabInfo.Payload.make(
-        ref: protected.proj.defaultBranch, variables: variables
+        ref: protected.project.defaultBranch, variables: variables
       ))),
       headers: ["Authorization: Bearer \(protected.rest)", Json.utf8],
       secrets: [protected.rest]
