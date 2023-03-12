@@ -20,7 +20,7 @@ public final class GitlabExecutor: ContextExclusive {
     self.generate = generate
   }
   public func execute() throws -> Bool {
-    let info = try Contract.GitlabInfo.unpack(env: sh.env, decoder: sh.rawDecoder)
+    let info = try Contract.unpack(env: sh.env, decoder: sh.rawDecoder)
     #warning("TBD implement default branch clockwork version check")
     #warning("TBD implement contract version check")
     guard let payload = Contract.payloads.first(where: { $0.subject == info.subject })

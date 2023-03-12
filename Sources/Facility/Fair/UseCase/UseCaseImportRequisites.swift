@@ -1,21 +1,12 @@
 import Foundation
 import Facility
 import FacilityPure
-public extension UseCase {
+extension UseCase {
   struct ImportRequisites: Performer {
     var pkcs12: Bool
     var provisions: Bool
     var requisites: [String]
-    public static func make(
-      pkcs12: Bool,
-      provisions: Bool,
-      requisites: [String]
-    ) -> Self { .init(
-      pkcs12: pkcs12,
-      provisions: provisions,
-      requisites: requisites
-    )}
-    public func perform(repo ctx: ContextRepo) throws -> Bool {
+    func perform(repo ctx: ContextRepo) throws -> Bool {
       let requisition = try ctx.parseRequisition()
       let requisites = try requisites.isEmpty.not
         .then(requisites)

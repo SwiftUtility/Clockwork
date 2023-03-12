@@ -2,7 +2,7 @@ import Foundation
 import Facility
 import FacilityPure
 extension ContextGitlab {
-  func triggerPipeline(ref: String, variables: [Contract.GitlabInfo.Variable]) throws { try Id
+  func triggerPipeline(ref: String, variables: [Contract.Variable]) throws { try Id
     .make(Execute.makeCurl(
       url: "\(gitlab.api)/projects/\(gitlab.current.pipeline.projectId)/trigger/pipeline",
       method: "POST",
@@ -19,12 +19,12 @@ extension ContextGitlab {
   }
   func createPipeline(
     protected: Ctx.Gitlab.Protected,
-    variables: [Contract.GitlabInfo.Variable]
+    variables: [Contract.Variable]
   ) throws { try Id
     .make(Execute.makeCurl(
       url: "\(gitlab.api)/projects/\(gitlab.current.pipeline.projectId)/pipeline",
       method: "POST",
-      data: String.make(utf8: gitlab.apiEncoder.encode(Contract.GitlabInfo.Payload.make(
+      data: String.make(utf8: gitlab.apiEncoder.encode(Contract.Payload.make(
         ref: protected.project.defaultBranch, variables: variables
       ))),
       headers: ["Authorization: Bearer \(protected.rest)", Json.utf8],

@@ -26,7 +26,7 @@ public protocol ContractPerformer: Codable, GitlabPerformer {
 }
 public extension ContractPerformer {
   func perform(gitlab ctx: ContextGitlab) throws -> Bool {
-    let variables = try Contract.GitlabInfo.pack(
+    let variables = try Contract.pack(
       job: ctx.gitlab.current.id,
       version: ctx.repo.profile.version,
       payload: self,
@@ -49,7 +49,7 @@ public extension ContractPerformer {
 public protocol ProtectedContractPerformer: ContractPerformer {}
 public extension ProtectedContractPerformer {
   func perform(gitlab ctx: ContextGitlab) throws -> Bool {
-    let variables = try Contract.GitlabInfo.pack(
+    let variables = try Contract.pack(
       job: ctx.gitlab.current.id,
       version: ctx.repo.profile.version,
       payload: self,
@@ -63,7 +63,7 @@ public extension ProtectedContractPerformer {
 public protocol ReviewContractPerformer: ContractPerformer {}
 public extension ReviewContractPerformer {
   func perform(gitlab ctx: ContextGitlab) throws -> Bool {
-    let variables = try Contract.GitlabInfo.pack(
+    let variables = try Contract.pack(
       job: ctx.gitlab.current.id,
       version: ctx.repo.profile.version,
       payload: self,

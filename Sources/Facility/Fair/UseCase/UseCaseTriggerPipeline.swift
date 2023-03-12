@@ -2,10 +2,10 @@ import Foundation
 import Facility
 import FacilityPure
 extension UseCase {
-  public struct TriggerPipeline: ProtectedGitlabPerformer {
+  struct TriggerPipeline: ProtectedGitlabPerformer {
     var variables: [String]
-    public func perform(gitlab ctx: ContextGitlab, protected: Ctx.Gitlab.Protected) throws -> Bool {
-      var variables: [Contract.GitlabInfo.Variable] = []
+    func perform(gitlab ctx: ContextGitlab, protected: Ctx.Gitlab.Protected) throws -> Bool {
+      var variables: [Contract.Variable] = []
       for variable in self.variables {
         guard let index = variable.firstIndex(of: "=")
         else { throw Thrown("Wrong argument format \(variable)") }
@@ -17,6 +17,5 @@ extension UseCase {
       try ctx.triggerPipeline(ref: protected.project.defaultBranch, variables: variables)
       return true
     }
-    public static func make(variables: [String]) -> Self { .init(variables: variables) }
   }
 }

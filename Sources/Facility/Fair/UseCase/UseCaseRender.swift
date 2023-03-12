@@ -2,11 +2,11 @@ import Foundation
 import Facility
 import FacilityPure
 extension UseCase {
-  public struct Render: Performer {
+  struct Render: Performer {
     var template: String
     var stdin: AnyCodable?
     var args: [String]
-    public func perform(repo ctx: FacilityPure.ContextRepo) throws -> Bool {
+    func perform(repo ctx: FacilityPure.ContextRepo) throws -> Bool {
       try Id
         .make(.make(
           template: template,
@@ -20,9 +20,6 @@ extension UseCase {
         .map(ctx.sh.stdout)
         .get()
       return true
-    }
-    public static func make(template: String, stdin: AnyCodable?, args: [String]) -> Self {
-      .init(template: template, stdin: stdin, args: args)
     }
   }
 }

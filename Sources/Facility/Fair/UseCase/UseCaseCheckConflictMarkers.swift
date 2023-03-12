@@ -1,14 +1,11 @@
 import Foundation
 import Facility
 import FacilityPure
-public extension UseCase {
+extension UseCase {
   struct CheckConflictMarkers: Performer {
-    public var target: String
-    public var stdout: Bool
-    public static func make(target: String, stdout: Bool) -> Self {
-      .init(target: target, stdout: stdout)
-    }
-    public func perform(repo ctx: ContextRepo) throws -> Bool {
+    var target: String
+    var stdout: Bool
+    func perform(repo ctx: ContextRepo) throws -> Bool {
       guard try ctx.gitIsClean() else { throw Thrown("Git is dirty") }
       guard let fork = try ctx.gitListCommits(
         in: [.head],

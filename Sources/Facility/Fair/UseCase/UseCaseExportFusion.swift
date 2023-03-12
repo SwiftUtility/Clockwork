@@ -2,10 +2,10 @@ import Foundation
 import Facility
 import FacilityPure
 extension UseCase {
-  public struct ExportFusion: ProtectedGitlabPerformer {
+  struct ExportFusion: ProtectedGitlabPerformer {
     var fork: String
     var source: String
-    public func perform(gitlab ctx: ContextGitlab, protected: Ctx.Gitlab.Protected) throws -> Bool {
+    func perform(gitlab ctx: ContextGitlab, protected: Ctx.Gitlab.Protected) throws -> Bool {
       let fork = try Ctx.Git.Sha.make(value: fork)
       let source = try Ctx.Git.Branch.make(name: source)
       var targets = try ctx.listBranches(protected: protected)
@@ -28,9 +28,6 @@ extension UseCase {
         propogate: propogate
       )))
       return true
-    }
-    public static func make(fork: String, source: String) -> Self {
-      .init(fork: fork, source: source)
     }
   }
 }
