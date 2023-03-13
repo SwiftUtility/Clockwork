@@ -17,6 +17,7 @@ public protocol ContextGitlab: Context {
 public protocol ContextExclusive: Context {
   var gitlab: Ctx.Gitlab { get }
   var protected: Ctx.Gitlab.Protected { get }
+  var storage: Ctx.Storage { get }
   var generate: Try.Of<Generate>.Do<String> { get }
   func send(report: Report)
 }

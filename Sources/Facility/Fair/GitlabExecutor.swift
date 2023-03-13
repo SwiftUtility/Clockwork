@@ -7,6 +7,7 @@ public final class GitlabExecutor: ContextExclusive {
   public let repo: Ctx.Repo
   public let gitlab: Ctx.Gitlab
   public let protected: Ctx.Gitlab.Protected
+  public let storage: Ctx.Storage = .init()
   public let generate: Try.Of<Generate>.Do<String>
   public init(
     sender: GitlabSender,

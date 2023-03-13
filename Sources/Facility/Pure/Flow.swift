@@ -24,13 +24,12 @@ public struct Flow {
     createReleaseBranchName: .make(yaml: yaml.createReleaseBranchName)
   )}
   public struct Storage {
-    public var flow: Flow
-    public var stages: [Git.Tag: Stage]
-    public var deploys: [Git.Tag: Deploy]
-    public var families: [String: Family]
-    public var products: [String: Product]
-    public var releases: [Git.Branch: Release]
-    public var accessories: [Git.Branch: Accessory]
+    public var stages: [Git.Tag: Stage] = [:]
+    public var deploys: [Git.Tag: Deploy] = [:]
+    public var families: [String: Family] = [:]
+    public var products: [String: Product] = [:]
+    public var releases: [Git.Branch: Release] = [:]
+    public var accessories: [Git.Branch: Accessory] = [:]
     public mutating func change(product: String, nextVersion: String) throws {
       guard var product = products[product]
       else { throw Thrown("Not configured product: \(product)") }
@@ -70,7 +69,7 @@ public struct Flow {
     public func release(deploy: Deploy) -> Release? { releases.values
         .first(where: { $0.product == deploy.product && $0.version == deploy.version })
     }
-    public var serialized: String {
+    public func serialize(flow: Flow) -> String {
       var result = ""
       var versions: [String: AlphaNumeric] = [:]
       let yamlProducts = products.keys.sorted().compactMap({ products[$0] })
@@ -145,11 +144,8 @@ public struct Flow {
       }
       return result
     }
-    public static func make(
-      flow: Flow,
-      yaml: Yaml.Flow.Storage
-    ) throws -> Self { try .init(
-      flow: flow,
+    public static var empty: Self { .init() }
+    public static func make(yaml: Yaml.Flow.Storage) throws -> Self { try .init(
       stages: yaml.stages.map(Stage.make(tag:yaml:)).indexed(\.tag),
       deploys: yaml.deploys.map(Deploy.make(tag:yaml:)).indexed(\.tag),
       families: yaml.families.map(Family.make(name:yaml:)).indexed(\.name),

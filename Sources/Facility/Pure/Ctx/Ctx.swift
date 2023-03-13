@@ -53,6 +53,14 @@ public enum Ctx {
       plistDecoder: .init()
     )}
   }
+  public final class Storage {
+    var flow: Flow.Storage = .empty
+//    var slack: Chat
+//    var rocket: Chat
+//    var gitlab: Gitlab
+//    var review: Review
+    public init() {}
+  }
   public struct Repo {
     public let initialSha: Git.Sha
     public let initialBranch: Git.Branch?
