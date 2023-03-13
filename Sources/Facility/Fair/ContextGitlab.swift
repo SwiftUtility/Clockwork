@@ -18,6 +18,7 @@ extension ContextGitlab {
     .get()
   }
   func createPipeline(
+    ref: String,
     protected: Ctx.Gitlab.Protected,
     variables: [Contract.Variable]
   ) throws { try Id
@@ -25,7 +26,8 @@ extension ContextGitlab {
       url: "\(gitlab.api)/projects/\(gitlab.current.pipeline.projectId)/pipeline",
       method: "POST",
       data: String.make(utf8: gitlab.apiEncoder.encode(Contract.Payload.make(
-        ref: protected.project.defaultBranch, variables: variables
+        ref: ref,
+        variables: variables
       ))),
       headers: ["Authorization: Bearer \(protected.rest)", Json.utf8],
       secrets: [protected.rest]

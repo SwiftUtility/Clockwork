@@ -10,19 +10,20 @@ extension UseCase {
       let now = ctx.sh.getTime()
       let threshold = now.advanced(by: .init(days) * .day)
       var result: [Json.ExpiringRequisite] = []
-      let provisions = try ctx.getProvisions(
-        requisition: requisition,
-        requisites: .init(requisition.requisites.values)
-      )
+      var provisions: Set<Ctx.Sys.Relative> = []
+      let ref = requisition.branch.remote
+      for dir in requisition.requisites.values.flatMap(\.provisions) {
+        try provisions.formUnion(ctx.gitListTreeTrackedFiles(dir: .make(ref: ref, path: dir)))
+      }
       for file in provisions {
-        let temp = try ctx.sh.createTempFile()
-        defer { try? ctx.sh.delete(path: temp) }
-        let data = try ctx.gitCat(file: file)
-        try ctx.sh.write(file: temp, data: data)
-        let provision = try ctx.securityDecode(file: temp)
+        let temp = try ctx.sh.sysCreateTempFile()
+        defer { try? ctx.sh.sysDelete(path: temp) }
+        let data = try ctx.gitCat(file: .make(ref: ref, path: file))
+        try ctx.sh.sysWrite(file: temp, data: data)
+        let provision = try ctx.sh.securityDecode(file: temp)
         guard provision.expirationDate < threshold else { continue }
         let requisite = Json.ExpiringRequisite.make(
-          file: file.path.value,
+          file: file.value,
           branch: requisition.branch.name,
           name: provision.name,
           days: provision.expirationDate.timeIntervalSince(now) / .day
@@ -39,12 +40,8 @@ extension UseCase {
           ref: requisition.branch.remote,
           path: requisite.pkcs12
         ))
-        for cert in try ctx.parsePkcs12Certs(
-          requisition: requisition,
-          password: password,
-          data: pkcs12
-        ) {
-          let lines = try ctx.decodeCert(cert: cert)
+        for cert in try ctx.sh.sslListPkcs12Certs(password: password, data: pkcs12) {
+          let lines = try ctx.sh.sslDecodeCert(cert: cert)
           guard let expirationDate = lines
             .compactMap({ try? $0.dropPrefix("notAfter=") })
             .first

@@ -1,6 +1,10 @@
 import Foundation
 import Facility
 public extension String {
+  static var cocoapods: Self { "~/.cocoapods/repos" }
+  static var provisions: Self { "~/Library/MobileDevice/Provisioning Profiles" }
+  static var certStart: Self { "-----BEGIN CERTIFICATE-----" }
+  static var certEnd: Self { "-----END CERTIFICATE-----" }
   func get(env: [String: String]) throws -> String {
     try env[self].get { throw Thrown("No env \(self)") }
   }

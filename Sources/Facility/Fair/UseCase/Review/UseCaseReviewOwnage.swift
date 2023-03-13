@@ -6,5 +6,6 @@ extension UseCase {
     var user: String
     var iid: UInt
     var own: Bool
+    static var triggerContract: Bool { true }
   }
 }
