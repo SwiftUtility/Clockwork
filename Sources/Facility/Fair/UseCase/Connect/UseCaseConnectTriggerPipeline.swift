@@ -4,7 +4,7 @@ import FacilityPure
 extension UseCase {
   struct ConnectTriggerPipeline: ProtectedGitlabPerformer {
     var variables: [String]
-    func perform(gitlab ctx: ContextGitlab, protected: Ctx.Gitlab.Protected) throws -> Bool {
+    func perform(protected ctx: ContextGitlabProtected) throws -> Bool {
       var variables: [Contract.Variable] = []
       for variable in self.variables {
         guard let index = variable.firstIndex(of: "=")
@@ -14,7 +14,7 @@ extension UseCase {
           value: .init(variable[variable.index(after: index)..<variable.endIndex])
         ))
       }
-      try ctx.triggerPipeline(ref: protected.project.defaultBranch, variables: variables)
+      try ctx.triggerPipeline(ref: ctx.project.defaultBranch, variables: variables)
       return true
     }
   }

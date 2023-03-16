@@ -54,7 +54,7 @@ public enum Ctx {
     )}
   }
   public final class Storage {
-    var flow: Flow.Storage = .empty
+    public var flow: Flow.Storage = .empty
 //    var slack: Chat
 //    var rocket: Chat
 //    var gitlab: Gitlab
@@ -291,6 +291,22 @@ public enum Ctx {
         rest: rest,
         project: project
       )}
+    }
+    public struct Parent {
+      public var job: Json.GitlabJob
+      public var kind: Kind
+      public static func make(
+        job: Json.GitlabJob,
+        kind: Kind
+      ) -> Self { .make(
+        job: job,
+        kind: kind
+      )}
+      public enum Kind {
+        case tag(Json.GitlabTag)
+        case merge(Json.GitlabMerge)
+        case branch(Json.GitlabBranch)
+      }
     }
     public struct Contracted {
       public let sender: Sender

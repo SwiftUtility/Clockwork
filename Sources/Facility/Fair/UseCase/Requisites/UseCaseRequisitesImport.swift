@@ -45,7 +45,7 @@ extension UseCase {
         for dir in requisites.flatMap(\.provisions) {
           try provisions.formUnion(ctx.gitListTreeTrackedFiles(dir: .make(ref: ref, path: dir)))
         }
-        for provision in try provisions {
+        for provision in provisions {
           let temp = try ctx.sh.sysCreateTempFile()
           defer { try? ctx.sh.sysDelete(path: temp) }
           let data = try ctx.gitCat(file: .make(ref: ref, path: provision))

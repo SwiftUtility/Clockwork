@@ -6,5 +6,8 @@ extension UseCase {
     var skip: Bool
     var args: [String]
     var patch: Data?
+    mutating func perform(exclusive ctx: ContextExclusive) throws {
+#warning("TBD")
+    }
   }
 }

@@ -6,7 +6,7 @@ extension UseCase {
     var template: String
     var stdin: AnyCodable?
     var args: [String]
-    func perform(repo ctx: FacilityPure.ContextLocal) throws -> Bool {
+    func perform(repo ctx: ContextLocal) throws -> Bool {
       try Id
         .make(.make(
           template: template,

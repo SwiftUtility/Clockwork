@@ -1,5 +1,6 @@
 import Foundation
 import Facility
+import FacilityPure
 public protocol Context {
   var sh: Ctx.Sh { get }
   var git: Ctx.Git { get }
@@ -8,16 +9,19 @@ public protocol Context {
 public protocol ContextLocal: Context {
   var generate: Try.Of<Generate>.Do<String> { get }
   func gitlab() throws -> ContextGitlab
-  func exclusive() throws -> ContextExclusive
+  func exclusive(contract: Contract) throws -> ContextExclusive
 }
 public protocol ContextGitlab: Context {
   var gitlab: Ctx.Gitlab { get }
-  func protected() throws -> Ctx.Gitlab.Protected
+  func protected() throws -> ContextGitlabProtected
 }
-public protocol ContextExclusive: Context {
-  var gitlab: Ctx.Gitlab { get }
-  var protected: Ctx.Gitlab.Protected { get }
+public protocol ContextGitlabProtected: ContextGitlab {
+  var rest: String { get }
+  var project: Json.GitlabProject { get }
+}
+public protocol ContextExclusive: ContextGitlabProtected {
   var storage: Ctx.Storage { get }
+  var parent: Json.GitlabJob { get }
   var generate: Try.Of<Generate>.Do<String> { get }
   func send(report: Report)
 }

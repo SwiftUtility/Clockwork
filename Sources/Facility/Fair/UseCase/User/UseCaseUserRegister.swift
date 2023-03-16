@@ -6,5 +6,8 @@ extension UseCase {
     var login: String
     var slack: String
     var rocket: String
+    mutating func perform(exclusive ctx: ContextExclusive) throws {
+#warning("TBD")
+    }
   }
 }

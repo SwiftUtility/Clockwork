@@ -7,5 +7,8 @@ extension UseCase {
     var iid: UInt
     var own: Bool
     static var triggerContract: Bool { true }
+    mutating func perform(exclusive ctx: ContextExclusive) throws {
+#warning("TBD")
+    }
   }
 }

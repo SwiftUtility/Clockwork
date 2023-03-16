@@ -36,18 +36,7 @@ public final class GitlabSender: ContextGitlab {
       apiDecoder: apiDecoder
     )
   }
-  public func protected() throws -> Ctx.Gitlab.Protected {
-    let rest = try parse(secret: gitlab.cfg.apiToken)
-    let project = try Id
-      .make(Execute.makeCurl(
-        url: gitlab.project,
-        headers: ["Authorization: Bearer \(rest)"],
-        secrets: [rest]
-      ))
-      .map(sh.execute)
-      .map(Execute.parseData(reply:))
-      .reduce(Json.GitlabProject.self, gitlab.apiDecoder.decode(_:from:))
-      .get()
-    return Ctx.Gitlab.Protected.make(rest: rest, project: project)
+  public func protected() throws -> ContextGitlabProtected {
+    try GitlabProtected(sender: self)
   }
 }

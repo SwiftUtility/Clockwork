@@ -49,8 +49,12 @@ final class Repo: ContextLocal {
   func gitlab() throws -> ContextGitlab {
     try GitlabSender(ctx: self)
   }
-  func exclusive() throws -> ContextExclusive {
-    try GitlabExecutor(sender: .init(ctx: self), generate: generate)
+  func exclusive(contract: Contract) throws -> ContextExclusive {
+    try GitlabExecutor(
+      protected: .init(sender: .init(ctx: self)),
+      contract: contract,
+      generate: generate
+    )
   }
   func parse(_ parse: Common.Parse) throws -> AnyCodable? {
     switch parse.stdin {

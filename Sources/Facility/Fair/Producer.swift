@@ -35,43 +35,6 @@
 //    self.writeStdout = writeStdout
 //    self.jsonDecoder = jsonDecoder
 //  }
-//  public func changeAccessoryVersion(
-//    cfg: Configuration,
-//    product: String,
-//    branch: String,
-//    version: String
-//  ) throws -> Bool {
-//    let branch = try branch.isEmpty.not
-//      .then(Git.Branch.make(name: branch))
-//      .get(.make(job: cfg.gitlab.map(\.job).get()))
-//    try perform(cfg: cfg, mutate: { storage in
-//      try storage.change(product: product, nextVersion: version)
-//      return cfg.createFlowStorageCommitMessage(
-//        flow: storage.flow,
-//        reason: .changeAccessoryVersion,
-//        product: product,
-//        version: version,
-//        branch: branch.name
-//      )
-//    })
-//    return true
-//  }
-//  public func changeNextVersion(
-//    cfg: Configuration,
-//    product: String,
-//    version: String
-//  ) throws -> Bool {
-//    try perform(cfg: cfg, mutate: { storage in
-//      try storage.change(product: product, nextVersion: version)
-//      return cfg.createFlowStorageCommitMessage(
-//        flow: storage.flow,
-//        reason: .changeNextVersion,
-//        product: product,
-//        version: version
-//      )
-//    })
-//    return true
-//  }
 //  public func deleteTag(cfg: Configuration, name: String) throws -> Bool {
 //    let gitlab = try cfg.gitlab.get()
 //    let tag = try name.isEmpty.not

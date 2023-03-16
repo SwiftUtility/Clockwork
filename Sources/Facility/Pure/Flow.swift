@@ -24,12 +24,12 @@ public struct Flow {
     createReleaseBranchName: .make(yaml: yaml.createReleaseBranchName)
   )}
   public struct Storage {
-    public var stages: [Git.Tag: Stage] = [:]
-    public var deploys: [Git.Tag: Deploy] = [:]
+    public var stages: [Ctx.Git.Tag: Stage] = [:]
+    public var deploys: [Ctx.Git.Tag: Deploy] = [:]
     public var families: [String: Family] = [:]
     public var products: [String: Product] = [:]
-    public var releases: [Git.Branch: Release] = [:]
-    public var accessories: [Git.Branch: Accessory] = [:]
+    public var releases: [Ctx.Git.Branch: Release] = [:]
+    public var accessories: [Ctx.Git.Branch: Accessory] = [:]
     public mutating func change(product: String, nextVersion: String) throws {
       guard var product = products[product]
       else { throw Thrown("Not configured product: \(product)") }
@@ -41,7 +41,7 @@ public struct Flow {
       product.nextVersion = nextVersion
       products[product.name] = product
     }
-    public mutating func change(accessory: Git.Branch, product: String, version: String) throws {
+    public mutating func change(accessory: Ctx.Git.Branch, product: String, version: String) throws {
       guard products[product] != nil
       else { throw Thrown("Not configured product: \(product)") }
       guard var accessory = accessories[accessory]
@@ -158,12 +158,12 @@ public struct Flow {
     public var name: String
     public var nextBuild: AlphaNumeric
     public var builds: [AlphaNumeric: Build]
-    public func build(review: UInt, commit: Git.Sha) -> Build? {
+    public func build(review: UInt, commit: Ctx.Git.Sha) -> Build? {
       builds.keys.sorted().reversed().lazy.compactMap({ builds[$0] }).first(where: {
         $0.review == review && $0.commit == commit
       })
     }
-    public func build(commit: Git.Sha, branch: Git.Branch) -> Build? {
+    public func build(commit: Ctx.Git.Sha, branch: Ctx.Git.Branch) -> Build? {
       builds.keys.sorted().reversed().lazy.compactMap({ builds[$0] }).first(where: {
         $0.commit == commit && $0.branch == branch
       })
@@ -187,13 +187,13 @@ public struct Flow {
   public struct Build {
     public var number: AlphaNumeric
     public var review: UInt?
-    public var commit: Git.Sha
-    public var branch: Git.Branch
+    public var commit: Ctx.Git.Sha
+    public var branch: Ctx.Git.Branch
     public static func make(
       number: AlphaNumeric,
       review: UInt?,
-      commit: Git.Sha,
-      branch: Git.Branch
+      commit: Ctx.Git.Sha,
+      branch: Ctx.Git.Branch
     ) -> Self { .init(
       number: number,
       review: review,
@@ -234,17 +234,17 @@ public struct Flow {
     )}
   }
   public struct Release {
-    public var branch: Git.Branch
+    public var branch: Ctx.Git.Branch
     public var product: String
     public var version: AlphaNumeric
-    public var start: Git.Sha
+    public var start: Ctx.Git.Sha
     public func include(deploy: Deploy) -> Bool {
       product == deploy.product && version >= deploy.version
     }
     public static func make(
       product: Product,
       version: AlphaNumeric,
-      commit: Git.Sha,
+      commit: Ctx.Git.Sha,
       branch: String
     ) throws -> Self { try .init(
       branch: .make(name: branch),
@@ -267,19 +267,19 @@ public struct Flow {
     }
   }
   public struct Stage {
-    public var tag: Git.Tag
+    public var tag: Ctx.Git.Tag
     public var product: String
     public var version: AlphaNumeric
     public var build: AlphaNumeric
     public var review: UInt?
-    public var branch: Git.Branch
+    public var branch: Ctx.Git.Branch
     public static func make(
       tag: String,
       product: Product,
       version: AlphaNumeric,
       build: AlphaNumeric,
       review: UInt?,
-      branch: Git.Branch
+      branch: Ctx.Git.Branch
     ) throws -> Self { try .init(
       tag: .make(name: tag),
       product: product.name,
@@ -301,7 +301,7 @@ public struct Flow {
     )}
   }
   public struct Deploy {
-    public var tag: Git.Tag
+    public var tag: Ctx.Git.Tag
     public var product: String
     public var version: AlphaNumeric
     public var build: AlphaNumeric
@@ -329,7 +329,7 @@ public struct Flow {
     )}
   }
   public struct Accessory {
-    public var branch: Git.Branch
+    public var branch: Ctx.Git.Branch
     public var versions: [String: AlphaNumeric]
     public static func make(branch: String) throws -> Self { try .init(
       branch: .make(name: branch),
@@ -355,7 +355,7 @@ public struct Flow {
       public var sha: String
       public var msg: String
       public static func make(
-        sha: Git.Sha,
+        sha: Ctx.Git.Sha,
         msg: String
       ) -> Self { .init(
         sha: sha.value,

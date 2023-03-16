@@ -6,6 +6,9 @@ extension UseCase {
     var event: String
     var args: [String]
     var stdin: AnyCodable?
+    mutating func perform(exclusive ctx: ContextExclusive) throws {
+#warning("TBD")
+    }
     static var triggerContract: Bool { true }
   }
 }

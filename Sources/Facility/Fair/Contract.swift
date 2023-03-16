@@ -1,64 +1,62 @@
 import Foundation
 import Facility
 import FacilityPure
-struct Contract: Codable {
+public struct Contract: Codable {
   var job: UInt
   var chunks: UInt
   var version: String
   var subject: String
-  func unpack<Payload: ContractPerformer>(
-    payload: Payload.Type,
-    env: [String: String],
-    decoder: JSONDecoder
-  ) throws -> Payload? {
-    guard subject == Payload.subject else { return nil }
+  func unpack<Performer: ContractPerformer>(
+    _ performer: Performer.Type,
+    ctx: Context
+  ) throws -> ContractPerformer? {
+    guard subject == performer.subject else { return nil }
     let base = try (0 ..< chunks)
-      .map({ try "\(Self.contract)_\($0)".get(env: env) })
+      .map({ try ctx.sh.get(env: "\(Self.contract)_\($0)") })
       .joined()
     guard let data = Data(base64Encoded: base)
     else { throw Thrown("Contract payload not base64 encoded") }
-    return try decoder.decode(Payload.self, from: data)
+    return try ctx.sh.rawDecoder.decode(performer, from: data)
+  }
+  func performer(ctx: Context) throws -> ContractPerformer {
+    if let result = try unpack(UseCase.ConnectClean.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ConnectSignal.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowChangeAccessory.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowChangeNext.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowCreateAccessory.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowCreateDeploy.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowCreateStage.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowDeleteBranch.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowDeleteTag.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowReserveBuild.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowStartHotfix.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FlowStartRelease.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.FusionStart.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewAccept.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewApprove.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewDequeue.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewEnqueue.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewLabels.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewList.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewOwnage.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewPatch.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewRebase.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewRemind.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewSkip.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.ReviewUpdate.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.UserActivity.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.UserRegister.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.UserWatchAuthors.self, ctx: ctx) { return result }
+    if let result = try unpack(UseCase.UserWatchTeams.self, ctx: ctx) { return result }
+    throw Thrown("Unknown contract: \(subject)")
   }
   static var chunkSize: Int { 2047 }
   static var contract: String { "CLOCKWORK_CONTRACT" }
-  static var payloads: [ContractPerformer.Type] {[
-    UseCase.ConnectClean.self,
-    UseCase.ConnectSignal.self,
-    UseCase.FlowChangeAccessory.self,
-    UseCase.FlowChangeNext.self,
-    UseCase.FlowCreateAccessory.self,
-    UseCase.FlowCreateDeploy.self,
-    UseCase.FlowCreateStage.self,
-    UseCase.FlowDeleteBranch.self,
-    UseCase.FlowDeleteTag.self,
-    UseCase.FlowReserveBuild.self,
-    UseCase.FlowStartHotfix.self,
-    UseCase.FlowStartRelease.self,
-    UseCase.FusionStart.self,
-    UseCase.ReviewAccept.self,
-    UseCase.ReviewApprove.self,
-    UseCase.ReviewDequeue.self,
-    UseCase.ReviewEnqueue.self,
-    UseCase.ReviewLabels.self,
-    UseCase.ReviewList.self,
-    UseCase.ReviewOwnage.self,
-    UseCase.ReviewPatch.self,
-    UseCase.ReviewRebase.self,
-    UseCase.ReviewRemind.self,
-    UseCase.ReviewSkip.self,
-    UseCase.ReviewUpdate.self,
-    UseCase.UserActivity.self,
-    UseCase.UserRegister.self,
-    UseCase.UserWatchAuthors.self,
-    UseCase.UserWatchTeams.self,
-  ]}
   static func pack<Payload: ContractPerformer>(
-    job: UInt,
-    version: String,
-    payload: Payload,
-    encoder: JSONEncoder
+    ctx: ContextGitlab,
+    payload: Payload
   ) throws -> [Variable] {
-    let payload = try encoder.encode(payload).base64EncodedString()
+    let payload = try ctx.sh.rawEncoder.encode(payload).base64EncodedString()
     var count: UInt = 0
     var startIndex = payload.startIndex
     var result: [Variable] = []
@@ -75,19 +73,23 @@ struct Contract: Codable {
     }
     try result.append(.init(
       key: contract,
-      value: encoder
-        .encode(Self(job: job, chunks: count, version: version, subject: Payload.subject))
+      value: ctx.sh.rawEncoder
+        .encode(Self(
+          job: ctx.gitlab.current.id,
+          chunks: count,
+          version: ctx.repo.profile.version,
+          subject: Payload.subject
+        ))
         .base64EncodedString()
     ))
     return result
   }
   static func unpack(
-    env: [String: String],
-    decoder: JSONDecoder
+    ctx: Context
   ) throws -> Self {
-    guard let data = try Data(base64Encoded: contract.get(env: env))
+    guard let data = try Data(base64Encoded: ctx.sh.get(env: contract))
     else { throw Thrown("Contract not base64 encoded") }
-    return try decoder.decode(Self.self, from: data)
+    return try ctx.sh.rawDecoder.decode(Self.self, from: data)
   }
   struct Variable: Encodable {
     var key: String

@@ -124,7 +124,7 @@ struct Clockwork: ParsableCommand {
       @Option(help: "Version to set")
       var version: String
       func handle(repo: Repo) throws -> Performer {
-        UseCase.flowChangeNext(product: product, version: version)
+        UseCase.flowChangeAccessory(product: product, branch: branch, version: version)
       }
     }
     struct ChangeNextVersion: ClockworkCommand {

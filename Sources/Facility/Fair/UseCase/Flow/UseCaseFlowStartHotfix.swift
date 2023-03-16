@@ -6,5 +6,8 @@ extension UseCase {
     var product: String
     var commit: String
     var version: String
+    mutating func perform(exclusive ctx: ContextExclusive) throws {
+#warning("TBD")
+    }
   }
 }

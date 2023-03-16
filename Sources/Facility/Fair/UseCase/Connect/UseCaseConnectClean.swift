@@ -3,8 +3,8 @@ import Facility
 import FacilityPure
 extension UseCase {
   struct ConnectClean: ProtectedContractPerformer {
-    func perform(exclusive ctx: ContextExclusive) throws -> Bool {
-      <#code#>
+    func perform(exclusive ctx: ContextExclusive) throws {
+      #warning("TBD")
     }
   }
 }

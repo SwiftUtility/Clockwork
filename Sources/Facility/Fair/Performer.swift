@@ -13,62 +13,54 @@ public extension GitlabPerformer {
   }
 }
 public protocol ProtectedGitlabPerformer: GitlabPerformer {
-  func perform(gitlab: ContextGitlab, protected: Ctx.Gitlab.Protected) throws -> Bool
+  func perform(protected: ContextGitlabProtected) throws -> Bool
 }
 public extension ProtectedGitlabPerformer {
   func perform(gitlab ctx: ContextGitlab) throws -> Bool {
-    try perform(gitlab: ctx, protected: ctx.protected())
+    try perform(protected: ctx.protected())
   }
 }
 public protocol ContractPerformer: Codable, GitlabPerformer {
   static var subject: String { get }
   static var triggerContract: Bool { get }
-  func perform(exclusive: ContextExclusive) throws -> Bool
+  mutating func perform(exclusive: ContextExclusive) throws
+  func checkContract(ctx: ContextGitlabProtected) throws
 }
 public extension ContractPerformer {
   static var triggerContract: Bool { false }
   func perform(gitlab ctx: ContextGitlab) throws -> Bool {
-    let variables = try Contract.pack(
-      job: ctx.gitlab.current.id,
-      version: ctx.repo.profile.version,
-      payload: self,
-      encoder: ctx.sh.rawEncoder
-    )
+    let variables = try Contract.pack(ctx: ctx, payload: self)
     if ctx.gitlab.current.isReview {
       try ctx.triggerPipeline(ref: ctx.gitlab.cfg.contract.ref.value, variables: variables)
     } else {
       let protected = try ctx.protected()
-      try ctx.createPipeline(
+      try protected.createPipeline(
         ref: Self.triggerContract
           .then(ctx.gitlab.cfg.contract.ref.value)
           .get(protected.project.defaultBranch),
-        protected: protected,
         variables: variables
       )
     }
     return true
   }
-  func perform(exclusive: ContextExclusive) throws -> Bool {
-    #warning("delete")
-    return false
+  func checkContract(ctx: ContextGitlabProtected) throws {
+    let ref = (Self.triggerContract || ctx.gitlab.current.isReview)
+      .then(ctx.gitlab.cfg.contract.name)
+      .get(ctx.project.defaultBranch)
+    guard ref == ctx.gitlab.current.pipeline.ref
+    else { throw Thrown("Must be triggered on \(ref)") }
   }
   static var subject: String { "\(Self.self)" }
 }
 public protocol ProtectedContractPerformer: ContractPerformer {}
 public extension ProtectedContractPerformer {
   func perform(gitlab ctx: ContextGitlab) throws -> Bool {
-    let variables = try Contract.pack(
-      job: ctx.gitlab.current.id,
-      version: ctx.repo.profile.version,
-      payload: self,
-      encoder: ctx.sh.rawEncoder
-    )
+    let variables = try Contract.pack(ctx: ctx, payload: self)
     let protected = try ctx.protected()
-    try ctx.createPipeline(
+    try protected.createPipeline(
       ref: Self.triggerContract
         .then(ctx.gitlab.cfg.contract.ref.value)
         .get(protected.project.defaultBranch),
-      protected: protected,
       variables: variables
     )
     return true
@@ -77,12 +69,7 @@ public extension ProtectedContractPerformer {
 public protocol ReviewContractPerformer: ContractPerformer {}
 public extension ReviewContractPerformer {
   func perform(gitlab ctx: ContextGitlab) throws -> Bool {
-    let variables = try Contract.pack(
-      job: ctx.gitlab.current.id,
-      version: ctx.repo.profile.version,
-      payload: self,
-      encoder: ctx.sh.rawEncoder
-    )
+    let variables = try Contract.pack(ctx: ctx, payload: self)
     guard ctx.gitlab.current.isReview else { throw Thrown("Not review job") }
     try ctx.triggerPipeline(ref: ctx.gitlab.cfg.contract.ref.value, variables: variables)
     return true
