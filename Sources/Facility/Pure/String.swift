@@ -24,4 +24,8 @@ public extension String {
     }
     return result
   }
+  func urlEncoded() throws -> String { try self
+    .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+    .get { throw MayDay("addingPercentEncoding failed") }
+  }
 }

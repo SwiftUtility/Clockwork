@@ -53,7 +53,7 @@ extension ContextGitlabProtected {
   }
   func getTag(name: String) throws -> Json.GitlabTag { try Id
     .make(Execute.makeCurl(
-      url: "\(gitlab.project)/repository/tags/\(name)",
+      url: "\(gitlab.project)/repository/tags/\(name.urlEncoded())",
       retry: 2,
       headers: ["Authorization: Bearer \(rest)", Json.utf8],
       secrets: [rest]
@@ -64,7 +64,7 @@ extension ContextGitlabProtected {
   }
   func getBranch(name: String) throws -> Json.GitlabBranch { try Id
     .make(Execute.makeCurl(
-      url: "\(gitlab.project)/repository/branches/\(name)",
+      url: "\(gitlab.project)/repository/branches/\(name.urlEncoded())",
       retry: 2,
       headers: ["Authorization: Bearer \(rest)", Json.utf8],
       secrets: [rest]
@@ -82,6 +82,18 @@ extension ContextGitlabProtected {
     ))
     .map(sh.execute)
     .reduce(Json.GitlabMerge.self, gitlab.apiDecoder.decode(success:reply:))
+    .get()
+  }
+  func deleteTag(name: String) throws { try Id
+    .make(Execute.makeCurl(
+      url: "\(gitlab.project)/repository/tags/\(name.urlEncoded())",
+      method: "DELETE",
+      retry: 2,
+      headers: ["Authorization: Bearer \(rest)"],
+      secrets: [rest]
+    ))
+    .map(sh.execute)
+    .map(Execute.checkStatus(reply:))
     .get()
   }
 }

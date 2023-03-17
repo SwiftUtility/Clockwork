@@ -325,20 +325,20 @@ public extension Gitlab {
     headers: [rest.get().auth, Json.contentType],
     secrets: [rest.get().secret]
   ))}
-  func postTriggerPipeline(
-    cfg: Configuration,
-    ref: String,
-    variables: [String: String]
-  ) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(api)/trigger/pipeline",
-    method: "POST",
-    form: [
-      "token=\(env.token)",
-      "ref=\(ref)",
-    ] + variables
-      .map { try "variables[\($0.key)]=\($0.value.urlEncoded.get())" },
-    secrets: [env.token]
-  ))}
+//  func postTriggerPipeline(
+//    cfg: Configuration,
+//    ref: String,
+//    variables: [String: String]
+//  ) -> Lossy<Execute> { .init(try .makeCurl(
+//    url: "\(api)/trigger/pipeline",
+//    method: "POST",
+//    form: [
+//      "token=\(env.token)",
+//      "ref=\(ref)",
+//    ] + variables
+//      .map { try "variables[\($0.key)]=\($0.value.urlEncoded.get())" },
+//    secrets: [env.token]
+//  ))}
   func affectPipeline(
     cfg: Configuration,
     pipeline: UInt,
@@ -417,43 +417,43 @@ public extension Gitlab {
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
-  func postBranches(
-    name: String,
-    ref: String
-  ) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(api)/repository/branches",
-    method: "POST",
-    form: [
-      "branch=\(name.urlEncoded.get())",
-      "ref=\(ref)",
-    ],
-    headers: [rest.get().auth],
-    secrets: [rest.get().secret]
-  ))}
-  func deleteBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(api)/repository/branches/\(name.urlEncoded.get())",
-    method: "DELETE",
-    headers: [rest.get().auth],
-    secrets: [rest.get().secret]
-  ))}
-  func deleteTag(name: String) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(api)/repository/tags/\(name.urlEncoded.get())",
-    method: "DELETE",
-    headers: [rest.get().auth],
-    secrets: [rest.get().secret]
-  ))}
+//  func postBranches(
+//    name: String,
+//    ref: String
+//  ) -> Lossy<Execute> { .init(try .makeCurl(
+//    url: "\(api)/repository/branches",
+//    method: "POST",
+//    form: [
+//      "branch=\(name.urlEncoded.get())",
+//      "ref=\(ref)",
+//    ],
+//    headers: [rest.get().auth],
+//    secrets: [rest.get().secret]
+//  ))}
+//  func deleteBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
+//    url: "\(api)/repository/branches/\(name.urlEncoded.get())",
+//    method: "DELETE",
+//    headers: [rest.get().auth],
+//    secrets: [rest.get().secret]
+//  ))}
+//  func deleteTag(name: String) -> Lossy<Execute> { .init(try .makeCurl(
+//    url: "\(api)/repository/tags/\(name.urlEncoded.get())",
+//    method: "DELETE",
+//    headers: [rest.get().auth],
+//    secrets: [rest.get().secret]
+//  ))}
   func getBranches(page: Int, count: Int) -> Lossy<Execute> { .init(try .makeCurl(
     url: "\(api)/repository/branches?page=\(page)&per_page=\(count)",
     retry: 2,
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
-  func getBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
-    url: "\(api)/repository/branches/\(name.urlEncoded.get())",
-    retry: 2,
-    headers: [rest.get().auth],
-    secrets: [rest.get().secret]
-  ))}
+//  func getBranch(name: String) -> Lossy<Execute> { .init(try .makeCurl(
+//    url: "\(api)/repository/branches/\(name.urlEncoded.get())",
+//    retry: 2,
+//    headers: [rest.get().auth],
+//    secrets: [rest.get().secret]
+//  ))}
   struct PutMrState: Encodable {
     public var targetBranch: String?
     public var title: String?
@@ -564,9 +564,9 @@ extension Encodable {
       .map(String.make(utf8:))
   }
 }
-extension String {
-  var urlEncoded: Lossy<String> { .init(try self
-    .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
-    .get { throw MayDay("addingPercentEncoding failed") }
-  )}
-}
+//extension String {
+//  var urlEncoded: Lossy<String> { .init(try self
+//    .addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+//    .get { throw MayDay("addingPercentEncoding failed") }
+//  )}
+//}

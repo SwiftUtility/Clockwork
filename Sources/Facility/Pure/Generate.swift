@@ -59,7 +59,6 @@ public struct Generate: Query {
     public var chat: Chat.Info? = nil
     public var mark: String? = nil
     static func make(
-      cfg: Configuration,
       context: Context,
       subevent: [String],
       stdin: AnyCodable?,
@@ -422,7 +421,6 @@ private extension Configuration {
     args: [String]? = nil
   ) -> Generate {
     var info = Generate.Info.make(
-      cfg: self,
       context: ctx,
       subevent: subevent,
       stdin: stdin,

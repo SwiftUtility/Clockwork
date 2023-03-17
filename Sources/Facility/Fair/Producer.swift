@@ -35,44 +35,6 @@
 //    self.writeStdout = writeStdout
 //    self.jsonDecoder = jsonDecoder
 //  }
-//  public func deleteTag(cfg: Configuration, name: String) throws -> Bool {
-//    let gitlab = try cfg.gitlab.get()
-//    let tag = try name.isEmpty.not
-//      .then(Git.Tag.make(name: name))
-//      .get(.make(job: cfg.gitlab.map(\.job).get()))
-//    try perform(cfg: cfg, mutate: { storage in
-//      var message: Generate? = nil
-//      if let stage = storage.stages[tag] {
-//        storage.stages[tag] = nil
-//        cfg.reportStageTagDeleted(stage: stage)
-//        message = cfg.createFlowStorageCommitMessage(
-//          flow: storage.flow,
-//          reason: .deleteStageTag,
-//          product: stage.product,
-//          version: stage.version.value,
-//          build: stage.build.value,
-//          branch: stage.branch.name,
-//          tag: stage.tag.name
-//        )
-//      }
-//      if let deploy = storage.deploys[tag] {
-//        storage.deploys[tag] = nil
-//        cfg.reportDeployTagDeleted(deploy: deploy, release: storage.release(deploy: deploy))
-//        message = cfg.createFlowStorageCommitMessage(
-//          flow: storage.flow,
-//          reason: .deleteDeployTag,
-//          product: deploy.product,
-//          version: deploy.version.value
-//        )
-//      }
-//      return message
-//    })
-//    try gitlab.deleteTag(name: tag.name)
-//      .map(execute)
-//      .map(Execute.checkStatus(reply:))
-//      .get()
-//    return true
-//  }
 //  public func deleteBranch(cfg: Configuration, name: String) throws -> Bool {
 //    let gitlab = try cfg.gitlab.get()
 //    let defaultBranch = try gitlab.rest

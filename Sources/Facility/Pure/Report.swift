@@ -4,7 +4,6 @@ public struct Report {
   public var threads: Threads
   public var info: GenerateInfo
   fileprivate static func make<Context: GenerateContext>(
-    cfg: Configuration,
     threads: Threads,
     ctx: Context,
     subevent: [String] = [],
@@ -12,7 +11,7 @@ public struct Report {
     args: [String]? = nil
   ) -> Self { .init(
     threads: threads,
-    info: Generate.Info.make(cfg: cfg, context: ctx, subevent: subevent, stdin: stdin, args: args)
+    info: Generate.Info.make(context: ctx, subevent: subevent, stdin: stdin, args: args)
   )}
   #warning("TBD eliminate shared state")
   public class Bag {
@@ -236,7 +235,6 @@ public extension Configuration {
     fork: String,
     reason: Report.FusionFail.Reason
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(users: defaultUsers),
     ctx: Report.FusionFail(source: source, target: target, fork: fork, reason: reason),
     subevent: [reason.rawValue]
@@ -246,7 +244,6 @@ public extension Configuration {
     state: Review.State,
     reason: Report.ReviewFail.Reason
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(users: defaultUsers.union(state.authors), reviews: [merge.iid]),
     ctx: Report.ReviewFail(merge: merge, review: .init(state: state), reason: reason),
     subevent: [reason.rawValue]
@@ -256,7 +253,6 @@ public extension Configuration {
     merge: Json.GitlabMerge,
     state: Review.State
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(users: [user]),
     ctx: Report.ReviewWatch(user: user, merge: merge, review: .init(state: state))
   ))}
@@ -264,7 +260,6 @@ public extension Configuration {
     user: String,
     reviews: [Report.ReviewApprove]
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(users: [user]),
     ctx: Report.ReviewList(user: user, reviews: reviews),
     subevent: [reviews.isEmpty.then(Report.ReviewList.Reason.empty).get(.full).rawValue]
@@ -275,7 +270,6 @@ public extension Configuration {
     state: Review.State,
     reason: Report.ReviewApprove.Reason
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(users: [user], reviews: [state.review]),
     ctx: Report.ReviewApprove.init(
       user: user,
@@ -290,7 +284,6 @@ public extension Configuration {
     state: Review.State,
     reason: Report.ReviewQueue.Reason
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(
       users: state.authors,
       reviews: [state.review],
@@ -304,7 +297,6 @@ public extension Configuration {
     merge: Json.GitlabMerge,
     reason: Report.ReviewEvent.Reason
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(
       users: state.authors,
       issues: issues(branch: merge.sourceBranch),
@@ -318,7 +310,6 @@ public extension Configuration {
     state: Review.State,
     merge: Json.GitlabMerge
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(reviews: [state.review]),
     ctx: Report.ReviewUpdated(merge: merge, review: .init(state: state))
   ))}
@@ -327,7 +318,6 @@ public extension Configuration {
     merge: Json.GitlabMerge,
     error: String
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(users: state.authors, reviews: [merge.iid]),
     ctx: Report.ReviewMergeError(merge: merge, review: .init(state: state), error: error)
   ))}
@@ -335,7 +325,6 @@ public extension Configuration {
     release: Flow.Release,
     kind: Flow.Release.Kind
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchCreated(
       commit: release.start.value,
@@ -350,7 +339,6 @@ public extension Configuration {
     release: Flow.Release,
     kind: Flow.Release.Kind
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchDeleted(
       branch: release.branch.name,
@@ -364,7 +352,6 @@ public extension Configuration {
     release: Flow.Release,
     notes: Flow.ReleaseNotes
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchSummary(
       commit: release.start.value,
@@ -381,7 +368,6 @@ public extension Configuration {
     deploy: Flow.Deploy,
     notes: Flow.ReleaseNotes
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(tags: [deploy.tag.name], users: defaultUsers, branches: [release.branch.name]),
     ctx: Report.DeployTagCreated(
       commit: commit.value,
@@ -394,29 +380,10 @@ public extension Configuration {
     ),
     subevent: [deploy.product]
   ))}
-  func reportDeployTagDeleted(
-    deploy: Flow.Deploy,
-    release: Flow.Release?
-  ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
-    threads: .make(
-      tags: [deploy.tag.name],
-      users: defaultUsers,
-      branches: Set(release.map(\.branch.name).array)
-    ),
-    ctx: Report.DeployTagDeleted(
-      tag: deploy.tag.name,
-      product: deploy.product,
-      version: deploy.version.value,
-      build: deploy.build.value
-    ),
-    subevent: [deploy.product]
-  ))}
   func reportStageTagCreated(
     commit: Git.Sha,
     stage: Flow.Stage
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(
       tags: [stage.tag.name],
       users: defaultUsers,
@@ -425,24 +392,6 @@ public extension Configuration {
     ),
     ctx: Report.StageTagCreated(
       commit: commit.value,
-      tag: stage.tag.name,
-      product: stage.product,
-      version: stage.version.value,
-      build: stage.build.value
-    ),
-    subevent: [stage.product]
-  ))}
-  func reportStageTagDeleted(
-    stage: Flow.Stage
-  ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
-    threads: .make(
-      tags: [stage.tag.name],
-      users: defaultUsers,
-      reviews: Set(stage.review.array),
-      branches: [stage.branch.name]
-    ),
-    ctx: Report.StageTagDeleted(
       tag: stage.tag.name,
       product: stage.product,
       version: stage.version.value,
@@ -460,7 +409,6 @@ public extension Configuration {
     product: String? = nil,
     version: String? = nil
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: threads,
     ctx: Report.Custom(
       merge: merge,
@@ -475,7 +423,6 @@ public extension Configuration {
   func reportUnexpected(
     error: Error
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(
       users: defaultUsers,
       reviews: Set((try? gitlab.flatMap(\.parent).flatMap(\.review).get()).array)
@@ -489,22 +436,57 @@ public extension Configuration {
     commit: Git.Sha,
     accessory: Flow.Accessory
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(branches: [accessory.branch.name]),
     ctx: Report.AccessoryBranchCreated(commit: commit.value, branch: accessory.branch.name)
   ))}
   func reportAccessoryBranchDeleted(
     accessory: Flow.Accessory
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(branches: [accessory.branch.name]),
     ctx: Report.AccessoryBranchDeleted(branch: accessory.branch.name)
   ))}
   func reportExpiringRequisites(
     items: [Report.ExpiringRequisites.Item]
   ) { Report.Bag.shared.reports.append(.make(
-    cfg: self,
     threads: .make(),
     ctx: Report.ExpiringRequisites(items: items)
   ))}
+}
+public extension Report {
+  static func deployTagDeleted(
+    parent: Json.GitlabJob,
+    deploy: Flow.Deploy,
+    release: Flow.Release?
+  ) -> Self { .make(
+    threads: .make(
+      tags: [deploy.tag.name],
+      users: [parent.user.username],
+      branches: Set(release.map(\.branch.name).array)
+    ),
+    ctx: Report.DeployTagDeleted(
+      tag: deploy.tag.name,
+      product: deploy.product,
+      version: deploy.version.value,
+      build: deploy.build.value
+    ),
+    subevent: [deploy.product]
+  )}
+  static func stageTagDeleted(
+    parent: Json.GitlabJob,
+    stage: Flow.Stage
+  ) -> Self { .make(
+    threads: .make(
+      tags: [stage.tag.name],
+      users: [parent.user.username],
+      reviews: Set(stage.review.array),
+      branches: [stage.branch.name]
+    ),
+    ctx: Report.StageTagDeleted(
+      tag: stage.tag.name,
+      product: stage.product,
+      version: stage.version.value,
+      build: stage.build.value
+    ),
+    subevent: [stage.product]
+  )}
 }
