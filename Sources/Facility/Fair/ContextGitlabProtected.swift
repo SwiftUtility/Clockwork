@@ -96,4 +96,16 @@ extension ContextGitlabProtected {
     .map(Execute.checkStatus(reply:))
     .get()
   }
+  func deleteBranch(name: String) throws { try Id
+    .make(Execute.makeCurl(
+      url: "\(gitlab.project)/repository/branches/\(name.urlEncoded())",
+      method: "DELETE",
+      retry: 2,
+      headers: ["Authorization: Bearer \(rest)"],
+      secrets: [rest]
+    ))
+    .map(sh.execute)
+    .map(Execute.checkStatus(reply:))
+    .get()
+  }
 }

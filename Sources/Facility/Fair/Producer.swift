@@ -35,58 +35,6 @@
 //    self.writeStdout = writeStdout
 //    self.jsonDecoder = jsonDecoder
 //  }
-//  public func deleteBranch(cfg: Configuration, name: String) throws -> Bool {
-//    let gitlab = try cfg.gitlab.get()
-//    let defaultBranch = try gitlab.rest
-//      .map(\.project.defaultBranch)
-//      .map(Git.Branch.make(name:))
-//      .get()
-//    let branch: Git.Branch
-//    if let name = name.isEmpty.not.then(name) {
-//      branch = try .make(name: name)
-//    } else {
-//      branch = try .make(job: gitlab.job)
-//      let sha = try Git.Ref.make(sha: .make(job: gitlab.job))
-//      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-//        child: sha,
-//        parent: .make(remote: branch)
-//      ))) else { throw Thrown("Not last commit pipeline") }
-//      guard branch != defaultBranch else { throw Thrown("Can no delete \(defaultBranch.name)") }
-//      guard try Execute.parseSuccess(reply: execute(cfg.git.check(
-//        child: .make(remote: defaultBranch),
-//        parent: sha
-//      ))) else { throw Thrown("Branch \(branch.name) not merged into \(defaultBranch.name)") }
-//    }
-//    try perform(cfg: cfg, mutate: { storage in
-//      var message: Generate? = nil
-//      if let accessory = storage.accessories[branch] {
-//        storage.accessories[branch] = nil
-//        cfg.reportAccessoryBranchDeleted(accessory: accessory)
-//        message = cfg.createFlowStorageCommitMessage(
-//          flow: storage.flow,
-//          reason: .deleteAccessoryBranch,
-//          branch: branch.name
-//        )
-//      }
-//      if let release = storage.releases[branch] {
-//        storage.releases[branch] = nil
-//        cfg.reportReleaseBranchDeleted(release: release, kind: storage.kind(release: release))
-//        message = cfg.createFlowStorageCommitMessage(
-//          flow: storage.flow,
-//          reason: .deleteReleaseBranch,
-//          product: release.product,
-//          version: release.version.value,
-//          branch: release.branch.name
-//        )
-//      }
-//      return message
-//    })
-//    try gitlab.deleteBranch(name: branch.name)
-//      .map(execute)
-//      .map(Execute.checkStatus(reply:))
-//      .get()
-//    return true
-//  }
 //  public func createDeployTag(cfg: Configuration) throws -> Bool {
 //    let gitlab = try cfg.gitlab.get()
 //    let branch = try Git.Branch.make(job: gitlab.job)

@@ -335,19 +335,6 @@ public extension Configuration {
     ),
     subevent: [release.product, kind.rawValue]
   ))}
-  func reportReleaseBranchDeleted(
-    release: Flow.Release,
-    kind: Flow.Release.Kind
-  ) { Report.Bag.shared.reports.append(.make(
-    threads: .make(branches: [release.branch.name]),
-    ctx: Report.ReleaseBranchDeleted(
-      branch: release.branch.name,
-      product: release.product,
-      version: release.version.value,
-      kind: kind
-    ),
-    subevent: [release.product, kind.rawValue]
-  ))}
   func reportReleaseBranchSummary(
     release: Flow.Release,
     notes: Flow.ReleaseNotes
@@ -439,12 +426,6 @@ public extension Configuration {
     threads: .make(branches: [accessory.branch.name]),
     ctx: Report.AccessoryBranchCreated(commit: commit.value, branch: accessory.branch.name)
   ))}
-  func reportAccessoryBranchDeleted(
-    accessory: Flow.Accessory
-  ) { Report.Bag.shared.reports.append(.make(
-    threads: .make(branches: [accessory.branch.name]),
-    ctx: Report.AccessoryBranchDeleted(branch: accessory.branch.name)
-  ))}
   func reportExpiringRequisites(
     items: [Report.ExpiringRequisites.Item]
   ) { Report.Bag.shared.reports.append(.make(
@@ -488,5 +469,32 @@ public extension Report {
       build: stage.build.value
     ),
     subevent: [stage.product]
+  )}
+  static func accessoryBranchDeleted(
+    parent: Json.GitlabJob,
+    accessory: Flow.Accessory
+  ) -> Self { .make(
+    threads: .make(
+      users: [parent.user.username],
+      branches: [accessory.branch.name]
+    ),
+    ctx: Report.AccessoryBranchDeleted(branch: accessory.branch.name)
+  )}
+  static func releaseBranchDeleted(
+    parent: Json.GitlabJob,
+    release: Flow.Release,
+    kind: Flow.Release.Kind
+  ) -> Self { .make(
+    threads: .make(
+      users: [parent.user.username],
+      branches: [release.branch.name]
+    ),
+    ctx: Report.ReleaseBranchDeleted(
+      branch: release.branch.name,
+      product: release.product,
+      version: release.version.value,
+      kind: kind
+    ),
+    subevent: [release.product, kind.rawValue]
   )}
 }
