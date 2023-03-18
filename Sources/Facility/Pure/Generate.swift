@@ -9,7 +9,7 @@ public extension GenerateContext {
 public protocol GenerateInfo: Encodable {
   var event: [String] { get }
   var env: [String: String] { get set }
-  var gitlab: Gitlab.Info? { get set }
+  var gitlab: Ctx.Gitlab.Info? { get set }
   var mark: String? { get set }
   var jira: Jira.Info? { get set }
   var chat: Chat.Info? { get set }
@@ -28,7 +28,7 @@ public extension GenerateInfo {
   func match(note: Gitlab.Note) -> Bool { match(events: note.events) }
 }
 public struct Generate: Query {
-  public var template: Configuration.Template
+  public var template: Ctx.Template
   public var allowEmpty: Bool
   public var info: GenerateInfo
   public static func make(
@@ -54,7 +54,7 @@ public struct Generate: Query {
     public var ctx: Context
     public var stdin: AnyCodable? = nil
     public var env: [String: String] = [:]
-    public var gitlab: Gitlab.Info? = nil
+    public var gitlab: Ctx.Gitlab.Info? = nil
     public var jira: Jira.Info? = nil
     public var chat: Chat.Info? = nil
     public var mark: String? = nil
@@ -191,71 +191,236 @@ public struct Generate: Query {
     public var template: String
   }
 }
-public extension Configuration {
-  func report(template: Configuration.Template, info: GenerateInfo) -> Generate { .init(
-    template: template, allowEmpty: true, info: info
-  )}
-  func render(template: String, stdin: AnyCodable?, args: [String]) -> Generate { generate(
-    template: .name(template),
-    ctx: Generate.Render(template: template),
-    stdin: stdin,
-    args: args
-  )}
-  func exportVersions(
+//public extension Configuration {
+//  func report(template: Configuration.Template, info: GenerateInfo) -> Generate { .init(
+//    template: template, allowEmpty: true, info: info
+//  )}
+//  func render(template: String, stdin: AnyCodable?, args: [String]) -> Generate { generate(
+//    template: .name(template),
+//    ctx: Generate.Render(template: template),
+//    stdin: stdin,
+//    args: args
+//  )}
+//  func exportVersions(
+//    flow: Flow,
+//    stdin: AnyCodable?,
+//    args: [String],
+//    versions: [String: String],
+//    build: String?,
+//    product: String?
+//  ) -> Generate { generate(
+//    template: flow.exportVersions,
+//    ctx: Generate.ExportVersions(
+//      build: build,
+//      product: product,
+//      versions: versions
+//    ),
+//    stdin: stdin,
+//    args: args
+//  )}
+//  func createTagName(
+//    flow: Flow,
+//    product: String,
+//    version: AlphaNumeric,
+//    build: AlphaNumeric,
+//    kind: Generate.TagKind
+//  ) -> Generate { generate(
+//    template: flow.createTagName,
+//    ctx: Generate.CreateTagName(
+//      product: product,
+//      version: version.value,
+//      build: build.value,
+//      kind: kind
+//    ),
+//    subevent: [kind.rawValue]
+//  )}
+//  func createTagAnnotation(
+//    flow: Flow,
+//    product: String,
+//    version: AlphaNumeric,
+//    build: AlphaNumeric,
+//    kind: Generate.TagKind
+//  ) -> Generate { generate(
+//    template: flow.createTagAnnotation,
+//    ctx: Generate.CreateTagAnnotation(
+//      product: product,
+//      version: version.value,
+//      build: build.value,
+//      kind: kind
+//    ),
+//    subevent: [kind.rawValue]
+//  )}
+//  func bumpVersion(
+//    flow: Flow,
+//    product: String,
+//    version: AlphaNumeric,
+//    kind: Generate.BranchKind
+//  ) -> Generate { generate(
+//    template: flow.bumpVersion,
+//    ctx: Generate.BumpVersion(product: product, version: version.value, kind: kind),
+//    subevent: [kind.rawValue]
+//  )}
+//  func createGitlabStorageCommitMessage(
+//    user: String?,
+//    reviews: [String],
+//    gitlab: Gitlab,
+//    reason: Generate.CreateGitlabStorageCommitMessage.Reason
+//  ) -> Generate { generate(
+//    template: gitlab.storage.asset.createCommitMessage,
+//    ctx: Generate.CreateGitlabStorageCommitMessage(
+//      user: user,
+//      reviews: reviews.sorted().notEmpty,
+//      reason: reason
+//    ),
+//    subevent: [reason.rawValue]
+//  )}
+//  func createReviewStorageCommitMessage(
+//    review: Review,
+//    context: Generate.CreateReviewStorageCommitMessage
+//  ) -> Generate { generate(
+//    template: review.storage.createCommitMessage,
+//    ctx: context
+//  )}
+//  func createChatStorageCommitMessage(
+//    chat: Chat,
+//    user: String?,
+//    reason: Generate.CreateChatStorageCommitMessage.Reason
+//  ) -> Generate { generate(
+//    template: chat.storage.createCommitMessage,
+//    ctx: Generate.CreateChatStorageCommitMessage(user: user, kind: chat.kind, reason: reason),
+//    subevent: [reason.rawValue, chat.kind.rawValue]
+//  )}
+//  func createSquashCommitMessage(
+//    merge: Json.GitlabMerge,
+//    review: Review,
+//    fusion: Review.Fusion
+//  ) -> Generate? {
+//    guard fusion.proposition else { return nil }
+//    return generate(
+//      template: review.createSquashCommit,
+//      ctx: Generate.CreateSquashCommit(
+//        kind: fusion.kind,
+//        merge: merge
+//      ),
+//      subevent: [fusion.kind]
+//    )
+//  }
+//  func createMergeCommitMessage(
+//    merge: Json.GitlabMerge,
+//    review: Review,
+//    fusion: Review.Fusion
+//  ) -> Generate? {
+//    guard fusion.propogation.not, let fork = fusion.fork, let original = fusion.original
+//    else { return nil }
+//    return generate(
+//      template: review.createMergeCommit,
+//      ctx: Generate.CreateMergeCommit(
+//        kind: fusion.kind,
+//        merge: merge,
+//        fork: fork.value,
+//        fusion: original.name
+//      ),
+//      subevent: [fusion.kind]
+//    )
+//  }
+//  func createMergeTitle(
+//    review: Review,
+//    fusion: Review.Fusion
+//  ) throws -> Generate {
+//    guard let fork = fusion.fork, let original = fusion.original
+//    else { throw Thrown("Inconsistency") }
+//    return generate(
+//      template: review.createMergeTitle,
+//      ctx: Generate.CreateMergeTitle(
+//        kind: fusion.kind,
+//        fork: fork.value,
+//        fusion: original.name,
+//        target: fusion.target.name
+//      ),
+//      subevent: [fusion.kind]
+//    )
+//  }
+//  func createPatchCommitMessage(
+//    merge: Json.GitlabMerge,
+//    review: Review
+//  ) throws -> Generate { generate(
+//    template: review.createPatchCommit,
+//    ctx: Generate.CreatePatchCommit(merge: merge)
+//  )}
+//  func exportTargets(
+//    review: Review,
+//    fork: Git.Sha,
+//    source: String,
+//    integrate: [String],
+//    duplicate: [String],
+//    propogate: [String],
+//    stdin: AnyCodable?,
+//    args: [String]
+//  ) -> Generate { generate(
+//    template: review.exportTargets,
+//    ctx: Generate.ExportFusion(
+//      fork: fork.value,
+//      source: source,
+//      integrate: integrate.isEmpty.not.then(integrate),
+//      duplicate: duplicate.isEmpty.not.then(duplicate),
+//      propogate: propogate.isEmpty.not.then(propogate)
+//    ),
+//    stdin: stdin,
+//    args: args.isEmpty.else(args)
+//  )}
+//}
+//private extension Configuration {
+//  func generate<Context: GenerateContext>(
+//    template: Configuration.Template,
+//    ctx: Context,
+//    subevent: [String] = [],
+//    stdin: AnyCodable? = nil,
+//    args: [String]? = nil
+//  ) -> Generate {
+//    var info = Generate.Info.make(
+//      context: ctx,
+//      subevent: subevent,
+//      stdin: stdin,
+//      args: args
+//    )
+//    info.env = env
+//    info.gitlab = try? gitlab.get().info
+//    info.jira = try? jira.get().info
+//    info.stdin = stdin
+//    return .init(template: template, allowEmpty: false, info: info)
+//  }
+//}
+extension ContextExclusive {
+  private func make<Context: GenerateContext>(
+    template: Ctx.Template,
+    ctx: Context,
+    subevent: [String] = [],
+    stdin: AnyCodable? = nil,
+    args: [String]? = nil
+  ) throws -> String {
+    var info = Generate.Info.make(
+      context: ctx,
+      subevent: subevent,
+      stdin: stdin,
+      args: args
+    )
+    info.env = sh.env
+    #warning("TBD set gitlab, jira")
+    return try generate(.init(template: template, allowEmpty: false, info: info))
+  }
+  public func generateBuildBump(
     flow: Flow,
-    stdin: AnyCodable?,
-    args: [String],
-    versions: [String: String],
-    build: String?,
-    product: String?
-  ) -> Generate { generate(
-    template: flow.exportVersions,
-    ctx: Generate.ExportVersions(
-      build: build,
-      product: product,
-      versions: versions
-    ),
-    stdin: stdin,
-    args: args
+    family: Flow.Family
+  ) throws -> String { try make(
+    template: flow.bumpBuild,
+    ctx: Generate.BumpBuild(family: family.name, build: family.nextBuild.value)
   )}
-  func createTagName(
-    flow: Flow,
-    product: String,
-    version: AlphaNumeric,
-    build: AlphaNumeric,
-    kind: Generate.TagKind
-  ) -> Generate { generate(
-    template: flow.createTagName,
-    ctx: Generate.CreateTagName(
-      product: product,
-      version: version.value,
-      build: build.value,
-      kind: kind
-    ),
-    subevent: [kind.rawValue]
-  )}
-  func createTagAnnotation(
-    flow: Flow,
-    product: String,
-    version: AlphaNumeric,
-    build: AlphaNumeric,
-    kind: Generate.TagKind
-  ) -> Generate { generate(
-    template: flow.createTagAnnotation,
-    ctx: Generate.CreateTagAnnotation(
-      product: product,
-      version: version.value,
-      build: build.value,
-      kind: kind
-    ),
-    subevent: [kind.rawValue]
-  )}
-  func createReleaseBranchName(
+  public func generateReleaseBranchName(
     flow: Flow,
     product: String,
     version: AlphaNumeric,
     kind: Generate.BranchKind
-  ) -> Generate { generate(
+  ) throws -> String { try make(
     template: flow.createReleaseBranchName,
     ctx: Generate.CreateBranchName(
       product: product,
@@ -264,143 +429,4 @@ public extension Configuration {
     ),
     subevent: [kind.rawValue]
   )}
-  func bumpVersion(
-    flow: Flow,
-    product: String,
-    version: AlphaNumeric,
-    kind: Generate.BranchKind
-  ) -> Generate { generate(
-    template: flow.bumpVersion,
-    ctx: Generate.BumpVersion(product: product, version: version.value, kind: kind),
-    subevent: [kind.rawValue]
-  )}
-  func createGitlabStorageCommitMessage(
-    user: String?,
-    reviews: [String],
-    gitlab: Gitlab,
-    reason: Generate.CreateGitlabStorageCommitMessage.Reason
-  ) -> Generate { generate(
-    template: gitlab.storage.asset.createCommitMessage,
-    ctx: Generate.CreateGitlabStorageCommitMessage(
-      user: user,
-      reviews: reviews.sorted().notEmpty,
-      reason: reason
-    ),
-    subevent: [reason.rawValue]
-  )}
-  func createReviewStorageCommitMessage(
-    review: Review,
-    context: Generate.CreateReviewStorageCommitMessage
-  ) -> Generate { generate(
-    template: review.storage.createCommitMessage,
-    ctx: context
-  )}
-  func createChatStorageCommitMessage(
-    chat: Chat,
-    user: String?,
-    reason: Generate.CreateChatStorageCommitMessage.Reason
-  ) -> Generate { generate(
-    template: chat.storage.createCommitMessage,
-    ctx: Generate.CreateChatStorageCommitMessage(user: user, kind: chat.kind, reason: reason),
-    subevent: [reason.rawValue, chat.kind.rawValue]
-  )}
-  func createSquashCommitMessage(
-    merge: Json.GitlabMerge,
-    review: Review,
-    fusion: Review.Fusion
-  ) -> Generate? {
-    guard fusion.proposition else { return nil }
-    return generate(
-      template: review.createSquashCommit,
-      ctx: Generate.CreateSquashCommit(
-        kind: fusion.kind,
-        merge: merge
-      ),
-      subevent: [fusion.kind]
-    )
-  }
-  func createMergeCommitMessage(
-    merge: Json.GitlabMerge,
-    review: Review,
-    fusion: Review.Fusion
-  ) -> Generate? {
-    guard fusion.propogation.not, let fork = fusion.fork, let original = fusion.original
-    else { return nil }
-    return generate(
-      template: review.createMergeCommit,
-      ctx: Generate.CreateMergeCommit(
-        kind: fusion.kind,
-        merge: merge,
-        fork: fork.value,
-        fusion: original.name
-      ),
-      subevent: [fusion.kind]
-    )
-  }
-  func createMergeTitle(
-    review: Review,
-    fusion: Review.Fusion
-  ) throws -> Generate {
-    guard let fork = fusion.fork, let original = fusion.original
-    else { throw Thrown("Inconsistency") }
-    return generate(
-      template: review.createMergeTitle,
-      ctx: Generate.CreateMergeTitle(
-        kind: fusion.kind,
-        fork: fork.value,
-        fusion: original.name,
-        target: fusion.target.name
-      ),
-      subevent: [fusion.kind]
-    )
-  }
-  func createPatchCommitMessage(
-    merge: Json.GitlabMerge,
-    review: Review
-  ) throws -> Generate { generate(
-    template: review.createPatchCommit,
-    ctx: Generate.CreatePatchCommit(merge: merge)
-  )}
-  func exportTargets(
-    review: Review,
-    fork: Git.Sha,
-    source: String,
-    integrate: [String],
-    duplicate: [String],
-    propogate: [String],
-    stdin: AnyCodable?,
-    args: [String]
-  ) -> Generate { generate(
-    template: review.exportTargets,
-    ctx: Generate.ExportFusion(
-      fork: fork.value,
-      source: source,
-      integrate: integrate.isEmpty.not.then(integrate),
-      duplicate: duplicate.isEmpty.not.then(duplicate),
-      propogate: propogate.isEmpty.not.then(propogate)
-    ),
-    stdin: stdin,
-    args: args.isEmpty.else(args)
-  )}
-}
-private extension Configuration {
-  func generate<Context: GenerateContext>(
-    template: Configuration.Template,
-    ctx: Context,
-    subevent: [String] = [],
-    stdin: AnyCodable? = nil,
-    args: [String]? = nil
-  ) -> Generate {
-    var info = Generate.Info.make(
-      context: ctx,
-      subevent: subevent,
-      stdin: stdin,
-      args: args
-    )
-    info.env = env
-    info.gitlab = try? gitlab.get().info
-    info.jira = try? jira.get().info
-    info.stdin = stdin
-    return .init(template: template, allowEmpty: false, info: info)
-  }
 }

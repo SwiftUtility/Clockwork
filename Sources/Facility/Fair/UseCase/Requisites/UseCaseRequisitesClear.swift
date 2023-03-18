@@ -3,7 +3,7 @@ import Facility
 import FacilityPure
 extension UseCase {
   struct RequisitesClear: Performer {
-    func perform(repo ctx: ContextLocal) throws -> Bool {
+    func perform(local ctx: ContextLocal) throws -> Bool {
       try ctx.sh.sysDelete(path: .provisions)
       try ctx.sh.sysCreateDir(path: .provisions)
       let requisition = try ctx.parseRequisition()

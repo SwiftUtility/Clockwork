@@ -5,7 +5,7 @@ extension UseCase {
   struct FusionExport: ProtectedGitlabPerformer {
     var fork: String
     var source: String
-    func perform(protected ctx: ContextGitlabProtected) throws -> Bool {
+    func perform(protected ctx: ContextProtected) throws -> Bool {
       let fork = try Ctx.Git.Sha.make(value: fork)
       let source = try Ctx.Git.Branch.make(name: source)
       var targets = try ctx.listBranches()

@@ -294,34 +294,18 @@ public enum Ctx {
     }
     public struct Parent {
       public var job: Json.GitlabJob
+      public var bot: Json.GitlabUser
       public var kind: Kind
       public static func make(
         job: Json.GitlabJob,
+        bot: Json.GitlabUser,
         kind: Kind
       ) -> Self { .init(
         job: job,
+        bot: bot,
         kind: kind
       )}
       public enum Kind {
-        case tag(Json.GitlabTag)
-        case merge(Json.GitlabMerge)
-        case branch(Json.GitlabBranch)
-      }
-    }
-    public struct Contracted {
-      public let sender: Sender
-      public let bot: Json.GitlabUser
-      public let parent: Json.GitlabJob
-      public static func make(
-        sender: Sender,
-        bot: Json.GitlabUser,
-        parent: Json.GitlabJob
-      ) -> Self { .init(
-        sender: sender,
-        bot: bot,
-        parent: parent
-      )}
-      public enum Sender {
         case tag(Json.GitlabTag)
         case merge(Json.GitlabMerge)
         case branch(Json.GitlabBranch)

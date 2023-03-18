@@ -6,7 +6,7 @@ extension UseCase {
     var pkcs12: Bool
     var provisions: Bool
     var requisites: [String]
-    func perform(repo ctx: ContextLocal) throws -> Bool {
+    func perform(local ctx: ContextLocal) throws -> Bool {
       let requisition = try ctx.parseRequisition()
       let requisites = try requisites.isEmpty.not
         .then(requisites)

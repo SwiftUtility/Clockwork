@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-public extension Context {
+public extension ContextCommon {
   func log(message: String) {
     sh.stderr(.init("[\(sh.formatter.string(from: sh.getTime()))]: \(message)\n".utf8))
   }

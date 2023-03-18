@@ -1,8 +1,8 @@
 import Foundation
 import Facility
 import FacilityPure
-public final class GitlabProtected: ContextGitlabProtected {
-  public func protected() throws -> ContextGitlabProtected { self }
+public final class GitlabProtected: ContextProtected {
+  public func protected() throws -> ContextProtected { self }
   public let sh: Ctx.Sh
   public let git: Ctx.Git
   public let repo: Ctx.Repo

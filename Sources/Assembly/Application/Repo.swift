@@ -73,6 +73,6 @@ final class Repo: ContextLocal {
   }
   static func handle(profile: String, handler: Try.Of<Repo>.Do<Performer>) throws -> Bool {
     let repo = try Repo(profile: profile)
-    return try handler(repo).perform(repo: repo)
+    return try handler(repo).perform(local: repo)
   }
 }

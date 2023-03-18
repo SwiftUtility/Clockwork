@@ -4,7 +4,7 @@ import FacilityPure
 extension UseCase {
   struct ConnectTriggerPipeline: ProtectedGitlabPerformer {
     var variables: [String]
-    func perform(protected ctx: ContextGitlabProtected) throws -> Bool {
+    func perform(protected ctx: ContextProtected) throws -> Bool {
       var variables: [Contract.Variable] = []
       for variable in self.variables {
         guard let index = variable.firstIndex(of: "=")

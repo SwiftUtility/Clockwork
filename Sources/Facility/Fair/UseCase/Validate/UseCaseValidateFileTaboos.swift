@@ -4,7 +4,7 @@ import FacilityPure
 extension UseCase {
   struct ValidateFileTaboos: Performer {
     var stdout: Bool
-    func perform(repo ctx: ContextLocal) throws -> Bool {
+    func perform(local ctx: ContextLocal) throws -> Bool {
       guard try ctx.gitIsClean() else { throw Thrown("Git is dirty") }
       let rules = try ctx.parseFileTaboos()
       let nameRules = rules.filter(\.lines.isEmpty)

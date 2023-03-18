@@ -5,7 +5,7 @@ extension UseCase {
   struct RequisitesCheckExpire: Performer {
     var days: UInt
     var stdout: Bool
-    func perform(repo ctx: ContextLocal) throws -> Bool {
+    func perform(local ctx: ContextLocal) throws -> Bool {
       let requisition = try ctx.parseRequisition()
       let now = ctx.sh.getTime()
       let threshold = now.advanced(by: .init(days) * .day)

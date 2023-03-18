@@ -36,7 +36,7 @@ public final class GitlabSender: ContextGitlab {
       apiDecoder: apiDecoder
     )
   }
-  public func protected() throws -> ContextGitlabProtected {
+  public func protected() throws -> ContextProtected {
     try GitlabProtected(sender: self)
   }
 }

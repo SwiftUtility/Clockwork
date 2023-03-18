@@ -7,6 +7,7 @@ public final class GitlabExecutor: ContextExclusive {
   public let repo: Ctx.Repo
   public let gitlab: Ctx.Gitlab
   public let parent: Json.GitlabJob
+  public let bot: Json.GitlabUser
   public let rest: String
   public let project: Json.GitlabProject
   public let storage: Ctx.Storage = .init()
@@ -24,11 +25,12 @@ public final class GitlabExecutor: ContextExclusive {
     self.rest = ctx.rest
     self.project = ctx.project
     self.parent = try ctx.getJob(id: parent)
+    self.bot = try ctx.getUser()
     self.generate = generate
     self.flow = try ctx.parseFlow()
     if let flow = flow { storage.flow = try ctx.parseStorage(flow: flow) }
   }
-  public func protected() throws -> ContextGitlabProtected { self }
+  public func protected() throws -> ContextProtected { self }
   public func send(report: Report) {
     #warning("TBD")
   }

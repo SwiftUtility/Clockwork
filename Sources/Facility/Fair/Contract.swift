@@ -8,7 +8,7 @@ public struct Contract: Codable {
   var subject: String
   func unpack<Performer: ContractPerformer>(
     _ performer: Performer.Type,
-    ctx: Context
+    ctx: ContextCommon
   ) throws -> ContractPerformer? {
     guard subject == performer.subject else { return nil }
     let base = try (0 ..< chunks)
@@ -18,7 +18,7 @@ public struct Contract: Codable {
     else { throw Thrown("Contract payload not base64 encoded") }
     return try ctx.sh.rawDecoder.decode(performer, from: data)
   }
-  func performer(ctx: Context) throws -> ContractPerformer {
+  func performer(ctx: ContextCommon) throws -> ContractPerformer {
     if let result = try unpack(UseCase.ConnectClean.self, ctx: ctx) { return result }
     if let result = try unpack(UseCase.ConnectSignal.self, ctx: ctx) { return result }
     if let result = try unpack(UseCase.FlowChangeAccessory.self, ctx: ctx) { return result }
@@ -85,7 +85,7 @@ public struct Contract: Codable {
     return result
   }
   static func unpack(
-    ctx: Context
+    ctx: ContextCommon
   ) throws -> Self {
     guard let data = try Data(base64Encoded: ctx.sh.get(env: contract))
     else { throw Thrown("Contract not base64 encoded") }

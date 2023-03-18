@@ -2,18 +2,18 @@ import Foundation
 import Facility
 import FacilityPure
 public protocol Performer {
-  func perform(repo: ContextLocal) throws -> Bool
+  func perform(local: ContextLocal) throws -> Bool
 }
 public protocol GitlabPerformer: Performer {
   func perform(gitlab: ContextGitlab) throws -> Bool
 }
 public extension GitlabPerformer {
-  func perform(repo: ContextLocal) throws -> Bool {
-    try perform(gitlab: repo.gitlab())
+  func perform(local: ContextLocal) throws -> Bool {
+    try perform(gitlab: local.gitlab())
   }
 }
 public protocol ProtectedGitlabPerformer: GitlabPerformer {
-  func perform(protected: ContextGitlabProtected) throws -> Bool
+  func perform(protected: ContextProtected) throws -> Bool
 }
 public extension ProtectedGitlabPerformer {
   func perform(gitlab ctx: ContextGitlab) throws -> Bool {
@@ -24,7 +24,7 @@ public protocol ContractPerformer: Codable, GitlabPerformer {
   static var subject: String { get }
   static var triggerContract: Bool { get }
   mutating func perform(exclusive: ContextExclusive) throws
-  func checkContract(ctx: ContextGitlabProtected) throws
+  func checkContract(ctx: ContextProtected) throws
 }
 public extension ContractPerformer {
   static var triggerContract: Bool { false }
@@ -43,7 +43,7 @@ public extension ContractPerformer {
     }
     return true
   }
-  func checkContract(ctx: ContextGitlabProtected) throws {
+  func checkContract(ctx: ContextProtected) throws {
     let ref = (Self.triggerContract || ctx.gitlab.current.isReview)
       .then(ctx.gitlab.cfg.contract.name)
       .get(ctx.project.defaultBranch)

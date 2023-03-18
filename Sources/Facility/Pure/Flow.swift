@@ -4,12 +4,12 @@ public struct Flow {
   public var storage: Ctx.Sys.Relative
   public var buildCount: Int
   public var releaseCount: Int
-  public var bumpBuild: Configuration.Template
-  public var bumpVersion: Configuration.Template
-  public var exportVersions: Configuration.Template
-  public var createTagName: Configuration.Template
-  public var createTagAnnotation: Configuration.Template
-  public var createReleaseBranchName: Configuration.Template
+  public var bumpBuild: Ctx.Template
+  public var bumpVersion: Ctx.Template
+  public var exportVersions: Ctx.Template
+  public var createTagName: Ctx.Template
+  public var createTagAnnotation: Ctx.Template
+  public var createReleaseBranchName: Ctx.Template
   public static func make(
     yaml: Yaml.Flow
   ) throws -> Self { try .init(

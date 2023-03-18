@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 import FacilityPure
-extension ContextGitlabProtected {
+extension ContextProtected {
   func createPipeline(
     ref: String,
     variables: [Contract.Variable]
@@ -107,5 +107,27 @@ extension ContextGitlabProtected {
     .map(sh.execute)
     .map(Execute.checkStatus(reply:))
     .get()
+  }
+  func getUser() throws -> Json.GitlabUser { try Id
+    .make(Execute.makeCurl(
+      url: "\(gitlab.api)/user",
+      retry: 2,
+      headers: ["Authorization: Bearer \(rest)"],
+      secrets: [rest]
+    ))
+    .map(sh.execute)
+    .reduce(Json.GitlabUser.self, gitlab.apiDecoder.decode(success:reply:))
+    .get()
+  }
+  func getParent(job: UInt) throws -> Ctx.Gitlab.Parent {
+    let job = try getJob(id: job)
+    let bot = try getUser()
+    if job.isReview {
+      return try .make(job: job, bot: bot, kind: .merge(getMerge(iid: job.review.get())))
+    } else if job.tag {
+      return try .make(job: job, bot: bot, kind: .tag(getTag(name: job.pipeline.ref)))
+    } else {
+      return try .make(job: job, bot: bot, kind: .branch(getBranch(name: job.pipeline.ref)))
+    }
   }
 }

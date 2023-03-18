@@ -5,7 +5,7 @@ extension UseCase {
   struct ValidateConflictMarkers: Performer {
     var target: String
     var stdout: Bool
-    func perform(repo ctx: ContextLocal) throws -> Bool {
+    func perform(local ctx: ContextLocal) throws -> Bool {
       guard try ctx.gitIsClean() else { throw Thrown("Git is dirty") }
       guard let fork = try ctx.gitListCommits(
         in: [.head],

@@ -3,7 +3,7 @@ import Facility
 import FacilityPure
 extension UseCase {
   struct ConnectExecuteContract: Performer {
-    func perform(repo ctx: ContextLocal) throws -> Bool {
+    func perform(local ctx: ContextLocal) throws -> Bool {
       let contract = try Contract.unpack(ctx: ctx)
       let ctx = try ctx.exclusive(parent: contract.job)
       #warning("TBD implement default branch clockwork version check")
