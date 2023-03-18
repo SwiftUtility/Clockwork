@@ -22,18 +22,18 @@ extension UseCase {
       else { throw Thrown("Branch \(branch.name) not merged into \(defaultBranch.name)") }
       if let accessory = ctx.storage.flow.accessories[branch] {
         ctx.storage.flow.accessories[branch] = nil
-        ctx.send(report: .accessoryBranchDeleted(
+        ctx.reportAccessoryBranchDeleted(
           parent: ctx.parent,
           accessory: accessory
-        ))
+        )
       }
       if let release = ctx.storage.flow.releases[branch] {
         ctx.storage.flow.releases[branch] = nil
-        ctx.send(report: .releaseBranchDeleted(
+        ctx.reportReleaseBranchDeleted(
           parent: ctx.parent,
           release: release,
           kind: ctx.storage.flow.kind(release: release)
-        ))
+        )
       }
       try ctx.deleteBranch(name: branch.name)
     }

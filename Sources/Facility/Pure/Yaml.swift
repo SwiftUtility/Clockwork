@@ -185,7 +185,7 @@ public enum Yaml {
   }
   public struct Review: Decodable {
     public var rules: Secret
-    public var storage: Asset
+    public var storage: String
     public var exportFusion: Template
     public var createMergeTitle: Template
     public var createPatchCommit: Template

@@ -192,7 +192,6 @@ public struct Report {
     public var version: String?
   }
   public struct Unexpected: GenerateContext {
-    public var merge: Json.GitlabMerge?
     public var error: String
   }
   public struct ExpiringRequisites: GenerateContext {
@@ -211,30 +210,13 @@ public struct Report {
     }
   }
 }
-public extension Configuration {
-  var defaultUsers: Set<String> {
-    guard let gitlab = try? gitlab.get() else { return [] }
-    var result = Set([gitlab.job.user.username])
-    if let parent = try? gitlab.parent.get() { result.insert(parent.user.username) }
-    return result
-  }
-  func issues(branch: String) -> Set<String> {
-    guard let jira = try? jira.get() else { return [] }
-    return jira.issue
-      .matches(
-        in: branch,
-        options: .withoutAnchoringBounds,
-        range: .init(branch.startIndex..<branch.endIndex, in: branch)
-      )
-      .compactMap({ Range($0.range, in: branch) })
-      .reduce(into: Set(), { $0.insert(String(branch[$1])) })
-  }
+public extension ContextExclusive {
   func reportFusionFail(
     source: String,
     target: String,
     fork: String,
     reason: Report.FusionFail.Reason
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(users: defaultUsers),
     ctx: Report.FusionFail(source: source, target: target, fork: fork, reason: reason),
     subevent: [reason.rawValue]
@@ -243,7 +225,7 @@ public extension Configuration {
     merge: Json.GitlabMerge,
     state: Review.State,
     reason: Report.ReviewFail.Reason
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(users: defaultUsers.union(state.authors), reviews: [merge.iid]),
     ctx: Report.ReviewFail(merge: merge, review: .init(state: state), reason: reason),
     subevent: [reason.rawValue]
@@ -252,14 +234,14 @@ public extension Configuration {
     user: String,
     merge: Json.GitlabMerge,
     state: Review.State
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(users: [user]),
     ctx: Report.ReviewWatch(user: user, merge: merge, review: .init(state: state))
   ))}
   func reportReviewList(
     user: String,
     reviews: [Report.ReviewApprove]
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(users: [user]),
     ctx: Report.ReviewList(user: user, reviews: reviews),
     subevent: [reviews.isEmpty.then(Report.ReviewList.Reason.empty).get(.full).rawValue]
@@ -269,7 +251,7 @@ public extension Configuration {
     merge: Json.GitlabMerge,
     state: Review.State,
     reason: Report.ReviewApprove.Reason
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(users: [user], reviews: [state.review]),
     ctx: Report.ReviewApprove.init(
       user: user,
@@ -283,7 +265,7 @@ public extension Configuration {
   func reportReviewQueue(
     state: Review.State,
     reason: Report.ReviewQueue.Reason
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(
       users: state.authors,
       reviews: [state.review],
@@ -296,7 +278,7 @@ public extension Configuration {
     state: Review.State,
     merge: Json.GitlabMerge,
     reason: Report.ReviewEvent.Reason
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(
       users: state.authors,
       issues: issues(branch: merge.sourceBranch),
@@ -309,7 +291,7 @@ public extension Configuration {
   func reportReviewUpdated(
     state: Review.State,
     merge: Json.GitlabMerge
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(reviews: [state.review]),
     ctx: Report.ReviewUpdated(merge: merge, review: .init(state: state))
   ))}
@@ -317,14 +299,14 @@ public extension Configuration {
     state: Review.State,
     merge: Json.GitlabMerge,
     error: String
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(users: state.authors, reviews: [merge.iid]),
     ctx: Report.ReviewMergeError(merge: merge, review: .init(state: state), error: error)
   ))}
   func reportReleaseBranchCreated(
     release: Flow.Release,
     kind: Flow.Release.Kind
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchCreated(
       commit: release.start.value,
@@ -338,7 +320,7 @@ public extension Configuration {
   func reportReleaseBranchSummary(
     release: Flow.Release,
     notes: Flow.ReleaseNotes
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(branches: [release.branch.name]),
     ctx: Report.ReleaseBranchSummary(
       commit: release.start.value,
@@ -354,7 +336,7 @@ public extension Configuration {
     release: Flow.Release,
     deploy: Flow.Deploy,
     notes: Flow.ReleaseNotes
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(tags: [deploy.tag.name], users: defaultUsers, branches: [release.branch.name]),
     ctx: Report.DeployTagCreated(
       commit: commit.value,
@@ -370,7 +352,7 @@ public extension Configuration {
   func reportStageTagCreated(
     commit: Git.Sha,
     stage: Flow.Stage
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(
       tags: [stage.tag.name],
       users: defaultUsers,
@@ -395,7 +377,7 @@ public extension Configuration {
     merge: Json.GitlabMerge? = nil,
     product: String? = nil,
     version: String? = nil
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: threads,
     ctx: Report.Custom(
       merge: merge,
@@ -409,36 +391,33 @@ public extension Configuration {
   ))}
   func reportUnexpected(
     error: Error
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(
       users: defaultUsers,
-      reviews: Set((try? gitlab.flatMap(\.parent).flatMap(\.review).get()).array)
+      reviews: Set((try? parent.review.get()).array)
     ),
     ctx: Report.Unexpected(
-      merge: try? gitlab.flatMap(\.merge).get(),
       error: String(describing: error)
     )
   ))}
   func reportAccessoryBranchCreated(
     commit: Git.Sha,
     accessory: Flow.Accessory
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(branches: [accessory.branch.name]),
     ctx: Report.AccessoryBranchCreated(commit: commit.value, branch: accessory.branch.name)
   ))}
   func reportExpiringRequisites(
     items: [Report.ExpiringRequisites.Item]
-  ) { Report.Bag.shared.reports.append(.make(
+  ) { send(report: .make(
     threads: .make(),
     ctx: Report.ExpiringRequisites(items: items)
   ))}
-}
-public extension Report {
-  static func deployTagDeleted(
+  func reportDeployTagDeleted(
     parent: Json.GitlabJob,
     deploy: Flow.Deploy,
     release: Flow.Release?
-  ) -> Self { .make(
+  ) { send(report: .make(
     threads: .make(
       tags: [deploy.tag.name],
       users: [parent.user.username],
@@ -451,11 +430,11 @@ public extension Report {
       build: deploy.build.value
     ),
     subevent: [deploy.product]
-  )}
-  static func stageTagDeleted(
+  ))}
+  func reportStageTagDeleted(
     parent: Json.GitlabJob,
     stage: Flow.Stage
-  ) -> Self { .make(
+  ) { send(report: .make(
     threads: .make(
       tags: [stage.tag.name],
       users: [parent.user.username],
@@ -469,22 +448,22 @@ public extension Report {
       build: stage.build.value
     ),
     subevent: [stage.product]
-  )}
-  static func accessoryBranchDeleted(
+  ))}
+  func reportAccessoryBranchDeleted(
     parent: Json.GitlabJob,
     accessory: Flow.Accessory
-  ) -> Self { .make(
+  ) { send(report: .make(
     threads: .make(
       users: [parent.user.username],
       branches: [accessory.branch.name]
     ),
     ctx: Report.AccessoryBranchDeleted(branch: accessory.branch.name)
-  )}
-  static func releaseBranchDeleted(
+  ))}
+  func reportReleaseBranchDeleted(
     parent: Json.GitlabJob,
     release: Flow.Release,
     kind: Flow.Release.Kind
-  ) -> Self { .make(
+  ) { send(report: .make(
     threads: .make(
       users: [parent.user.username],
       branches: [release.branch.name]
@@ -496,5 +475,19 @@ public extension Report {
       kind: kind
     ),
     subevent: [release.product, kind.rawValue]
-  )}
+  ))}
+}
+private extension ContextExclusive {
+  var defaultUsers: Set<String> { [parent.user.username] }
+  func issues(branch: String) -> Set<String> {
+    guard let jira = try? getJira() else { return [] }
+    return jira.issue
+      .matches(
+        in: branch,
+        options: .withoutAnchoringBounds,
+        range: .init(branch.startIndex..<branch.endIndex, in: branch)
+      )
+      .compactMap({ Range($0.range, in: branch) })
+      .reduce(into: Set(), { $0.insert(String(branch[$1])) })
+  }
 }

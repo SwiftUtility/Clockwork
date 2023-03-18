@@ -150,4 +150,33 @@ public extension ContextCommon {
     .map(Execute.parseLines(reply:))
     .get()
   }
+  func gitFetch(branch: Ctx.Git.Branch) throws { try Id
+    .make(Execute.make(.make(
+      environment: sh.env,
+      arguments: git.base + ["fetch", "origin", branch.local.value, "--no-tags"]
+    )))
+    .map(sh.execute)
+    .map(Execute.checkStatus(reply:))
+    .get()
+  }
+  func gitPatchId(sha: Ctx.Git.Sha) throws -> String? { try Id
+    .make(Execute.make(
+      .make(environment: sh.env, arguments: git.base + ["show", sha.value]),
+      .make(environment: sh.env, arguments: git.base + ["patch-id", "--stable"])
+    ))
+    .map(sh.execute)
+    .map(Execute.parseText(reply:))
+    .get()
+    .notEmpty
+    .map({ try $0.dropSuffix(" \(sha.value)") })
+  }
+  func gitCommitMessage(ref: Ctx.Git.Ref) throws -> String { try Id
+    .make(Execute.make(.make(
+      environment: sh.env,
+      arguments: git.base + ["show", "-s", "--format=%B", ref.value]
+    )))
+    .map(sh.execute)
+    .map(Execute.parseText(reply:))
+    .get()
+  }
 }

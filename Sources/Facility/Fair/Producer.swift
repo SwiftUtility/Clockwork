@@ -312,60 +312,6 @@
 //    )))
 //    return true
 //  }
-//  func makeNotes(
-//    cfg: Configuration,
-//    storage: Flow.Storage,
-//    release: Flow.Release,
-//    deploy: Flow.Deploy? = nil
-//  ) throws -> Flow.ReleaseNotes {
-//    let current = deploy.map(\.tag).map(Git.Ref.make(tag:)).get(.make(sha: release.start))
-//    let deploys: [Flow.Deploy]
-//    if let deploy = deploy {
-//      deploys = storage.deploys.values.filter(deploy.include(deploy:))
-//    } else {
-//      deploys = storage.deploys.values.filter(release.include(deploy:))
-//    }
-//    var commits: [Git.Sha] = []
-//    for deploy in deploys {
-//      guard let sha = try? Execute.parseText(
-//        reply: execute(cfg.git.getSha(ref: .make(tag: deploy.tag)))
-//      ) else { continue }
-//      try commits.append(.make(value: sha))
-//    }
-//    if deploy != nil { commits.append(release.start) }
-//    guard commits.isEmpty.not else { return .make(uniq: [], lack: []) }
-//    var trees: Set<String> = []
-//    var uniq: Set<Git.Sha> = []
-//    for commit in try Execute.parseLines(reply: execute(cfg.git.listCommits(
-//      in: [current],
-//      notIn: commits.map(Git.Ref.make(sha:)),
-//      noMerges: true
-//    ))) {
-//      let sha = try Git.Sha.make(value: commit)
-//      let patch = try Execute
-//        .parseText(reply: execute(cfg.git.patchId(ref: .make(sha: sha))))
-//        .dropSuffix(commit)
-//      guard trees.insert(patch).inserted else { continue }
-//      uniq.insert(sha)
-//    }
-//    let lack = try Execute
-//      .parseLines(reply: execute(cfg.git.listCommits(
-//        in: commits.map(Git.Ref.make(sha:)),
-//        notIn: [current],
-//        noMerges: true
-//      )))
-//      .map(Git.Sha.make(value:))
-//    return try Flow.ReleaseNotes.make(
-//      uniq: uniq.map({ sha in try Flow.ReleaseNotes.Note.make(
-//        sha: sha,
-//        msg: Execute.parseText(reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha))))
-//      )}),
-//      lack: lack.map({ sha in try Flow.ReleaseNotes.Note.make(
-//        sha: sha,
-//        msg: Execute.parseText(reply: execute(cfg.git.getCommitMessage(ref: .make(sha: sha))))
-//      )})
-//    )
-//  }
 //}
 //extension Producer {
 //  func perform(cfg: Configuration, mutate: Try.In<Flow.Storage>.Do<Generate?>) throws {

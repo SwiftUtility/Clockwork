@@ -417,19 +417,6 @@ public extension Gitlab {
     headers: [rest.get().auth],
     secrets: [rest.get().secret]
   ))}
-//  func postBranches(
-//    name: String,
-//    ref: String
-//  ) -> Lossy<Execute> { .init(try .makeCurl(
-//    url: "\(api)/repository/branches",
-//    method: "POST",
-//    form: [
-//      "branch=\(name.urlEncoded.get())",
-//      "ref=\(ref)",
-//    ],
-//    headers: [rest.get().auth],
-//    secrets: [rest.get().secret]
-//  ))}
 //  func deleteTag(name: String) -> Lossy<Execute> { .init(try .makeCurl(
 //    url: "\(api)/repository/tags/\(name.urlEncoded.get())",
 //    method: "DELETE",

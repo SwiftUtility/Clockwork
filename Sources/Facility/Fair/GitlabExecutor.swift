@@ -12,6 +12,7 @@ public final class GitlabExecutor: ContextExclusive {
   public let project: Json.GitlabProject
   public let storage: Ctx.Storage = .init()
   public let flow: Flow?
+  public let jira: Jira?
   public let generate: Try.Of<Generate>.Do<String>
   public init(
     protected ctx: GitlabProtected,
@@ -28,6 +29,7 @@ public final class GitlabExecutor: ContextExclusive {
     self.bot = try ctx.getUser()
     self.generate = generate
     self.flow = try ctx.parseFlow()
+    self.jira = try ctx.parseJira()
     if let flow = flow { storage.flow = try ctx.parseStorage(flow: flow) }
   }
   public func protected() throws -> ContextProtected { self }
@@ -37,6 +39,10 @@ public final class GitlabExecutor: ContextExclusive {
   public func getFlow() throws -> Flow {
     guard let flow = flow else { throw Thrown("No flow in profile") }
     return flow
+  }
+  public func getJira() throws -> Jira {
+    guard let jira = jira else { throw Thrown("No flow in profile") }
+    return jira
   }
 }
 //  public func fulfillContract(cfg: Configuration) throws -> Bool {

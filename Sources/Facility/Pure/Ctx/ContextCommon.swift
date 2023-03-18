@@ -25,4 +25,5 @@ public protocol ContextExclusive: ContextProtected {
   var generate: Try.Of<Generate>.Do<String> { get }
   func send(report: Report)
   func getFlow() throws -> Flow
+  func getJira() throws -> Jira
 }

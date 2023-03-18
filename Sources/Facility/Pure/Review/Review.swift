@@ -1,13 +1,13 @@
 import Foundation
 import Facility
 public struct Review {
-  public var storage: Configuration.Asset
-  public var rules: Configuration.Secret
-  public var exportTargets: Configuration.Template
-  public var createMergeTitle: Configuration.Template
-  public var createPatchCommit: Configuration.Template
-  public var createMergeCommit: Configuration.Template
-  public var createSquashCommit: Configuration.Template
+  public var storage: Ctx.Sys.Relative
+  public var rules: Ctx.Secret
+  public var exportTargets: Ctx.Template
+  public var createMergeTitle: Ctx.Template
+  public var createPatchCommit: Ctx.Template
+  public var createMergeCommit: Ctx.Template
+  public var createSquashCommit: Ctx.Template
   public var duplication: Duplication
   public var replication: Replication
   public var integration: Integration
@@ -16,7 +16,7 @@ public struct Review {
   public static func make(
     yaml: Yaml.Review
   ) throws -> Self { try .init(
-    storage: .make(yaml: yaml.storage),
+    storage: .make(value: yaml.storage),
     rules: .make(yaml: yaml.rules),
     exportTargets: .make(yaml: yaml.exportFusion),
     createMergeTitle: .make(yaml: yaml.createMergeTitle),

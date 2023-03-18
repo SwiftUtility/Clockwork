@@ -42,6 +42,15 @@ extension ContextCommon {
       yaml: .make(ref: assets.remote, path: flow.storage)
     ))
   }
+  func parseJira() throws -> Jira? {
+    guard let jira = repo.profile.jira else { return nil }
+    let yaml = try parse(type: Yaml.Jira.self, yaml: jira)
+    return try Jira.make(
+      url: parse(secret: .make(yaml: yaml.url)),
+      token: parse(secret: .make(yaml: yaml.token)),
+      yaml: yaml
+    )
+  }
 }
 private extension ContextCommon {
   func parse<T: Decodable>(type: T.Type, yaml: Ctx.Git.File) throws -> T {

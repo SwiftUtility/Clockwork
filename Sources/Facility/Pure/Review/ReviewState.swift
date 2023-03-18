@@ -413,46 +413,47 @@ extension Review {
       enqueued: Set<UInt>,
       dequeued: Set<UInt>
     ) {
-      defer {
-        var queue: [Report.ReviewQueue.Reason] = []
-        if foremost.contains(review) { queue.append(.foremost) }
-        else if enqueued.contains(review) { queue.append(.enqueued) }
-        else if dequeued.contains(review) { queue.append(.dequeued) }
-        queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
-      }
-      guard let merge = merge else { return }
-      if change != nil { ctx.cfg.reportReviewUpdated(state: self, merge: merge) }
-      approvers
-        .subtracting(old.map(\.approvers).get([]))
-        .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
-        .forEach({ ctx.cfg.reportReviewApprove(
-          user: $0, merge: merge, state: self, reason: .create
-        )})
-      old.map(\.approves).get([:]).values
-        .filter(\.resolution.approved)
-        .map(\.login)
-        .filter(approvers.contains(_:))
-        .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
-        .forEach({ ctx.cfg.reportReviewApprove(
-          user: $0, merge: merge, state: self, reason: .change
-        )})
-      ctx.watchers(state: self, old: old)
-        .forEach({ ctx.cfg.reportReviewWatch(user: $0, merge: merge, state: self) })
-      for problem in self.problems.get([]) {
-        guard case .conflicts = problem else { continue }
-        ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: .conflicts)
-      }
-      var shift: [Report.ReviewEvent.Reason] = []
-      if old == nil { shift.append(.created) }
-      if emergent != nil, old?.emergent == nil { shift.append(.emergent) }
-      if emergent == nil, old?.emergent != nil { shift.append(.tranquil) }
-      if phase == .block, old?.phase != .block { shift.append(.block) }
-      if phase == .stuck, old?.phase != .stuck { shift.append(.stuck) }
-      if phase == .amend, old?.phase != .amend { shift.append(.amend) }
-      if phase == .ready, old?.phase != .ready, enqueued.contains(review).not {
-        shift.append(.ready)
-      }
-      shift.forEach({ ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: $0)})
+      #warning("TBD")
+//      defer {
+//        var queue: [Report.ReviewQueue.Reason] = []
+//        if foremost.contains(review) { queue.append(.foremost) }
+//        else if enqueued.contains(review) { queue.append(.enqueued) }
+//        else if dequeued.contains(review) { queue.append(.dequeued) }
+//        queue.forEach({ ctx.cfg.reportReviewQueue(state: self, reason: $0)})
+//      }
+//      guard let merge = merge else { return }
+//      if change != nil { ctx.cfg.reportReviewUpdated(state: self, merge: merge) }
+//      approvers
+//        .subtracting(old.map(\.approvers).get([]))
+//        .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
+//        .forEach({ ctx.cfg.reportReviewApprove(
+//          user: $0, merge: merge, state: self, reason: .create
+//        )})
+//      old.map(\.approves).get([:]).values
+//        .filter(\.resolution.approved)
+//        .map(\.login)
+//        .filter(approvers.contains(_:))
+//        .filter({ approves[$0].map(\.resolution.approved.not).get(true) })
+//        .forEach({ ctx.cfg.reportReviewApprove(
+//          user: $0, merge: merge, state: self, reason: .change
+//        )})
+//      ctx.watchers(state: self, old: old)
+//        .forEach({ ctx.cfg.reportReviewWatch(user: $0, merge: merge, state: self) })
+//      for problem in self.problems.get([]) {
+//        guard case .conflicts = problem else { continue }
+//        ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: .conflicts)
+//      }
+//      var shift: [Report.ReviewEvent.Reason] = []
+//      if old == nil { shift.append(.created) }
+//      if emergent != nil, old?.emergent == nil { shift.append(.emergent) }
+//      if emergent == nil, old?.emergent != nil { shift.append(.tranquil) }
+//      if phase == .block, old?.phase != .block { shift.append(.block) }
+//      if phase == .stuck, old?.phase != .stuck { shift.append(.stuck) }
+//      if phase == .amend, old?.phase != .amend { shift.append(.amend) }
+//      if phase == .ready, old?.phase != .ready, enqueued.contains(review).not {
+//        shift.append(.ready)
+//      }
+//      shift.forEach({ ctx.cfg.reportReviewEvent(state: self, merge: merge, reason: $0)})
     }
     func selectUsers(
       ctx: Context,

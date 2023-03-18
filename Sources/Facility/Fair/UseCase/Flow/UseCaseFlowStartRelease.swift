@@ -7,7 +7,6 @@ extension UseCase {
     var commit: String
     mutating func perform(exclusive ctx: ContextExclusive) throws {
       let flow = try ctx.getFlow()
-      #warning("TBD")
       let commit: Ctx.Git.Sha = try commit.isEmpty.not
         .then(.make(value: commit))
         .get(.make(job: ctx.parent))
@@ -23,42 +22,26 @@ extension UseCase {
           kind: .release
         )
       )
-//      try perform(cfg: cfg, mutate: { storage in
-//        guard storage.releases[release.branch] == nil
-//        else { throw Thrown("Release \(release.branch.name) already exists") }
-//        storage.releases[release.branch] = release
-//        try product.bump(version: generate(cfg.bumpVersion(
-//          flow: storage.flow,
-//          product: release.product,
-//          version: release.version,
-//          kind: .release
-//        )))
-//        storage.products[product.name] = product
-//        guard try gitlab
-//                .postBranches(name: release.branch.name, ref: commit.value)
-//                .map(execute)
-//                .map(Execute.parseData(reply:))
-//                .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
-//                .get()
-//                .protected
-//        else { throw Thrown("Release \(release.branch.name) not protected") }
-//        try Execute.checkStatus(reply: execute(cfg.git.fetchBranch(release.branch)))
-//        cfg.reportReleaseBranchCreated(
-//          release: release,
-//          kind: .release
-//        )
-//        try cfg.reportReleaseBranchSummary(release: release, notes: makeNotes(
-//          cfg: cfg, storage: storage, release: release
-//        ))
-//        return cfg.createFlowStorageCommitMessage(
-//          flow: storage.flow,
-//          reason: .createReleaseBranch,
-//          product: release.product,
-//          version: release.version.value,
-//          branch: release.branch.name
-//        )
-//      })
-//      return true
+      guard ctx.storage.flow.releases[release.branch] == nil
+      else { throw Thrown("Release \(release.branch.name) already exists") }
+      ctx.storage.flow.releases[release.branch] = release
+      try product.bump(version: ctx.generateVersionBump(
+        flow: flow,
+        product: release.product,
+        version: release.version,
+        kind: .release
+      ))
+      ctx.storage.flow.products[product.name] = product
+      guard try ctx.createBranches(name: release.branch.name, commit: commit).protected
+      else { throw Thrown("Release \(release.branch.name) not protected") }
+      try ctx.gitFetch(branch: release.branch)
+      ctx.reportReleaseBranchCreated(
+        release: release,
+        kind: .release
+      )
+      try ctx.reportReleaseBranchSummary(release: release, notes: ctx.makeNotes(
+        storage: ctx.storage.flow, release: release
+      ))
     }
   }
 }

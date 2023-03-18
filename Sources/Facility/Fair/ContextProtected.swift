@@ -119,15 +119,22 @@ extension ContextProtected {
     .reduce(Json.GitlabUser.self, gitlab.apiDecoder.decode(success:reply:))
     .get()
   }
-  func getParent(job: UInt) throws -> Ctx.Gitlab.Parent {
-    let job = try getJob(id: job)
-    let bot = try getUser()
-    if job.isReview {
-      return try .make(job: job, bot: bot, kind: .merge(getMerge(iid: job.review.get())))
-    } else if job.tag {
-      return try .make(job: job, bot: bot, kind: .tag(getTag(name: job.pipeline.ref)))
-    } else {
-      return try .make(job: job, bot: bot, kind: .branch(getBranch(name: job.pipeline.ref)))
-    }
+  func createBranches(
+    name: String,
+    commit: Ctx.Git.Sha
+  ) throws -> Json.GitlabBranch { try Id
+    .make(Execute.makeCurl(
+      url: "\(gitlab.project)/repository/branches",
+      method: "POST",
+      form: [
+        "branch=\(name.urlEncoded())",
+        "ref=\(commit.value)",
+      ],
+      headers: ["Authorization: Bearer \(rest)"],
+      secrets: [rest]
+    ))
+    .map(sh.execute)
+    .reduce(Json.GitlabBranch.self, gitlab.apiDecoder.decode(success:reply:))
+    .get()
   }
 }
