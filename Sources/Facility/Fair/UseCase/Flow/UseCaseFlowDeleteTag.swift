@@ -5,6 +5,7 @@ extension UseCase {
   struct FlowDeleteTag: ProtectedContractPerformer {
     var name: String
     mutating func perform(exclusive ctx: ContextExclusive) throws {
+      _ = try ctx.getFlow()
       let tag: Ctx.Git.Tag = try name.isEmpty.not
         .then(.make(name: name))
         .get(.make(job: ctx.parent))

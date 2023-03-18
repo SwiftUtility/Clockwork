@@ -298,7 +298,7 @@ public enum Ctx {
       public static func make(
         job: Json.GitlabJob,
         kind: Kind
-      ) -> Self { .make(
+      ) -> Self { .init(
         job: job,
         kind: kind
       )}
@@ -310,15 +310,15 @@ public enum Ctx {
     }
     public struct Contracted {
       public let sender: Sender
-      public let user: Json.GitlabUser
+      public let bot: Json.GitlabUser
       public let parent: Json.GitlabJob
       public static func make(
         sender: Sender,
-        user: Json.GitlabUser,
+        bot: Json.GitlabUser,
         parent: Json.GitlabJob
       ) -> Self { .init(
         sender: sender,
-        user: user,
+        bot: bot,
         parent: parent
       )}
       public enum Sender {
@@ -326,6 +326,15 @@ public enum Ctx {
         case merge(Json.GitlabMerge)
         case branch(Json.GitlabBranch)
       }
+    }
+    public struct Info: Encodable {
+      public var mr: UInt?
+      public var url: String?
+      public var job: Json.GitlabJob
+      public var bot: Json.GitlabUser?
+      public var proj: Json.GitlabProject?
+      public var parent: Json.GitlabJob?
+      public var merge: Json.GitlabMerge?
     }
   }
 }

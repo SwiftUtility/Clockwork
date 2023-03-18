@@ -58,7 +58,7 @@ public struct Generate: Query {
     public var jira: Jira.Info? = nil
     public var chat: Chat.Info? = nil
     public var mark: String? = nil
-    static func make(
+    public static func make(
       context: Context,
       subevent: [String],
       stdin: AnyCodable?,
@@ -217,35 +217,6 @@ public extension Configuration {
     ),
     stdin: stdin,
     args: args
-  )}
-  func createFlowStorageCommitMessage(
-    flow: Flow,
-    reason: Generate.CreateFlowStorageCommitMessage.Reason,
-    product: String? = nil,
-    version: String? = nil,
-    build: String? = nil,
-    review: UInt? = nil,
-    branch: String? = nil,
-    tag: String? = nil
-  ) -> Generate { generate(
-    template: flow.storage.createCommitMessage,
-    ctx: Generate.CreateFlowStorageCommitMessage(
-      product: product,
-      version: version,
-      build: build,
-      review: review,
-      branch: branch,
-      tag: tag,
-      reason: reason
-    ),
-    subevent: [reason.rawValue]
-  )}
-  func bumpBuild(
-    flow: Flow,
-    family: Flow.Family
-  ) -> Generate { generate(
-    template: flow.bumpBuild,
-    ctx: Generate.BumpBuild(family: family.name, build: family.nextBuild.value)
   )}
   func createTagName(
     flow: Flow,

@@ -2,8 +2,6 @@ import Foundation
 import Facility
 import FacilityPure
 public final class GitlabExecutor: ContextExclusive {
-  public func protected() throws -> ContextGitlabProtected { self }
-
   public let sh: Ctx.Sh
   public let git: Ctx.Git
   public let repo: Ctx.Repo
@@ -12,10 +10,11 @@ public final class GitlabExecutor: ContextExclusive {
   public let rest: String
   public let project: Json.GitlabProject
   public let storage: Ctx.Storage = .init()
+  public let flow: Flow?
   public let generate: Try.Of<Generate>.Do<String>
   public init(
     protected ctx: GitlabProtected,
-    contract: Contract,
+    parent: UInt,
     generate: @escaping Try.Of<Generate>.Do<String>
   ) throws {
     self.sh = ctx.sh
@@ -24,11 +23,18 @@ public final class GitlabExecutor: ContextExclusive {
     self.gitlab = ctx.gitlab
     self.rest = ctx.rest
     self.project = ctx.project
-    self.parent = try ctx.getJob(id: contract.job)
+    self.parent = try ctx.getJob(id: parent)
     self.generate = generate
+    self.flow = try ctx.parseFlow()
+    if let flow = flow { storage.flow = try ctx.parseStorage(flow: flow) }
   }
+  public func protected() throws -> ContextGitlabProtected { self }
   public func send(report: Report) {
     #warning("TBD")
+  }
+  public func getFlow() throws -> Flow {
+    guard let flow = flow else { throw Thrown("No flow in profile") }
+    return flow
   }
 }
 //  public func fulfillContract(cfg: Configuration) throws -> Bool {

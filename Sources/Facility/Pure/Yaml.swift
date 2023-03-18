@@ -120,7 +120,7 @@ public enum Yaml {
     }
   }
   public struct Flow: Decodable {
-    public var storage: Asset
+    public var storage: String
     public var buildCount: Int
     public var releaseCount: Int
     public var bumpBuild: Template

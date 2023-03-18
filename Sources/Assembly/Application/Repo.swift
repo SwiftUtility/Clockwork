@@ -49,10 +49,10 @@ final class Repo: ContextLocal {
   func gitlab() throws -> ContextGitlab {
     try GitlabSender(ctx: self)
   }
-  func exclusive(contract: Contract) throws -> ContextExclusive {
+  func exclusive(parent: UInt) throws -> ContextExclusive {
     try GitlabExecutor(
       protected: .init(sender: .init(ctx: self)),
-      contract: contract,
+      parent: parent,
       generate: generate
     )
   }

@@ -30,6 +30,18 @@ extension Context {
     else { throw Thrown("No requisition in profile") }
     return try Requisition.make(yaml: parse(type: Yaml.Requisition.self, yaml: requisition))
   }
+  func parseFlow() throws -> Flow? {
+    guard let flow = repo.profile.production else { return nil }
+    return try Flow.make(yaml: parse(type: Yaml.Flow.self, yaml: flow))
+  }
+  func parseStorage(flow: Flow) throws -> Flow.Storage {
+    guard let assets = repo.profile.storageBranch
+    else { throw Thrown("No storage in profile") }
+    return try Flow.Storage.make(yaml: parse(
+      type: Yaml.Flow.Storage.self,
+      yaml: .make(ref: assets.remote, path: flow.storage)
+    ))
+  }
 }
 private extension Context {
   func parse<T: Decodable>(type: T.Type, yaml: Ctx.Git.File) throws -> T {

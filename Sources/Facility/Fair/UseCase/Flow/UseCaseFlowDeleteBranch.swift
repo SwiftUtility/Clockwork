@@ -5,6 +5,7 @@ extension UseCase {
   struct FlowDeleteBranch: ProtectedContractPerformer {
     var name: String
     mutating func perform(exclusive ctx: ContextExclusive) throws {
+      _ = try ctx.getFlow()
       let defaultBranch = try Ctx.Git.Branch.make(name: ctx.project.defaultBranch)
       let branch: Ctx.Git.Branch
       if name.isEmpty.not {

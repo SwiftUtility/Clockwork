@@ -1,7 +1,7 @@
 import Foundation
 import Facility
 public struct Flow {
-  public var storage: Configuration.Asset
+  public var storage: Ctx.Sys.Relative
   public var buildCount: Int
   public var releaseCount: Int
   public var bumpBuild: Configuration.Template
@@ -13,7 +13,7 @@ public struct Flow {
   public static func make(
     yaml: Yaml.Flow
   ) throws -> Self { try .init(
-    storage: .make(yaml: yaml.storage),
+    storage: .make(value: yaml.storage),
     buildCount: max(10, yaml.buildCount),
     releaseCount: max(3, yaml.releaseCount),
     bumpBuild: .make(yaml: yaml.bumpBuild),

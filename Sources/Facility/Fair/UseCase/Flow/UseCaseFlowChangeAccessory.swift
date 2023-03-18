@@ -10,6 +10,7 @@ extension UseCase {
       let branch: Ctx.Git.Branch = try branch.isEmpty.not
         .then(.make(name: branch))
         .get(.make(job: ctx.parent))
+      _ = try ctx.getFlow()
       try ctx.storage.flow.change(accessory: branch, product: product, version: version)
     }
   }
