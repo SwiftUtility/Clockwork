@@ -35,45 +35,6 @@
 //    self.writeStdout = writeStdout
 //    self.jsonDecoder = jsonDecoder
 //  }
-//  public func createAccessoryBranch(
-//    cfg: Configuration,
-//    name: String,
-//    commit: String
-//  ) throws -> Bool {
-//    let gitlab = try cfg.gitlab.get()
-//    let commit = try commit.isEmpty.not
-//      .then(Git.Sha.make(value: commit))
-//      .flatMapNil(try? gitlab.parent.map(Git.Sha.make(job:)).get())
-//      .get(.make(job: gitlab.job))
-//    guard try resolveBranches(cfg: cfg).filter(\.protected)
-//      .map(\.name)
-//      .map(Git.Branch.make(name:))
-//      .contains(where: { try Execute.parseSuccess(
-//        reply: execute(cfg.git.check(child: .make(remote: $0), parent: .make(sha: commit)))
-//      )})
-//    else { throw Thrown("Not protected \(commit.value)") }
-//    let accessory = try Flow.Accessory.make(branch: name)
-//    try perform(cfg: cfg, mutate: { storage in
-//      guard storage.accessories[accessory.branch] == nil else { throw Thrown(
-//        "Branch \(accessory.branch.name) already present"
-//      )}
-//      storage.accessories[accessory.branch] = accessory
-//      guard try gitlab
-//        .postBranches(name: accessory.branch.name, ref: commit.value)
-//        .map(execute)
-//        .map(Execute.parseData(reply:))
-//        .reduce(Json.GitlabBranch.self, jsonDecoder.decode(_:from:))
-//        .get()
-//        .protected
-//      else { throw Thrown("\(accessory.branch.name) not protected") }
-//      try Execute.checkStatus(reply: execute(cfg.git.fetchBranch(accessory.branch)))
-//      cfg.reportAccessoryBranchCreated(commit: commit, accessory: accessory)
-//      return cfg.createFlowStorageCommitMessage(
-//        flow: storage.flow, reason: .createAccessoryBranch, branch: accessory.branch.name
-//      )
-//    })
-//    return true
-//  }
 //  public func reserveBuild(cfg: Configuration, review: Bool, product: String) throws -> Bool {
 //    let gitlab = try cfg.gitlab.get()
 //    try perform(cfg: cfg, mutate: { storage in

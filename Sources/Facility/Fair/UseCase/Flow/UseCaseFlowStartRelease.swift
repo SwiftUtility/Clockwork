@@ -32,7 +32,11 @@ extension UseCase {
         kind: .release
       ))
       ctx.storage.flow.products[product.name] = product
-      let notes = try ctx.makeNotes(storage: ctx.storage.flow, release: release)
+      let notes = try ctx.makeNotes(
+        storage: ctx.storage.flow,
+        release: release,
+        commit: release.start
+      )
       guard try ctx.createBranch(name: release.branch.name, commit: commit).protected
       else { throw Thrown("Release \(release.branch.name) not protected") }
       ctx.reportReleaseBranchCreated(

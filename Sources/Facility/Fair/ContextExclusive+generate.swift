@@ -5,9 +5,9 @@ extension ContextExclusive {
   func makeNotes(
     storage: Flow.Storage,
     release: Flow.Release,
+    commit: Ctx.Git.Sha,
     deploy: Flow.Deploy? = nil
   ) throws -> Flow.ReleaseNotes {
-    let current = deploy.map(\.tag.ref).get(release.start.ref)
     let deploys: [Flow.Deploy]
     if let deploy = deploy {
       deploys = storage.deploys.values.filter(deploy.include(deploy:))
@@ -20,9 +20,8 @@ extension ContextExclusive {
     guard commits.isEmpty.not else { return .make(uniq: [], lack: []) }
     var trees: Set<String> = []
     var uniq: Set<Ctx.Git.Sha> = []
-
     for commit in try gitListCommits(
-      in: [current],
+      in: [commit.ref],
       notIn: commits.map(\.ref),
       noMerges: true
     ) {
@@ -33,7 +32,7 @@ extension ContextExclusive {
     }
     let lack = try gitListCommits(
       in: commits.map(\.ref),
-      notIn: [current],
+      notIn: [commit.ref],
       noMerges: true
     )
     return try Flow.ReleaseNotes.make(

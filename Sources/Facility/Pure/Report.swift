@@ -332,7 +332,7 @@ public extension ContextExclusive {
     subevent: [release.product]
   ))}
   func reportDeployTagCreated(
-    commit: Git.Sha,
+    commit: Ctx.Git.Sha,
     release: Flow.Release,
     deploy: Flow.Deploy,
     notes: Flow.ReleaseNotes
@@ -401,7 +401,7 @@ public extension ContextExclusive {
     )
   ))}
   func reportAccessoryBranchCreated(
-    commit: Git.Sha,
+    commit: Ctx.Git.Sha,
     accessory: Flow.Accessory
   ) { send(report: .make(
     threads: .make(branches: [accessory.branch.name]),

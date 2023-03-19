@@ -137,4 +137,24 @@ extension ContextProtected {
     .reduce(Json.GitlabBranch.self, gitlab.apiDecoder.decode(success:reply:))
     .get()
   }
+  func createTag(
+    name: String,
+    commit: Ctx.Git.Sha,
+    message: String
+  ) throws -> Json.GitlabTag { try Id
+    .make(Execute.makeCurl(
+      url: "\(gitlab.project)/repository/tags",
+      method: "POST",
+      form: [
+        "tag_name=\(name.urlEncoded())",
+        "ref=\(commit.value)",
+        "message=\(message)",
+      ],
+      headers: ["Authorization: Bearer \(rest)"],
+      secrets: [rest]
+    ))
+    .map(sh.execute)
+    .reduce(Json.GitlabTag.self, gitlab.apiDecoder.decode(success:reply:))
+    .get()
+  }
 }

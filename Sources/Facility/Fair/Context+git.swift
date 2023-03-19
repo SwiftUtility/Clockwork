@@ -179,4 +179,13 @@ public extension ContextCommon {
     .map(Execute.parseText(reply:))
     .get()
   }
+  func gitFetchTag(_ tag: Ctx.Git.Tag) throws { try Id
+    .make(Execute.make(.make(
+      environment: sh.env,
+      arguments: git.base + ["fetch", "origin", "\(tag.ref.value):\(tag.ref.value)", "--no-tags"]
+    )))
+    .map(sh.execute)
+    .map(Execute.checkStatus(reply:))
+    .get()
+  }
 }

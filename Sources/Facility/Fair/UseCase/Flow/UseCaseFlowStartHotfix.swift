@@ -44,7 +44,11 @@ extension UseCase {
       guard ctx.storage.flow.releases[release.branch] == nil
       else { throw Thrown("Release \(release.branch.name) already exists") }
       ctx.storage.flow.releases[release.branch] = release
-      let notes = try ctx.makeNotes(storage: ctx.storage.flow, release: release)
+      let notes = try ctx.makeNotes(
+        storage: ctx.storage.flow,
+        release: release,
+        commit: release.start
+      )
       guard try ctx.createBranch(name: release.branch.name, commit: release.start).protected
       else { throw Thrown("Release \(release.branch.name) not protected") }
       ctx.reportReleaseBranchCreated(release: release, kind: .hotfix)
