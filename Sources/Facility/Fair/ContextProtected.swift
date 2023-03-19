@@ -119,7 +119,7 @@ extension ContextProtected {
     .reduce(Json.GitlabUser.self, gitlab.apiDecoder.decode(success:reply:))
     .get()
   }
-  func createBranches(
+  func createBranch(
     name: String,
     commit: Ctx.Git.Sha
   ) throws -> Json.GitlabBranch { try Id
