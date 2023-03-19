@@ -30,7 +30,7 @@ public protocol ContractPerformer: Codable, GitlabPerformer {
 public extension ContractPerformer {
   static var triggerReview: Bool { true }
   static var triggerContract: Bool { false }
-  func perform(gitlab ctx: ContextGitlab) throws -> Bool {
+  func defaultPerform(gitlab ctx: ContextGitlab) throws -> Bool {
     let variables = try Contract.pack(ctx: ctx, payload: self)
     if ctx.gitlab.current.isReview {
       try ctx.triggerPipeline(ref: ctx.gitlab.cfg.contract.ref.value, variables: variables)
@@ -44,6 +44,9 @@ public extension ContractPerformer {
       )
     }
     return true
+  }
+  func perform(gitlab ctx: ContextGitlab) throws -> Bool {
+    try defaultPerform(gitlab: ctx)
   }
   func checkContract(ctx: ContextProtected) throws {
     let ref = (Self.triggerContract || Self.triggerReview && ctx.gitlab.current.isReview)

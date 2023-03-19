@@ -6,7 +6,7 @@ extension UseCase {
     var name: String
     var commit: String
     mutating func perform(exclusive ctx: ContextExclusive) throws {
-      let flow = try ctx.getFlow()
+      _ = try ctx.getFlow()
       let commit: Ctx.Git.Sha = try commit.isEmpty.not
         .then(.make(value: commit))
         .get(.make(job: ctx.parent))

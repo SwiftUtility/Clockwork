@@ -350,7 +350,7 @@ public extension ContextExclusive {
     subevent: [deploy.product]
   ))}
   func reportStageTagCreated(
-    commit: Git.Sha,
+    commit: Ctx.Git.Sha,
     stage: Flow.Stage
   ) { send(report: .make(
     threads: .make(

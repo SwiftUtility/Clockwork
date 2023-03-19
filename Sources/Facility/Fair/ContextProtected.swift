@@ -157,4 +157,15 @@ extension ContextProtected {
     .reduce(Json.GitlabTag.self, gitlab.apiDecoder.decode(success:reply:))
     .get()
   }
+  func retry(job: Json.GitlabJob) throws { try Id
+    .make(Execute.makeCurl(
+      url: "\(gitlab.project)/jobs/\(job.id)/retry",
+      method: "POST",
+      headers: ["Authorization: Bearer \(rest)"],
+      secrets: [rest]
+    ))
+    .map(sh.execute)
+    .map(Execute.checkStatus(reply:))
+    .get()
+  }
 }
