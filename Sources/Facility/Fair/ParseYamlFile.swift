@@ -41,12 +41,12 @@ public extension Configuration {
   ))}
   var parseCocoapods: Lossy<ParseYamlFile<Cocoapods>> { .init(try .init(
     git: git,
-    file: profile.requisition.get(),
+    file: profile.cocoapods.get(),
     parse: { try .make(yaml: $0.read(Yaml.Cocoapods.self, from: $1)) }
   ))}
   var parseFileTaboos: Lossy<ParseYamlFile<[FileTaboo]>> { .init(try .init(
     git: git,
-    file: profile.requisition.get(),
+    file: profile.fileTaboos.get(),
     parse: { try $0.read([Yaml.FileTaboo].self, from: $1).map(FileTaboo.init(yaml:)) }
   ))}
   func parseCodeOwnage(
